@@ -1,0 +1,23 @@
+racks_count: 4
+relay_to_gpio:
+  '1': 17
+  '2': 27
+  '3': 22
+  '4': 23
+  '5': 24
+  '6': 25
+  '7': 5
+  '8': 6
+racks:
+  '1':
+    light_relay: 1
+    water_relay: 2
+  '2':
+    light_relay: 3
+    water_relay: 4
+  '3':
+    light_relay: 1
+    water_relay: 2
+  '4':
+    light_relay: 1
+    water_relay: 2

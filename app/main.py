@@ -1,0 +1,45 @@
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from . import runtime
+from .bootstrap import ensure_db_tables, ensure_db_racks
+from .scheduler import Scheduler
+
+from .routes_state import router as state_router
+from .routes_manual import router as manual_router
+from .routes_schedule import router as schedule_router
+from .routes_config import router as config_router
+
+app = FastAPI(title="Система KisaMore — Raspberry Pi")
+
+app.include_router(state_router)
+app.include_router(manual_router)
+app.include_router(schedule_router)
+app.include_router(config_router)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory="app/templates")
+
+scheduler = Scheduler(runtime)
+
+@app.on_event("startup")
+async def on_startup():
+    # 1) конфиг + драйвер
+    runtime.init_runtime(active_low=True)
+
+    # 2) база
+    await ensure_db_tables()
+    await ensure_db_racks(runtime.cfg.racks_count if runtime.cfg else 4)
+
+    # 3) планировщик
+    await scheduler.start()
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await scheduler.stop()
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})

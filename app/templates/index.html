@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Система KisaMore</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap topbar">
+      <div class="brand">
+        <div class="dot"></div>
+        <div>
+          <div class="title">Система KisaMore</div>
+          <div class="subtitle">Стеллажи · свет и полив · расписание и ручной режим</div>
+        </div>
+      </div>
+      <div class="right">
+        <button id="settingsBtn" class="btn btn--ghost">Настройки</button>
+        <button id="refreshBtn" class="btn">Обновить</button>
+        <span id="conn" class="pill">⏳ подключение…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid" id="cards"></div>
+  </main>
+
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal__backdrop" id="modalClose"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal__head">
+        <div>
+          <div id="modalTitle" class="modal__title">Расписание</div>
+          <div class="modal__subtitle" id="modalSub">Стеллаж</div>
+        </div>
+        <button class="btn btn--ghost" id="modalX">✕</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab tab--active" data-tab="light">💡 Свет</button>
+        <button class="tab" data-tab="water">💧 Полив</button>
+      </div>
+
+      <div class="modal__body">
+        <div class="legend">
+          <span class="muted">Интервалы в формате</span> <span class="code">HH:MM</span>
+          <span class="muted">· один день может иметь несколько интервалов.</span>
+        </div>
+
+        <div id="schedContainer"></div>
+
+        <div class="row row--end">
+          <button class="btn btn--ghost" id="addInterval">+ Интервал</button>
+          <button class="btn btn--primary" id="saveSchedule">Сохранить</button>
+        </div>
+
+        <div class="hint">
+          Совет: делай интервалы без перехода через полночь (например 08:00–20:00).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="cfgModal" aria-hidden="true">
+    <div class="modal__backdrop" id="cfgClose"></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="cfgTitle">
+      <div class="modal__head">
+        <div>
+          <div id="cfgTitle" class="modal__title">Настройки оборудования</div>
+          <div class="modal__subtitle">Количество стеллажей, реле и GPIO</div>
+        </div>
+        <button class="btn btn--ghost" id="cfgX">✕</button>
+      </div>
+
+      <div class="modal__body">
+        <div class="cfgGrid">
+          <div class="cfgRow">
+            <div class="cfgLabel">Количество стеллажей</div>
+            <input id="cfgRacksCount" type="number" min="1" max="16" />
+          </div>
+        </div>
+
+        <div class="cfgSectionTitle">Стеллажи → реле</div>
+        <div id="cfgRacksTable"></div>
+
+        <div class="cfgSectionTitle">Реле → GPIO (BCM)</div>
+        <div id="cfgRelaysTable"></div>
+
+        <div class="row row--end">
+          <button class="btn btn--ghost" id="cfgReload">Загрузить</button>
+          <button class="btn btn--primary" id="cfgSave">Сохранить</button>
+        </div>
+
+        <div class="hint">
+          Примечание: используем BCM-нумерацию GPIO. Разрешены только безопасные пины.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
