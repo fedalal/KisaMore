@@ -212,9 +212,16 @@ function dayRow(dayKey, dayName, intervals){
 
   return `
     <tr>
-      <td class="day">${dayName}</td>
+      <td class="day">
+        <div class="dayHead">
+          <span>${dayName}</span>
+          <button class="iconBtn iconBtn--plus" title="Добавить интервал" onclick="addIntervalToDay('${dayKey}')">＋</button>
+        </div>
+      </td>
       <td>
-        <div class="intervals" id="ints-${dayKey}">${items || `<span class="muted">нет интервалов</span>`}</div>
+        <div class="intervals" id="ints-${dayKey}">
+          ${items || `<span class="muted">нет интервалов</span>`}
+        </div>
       </td>
     </tr>
   `;
@@ -253,9 +260,8 @@ function removeInterval(dayKey, idx){
   renderScheduleTable();
 }
 
-function addIntervalSmart(){
-  const jsDay = (new Date().getDay()+6)%7;
-  const dayKey = DAYS[jsDay].k;
+// ✅ Новый способ добавления: кнопка "＋" у конкретного дня
+function addIntervalToDay(dayKey){
   const channel = current.tab;
   current.schedule[channel][dayKey].push({start:"08:00", end:"20:00"});
   renderScheduleTable();
@@ -455,7 +461,6 @@ document.getElementById("refreshBtn").addEventListener("click", refresh);
 document.getElementById("modalClose").addEventListener("click", ()=>openModal(false));
 document.getElementById("modalX").addEventListener("click", ()=>openModal(false));
 document.getElementById("saveSchedule").addEventListener("click", saveSchedule);
-document.getElementById("addInterval").addEventListener("click", addIntervalSmart);
 document.querySelectorAll(".tab").forEach(b=> b.addEventListener("click", ()=>setActiveTab(b.dataset.tab)));
 
 // config modal
