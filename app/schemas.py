@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Dict
+from typing import List, Literal, Dict, Optional
 
 Mode = Literal["manual", "schedule"]
 
@@ -26,6 +26,8 @@ class RackStateOut(BaseModel):
     water_on: bool
     light_mode: Mode
     water_mode: Mode
+    light_until: Optional[str] = None
+    water_until: Optional[str] = None
 
 class ManualSetIn(BaseModel):
     on: bool

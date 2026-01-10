@@ -41,3 +41,26 @@ async def set_schedule(rack_id: int, payload: RackSchedulePayload):
             s.add(RackSchedule(rack_id=rack_id, schedule_json=data))
         await s.commit()
     return {"ok": True}
+
+async def load_schedule_for_rack(rack_id: int) -> dict:
+    """
+    Внутренняя функция для других модулей (например /api/state).
+    Возвращает структуру {"light": {...}, "water": {...}} с заполненными днями.
+    """
+    _ensure_rack(rack_id)
+    async with SessionLocal() as s:
+        sch = (
+            await s.execute(select(RackSchedule).where(RackSchedule.rack_id == rack_id))
+        ).scalar_one_or_none()
+
+        if not sch:
+            return {"light": _empty(), "water": _empty()}
+
+        data = sch.schedule_json or {}
+        data.setdefault("light", _empty())
+        data.setdefault("water", _empty())
+        for k in _empty().keys():
+            data["light"].setdefault(k, [])
+            data["water"].setdefault(k, [])
+        return data
+

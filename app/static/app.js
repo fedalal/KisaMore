@@ -34,12 +34,14 @@ function modeRu(mode){
   return mode === "manual" ? "Вручную" : "По расписанию";
 }
 
-function badge(on, ico, labelOn, labelOff){
+function badge(on, ico, labelOn, labelOff, until){
+  const suffix = (on && until) ? ` до ${until}` : "";
   return `<span class="badge ${on ? "badge--on":"badge--off"}">
     <span class="ico">${ico}</span>
-    ${on ? labelOn : labelOff}
+    ${on ? (labelOn + suffix) : labelOff}
   </span>`;
 }
+
 
 function toggleHtml(id, isManual, rackId, channel){
   return `
@@ -58,6 +60,9 @@ function cardHtml(r){
   const lightToggle = toggleHtml(`t-light-${r.rack_id}`, r.light_mode === "manual", r.rack_id, "light");
   const waterToggle = toggleHtml(`t-water-${r.rack_id}`, r.water_mode === "manual", r.rack_id, "water");
 
+  const lightUntil = (r.light_mode === "schedule" && r.light_on) ? r.light_until : null;
+  const waterUntil = (r.water_mode === "schedule" && r.water_on) ? r.water_until : null;
+
   return `
   <div class="card">
     <div class="card__head">
@@ -69,8 +74,8 @@ function cardHtml(r){
     </div>
 
     <div class="badges">
-      ${badge(r.light_on, "💡", "Свет включен", "Свет выключен")}
-      ${badge(r.water_on, "💧", "Полив идёт", "Полив остановлен")}
+        ${badge(r.light_on, "💡", "Свет включен", "Свет выключен", lightUntil)}
+        ${badge(r.water_on, "💧", "Полив идёт", "Полив остановлен", waterUntil)}
     </div>
 
     <div class="controls">
