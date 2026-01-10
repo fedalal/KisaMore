@@ -225,3 +225,11 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
     font-size:20px;
   }
 }
+
+.badgeMain{ display:block; }
+.badgeSub{
+  display:block;
+  margin-top:2px;
+  font-size:12px;
+  opacity:.85;
+}

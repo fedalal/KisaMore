@@ -29,6 +29,12 @@ class RackStateOut(BaseModel):
     light_until: Optional[str] = None
     water_until: Optional[str] = None
 
+    light_interval: Optional[str] = None  # "08:00–21:30"
+    water_interval: Optional[str] = None
+
+    light_next_on: Optional[str] = None  # "Пн 08:00"
+    water_next_on: Optional[str] = None
+
 class ManualSetIn(BaseModel):
     on: bool
 
