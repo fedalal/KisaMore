@@ -1,16 +1,51 @@
-# Python
+# ---- Python ----
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ---- Virtual env ----
 .venv/
-.env
+venv/
+ENV/
+env/
 
-# DB
-*.db
-
-# OS
-.DS_Store
-
-# Logs
+# ---- Logs / runtime ----
 *.log
+*.pid
+*.sock
+
+# ---- SQLite / local data ----
+*.db
+*.sqlite
+*.sqlite3
+
+# Но если вы хотите хранить пример БД в репо — раскомментируйте:
+# !app/data/example.db
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.iml
+
+# ---- Local config overrides ----
+config/*.local.yml
+config/*.local.yaml
+config/*.local.json
+config/.secrets*
+.env
+.env.*
