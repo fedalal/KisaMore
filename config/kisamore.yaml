@@ -1,14 +1,21 @@
 racks_count: 4
 racks:
-  "1": { light_relay: 1, water_relay: 2 }
-  "2": { light_relay: 3, water_relay: 4 }
-  "3": { light_relay: 5, water_relay: 6 }
-  "4": { light_relay: 7, water_relay: 8 }
-
+  '1':
+    light_relay: 1
+    water_relay: 2
+  '2':
+    light_relay: 3
+    water_relay: 4
+  '3':
+    light_relay: 5
+    water_relay: 6
+  '4':
+    light_relay: 7
+    water_relay: 8
 rs485:
-  port: "COM8"   # Windows: "COM3"
+  port: COM8
   baudrate: 9600
-  parity: "N"
+  parity: N
   stopbits: 1
   bytesize: 8
   slave_id: 1
