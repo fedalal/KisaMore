@@ -1,19 +1,29 @@
 from __future__ import annotations
-from typing import Optional
+
+from typing import Optional, Any
 from .hw_config import HWConfig, load_config
-from .gpio_driver import GPIODriver
-from .platform import is_raspberry_pi
+from .rs485_driver import RS485RelayDriver, RS485Config
 
 cfg: Optional[HWConfig] = None
-driver: Optional[GPIODriver] = None
+driver: Optional[Any] = None
 
 def init_runtime(active_low: bool = True) -> None:
     global cfg, driver
     cfg = load_config()
-    relay_to_gpio = {int(k): int(v) for k, v in (cfg.relay_to_gpio or {}).items()}
 
-    gpio_enabled = is_raspberry_pi()
-    driver = GPIODriver(relay_to_gpio=relay_to_gpio, active_low=active_low, enabled=gpio_enabled)
+    if not cfg.rs485:
+        raise RuntimeError("RS485 config missing: add rs485 section to config/kisamore.yaml")
 
-    if not gpio_enabled:
-        print("[KisaMore] GPIO disabled (mock mode). Running on non-Raspberry Pi.")
+    r = cfg.rs485
+    driver = RS485RelayDriver(RS485Config(
+        port=r.port,
+        baudrate=r.baudrate,
+        parity=r.parity,
+        stopbits=r.stopbits,
+        bytesize=r.bytesize,
+        slave_id=r.slave_id,
+        coil_base=r.coil_base,
+        timeout=r.timeout,
+    ))
+
+    print(f"[KisaMore] RS485 driver enabled on {r.port}, slave_id={r.slave_id}, coil_base={r.coil_base}")

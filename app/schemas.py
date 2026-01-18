@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Dict, Optional
+from typing import List, Literal, Dict
 
 Mode = Literal["manual", "schedule"]
 
@@ -26,14 +26,6 @@ class RackStateOut(BaseModel):
     water_on: bool
     light_mode: Mode
     water_mode: Mode
-    light_until: Optional[str] = None
-    water_until: Optional[str] = None
-
-    light_interval: Optional[str] = None  # "08:00–21:30"
-    water_interval: Optional[str] = None
-
-    light_next_on: Optional[str] = None  # "Пн 08:00"
-    water_next_on: Optional[str] = None
 
 class ManualSetIn(BaseModel):
     on: bool
@@ -46,6 +38,5 @@ class RackHWOut(BaseModel):
     water_relay: int
 
 class HWConfigOut(BaseModel):
-    racks_count: int
-    relay_to_gpio: Dict[str, int] = Field(default_factory=dict)
+    racks_count: int 
     racks: Dict[str, RackHWOut] = Field(default_factory=dict)

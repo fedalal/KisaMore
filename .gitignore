@@ -45,6 +45,7 @@ Thumbs.db
 # ---- Local config overrides ----
 config/*.local.yml
 config/*.local.yaml
+config/kisamore.yaml
 config/*.local.json
 config/.secrets*
 .env

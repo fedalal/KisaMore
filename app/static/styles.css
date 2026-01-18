@@ -168,6 +168,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 .table th{background:#f8fafc;text-align:left;font-size:12px;color:var(--muted);font-weight:900}
 .table tr:last-child td{border-bottom:none}
 .day{width:120px;font-weight:900}
+.dayHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dayHead .iconBtn{padding:6px 10px}
 .intervals{display:flex;flex-direction:column;gap:8px}
 .interval{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .interval input[type="time"]{padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:#fff;font-weight:900}
@@ -198,31 +200,3 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   .cfgLabel{min-width:160px}
   .cfgTableRow{grid-template-columns:110px 1fr 1fr}
 }
-
-/* Schedule day header with + button */
-.dayHead{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-}
-
-.iconBtn--plus{
-  width:34px;
-  height:34px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:0;
-  line-height:1;
-  font-size:18px;
-}
-
-@media (max-width: 760px){
-  .iconBtn--plus{
-    width:36px;
-    height:36px;
-    font-size:20px;
-  }
-}
-

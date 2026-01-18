@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api", tags=["config"])
 
 @router.get("/config", response_model=HWConfigOut)
 async def get_config():
-    return runtime.cfg.model_dump() if runtime.cfg else {"racks_count": 4, "relay_to_gpio": {}, "racks": {}}
+    return runtime.cfg.model_dump() if runtime.cfg else {"racks_count": 4, "racks": {}}
 
 @router.post("/config")
 async def set_config(payload: HWConfig):

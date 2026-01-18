@@ -1,23 +1,16 @@
 racks_count: 4
-relay_to_gpio:
-  '1': 17
-  '2': 27
-  '3': 22
-  '4': 23
-  '5': 24
-  '6': 25
-  '7': 5
-  '8': 6
 racks:
-  '1':
-    light_relay: 1
-    water_relay: 2
-  '2':
-    light_relay: 3
-    water_relay: 4
-  '3':
-    light_relay: 1
-    water_relay: 2
-  '4':
-    light_relay: 1
-    water_relay: 2
+  "1": { light_relay: 1, water_relay: 2 }
+  "2": { light_relay: 3, water_relay: 4 }
+  "3": { light_relay: 5, water_relay: 6 }
+  "4": { light_relay: 7, water_relay: 8 }
+
+rs485:
+  port: "COM8"   # Windows: "COM3"
+  baudrate: 9600
+  parity: "N"
+  stopbits: 1
+  bytesize: 8
+  slave_id: 1
+  coil_base: 0
+  timeout: 1.0

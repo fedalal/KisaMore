@@ -1,34 +1,33 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Dict
+from typing import Dict, Optional, Literal
 import os
 import yaml
 
-ALLOWED_GPIO_BCM = [4,5,6,12,13,16,17,18,19,20,21,22,23,24,25,26,27]
 
 class RackHW(BaseModel):
     light_relay: int = Field(ge=1, le=16)
     water_relay: int = Field(ge=1, le=16)
 
+
+class RS485Settings(BaseModel):
+    port: str = Field(min_length=1)                 # "/dev/ttyUSB0" или "COM3"
+    baudrate: int = Field(default=9600, ge=1200, le=115200)
+    parity: Literal["N", "E", "O"] = "N"
+    stopbits: int = Field(default=1, ge=1, le=2)
+    bytesize: int = Field(default=8, ge=5, le=8)
+    slave_id: int = Field(default=1, ge=1, le=247)
+    coil_base: int = Field(default=0, ge=0, le=1)   # 0 или 1
+    timeout: float = Field(default=1.0, ge=0.1, le=10.0)
+
+
 class HWConfig(BaseModel):
     racks_count: int = Field(ge=1, le=16)
-    relay_to_gpio: Dict[str, int] = Field(default_factory=dict)
     racks: Dict[str, RackHW] = Field(default_factory=dict)
 
-    @field_validator("relay_to_gpio")
-    @classmethod
-    def validate_gpio(cls, v: Dict[str, int]):
-        for relay_str, gpio in v.items():
-            try:
-                r = int(relay_str)
-            except Exception:
-                raise ValueError(f"relay_to_gpio key must be integer string, got {relay_str!r}")
-            if r < 1 or r > 16:
-                raise ValueError(f"relay_to_gpio key must be 1..16, got {relay_str}")
-            if gpio not in ALLOWED_GPIO_BCM:
-                raise ValueError(f"GPIO {gpio} is not allowed. Allowed: {ALLOWED_GPIO_BCM}")
-        return v
+    # RS485 settings (Modbus RTU)
+    rs485: Optional[RS485Settings] = None
 
     @field_validator("racks")
     @classmethod
@@ -52,8 +51,17 @@ def load_config() -> HWConfig:
     if not os.path.exists(path):
         cfg = HWConfig(
             racks_count=4,
-            relay_to_gpio={},
-            racks={str(i): RackHW(light_relay=i*2-1, water_relay=i*2) for i in range(1, 5)},
+            racks={str(i): RackHW(light_relay=i * 2 - 1, water_relay=i * 2) for i in range(1, 5)},
+            rs485=RS485Settings(
+                port="/dev/ttyUSB0",
+                baudrate=9600,
+                parity="N",
+                stopbits=1,
+                bytesize=8,
+                slave_id=1,
+                coil_base=0,
+                timeout=1.0,
+            ),
         )
         save_config(cfg)
         return cfg

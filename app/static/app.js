@@ -8,9 +8,6 @@ const DAYS = [
   {k:"sun", n:"Вс"},
 ];
 
-// Должно соответствовать ALLOWED_GPIO_BCM в backend (app/hw_config.py)
-const ALLOWED_GPIO_BCM = [4,5,6,12,13,16,17,18,19,20,21,22,23,24,25,26,27];
-
 let current = { rackId: null, tab: "light", schedule: null };
 let refreshTimer = null;
 let isBusy = false;
@@ -34,18 +31,12 @@ function modeRu(mode){
   return mode === "manual" ? "Вручную" : "По расписанию";
 }
 
-function badge(on, ico, labelOn, labelOff, until, tooltip, subtext){
-  const suffix = (on && until) ? ` до ${until}` : "";
-  const title = tooltip ? ` title="${tooltip.replaceAll('"','&quot;')}"` : "";
-  const sub = subtext ? `<div class="badgeSub">${subtext}</div>` : "";
-  return `<span class="badge ${on ? "badge--on":"badge--off"}"${title}>
+function badge(on, ico, labelOn, labelOff){
+  return `<span class="badge ${on ? "badge--on":"badge--off"}">
     <span class="ico">${ico}</span>
-    <span class="badgeMain">${on ? (labelOn + suffix) : labelOff}</span>
-    ${sub}
+    ${on ? labelOn : labelOff}
   </span>`;
 }
-
-
 
 function toggleHtml(id, isManual, rackId, channel){
   return `
@@ -61,34 +52,8 @@ function toggleHtml(id, isManual, rackId, channel){
 }
 
 function cardHtml(r){
-
-    const lightToggle = toggleHtml(
-        `t-light-${r.rack_id}`,
-        r.light_mode === "manual",
-        r.rack_id,
-        "light"
-      );
-
-    const waterToggle = toggleHtml(
-        `t-water-${r.rack_id}`,
-        r.water_mode === "manual",
-        r.rack_id,
-        "water"
-      );
-
-    const lightIsSched = (r.light_mode === "schedule");
-    const waterIsSched = (r.water_mode === "schedule");
-
-    const lightUntil = (lightIsSched && r.light_on) ? r.light_until : null;
-    const waterUntil = (waterIsSched && r.water_on) ? r.water_until : null;
-
-    const lightTip = (lightIsSched && r.light_on && r.light_interval) ? `Интервал: ${r.light_interval}` : null;
-    const waterTip = (waterIsSched && r.water_on && r.water_interval) ? `Интервал: ${r.water_interval}` : null;
-
-    const lightNext = (lightIsSched && !r.light_on && r.light_next_on) ? `Следующее: ${r.light_next_on}` : null;
-    const waterNext = (waterIsSched && !r.water_on && r.water_next_on) ? `Следующее: ${r.water_next_on}` : null;
-
-
+  const lightToggle = toggleHtml(`t-light-${r.rack_id}`, r.light_mode === "manual", r.rack_id, "light");
+  const waterToggle = toggleHtml(`t-water-${r.rack_id}`, r.water_mode === "manual", r.rack_id, "water");
 
   return `
   <div class="card">
@@ -101,8 +66,8 @@ function cardHtml(r){
     </div>
 
     <div class="badges">
-      ${badge(r.light_on, "💡", "Свет включен", "Свет выключен", lightUntil, lightTip, lightNext)}
-      ${badge(r.water_on, "💧", "Полив идёт", "Полив остановлен", waterUntil, waterTip, waterNext)}
+      ${badge(r.light_on, "💡", "Свет включен", "Свет выключен")}
+      ${badge(r.water_on, "💧", "Полив идёт", "Полив остановлен")}
     </div>
 
     <div class="controls">
@@ -247,17 +212,16 @@ function dayRow(dayKey, dayName, intervals){
       <td class="day">
         <div class="dayHead">
           <span>${dayName}</span>
-          <button class="iconBtn iconBtn--plus" title="Добавить интервал" onclick="addIntervalToDay('${dayKey}')">＋</button>
+          <button class="iconBtn" title="Добавить интервал" onclick="addIntervalForDay('${dayKey}')">＋</button>
         </div>
       </td>
       <td>
-        <div class="intervals" id="ints-${dayKey}">
-          ${items || `<span class="muted">нет интервалов</span>`}
-        </div>
+        <div class="intervals" id="ints-${dayKey}">${items || `<span class="muted">нет интервалов</span>`}</div>
       </td>
     </tr>
   `;
 }
+
 
 function renderScheduleTable(){
   const cont = document.getElementById("schedContainer");
@@ -292,8 +256,7 @@ function removeInterval(dayKey, idx){
   renderScheduleTable();
 }
 
-// ✅ Новый способ добавления: кнопка "＋" у конкретного дня
-function addIntervalToDay(dayKey){
+function addIntervalForDay(dayKey){
   const channel = current.tab;
   current.schedule[channel][dayKey].push({start:"08:00", end:"20:00"});
   renderScheduleTable();
@@ -345,12 +308,6 @@ function openCfgModal(show){
   }
 }
 
-function relayOptions(selected){
-  const opts = ['<option value="">—</option>']
-    .concat(ALLOWED_GPIO_BCM.map(v => `<option value="${v}" ${String(v)===String(selected) ? "selected":""}>${v}</option>`));
-  return opts.join("");
-}
-
 function relayNumOptions(selected){
   const opts = [];
   for(let i=1;i<=16;i++){
@@ -391,44 +348,11 @@ function renderCfg(){
     `);
   }
   rows.push(`</div>`);
-  document.getElementById("cfgRacksTable").innerHTML = rows.join("");
-
-  const r2g = cfgState.relay_to_gpio || {};
-  const rows2 = [];
-  rows2.push(`<div class="cfgTable">
-    <div class="cfgTable2Row head">
-      <div>Реле</div><div>GPIO (BCM)</div>
-    </div>`);
-  for(let i=1;i<=16;i++){
-    const key = String(i);
-    const val = (key in r2g) ? r2g[key] : "";
-    rows2.push(`
-      <div class="cfgTable2Row">
-        <div class="cfgCellLabel">${i}</div>
-        <div>
-          <select class="cfgSelect" onchange="cfgRelayGpioChange(${i}, this.value)">
-            ${relayOptions(val)}
-          </select>
-        </div>
-      </div>
-    `);
-  }
-  rows2.push(`</div>`);
-  document.getElementById("cfgRelaysTable").innerHTML = rows2.join("");
-}
+  document.getElementById("cfgRacksTable").innerHTML = rows.join("");}
 
 function cfgRackRelayChange(rackId, field, value){
   const rk = String(rackId);
   cfgState.racks[rk][field] = Number(value);
-}
-
-function cfgRelayGpioChange(relayId, value){
-  const k = String(relayId);
-  if(value === "" || value === null){
-    delete cfgState.relay_to_gpio[k];
-  }else{
-    cfgState.relay_to_gpio[k] = Number(value);
-  }
 }
 
 function cfgRacksCountChange(value){
@@ -452,7 +376,7 @@ async function loadCfg(){
   try{
     isBusy = true;
     cfgState = await api("/api/config");
-    cfgState.relay_to_gpio = cfgState.relay_to_gpio || {};
+  // RS485: GPIO mapping is not used in UI
     cfgState.racks = cfgState.racks || {};
     renderCfg();
     setConn(true);
@@ -475,7 +399,7 @@ async function saveCfg(){
         return;
       }
     }
-    await api("/api/config", "POST", cfgState);
+      await api("/api/config", "POST", cfgState);
     openCfgModal(false);
     await refresh();
   }catch(e){
