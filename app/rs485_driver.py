@@ -84,3 +84,15 @@ class RS485RelayDriver:
 
     async def relay_off(self, channel: int) -> None:
         await self.set_relay(channel, False)
+
+    async def all_off(self):
+        """
+        Гарантированно выключает все 16 реле.
+        Используется при старте приложения (fail-safe).
+        """
+        for ch in range(1, 17):
+            try:
+                await self.set_relay(ch, False)
+            except Exception as e:
+                # не падаем при старте из-за одного реле
+                print(f"[RS485] failed to turn off relay {ch}: {e}")

@@ -13,6 +13,6 @@ async def get_config():
 @router.post("/config")
 async def set_config(payload: HWConfig):
     save_config(payload)
-    runtime.init_runtime(active_low=True)
+    await runtime.init_runtime(active_low=True)
     await ensure_db_racks(runtime.cfg.racks_count)
     return {"ok": True}

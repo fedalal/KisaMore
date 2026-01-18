@@ -27,11 +27,16 @@ scheduler = Scheduler(runtime)
 @app.on_event("startup")
 async def on_startup():
     # 1) конфиг + драйвер
-    runtime.init_runtime(active_low=True)
+    await runtime.init_runtime(active_low=True)
 
     # 2) база
     await ensure_db_tables()
     await ensure_db_racks(runtime.cfg.racks_count if runtime.cfg else 4)
+
+    # 2.5) FAIL-SAFE + восстановление состояния
+    # Сначала выключаем всё (на случай залипаний), затем сразу же включаем то,
+    # что должно быть включено (manual) или что требуется по расписанию (schedule).
+    await runtime.safety_reset_and_sync_relays()
 
     # 3) планировщик
     await scheduler.start()
