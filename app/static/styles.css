@@ -76,6 +76,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 .controlRow .left{display:flex;align-items:center;gap:10px}
 .controlRow .label{font-weight:900}
 .controlRow .sub{color:var(--muted);font-size:12px;margin-top:2px}
+.untilNext{color:var(--muted);font-size:12px;line-height:1.2}
 .controlRow .stack{display:flex;flex-direction:column;gap:6px}
 .btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 

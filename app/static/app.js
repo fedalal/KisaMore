@@ -31,12 +31,34 @@ function modeRu(mode){
   return mode === "manual" ? "Вручную" : "По расписанию";
 }
 
-function badge(on, ico, labelOn, labelOff){
+function untilNextLine(on, untilStr, nextStr){
+  if(on && untilStr) return `<div class="untilNext">до <span class="code">${untilStr}</span></div>`;
+  if(!on && nextStr) return `<div class="untilNext">след. <span class="code">${nextStr}</span></div>`;
+  return `<div class="untilNext muted">нет расписания</div>`;
+}
+
+function badge(kind, ico, on, mode, untilStr, nextStr){
+  let text;
+
+  if(mode === "schedule"){
+    if(on && untilStr){
+      text = `${kind} включен до ${untilStr}`;
+    } else if(!on && nextStr){
+      text = `${kind} выключен · след. ${nextStr}`;
+    } else {
+      text = on ? `${kind} включен` : `${kind} выключен`;
+    }
+  } else {
+    // manual
+    text = on ? `${kind} включен` : `${kind} выключен`;
+  }
+
   return `<span class="badge ${on ? "badge--on":"badge--off"}">
     <span class="ico">${ico}</span>
-    ${on ? labelOn : labelOff}
+    ${text}
   </span>`;
 }
+
 
 function toggleHtml(id, isManual, rackId, channel){
   return `
@@ -66,8 +88,8 @@ function cardHtml(r){
     </div>
 
     <div class="badges">
-      ${badge(r.light_on, "💡", "Свет включен", "Свет выключен")}
-      ${badge(r.water_on, "💧", "Полив идёт", "Полив остановлен")}
+      ${badge("Свет", "💡", r.light_on, r.light_mode, r.light_until, r.light_next)}
+      ${badge("Полив", "💧", r.water_on, r.water_mode, r.water_until, r.water_next)}
     </div>
 
     <div class="controls">
@@ -221,7 +243,6 @@ function dayRow(dayKey, dayName, intervals){
     </tr>
   `;
 }
-
 
 function renderScheduleTable(){
   const cont = document.getElementById("schedContainer");
