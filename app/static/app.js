@@ -37,6 +37,56 @@ function untilNextLine(on, untilStr, nextStr){
   return `<div class="untilNext muted">нет расписания</div>`;
 }
 
+function validateUniqueRelaysWithHighlight(){
+  document.querySelectorAll(".cfgSelect").forEach(el=>{
+    el.classList.remove("cfgError");
+  });
+
+  const used = {};
+  const conflicts = {};
+
+  for(const rackId of Object.keys(cfgState.racks)){
+    const r = cfgState.racks[rackId];
+
+    for(const [field, label] of [
+      ["light_relay", "Свет"],
+      ["water_relay", "Полив"]
+    ]){
+      const relay = r[field];
+      const key = String(relay);
+
+      if(!used[key]) used[key] = [];
+      used[key].push({ rackId, label });
+    }
+  }
+
+  for(const relay of Object.keys(used)){
+    if(used[relay].length > 1){
+      conflicts[relay] = used[relay];
+      used[relay].forEach(({ rackId, label })=>{
+        const sel = document.querySelector(
+          `.cfgSelect[onchange*="(${rackId}, '${label === "Свет" ? "light_relay" : "water_relay"}"]`
+        );
+        if(sel) sel.classList.add("cfgError");
+      });
+    }
+  }
+
+  if(Object.keys(conflicts).length){
+    let msg = "Ошибка: одно и то же реле назначено нескольким устройствам:\n\n";
+    for(const r of Object.keys(conflicts)){
+      msg += `Реле ${r}: ` + conflicts[r]
+        .map(x=>`Стеллаж ${x.rackId} — ${x.label}`)
+        .join(", ") + "\n";
+    }
+    alert(msg);
+    return false;
+  }
+
+  return true;
+}
+
+
 function badge(kind, ico, on, mode, untilStr, nextStr){
   let text;
 
@@ -413,16 +463,63 @@ async function loadCfg(){
 async function saveCfg(){
   try{
     isBusy = true;
+
+    // 0) очистить прошлую подсветку ошибок
+    document.querySelectorAll(".cfgSelect.cfgError").forEach(el => el.classList.remove("cfgError"));
+
+    // 1) Проверка диапазона
     for(const k of Object.keys(cfgState.racks)){
       const r = cfgState.racks[k];
       if(r.light_relay < 1 || r.light_relay > 16 || r.water_relay < 1 || r.water_relay > 16){
         alert("Номер реле должен быть 1..16");
+        // подсветим оба селекта этой строки, если они есть
+        const rackId = Number(k);
+        const selL = document.querySelector(`.cfgSelect[onchange="cfgRackRelayChange(${rackId}, 'light_relay', this.value)"]`);
+        const selW = document.querySelector(`.cfgSelect[onchange="cfgRackRelayChange(${rackId}, 'water_relay', this.value)"]`);
+        if(selL) selL.classList.add("cfgError");
+        if(selW) selW.classList.add("cfgError");
         return;
       }
     }
-      await api("/api/config", "POST", cfgState);
+
+    // 2) Проверка уникальности: одно реле нельзя назначать разным устройствам
+    // used: relayNum -> [{rackId, field, label}]
+    const used = new Map();
+
+    const addUse = (relayNum, rackId, field, label) => {
+      if(!used.has(relayNum)) used.set(relayNum, []);
+      used.get(relayNum).push({rackId, field, label});
+    };
+
+    for(const k of Object.keys(cfgState.racks)){
+      const rackId = Number(k);
+      const r = cfgState.racks[k];
+
+      addUse(r.light_relay, rackId, "light_relay", `Стеллаж ${rackId} — Свет`);
+      addUse(r.water_relay, rackId, "water_relay", `Стеллаж ${rackId} — Полив`);
+    }
+
+    const dups = [];
+    for(const [relayNum, items] of used.entries()){
+      if(items.length > 1){
+        // подсветить все селекты, участвующие в конфликте
+        for(const it of items){
+          const sel = document.querySelector(`.cfgSelect[onchange="cfgRackRelayChange(${it.rackId}, '${it.field}', this.value)"]`);
+          if(sel) sel.classList.add("cfgError");
+        }
+        dups.push(`Реле ${relayNum}: ${items.map(x => x.label).join(", ")}`);
+      }
+    }
+
+    if(dups.length){
+      alert("Ошибка: одно и то же реле назначено нескольким устройствам:\n\n" + dups.join("\n"));
+      return;
+    }
+
+    await api("/api/config", "POST", cfgState);
     openCfgModal(false);
     await refresh();
+
   }catch(e){
     console.error(e);
     alert("Не удалось сохранить настройки: " + e.message);
@@ -430,6 +527,7 @@ async function saveCfg(){
     isBusy = false;
   }
 }
+
 
 /* ===== Wire up ===== */
 document.getElementById("refreshBtn").addEventListener("click", refresh);
@@ -447,7 +545,7 @@ document.getElementById("settingsBtn").addEventListener("click", async ()=>{
 });
 document.getElementById("cfgClose").addEventListener("click", ()=>openCfgModal(false));
 document.getElementById("cfgX").addEventListener("click", ()=>openCfgModal(false));
-document.getElementById("cfgReload").addEventListener("click", loadCfg);
+document.getElementById("cfgCancel").addEventListener("click", ()=>openCfgModal(false));
 document.getElementById("cfgSave").addEventListener("click", saveCfg);
 document.getElementById("cfgRacksCount").addEventListener("change", (e)=>cfgRacksCountChange(e.target.value));
 

@@ -201,3 +201,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   .cfgLabel{min-width:160px}
   .cfgTableRow{grid-template-columns:110px 1fr 1fr}
 }
+
+.cfgSelect.cfgError {
+  border: 2px solid #e53935;
+  background: #fff5f5;
+}
