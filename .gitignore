@@ -50,3 +50,4 @@ config/*.local.json
 config/.secrets*
 .env
 .env.*
+kisamore.yaml
