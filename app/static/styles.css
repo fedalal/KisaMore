@@ -206,3 +206,11 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   border: 2px solid #e53935;
   background: #fff5f5;
 }
+
+.btn--danger {
+  background: #dc2626;
+  color: #fff;
+}
+.btn--danger:hover {
+  background: #b91c1c;
+}

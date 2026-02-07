@@ -205,6 +205,26 @@ function setConn(ok){
   el.textContent = ok ? "🟢 онлайн" : "🔴 нет связи";
 }
 
+async function shutdownPi(){
+  const ok = confirm("Вы действительно хотите выключить Raspberry Pi?\nПодключение будет потеряно.");
+  if(!ok) return;
+
+  try{
+    isBusy = true;
+
+    // если у тебя эндпоинт другой — поменяй путь
+    await api("/api/system/shutdown", "POST", {});
+
+    alert("Raspberry Pi выключается…");
+  }catch(e){
+    console.error(e);
+    alert("Не удалось выключить Raspberry Pi: " + (e?.message || e));
+  }finally{
+    isBusy = false;
+  }
+}
+
+
 async function setManual(rackId, channel, on){
   try{
     isBusy = true;
@@ -531,6 +551,11 @@ async function saveCfg(){
 
 /* ===== Wire up ===== */
 document.getElementById("refreshBtn").addEventListener("click", refresh);
+
+const shutdownBtn = document.getElementById("shutdownBtn");
+if(shutdownBtn){
+  shutdownBtn.addEventListener("click", shutdownPi);
+}
 
 // schedule modal
 document.getElementById("modalClose").addEventListener("click", ()=>openModal(false));

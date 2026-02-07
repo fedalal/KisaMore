@@ -12,6 +12,9 @@ from .routes_manual import router as manual_router
 from .routes_schedule import router as schedule_router
 from .routes_config import router as config_router
 
+import subprocess
+from fastapi import HTTPException
+
 app = FastAPI(title="Система KisaMore — Raspberry Pi")
 
 app.include_router(state_router)
@@ -44,6 +47,14 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     await scheduler.stop()
+
+@app.post("/api/system/shutdown")
+async def shutdown_pi():
+    try:
+        subprocess.Popen(["sudo", "/sbin/shutdown", "-h", "now"])
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
