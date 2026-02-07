@@ -51,6 +51,7 @@ async def on_shutdown():
 @app.post("/api/system/shutdown")
 async def shutdown_pi():
     try:
+        print("Shutting down KisaMore")
         subprocess.Popen(["sudo", "/sbin/shutdown", "-h", "now"])
         return {"ok": True}
     except Exception as e:
