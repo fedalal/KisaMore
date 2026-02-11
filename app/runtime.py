@@ -48,7 +48,7 @@ async def init_runtime(active_low: bool = True) -> None:
     print(f"[KisaMore] RS485 driver enabled on {r.port}, slave_id={r.slave_id}, coil_base={r.coil_base}")
 
     # NEW: входы (датчики уровня)
-    inputs = InputsDriver(cfg.level_sensors, bounce_time=0.15)
+    inputs = InputsDriver(cfg.level_sensors)
     print(f"[KisaMore] Inputs enabled: {cfg.level_sensors}")
 
 async def safety_reset_and_sync_relays() -> None:
