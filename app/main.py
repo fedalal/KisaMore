@@ -52,6 +52,8 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     await scheduler.stop()
+    if runtime.inputs:
+        runtime.inputs.close()
 
 @app.post("/api/system/shutdown")
 async def shutdown_pi():
