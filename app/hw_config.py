@@ -29,6 +29,9 @@ class HWConfig(BaseModel):
     # RS485 settings (Modbus RTU)
     rs485: Optional[RS485Settings] = None
 
+    # NEW: датчики уровня/входы (имя -> GPIO BCM)
+    level_sensors: Dict[str, int] = Field(default_factory=dict)
+
     @field_validator("racks")
     @classmethod
     def validate_racks(cls, v: Dict[str, RackHW]):
@@ -39,6 +42,19 @@ class HWConfig(BaseModel):
                 raise ValueError(f"rack id must be integer string, got {rack_str!r}")
             if rid < 1 or rid > 16:
                 raise ValueError(f"rack id must be 1..16, got {rack_str}")
+        return v
+
+    @field_validator("level_sensors")
+    @classmethod
+    def validate_level_sensors(cls, v: Dict[str, int]):
+        # минимальная валидация: GPIO BCM обычно 0..27 (для Pi 3/4)
+        for name, gpio in (v or {}).items():
+            try:
+                g = int(gpio)
+            except Exception:
+                raise ValueError(f"level_sensors[{name!r}] must be int, got {gpio!r}")
+            if g < 0 or g > 27:
+                raise ValueError(f"level_sensors[{name!r}] must be 0..27 (BCM), got {g}")
         return v
 
 
@@ -62,6 +78,12 @@ def load_config() -> HWConfig:
                 coil_base=0,
                 timeout=1.0,
             ),
+            # NEW: дефолтные входы (первый — твой текущий)
+            level_sensors={
+                "level_1": 22,
+                "level_2": 27,
+                "level_3": 17,
+            },
         )
         save_config(cfg)
         return cfg
@@ -75,6 +97,15 @@ def load_config() -> HWConfig:
         k = str(i)
         if k not in cfg.racks:
             cfg.racks[k] = RackHW(light_relay=1, water_relay=2)
+
+    # NEW: если секции нет — создаём дефолты и сохраняем в YAML
+    if not cfg.level_sensors:
+        cfg.level_sensors = {
+            "level_1": 22,
+            "level_2": 27,
+            "level_3": 17,
+        }
+        save_config(cfg)
 
     return cfg
 

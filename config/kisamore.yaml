@@ -21,3 +21,7 @@ rs485:
   slave_id: 1
   coil_base: 0
   timeout: 1.0
+level_sensors:
+  level_1: 22
+  level_2: 27
+  level_3: 17

@@ -7,6 +7,8 @@ from sqlalchemy import select
 
 from .hw_config import HWConfig, load_config
 from .rs485_driver import RS485RelayDriver, RS485Config
+from .inputs_driver import InputsDriver
+
 from .db import SessionLocal
 from .models import RackState, RackSchedule
 
@@ -22,6 +24,8 @@ def _in_any_range(now_hm: str, ranges: list[dict]) -> bool:
 
 cfg: Optional[HWConfig] = None
 driver: Optional[Any] = None
+inputs: Optional[InputsDriver] = None
+
 
 async def init_runtime(active_low: bool = True) -> None:
     global cfg, driver
@@ -43,6 +47,9 @@ async def init_runtime(active_low: bool = True) -> None:
     ))
     print(f"[KisaMore] RS485 driver enabled on {r.port}, slave_id={r.slave_id}, coil_base={r.coil_base}")
 
+    # NEW: входы (датчики уровня)
+    inputs = InputsDriver(cfg.level_sensors, bounce_time=0.15)
+    print(f"[KisaMore] Inputs enabled: {cfg.level_sensors}")
 
 async def safety_reset_and_sync_relays() -> None:
     """

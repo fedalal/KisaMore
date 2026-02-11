@@ -11,6 +11,10 @@ from .routes_state import router as state_router
 from .routes_manual import router as manual_router
 from .routes_schedule import router as schedule_router
 from .routes_config import router as config_router
+from .routes_inputs import router as inputs_router
+
+
+
 
 import subprocess
 from fastapi import HTTPException
@@ -21,6 +25,7 @@ app.include_router(state_router)
 app.include_router(manual_router)
 app.include_router(schedule_router)
 app.include_router(config_router)
+app.include_router(inputs_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
