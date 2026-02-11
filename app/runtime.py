@@ -28,7 +28,7 @@ inputs: Optional[InputsDriver] = None
 
 
 async def init_runtime(active_low: bool = True) -> None:
-    global cfg, driver
+    global cfg, driver,inputs
     cfg = load_config()
 
     if not cfg.rs485:
