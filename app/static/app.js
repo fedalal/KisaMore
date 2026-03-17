@@ -86,6 +86,30 @@ function validateUniqueRelaysWithHighlight(){
   return true;
 }
 
+function soilInfoHtml(r){
+  const hasMoisture = r.soil_moisture !== null && r.soil_moisture !== undefined;
+  const hasTemp = r.soil_temperature !== null && r.soil_temperature !== undefined;
+
+  if(!hasMoisture && !hasTemp){
+    return `<div class="soilLine muted">🌱 Датчик почвы: нет данных</div>`;
+  }
+
+  const moistureText = hasMoisture
+    ? `💧 Влажность: <b>${Number(r.soil_moisture).toFixed(1)}%</b>`
+    : `💧 Влажность: <b>—</b>`;
+
+  const tempText = hasTemp
+    ? `🌡 Темп.: <b>${Number(r.soil_temperature).toFixed(1)}°C</b>`
+    : `🌡 Темп.: <b>—</b>`;
+
+  return `
+    <div class="soilLine">
+      <span class="soilBadge">${moistureText}</span>
+      <span class="soilBadge">${tempText}</span>
+    </div>
+  `;
+}
+
 
 function badge(kind, ico, on, mode, untilStr, nextStr){
   let text;
@@ -141,6 +165,8 @@ function cardHtml(r){
       ${badge("Свет", "💡", r.light_on, r.light_mode, r.light_until, r.light_next)}
       ${badge("Полив", "💧", r.water_on, r.water_mode, r.water_until, r.water_next)}
     </div>
+
+    ${soilInfoHtml(r)}
 
     <div class="controls">
       <div class="controlRow">

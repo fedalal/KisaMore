@@ -265,3 +265,24 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   background:#fff5f5;
 }
 
+.soilLine{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:2px 0 12px;
+}
+
+.soilBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#f8fafc;
+  font-size:12px;
+}
+
+.soilBadge b{
+  font-weight:900;
+}
