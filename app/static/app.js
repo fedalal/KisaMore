@@ -415,13 +415,22 @@ function renderCfg(){
   const rows = [];
   rows.push(`<div class="cfgTable">
     <div class="cfgTableRow head">
-      <div>Стеллаж</div><div>Реле света</div><div>Реле полива</div>
+      <div>Стеллаж</div>
+      <div>Реле света</div>
+      <div>Реле полива</div>
+      <div>Адрес датчика</div>
     </div>`);
 
   for(let i=1;i<=cfgState.racks_count;i++){
     const rk = String(i);
-    if(!cfgState.racks[rk]) cfgState.racks[rk] = {light_relay:1, water_relay:2};
+    if(!cfgState.racks[rk]){
+      cfgState.racks[rk] = {light_relay:1, water_relay:2, sensor_slave_id:i};
+    } else if(cfgState.racks[rk].sensor_slave_id == null){
+      cfgState.racks[rk].sensor_slave_id = i;
+    }
+
     const r = cfgState.racks[rk];
+
     rows.push(`
       <div class="cfgTableRow">
         <div class="cfgCellLabel">${i}</div>
@@ -435,15 +444,39 @@ function renderCfg(){
             ${relayNumOptions(r.water_relay)}
           </select>
         </div>
+        <div>
+          <input
+            class="cfgInput"
+            type="number"
+            min="1"
+            max="247"
+            value="${r.sensor_slave_id ?? ""}"
+            onchange="cfgRackSensorChange(${i}, this.value)"
+          />
+        </div>
       </div>
     `);
   }
+
   rows.push(`</div>`);
-  document.getElementById("cfgRacksTable").innerHTML = rows.join("");}
+  document.getElementById("cfgRacksTable").innerHTML = rows.join("");
+}
 
 function cfgRackRelayChange(rackId, field, value){
   const rk = String(rackId);
   cfgState.racks[rk][field] = Number(value);
+}
+
+function cfgRackSensorChange(rackId, value){
+  const rk = String(rackId);
+  const v = String(value).trim();
+
+  if(v === ""){
+    cfgState.racks[rk].sensor_slave_id = null;
+    return;
+  }
+
+  cfgState.racks[rk].sensor_slave_id = Number(v);
 }
 
 function cfgRacksCountChange(value){
@@ -454,7 +487,11 @@ function cfgRacksCountChange(value){
 
   for(let i=1;i<=n;i++){
     const k = String(i);
-    if(!cfgState.racks[k]) cfgState.racks[k] = {light_relay:1, water_relay:2};
+    if(!cfgState.racks[k]){
+      cfgState.racks[k] = {light_relay:1, water_relay:2, sensor_slave_id:i};
+    } else if(cfgState.racks[k].sensor_slave_id == null){
+      cfgState.racks[k].sensor_slave_id = i;
+    }
   }
   Object.keys(cfgState.racks).forEach(k=>{
     if(Number(k) > n) delete cfgState.racks[k];
@@ -467,8 +504,17 @@ async function loadCfg(){
   try{
     isBusy = true;
     cfgState = await api("/api/config");
-  // RS485: GPIO mapping is not used in UI
     cfgState.racks = cfgState.racks || {};
+
+    for(let i=1;i<=cfgState.racks_count;i++){
+      const k = String(i);
+      if(!cfgState.racks[k]){
+        cfgState.racks[k] = {light_relay:1, water_relay:2, sensor_slave_id:i};
+      } else if(cfgState.racks[k].sensor_slave_id == null){
+        cfgState.racks[k].sensor_slave_id = i;
+      }
+    }
+
     renderCfg();
     setConn(true);
   }catch(e){
@@ -484,26 +530,44 @@ async function saveCfg(){
   try{
     isBusy = true;
 
-    // 0) очистить прошлую подсветку ошибок
-    document.querySelectorAll(".cfgSelect.cfgError").forEach(el => el.classList.remove("cfgError"));
+    document.querySelectorAll(".cfgSelect.cfgError, .cfgInput.cfgError").forEach(el => {
+      el.classList.remove("cfgError");
+    });
 
-    // 1) Проверка диапазона
+    // 1) Проверка диапазона реле
     for(const k of Object.keys(cfgState.racks)){
       const r = cfgState.racks[k];
+
       if(r.light_relay < 1 || r.light_relay > 16 || r.water_relay < 1 || r.water_relay > 16){
         alert("Номер реле должен быть 1..16");
-        // подсветим оба селекта этой строки, если они есть
+
         const rackId = Number(k);
         const selL = document.querySelector(`.cfgSelect[onchange="cfgRackRelayChange(${rackId}, 'light_relay', this.value)"]`);
         const selW = document.querySelector(`.cfgSelect[onchange="cfgRackRelayChange(${rackId}, 'water_relay', this.value)"]`);
+
         if(selL) selL.classList.add("cfgError");
         if(selW) selW.classList.add("cfgError");
         return;
       }
     }
 
-    // 2) Проверка уникальности: одно реле нельзя назначать разным устройствам
-    // used: relayNum -> [{rackId, field, label}]
+    // 2) Проверка диапазона адресов датчиков
+    for(const k of Object.keys(cfgState.racks)){
+      const r = cfgState.racks[k];
+      const rackId = Number(k);
+
+      if(r.sensor_slave_id != null && r.sensor_slave_id !== ""){
+        if(r.sensor_slave_id < 1 || r.sensor_slave_id > 247){
+          alert(`Адрес датчика у стеллажа ${rackId} должен быть в диапазоне 1..247`);
+
+          const inp = document.querySelector(`.cfgInput[onchange="cfgRackSensorChange(${rackId}, this.value)"]`);
+          if(inp) inp.classList.add("cfgError");
+          return;
+        }
+      }
+    }
+
+    // 3) Проверка уникальности реле
     const used = new Map();
 
     const addUse = (relayNum, rackId, field, label) => {
@@ -522,7 +586,6 @@ async function saveCfg(){
     const dups = [];
     for(const [relayNum, items] of used.entries()){
       if(items.length > 1){
-        // подсветить все селекты, участвующие в конфликте
         for(const it of items){
           const sel = document.querySelector(`.cfgSelect[onchange="cfgRackRelayChange(${it.rackId}, '${it.field}', this.value)"]`);
           if(sel) sel.classList.add("cfgError");
@@ -533,6 +596,36 @@ async function saveCfg(){
 
     if(dups.length){
       alert("Ошибка: одно и то же реле назначено нескольким устройствам:\n\n" + dups.join("\n"));
+      return;
+    }
+
+    // 4) Проверка уникальности адресов датчиков
+    const sensorUsed = new Map();
+    const sensorDups = [];
+
+    for(const k of Object.keys(cfgState.racks)){
+      const rackId = Number(k);
+      const r = cfgState.racks[k];
+      const sid = r.sensor_slave_id;
+
+      if(sid == null || sid === "") continue;
+
+      if(!sensorUsed.has(sid)) sensorUsed.set(sid, []);
+      sensorUsed.get(sid).push(rackId);
+    }
+
+    for(const [sid, rackIds] of sensorUsed.entries()){
+      if(rackIds.length > 1){
+        rackIds.forEach(rackId => {
+          const inp = document.querySelector(`.cfgInput[onchange="cfgRackSensorChange(${rackId}, this.value)"]`);
+          if(inp) inp.classList.add("cfgError");
+        });
+        sensorDups.push(`Адрес ${sid}: ${rackIds.map(id => `Стеллаж ${id}`).join(", ")}`);
+      }
+    }
+
+    if(sensorDups.length){
+      alert("Ошибка: один и тот же адрес датчика назначен нескольким стеллажам:\n\n" + sensorDups.join("\n"));
       return;
     }
 
@@ -547,7 +640,6 @@ async function saveCfg(){
     isBusy = false;
   }
 }
-
 
 /* ===== Wire up ===== */
 document.getElementById("refreshBtn").addEventListener("click", refresh);
