@@ -2,8 +2,23 @@ from __future__ import annotations
 
 from typing import Dict
 import time
-import RPi.GPIO as GPIO
 
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    GPIO = None
+
+
+if GPIO is None:
+    class MockGPIO:
+        BCM = BOARD = IN = OUT = PUD_UP = None
+
+        def setmode(self, *args, **kwargs): pass
+        def setup(self, *args, **kwargs): pass
+        def input(self, *args, **kwargs): return 0
+        def cleanup(self): pass
+
+    GPIO = MockGPIO()
 
 class InputsDriver:
     """

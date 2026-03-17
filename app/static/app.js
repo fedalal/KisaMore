@@ -413,20 +413,25 @@ function renderCfg(){
   document.getElementById("cfgRacksCount").value = cfgState.racks_count;
 
   const rows = [];
-  rows.push(`<div class="cfgTable">
-    <div class="cfgTableRow head">
-      <div>Стеллаж</div>
-      <div>Реле света</div>
-      <div>Реле полива</div>
-      <div>Адрес датчика</div>
-    </div>`);
+  rows.push(`
+    <div class="cfgTable">
+      <div class="cfgTableRow head">
+        <div class="cfgCellLabel">Стеллаж</div>
+        <div>Реле света</div>
+        <div>Реле полива</div>
+        <div>Адрес датчика</div>
+      </div>
+  `);
 
-  for(let i=1;i<=cfgState.racks_count;i++){
+  for(let i=1; i<=cfgState.racks_count; i++){
     const rk = String(i);
+
     if(!cfgState.racks[rk]){
-      cfgState.racks[rk] = {light_relay:1, water_relay:2, sensor_slave_id:i};
-    } else if(cfgState.racks[rk].sensor_slave_id == null){
-      cfgState.racks[rk].sensor_slave_id = i;
+      cfgState.racks[rk] = {
+        light_relay: 1,
+        water_relay: 2,
+        sensor_slave_id: i
+      };
     }
 
     const r = cfgState.racks[rk];
@@ -434,22 +439,26 @@ function renderCfg(){
     rows.push(`
       <div class="cfgTableRow">
         <div class="cfgCellLabel">${i}</div>
+
         <div>
           <select class="cfgSelect" onchange="cfgRackRelayChange(${i}, 'light_relay', this.value)">
             ${relayNumOptions(r.light_relay)}
           </select>
         </div>
+
         <div>
           <select class="cfgSelect" onchange="cfgRackRelayChange(${i}, 'water_relay', this.value)">
             ${relayNumOptions(r.water_relay)}
           </select>
         </div>
+
         <div>
           <input
             class="cfgInput"
             type="number"
             min="1"
             max="247"
+            placeholder="нет"
             value="${r.sensor_slave_id ?? ""}"
             onchange="cfgRackSensorChange(${i}, this.value)"
           />
@@ -488,11 +497,14 @@ function cfgRacksCountChange(value){
   for(let i=1;i<=n;i++){
     const k = String(i);
     if(!cfgState.racks[k]){
-      cfgState.racks[k] = {light_relay:1, water_relay:2, sensor_slave_id:i};
-    } else if(cfgState.racks[k].sensor_slave_id == null){
-      cfgState.racks[k].sensor_slave_id = i;
+      cfgState.racks[k] = {
+        light_relay:1,
+        water_relay:2,
+        sensor_slave_id:i
+      };
     }
   }
+
   Object.keys(cfgState.racks).forEach(k=>{
     if(Number(k) > n) delete cfgState.racks[k];
   });
@@ -509,9 +521,11 @@ async function loadCfg(){
     for(let i=1;i<=cfgState.racks_count;i++){
       const k = String(i);
       if(!cfgState.racks[k]){
-        cfgState.racks[k] = {light_relay:1, water_relay:2, sensor_slave_id:i};
-      } else if(cfgState.racks[k].sensor_slave_id == null){
-        cfgState.racks[k].sensor_slave_id = i;
+        cfgState.racks[k] = {
+          light_relay:1,
+          water_relay:2,
+          sensor_slave_id:i
+        };
       }
     }
 

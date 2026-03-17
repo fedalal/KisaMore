@@ -9,7 +9,7 @@ import yaml
 class RackHW(BaseModel):
     light_relay: int = Field(ge=1, le=16)
     water_relay: int = Field(ge=1, le=16)
-
+    sensor_slave_id: Optional[int] = Field(default=None, ge=1, le=247)
 
 class RS485Settings(BaseModel):
     port: str = Field(min_length=1)                 # "/dev/ttyUSB0" или "COM3"
@@ -67,7 +67,7 @@ def load_config() -> HWConfig:
     if not os.path.exists(path):
         cfg = HWConfig(
             racks_count=4,
-            racks={str(i): RackHW(light_relay=i * 2 - 1, water_relay=i * 2) for i in range(1, 5)},
+            racks={str(i): RackHW(light_relay=i * 2 - 1, water_relay=i * 2, sensor_slave_id=i,) for i in range(1, 5)},
             rs485=RS485Settings(
                 port="/dev/ttyUSB0",
                 baudrate=9600,
@@ -96,7 +96,7 @@ def load_config() -> HWConfig:
     for i in range(1, cfg.racks_count + 1):
         k = str(i)
         if k not in cfg.racks:
-            cfg.racks[k] = RackHW(light_relay=1, water_relay=2)
+            cfg.racks[k] = RackHW(light_relay=1, water_relay=2, sensor_slave_id=i)
 
     # NEW: если секции нет — создаём дефолты и сохраняем в YAML
     if not cfg.level_sensors:

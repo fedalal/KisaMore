@@ -44,6 +44,7 @@ class ModeSetIn(BaseModel):
 class RackHWOut(BaseModel):
     light_relay: int
     water_relay: int
+    sensor_slave_id: Optional[int] = None
 
 class HWConfigOut(BaseModel):
     racks_count: int 

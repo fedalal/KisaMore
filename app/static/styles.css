@@ -186,24 +186,82 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 .cfgLabel{font-weight:900;min-width:220px}
 #cfgRacksCount{padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-weight:900;max-width:140px}
 
-.cfgTable{width:100%;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
-.cfgTableRow{display:grid;grid-template-columns:140px 1fr 1fr;gap:8px;padding:10px;border-bottom:1px solid var(--line);align-items:center}
-.cfgTableRow.head{background:#f8fafc;font-size:12px;color:var(--muted);font-weight:900}
-.cfgTableRow:last-child{border-bottom:none}
-.cfgCellLabel{font-weight:900}
-.cfgSelect{
-  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-weight:900;background:#fff
+.cfgTable{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:16px;
+  overflow:hidden;
+  background:#fff;
 }
 
-.cfgTable2Row{display:grid;grid-template-columns:120px 1fr;gap:8px;padding:10px;border-bottom:1px solid var(--line);align-items:center}
-.cfgTable2Row.head{background:#f8fafc;font-size:12px;color:var(--muted);font-weight:900}
+.cfgTableRow{
+  display:grid;
+  grid-template-columns:100px 1fr 1fr 170px;
+  gap:12px;
+  padding:10px;
+  border-bottom:1px solid var(--line);
+  align-items:center;
+}
+
+.cfgTableRow.head{
+  background:#f8fafc;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.cfgTableRow:last-child{
+  border-bottom:none;
+}
+
+.cfgCellLabel{
+  font-weight:900;
+}
+
+.cfgSelect,
+.cfgInput{
+  width:100%;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  font-weight:900;
+  background:#fff;
+}
+
+.cfgInput{
+  min-width:0;
+}
+
+.cfgTable2Row{
+  display:grid;
+  grid-template-columns:120px 1fr;
+  gap:8px;
+  padding:10px;
+  border-bottom:1px solid var(--line);
+  align-items:center;
+}
+
+.cfgTable2Row.head{
+  background:#f8fafc;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:900;
+}
+
 @media (max-width: 760px){
-  .cfgLabel{min-width:160px}
-  .cfgTableRow{grid-template-columns:110px 1fr 1fr}
+  .cfgLabel{
+    min-width:160px;
+  }
+
+  .cfgTableRow{
+    grid-template-columns:80px 1fr 1fr 120px;
+    gap:8px;
+  }
 }
 
-.cfgSelect.cfgError {
-  border: 2px solid #e53935;
-  background: #fff5f5;
+.cfgSelect.cfgError,
+.cfgInput.cfgError{
+  border:2px solid #e53935;
+  background:#fff5f5;
 }
 
