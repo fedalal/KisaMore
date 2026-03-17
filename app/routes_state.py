@@ -9,9 +9,26 @@ from .schedule_info import compute_now_next
 
 router = APIRouter(prefix="/api", tags=["state"])
 
+
+async def _read_soil_sensor_for_rack(rack_id: int) -> tuple[float | None, float | None]:
+    if not runtime.cfg or not runtime.driver:
+        return None, None
+
+    rack_cfg = runtime.cfg.racks.get(str(rack_id))
+    if not rack_cfg or rack_cfg.sensor_slave_id is None:
+        return None, None
+
+    try:
+        return await runtime.driver.read_soil_sensor(rack_cfg.sensor_slave_id)
+    except Exception as e:
+        print(f"[state] failed to read soil sensor for rack {rack_id}: {e}")
+        return None, None
+
+
 @router.get("/state", response_model=list[RackStateOut])
 async def get_state():
     max_racks = runtime.cfg.racks_count if runtime.cfg else 4
+
     async with SessionLocal() as s:
         states = (await s.execute(select(RackState).order_by(RackState.rack_id))).scalars().all()
         states = [r for r in states if r.rack_id <= max_racks]
@@ -30,13 +47,12 @@ async def get_state():
             light_info = compute_now_next(light_ch, now)
             water_info = compute_now_next(water_ch, now)
 
-            # Логика подсказок для UI:
-            # - если сейчас включено — показываем "до HH:MM" только если мы реально внутри интервала расписания
-            # - если сейчас выключено — показываем ближайший следующий старт
             light_until = light_info.active_end if (r.light_on and light_info.active_end) else None
             light_next = (None if r.light_on else light_info.next_text())
             water_until = water_info.active_end if (r.water_on and water_info.active_end) else None
             water_next = (None if r.water_on else water_info.next_text())
+
+            soil_moisture, soil_temperature = await _read_soil_sensor_for_rack(r.rack_id)
 
             out.append(RackStateOut(
                 rack_id=r.rack_id,
@@ -48,6 +64,8 @@ async def get_state():
                 light_next=light_next,
                 water_until=water_until,
                 water_next=water_next,
+                soil_moisture=soil_moisture,
+                soil_temperature=soil_temperature,
             ))
 
         return out

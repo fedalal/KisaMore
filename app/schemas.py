@@ -35,6 +35,10 @@ class RackStateOut(BaseModel):
     water_until: Optional[str] = None
     water_next: Optional[str] = None
 
+    soil_moisture: Optional[float] = None
+    soil_temperature: Optional[float] = None
+
+
 class ManualSetIn(BaseModel):
     on: bool
 
