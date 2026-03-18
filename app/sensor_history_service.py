@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 
@@ -75,7 +75,7 @@ class SensorHistoryService:
                     sensor_slave_id=sensor_slave_id,
                     soil_moisture=soil_moisture,
                     soil_temperature=soil_temperature,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 s.add(row)
 
