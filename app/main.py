@@ -12,8 +12,8 @@ from .routes_manual import router as manual_router
 from .routes_schedule import router as schedule_router
 from .routes_config import router as config_router
 from .routes_inputs import router as inputs_router
-
-
+from .sensor_history_service import SensorHistoryService
+from .routes_sensor_history import router as sensor_history_router
 
 
 import subprocess
@@ -26,11 +26,13 @@ app.include_router(manual_router)
 app.include_router(schedule_router)
 app.include_router(config_router)
 app.include_router(inputs_router)
+app.include_router(sensor_history_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 scheduler = Scheduler(runtime)
+sensor_history_service = SensorHistoryService(interval_sec=60)  # раз в 1 минуту
 
 @app.on_event("startup")
 async def on_startup():
@@ -49,11 +51,21 @@ async def on_startup():
     # 3) планировщик
     await scheduler.start()
 
+    # 4) запись истории в БД
+    await sensor_history_service.start()
+
 @app.on_event("shutdown")
 async def on_shutdown():
     await scheduler.stop()
+
+    await sensor_history_service.stop()
+
     if runtime.inputs:
         runtime.inputs.close()
+
+@app.get("/charts", response_class=HTMLResponse)
+async def charts_page(request: Request):
+    return templates.TemplateResponse("charts.html", {"request": request})
 
 @app.post("/api/system/shutdown")
 async def shutdown_pi():

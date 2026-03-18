@@ -684,6 +684,10 @@ async function saveCfg(){
 /* ===== Wire up ===== */
 document.getElementById("refreshBtn").addEventListener("click", refresh);
 
+document.getElementById("chartsBtn").addEventListener("click", ()=>{
+  window.location.href = "/charts";
+});
+
 const shutdownBtn = document.getElementById("shutdownBtn");
 if(shutdownBtn){
   shutdownBtn.addEventListener("click", shutdownPi);

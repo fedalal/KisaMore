@@ -1,8 +1,20 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Boolean, JSON
+from sqlalchemy import Float, DateTime
+from datetime import datetime
 
 class Base(DeclarativeBase):
     pass
+
+class RackSensorHistory(Base):
+    __tablename__ = "rack_sensor_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    rack_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    sensor_slave_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    soil_moisture: Mapped[float | None] = mapped_column(Float, nullable=True)
+    soil_temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True, nullable=False)
 
 class RackState(Base):
     __tablename__ = "rack_state"

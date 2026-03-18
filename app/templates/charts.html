@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Графики — KisaMore</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap topbar">
+      <div class="brand">
+        <div class="dot"></div>
+        <div>
+          <div class="title">Графики датчиков</div>
+          <div class="subtitle">Температура и влажность по полкам</div>
+        </div>
+      </div>
+      <div class="right">
+        <button id="backBtn" class="btn">Назад</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="row">
+      <label>Полка</label>
+      <select id="rackSelect" class="cfgSelect" style="max-width:140px;"></select>
+
+      <label>Период</label>
+      <select id="hoursSelect" class="cfgSelect" style="max-width:140px;">
+        <option value="24">24 часа</option>
+        <option value="72">3 дня</option>
+        <option value="168">7 дней</option>
+      </select>
+
+      <button id="loadChartsBtn" class="btn btn--primary">Показать</button>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card__title">Влажность почвы</div>
+      <canvas id="moistureChart" height="120"></canvas>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card__title">Температура почвы</div>
+      <canvas id="tempChart" height="120"></canvas>
+    </div>
+  </main>
+
+  <script src="/static/charts.js"></script>
+</body>
+</html>
