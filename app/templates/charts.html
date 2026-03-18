@@ -24,27 +24,44 @@
   </header>
 
   <main class="wrap">
-    <div class="row">
-      <label>Полка</label>
-      <select id="rackSelect" class="cfgSelect" style="max-width:140px;"></select>
+    <div class="row charts-toolbar">
+      <label for="rackSelect">Полка</label>
+      <select id="rackSelect" class="cfgSelect" style="max-width:180px;">
+        <option value="all">Все полки</option>
+      </select>
 
-      <label>Период</label>
+      <label for="hoursSelect">Период</label>
       <select id="hoursSelect" class="cfgSelect" style="max-width:140px;">
         <option value="24">24 часа</option>
         <option value="72">3 дня</option>
         <option value="168">7 дней</option>
       </select>
 
+      <label class="charts-auto">
+        <input type="checkbox" id="autoRefresh" checked />
+        Автообновление
+      </label>
+
       <button id="loadChartsBtn" class="btn btn--primary">Показать</button>
     </div>
 
     <div class="card" style="margin-top:16px;">
-      <div class="card__title">Влажность почвы</div>
+      <div class="card__head">
+        <div>
+          <div class="card__title">Влажность почвы</div>
+          <div class="card__meta" id="moistureMeta">—</div>
+        </div>
+      </div>
       <canvas id="moistureChart" height="120"></canvas>
     </div>
 
     <div class="card" style="margin-top:16px;">
-      <div class="card__title">Температура почвы</div>
+      <div class="card__head">
+        <div>
+          <div class="card__title">Температура почвы</div>
+          <div class="card__meta" id="tempMeta">—</div>
+        </div>
+      </div>
       <canvas id="tempChart" height="120"></canvas>
     </div>
   </main>
