@@ -682,7 +682,7 @@ async function saveCfg(){
 }
 
 /* ===== Wire up ===== */
-document.getElementById("refreshBtn").addEventListener("click", refresh);
+//document.getElementById("refreshBtn").addEventListener("click", refresh);
 
 document.getElementById("chartsBtn").addEventListener("click", ()=>{
   window.location.href = "/charts";
