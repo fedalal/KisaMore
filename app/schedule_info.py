@@ -7,12 +7,19 @@ DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_RU  = {"mon":"Пн","tue":"Вт","wed":"Ср","thu":"Чт","fri":"Пт","sat":"Сб","sun":"Вс"}
 
 def _parse_hhmm(s: str) -> time:
-    hh, mm = s.split(":")
-    return time(int(hh), int(mm))
+    parts = s.split(":")
+    if len(parts) == 2:
+        hh, mm = parts
+        ss = 0
+    elif len(parts) == 3:
+        hh, mm, ss = parts
+    else:
+        raise ValueError("time must be HH:MM or HH:MM:SS")
+    return time(int(hh), int(mm), int(ss))
 
 def _dt_at_day(now: datetime, day_offset: int, t: time) -> datetime:
     base = (now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=day_offset))
-    return base.replace(hour=t.hour, minute=t.minute)
+    return base.replace(hour=t.hour, minute=t.minute, second=t.second)
 
 @dataclass
 class ScheduleNowNext:
@@ -54,8 +61,8 @@ def compute_now_next(schedule_channel: dict[str, list[dict[str, Any]]], now: dat
         except Exception:
             continue
 
-        start_dt = now.replace(hour=st.hour, minute=st.minute, second=0, microsecond=0)
-        end_dt   = now.replace(hour=en.hour, minute=en.minute, second=0, microsecond=0)
+        start_dt = now.replace(hour=st.hour, minute=st.minute, second=st.second, microsecond=0)
+        end_dt   = now.replace(hour=en.hour, minute=en.minute, second=en.second, microsecond=0)
 
         # через полночь
         crosses_midnight = end_dt <= start_dt

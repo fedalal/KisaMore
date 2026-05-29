@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional, Any
-from datetime import datetime
+from datetime import datetime, time, timedelta
 
 from sqlalchemy import select
 
@@ -16,9 +16,36 @@ from .models import RackState, RackSchedule
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 
-def _in_any_range(now_hm: str, ranges: list[dict]) -> bool:
+def _parse_schedule_time(value: str) -> time:
+    parts = str(value or "").strip().split(":")
+    if len(parts) == 2:
+        hh, mm = parts
+        ss = 0
+    elif len(parts) == 3:
+        hh, mm, ss = parts
+    else:
+        raise ValueError("time must be HH:MM or HH:MM:SS")
+    return time(int(hh), int(mm), int(ss))
+
+
+def _in_any_range(now: datetime, ranges: list[dict]) -> bool:
     for r in ranges:
-        if r["start"] <= now_hm < r["end"]:
+        try:
+            st = _parse_schedule_time(r.get("start"))
+            en = _parse_schedule_time(r.get("end"))
+        except Exception:
+            continue
+
+        start_dt = now.replace(hour=st.hour, minute=st.minute, second=st.second, microsecond=0)
+        end_dt = now.replace(hour=en.hour, minute=en.minute, second=en.second, microsecond=0)
+
+        # поддержка интервалов через полночь, например 23:59:30–00:00:10
+        if end_dt <= start_dt:
+            end_dt += timedelta(days=1)
+            if now < start_dt:
+                start_dt -= timedelta(days=1)
+
+        if start_dt <= now < end_dt:
             return True
     return False
 
@@ -75,7 +102,6 @@ async def safety_reset_and_sync_relays() -> None:
     # 2) синхронизируем нужные состояния
     now = datetime.now()
     day_key = DAYS[now.weekday()]
-    now_hm = now.strftime("%H:%M")
 
     async with SessionLocal() as s:
         states = (await s.execute(select(RackState))).scalars().all()
@@ -96,7 +122,7 @@ async def safety_reset_and_sync_relays() -> None:
                 want_light = bool(st.light_on)
             else:
                 light_ranges = (((sch_json.get("light") or {}).get(day_key)) or [])
-                want_light = _in_any_range(now_hm, light_ranges)
+                want_light = _in_any_range(now, light_ranges)
                 st.light_on = want_light
 
             # Полив
@@ -104,7 +130,7 @@ async def safety_reset_and_sync_relays() -> None:
                 want_water = bool(st.water_on)
             else:
                 water_ranges = (((sch_json.get("water") or {}).get(day_key)) or [])
-                want_water = _in_any_range(now_hm, water_ranges)
+                want_water = _in_any_range(now, water_ranges)
                 st.water_on = want_water
 
             try:

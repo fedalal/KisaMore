@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from sqlalchemy import select
 from .config import settings
 from .db import SessionLocal
@@ -7,9 +7,36 @@ from .models import RackState, RackSchedule
 
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
-def _in_any_range(now_hm: str, ranges: list[dict]) -> bool:
+def _parse_schedule_time(value: str) -> time:
+    parts = str(value or "").strip().split(":")
+    if len(parts) == 2:
+        hh, mm = parts
+        ss = 0
+    elif len(parts) == 3:
+        hh, mm, ss = parts
+    else:
+        raise ValueError("time must be HH:MM or HH:MM:SS")
+    return time(int(hh), int(mm), int(ss))
+
+
+def _in_any_range(now: datetime, ranges: list[dict]) -> bool:
     for r in ranges:
-        if r["start"] <= now_hm < r["end"]:
+        try:
+            st = _parse_schedule_time(r.get("start"))
+            en = _parse_schedule_time(r.get("end"))
+        except Exception:
+            continue
+
+        start_dt = now.replace(hour=st.hour, minute=st.minute, second=st.second, microsecond=0)
+        end_dt = now.replace(hour=en.hour, minute=en.minute, second=en.second, microsecond=0)
+
+        # поддержка интервалов через полночь, например 23:59:30–00:00:10
+        if end_dt <= start_dt:
+            end_dt += timedelta(days=1)
+            if now < start_dt:
+                start_dt -= timedelta(days=1)
+
+        if start_dt <= now < end_dt:
             return True
     return False
 
@@ -42,7 +69,6 @@ class Scheduler:
 
         now = datetime.now()
         day_key = DAYS[now.weekday()]
-        now_hm = now.strftime("%H:%M")
 
         async with SessionLocal() as s:
             states = (await s.execute(select(RackState))).scalars().all()
@@ -57,7 +83,7 @@ class Scheduler:
 
                 if st.light_mode == "schedule":
                     light_ranges = (((sch_json.get("light") or {}).get(day_key)) or [])
-                    want = _in_any_range(now_hm, light_ranges)
+                    want = _in_any_range(now, light_ranges)
                     if want != st.light_on:
                         st.light_on = want
                         relay_id = self.runtime.cfg.racks[str(st.rack_id)].light_relay
@@ -65,7 +91,7 @@ class Scheduler:
 
                 if st.water_mode == "schedule":
                     water_ranges = (((sch_json.get("water") or {}).get(day_key)) or [])
-                    want = _in_any_range(now_hm, water_ranges)
+                    want = _in_any_range(now, water_ranges)
                     if want != st.water_on:
                         st.water_on = want
                         relay_id = self.runtime.cfg.racks[str(st.rack_id)].water_relay

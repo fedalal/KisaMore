@@ -285,6 +285,32 @@ function emptyChannel(){
   return c;
 }
 
+function pad2(n){
+  return String(n).padStart(2, "0");
+}
+
+function timeParts(value){
+  const parts = String(value || "").split(":");
+  const h = Number(parts[0] || 0);
+  const m = Number(parts[1] || 0);
+  const s = Number(parts[2] || 0);
+  return {h, m, s};
+}
+
+function timeToSeconds(value){
+  const {h, m, s} = timeParts(value);
+  if(!Number.isFinite(h) || !Number.isFinite(m) || !Number.isFinite(s)) return null;
+  return h * 3600 + m * 60 + s;
+}
+
+function formatTimeValue(value, withSeconds){
+  const {h, m, s} = timeParts(value);
+  if(withSeconds){
+    return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+  }
+  return `${pad2(h)}:${pad2(m)}`;
+}
+
 function normalizeSchedule(sch){
   const out = (sch && typeof sch === "object") ? sch : {};
   if(!out.light) out.light = emptyChannel();
@@ -292,6 +318,16 @@ function normalizeSchedule(sch){
   for(const d of DAYS){
     if(!Array.isArray(out.light[d.k])) out.light[d.k] = [];
     if(!Array.isArray(out.water[d.k])) out.water[d.k] = [];
+
+    out.light[d.k] = out.light[d.k].map(it => ({
+      start: formatTimeValue(it.start, false),
+      end: formatTimeValue(it.end, false),
+    }));
+
+    out.water[d.k] = out.water[d.k].map(it => ({
+      start: formatTimeValue(it.start, true),
+      end: formatTimeValue(it.end, true),
+    }));
   }
   return out;
 }
@@ -315,12 +351,15 @@ function setActiveTab(tab){
   renderScheduleTable();
 }
 
-function dayRow(dayKey, dayName, intervals){
+function dayRow(dayKey, dayName, intervals, channel){
+  const withSeconds = channel === "water";
+  const step = withSeconds ? 1 : 60;
+
   const items = intervals.map((it, idx) => `
     <div class="interval" data-day="${dayKey}" data-idx="${idx}">
-      <input type="time" value="${it.start}" data-field="start"/>
+      <input type="time" step="${step}" value="${formatTimeValue(it.start, withSeconds)}" data-field="start"/>
       <span class="muted">—</span>
-      <input type="time" value="${it.end}" data-field="end"/>
+      <input type="time" step="${step}" value="${formatTimeValue(it.end, withSeconds)}" data-field="end"/>
       <button class="iconBtn" title="Удалить" onclick="removeInterval('${dayKey}', ${idx})">🗑</button>
     </div>
   `).join("");
@@ -345,7 +384,7 @@ function renderScheduleTable(){
   const channel = current.tab;
   const data = current.schedule[channel];
 
-  const rows = DAYS.map(d => dayRow(d.k, d.n, data[d.k] || [])).join("");
+  const rows = DAYS.map(d => dayRow(d.k, d.n, data[d.k] || [], channel)).join("");
 
   cont.innerHTML = `
     <table class="table">
@@ -362,7 +401,7 @@ function renderScheduleTable(){
       const day = wrap.dataset.day;
       const idx = Number(wrap.dataset.idx);
       const field = e.target.dataset.field;
-      current.schedule[channel][day][idx][field] = e.target.value;
+      current.schedule[channel][day][idx][field] = formatTimeValue(e.target.value, channel === "water");
     });
   });
 }
@@ -375,7 +414,11 @@ function removeInterval(dayKey, idx){
 
 function addIntervalForDay(dayKey){
   const channel = current.tab;
-  current.schedule[channel][dayKey].push({start:"08:00", end:"20:00"});
+  if(channel === "water"){
+    current.schedule[channel][dayKey].push({start:"08:00:00", end:"08:01:00"});
+  }else{
+    current.schedule[channel][dayKey].push({start:"08:00", end:"20:00"});
+  }
   renderScheduleTable();
 }
 
@@ -387,7 +430,10 @@ function validateSchedule(){
     const arr = data[d.k] || [];
     for(const it of arr){
       if(!it.start || !it.end) return `Пустое время в ${d.n}`;
-      if(it.end <= it.start) return `Интервал должен быть start < end (${d.n})`;
+      const startSec = timeToSeconds(it.start);
+      const endSec = timeToSeconds(it.end);
+      if(startSec === null || endSec === null) return `Неверное время в ${d.n}`;
+      if(endSec <= startSec) return `Интервал должен быть start < end (${d.n})`;
     }
   }
   return null;
