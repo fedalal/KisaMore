@@ -492,6 +492,7 @@ function renderCfg(){
         <div>Реле света</div>
         <div>Реле полива</div>
         <div>Адрес датчика</div>
+        <div>Web камера</div>
       </div>
   `);
 
@@ -502,11 +503,13 @@ function renderCfg(){
       cfgState.racks[rk] = {
         light_relay: 1,
         water_relay: 2,
-        sensor_slave_id: i
+        sensor_slave_id: i,
+        camera_device: `/dev/video${i - 1}`
       };
     }
 
     const r = cfgState.racks[rk];
+    if(r.camera_device === undefined) r.camera_device = `/dev/video${i - 1}`;
 
     rows.push(`
       <div class="cfgTableRow">
@@ -535,6 +538,17 @@ function renderCfg(){
             onchange="cfgRackSensorChange(${i}, this.value)"
           />
         </div>
+        
+        <div>
+          <input
+            class="cfgInput"
+            type="text"
+            placeholder="/dev/video0"
+            value="${escapeHtml(r.camera_device ?? "")}"
+            onchange="cfgRackCameraChange(${i}, this.value)"
+          />
+        </div>
+
       </div>
     `);
   }
@@ -560,6 +574,12 @@ function cfgRackSensorChange(rackId, value){
   cfgState.racks[rk].sensor_slave_id = Number(v);
 }
 
+function cfgRackCameraChange(rackId, value){
+  const rk = String(rackId);
+  const v = String(value).trim();
+  cfgState.racks[rk].camera_device = v || null;
+}
+
 function cfgRacksCountChange(value){
   let n = Number(value);
   if(!Number.isFinite(n)) n = 1;
@@ -572,7 +592,8 @@ function cfgRacksCountChange(value){
       cfgState.racks[k] = {
         light_relay:1,
         water_relay:2,
-        sensor_slave_id:i
+        sensor_slave_id:i,
+        camera_device:`/dev/video${i - 1}`
       };
     }
   }
@@ -596,7 +617,8 @@ async function loadCfg(){
         cfgState.racks[k] = {
           light_relay:1,
           water_relay:2,
-          sensor_slave_id:i
+          sensor_slave_id:i,
+          camera_device:`/dev/video${i - 1}`
         };
       }
     }

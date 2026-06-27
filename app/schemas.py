@@ -49,6 +49,7 @@ class RackHWOut(BaseModel):
     light_relay: int
     water_relay: int
     sensor_slave_id: Optional[int] = None
+    camera_device: Optional[str] = None
 
 class HWConfigOut(BaseModel):
     racks_count: int 
