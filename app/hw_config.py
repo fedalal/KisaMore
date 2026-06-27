@@ -6,6 +6,13 @@ import os
 import yaml
 
 
+class CameraCaptureConfig(BaseModel):
+    enabled: bool = True
+    interval_seconds: int = Field(default=30, ge=5, le=86400)
+    google_folder_id: Optional[str] = None
+    credentials_file: Optional[str] = None
+    jpeg_quality: int = Field(default=85, ge=30, le=100)
+
 class RackHW(BaseModel):
     light_relay: int = Field(ge=1, le=16)
     water_relay: int = Field(ge=1, le=16)
@@ -32,6 +39,9 @@ class HWConfig(BaseModel):
 
     # NEW: датчики уровня/входы (имя -> GPIO BCM)
     level_sensors: Dict[str, int] = Field(default_factory=dict)
+
+    # Настройки автоматической отправки фото с камер в Google Drive
+    camera_capture: CameraCaptureConfig = Field(default_factory=CameraCaptureConfig)
 
     @field_validator("racks")
     @classmethod
@@ -93,18 +103,29 @@ def load_config() -> HWConfig:
                 coil_base=0,
                 timeout=1.0,
             ),
-            # NEW: дефолтные входы (первый — твой текущий)
             level_sensors={
                 "level_1": 22,
                 "level_2": 27,
                 "level_3": 17,
             },
+            camera_capture=CameraCaptureConfig(
+                enabled=True,
+                interval_seconds=30,
+                google_folder_id=None,
+                credentials_file=None,
+                jpeg_quality=85,
+            ),
         )
         save_config(cfg)
         return cfg
 
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
+
+    need_save = False
+
+    if "camera_capture" not in data:
+        need_save = True
 
     cfg = HWConfig.model_validate(data)
 
@@ -117,18 +138,20 @@ def load_config() -> HWConfig:
                 sensor_slave_id=i,
                 camera_device=f"/dev/video{i - 1}",
             )
+            need_save = True
 
-    # NEW: если секции нет — создаём дефолты и сохраняем в YAML
     if not cfg.level_sensors:
         cfg.level_sensors = {
             "level_1": 22,
             "level_2": 27,
             "level_3": 17,
         }
+        need_save = True
+
+    if need_save:
         save_config(cfg)
 
     return cfg
-
 
 def save_config(cfg: HWConfig) -> None:
     path = config_path()
