@@ -157,7 +157,11 @@ function cameraButtonHtml(r){
       onclick="openCameraWindow(${r.rack_id}, '${escapeHtml(r.camera_device)}')"
       aria-label="Открыть камеру"
     >
-      📷
+      <svg class="cameraIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7.5 7.25 8.8 5.5h6.4l1.3 1.75h2.25c1.1 0 2 .9 2 2v8.25c0 1.1-.9 2-2 2H5.25c-1.1 0-2-.9-2-2V9.25c0-1.1.9-2 2-2H7.5Z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+        <circle cx="18" cy="10" r="1"></circle>
+      </svg>
     </button>
   `;
 }
