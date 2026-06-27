@@ -15,6 +15,8 @@ from .routes_inputs import router as inputs_router
 from .routes_camera import router as camera_router
 from .sensor_history_service import SensorHistoryService
 from .routes_sensor_history import router as sensor_history_router
+from .camera_capture_service import camera_capture_service
+from .camera_manager import camera_manager
 
 
 import subprocess
@@ -56,8 +58,14 @@ async def on_startup():
     # 4) запись истории в БД
     await sensor_history_service.start()
 
+    # 5) отправка фото с камер в Google Drive
+    await camera_capture_service.start()
+
 @app.on_event("shutdown")
 async def on_shutdown():
+    await camera_capture_service.stop()
+    camera_manager.stop_all()
+
     await scheduler.stop()
 
     await sensor_history_service.stop()

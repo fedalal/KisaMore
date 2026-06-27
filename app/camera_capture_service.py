@@ -1,0 +1,117 @@
+import asyncio
+from datetime import datetime
+import os
+
+from . import runtime
+from .camera_manager import camera_manager
+from .google_drive_uploader import GoogleDriveUploader
+
+
+class CameraCaptureService:
+    def __init__(self):
+        self.task: asyncio.Task | None = None
+        self.stop_event = asyncio.Event()
+        self.uploader: GoogleDriveUploader | None = None
+        self.uploader_key: tuple[str, str] | None = None
+
+    async def start(self):
+        if self.task and not self.task.done():
+            return
+
+        self.stop_event.clear()
+        self.task = asyncio.create_task(self._run())
+
+    async def stop(self):
+        self.stop_event.set()
+
+        if self.task:
+            self.task.cancel()
+
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
+
+    def _get_uploader(self):
+        if not runtime.cfg:
+            return None
+
+        cfg = runtime.cfg.camera_capture
+
+        if not cfg.credentials_file or not cfg.google_folder_id:
+            return None
+
+        key = (cfg.credentials_file, cfg.google_folder_id)
+
+        if self.uploader is None or self.uploader_key != key:
+            self.uploader = GoogleDriveUploader(
+                credentials_file=cfg.credentials_file,
+                folder_id=cfg.google_folder_id,
+            )
+            self.uploader_key = key
+
+        return self.uploader
+
+    async def _run(self):
+        await asyncio.sleep(5)
+
+        while not self.stop_event.is_set():
+            try:
+                await self._capture_once()
+            except Exception as e:
+                print(f"[camera-capture] error: {e}")
+
+            interval = 30
+
+            if runtime.cfg and runtime.cfg.camera_capture:
+                interval = runtime.cfg.camera_capture.interval_seconds
+
+            await asyncio.sleep(interval)
+
+    async def _capture_once(self):
+        if not runtime.cfg:
+            print("[camera-capture] config is not loaded")
+            return
+
+        cfg = runtime.cfg.camera_capture
+
+        if not cfg.enabled:
+            return
+
+        uploader = self._get_uploader()
+
+        if uploader is None:
+            print("[camera-capture] Google Drive не настроен: credentials_file или google_folder_id пустые")
+            return
+
+        quality = cfg.jpeg_quality
+
+        for rack_id, rack_cfg in runtime.cfg.racks.items():
+            device = (rack_cfg.camera_device or "").strip()
+
+            if not device:
+                continue
+
+            if not os.path.exists(device):
+                print(f"[camera-capture] camera not found: rack={rack_id}, device={device}")
+                continue
+
+            jpeg = camera_manager.get_jpeg(device, quality)
+
+            if not jpeg:
+                print(f"[camera-capture] no frame yet: rack={rack_id}, device={device}")
+                continue
+
+            now = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"rack_{rack_id}_{now}.jpg"
+
+            result = await asyncio.to_thread(
+                uploader.upload_jpeg_bytes,
+                jpeg,
+                filename,
+            )
+
+            print(f"[camera-capture] uploaded {filename}: {result}")
+
+
+camera_capture_service = CameraCaptureService()
