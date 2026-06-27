@@ -147,6 +147,18 @@ function toggleHtml(id, isManual, rackId, channel){
   `;
 }
 
+function cameraButtonHtml(r){
+  if(!r.camera_device) return "";
+
+  return `
+    <button
+      class="btn btn--ghost btn--eye"
+      title="Открыть камеру ${escapeHtml(r.camera_device)}"
+      onclick="openCameraWindow(${r.rack_id}, '${escapeHtml(r.camera_device)}')"
+    >👁</button>
+  `;
+}
+
 function cardHtml(r){
   const lightToggle = toggleHtml(`t-light-${r.rack_id}`, r.light_mode === "manual", r.rack_id, "light");
   const waterToggle = toggleHtml(`t-water-${r.rack_id}`, r.water_mode === "manual", r.rack_id, "water");
@@ -158,6 +170,7 @@ function cardHtml(r){
         <div class="card__title">Стеллаж ${r.rack_id}</div>
         <div class="card__meta">Режимы: 💡 ${modeRu(r.light_mode)} · 💧 ${modeRu(r.water_mode)}</div>
       </div>
+       ${cameraButtonHtml(r)}
       <button class="btn btn--ghost" onclick="openSchedule(${r.rack_id})">Расписание</button>
     </div>
 
@@ -273,6 +286,100 @@ async function onToggleMode(rackId, channel, checked){
     isBusy = false;
   }
   await refresh();
+}
+
+/* ===== Camera window ===== */
+
+function openCameraWindow(rackId, device){
+  const win = document.getElementById("cameraWindow");
+  const img = document.getElementById("cameraImg");
+  const title = document.getElementById("cameraTitle");
+  const sub = document.getElementById("cameraSub");
+
+  if(!win || !img) return;
+
+  title.textContent = `Камера · Стеллаж ${rackId}`;
+  sub.textContent = device || "";
+
+  img.src = `/api/rack/${rackId}/camera/stream?t=${Date.now()}`;
+
+  win.classList.add("show");
+  win.setAttribute("aria-hidden", "false");
+}
+
+function closeCameraWindow(){
+  const win = document.getElementById("cameraWindow");
+  const img = document.getElementById("cameraImg");
+
+  if(img) img.removeAttribute("src");
+
+  if(win){
+    win.classList.remove("show");
+    win.setAttribute("aria-hidden", "true");
+  }
+}
+
+function initCameraWindowDrag(){
+  const win = document.getElementById("cameraWindow");
+  const handle = document.getElementById("cameraDragHandle");
+  const closeBtn = document.getElementById("cameraClose");
+
+  if(!win || !handle) return;
+
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+
+  handle.addEventListener("mousedown", (e)=>{
+    if(e.target.closest("button")) return;
+
+    dragging = true;
+
+    const rect = win.getBoundingClientRect();
+
+    startX = e.clientX;
+    startY = e.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+
+    win.style.left = `${startLeft}px`;
+    win.style.top = `${startTop}px`;
+    win.style.right = "auto";
+    win.style.bottom = "auto";
+
+    document.body.classList.add("draggingCamera");
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", (e)=>{
+    if(!dragging) return;
+
+    const newLeft = Math.max(
+      0,
+      Math.min(window.innerWidth - win.offsetWidth, startLeft + e.clientX - startX)
+    );
+
+    const newTop = Math.max(
+      0,
+      Math.min(window.innerHeight - win.offsetHeight, startTop + e.clientY - startY)
+    );
+
+    win.style.left = `${newLeft}px`;
+    win.style.top = `${newTop}px`;
+  });
+
+  window.addEventListener("mouseup", ()=>{
+    if(!dragging) return;
+
+    dragging = false;
+    document.body.classList.remove("draggingCamera");
+  });
+
+  if(closeBtn){
+    closeBtn.addEventListener("click", closeCameraWindow);
+  }
 }
 
 /* ===== Schedule modal ===== */
@@ -552,7 +659,7 @@ function renderCfg(){
           <input
             class="cfgInput"
             type="text"
-            placeholder="/dev/video0"
+            placeholder="/dev/video"
             value="${escapeHtml(r.camera_device ?? "")}"
             onchange="cfgRackCameraChange(${i}, this.value)"
           />
@@ -787,5 +894,6 @@ document.getElementById("cfgCancel").addEventListener("click", ()=>openCfgModal(
 document.getElementById("cfgSave").addEventListener("click", saveCfg);
 document.getElementById("cfgRacksCount").addEventListener("change", (e)=>cfgRacksCountChange(e.target.value));
 
+initCameraWindowDrag();
 refresh();
 startAutoRefresh();

@@ -12,6 +12,7 @@ from .routes_manual import router as manual_router
 from .routes_schedule import router as schedule_router
 from .routes_config import router as config_router
 from .routes_inputs import router as inputs_router
+from .routes_camera import router as camera_router
 from .sensor_history_service import SensorHistoryService
 from .routes_sensor_history import router as sensor_history_router
 
@@ -27,6 +28,7 @@ app.include_router(schedule_router)
 app.include_router(config_router)
 app.include_router(inputs_router)
 app.include_router(sensor_history_router)
+app.include_router(camera_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")

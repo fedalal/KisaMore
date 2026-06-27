@@ -50,6 +50,21 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   flex-wrap:wrap;
 }
 .card__title{font-weight:900;font-size:16px;line-height:1.2}
+
+.card__actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.btn--eye{
+  font-size:16px;
+  line-height:1;
+  padding:10px 12px;
+}
+
 .card__meta{color:var(--muted);font-size:12px;margin-top:4px;max-width:100%;word-break:break-word}
 
 .badges{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
@@ -178,6 +193,79 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 .row{display:flex;gap:10px;align-items:center;margin-top:12px}
 .row--end{justify-content:flex-end}
 @media (max-width: 760px){.day{width:72px}}
+
+/* Camera floating window */
+.cameraWindow{
+  position:fixed;
+  right:24px;
+  bottom:24px;
+  width:min(720px, calc(100vw - 32px));
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:20px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  display:none;
+  z-index:80;
+}
+
+.cameraWindow.show{
+  display:block;
+}
+
+.cameraWindow__head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+  background:#f8fafc;
+  cursor:move;
+  user-select:none;
+}
+
+.cameraWindow__title{
+  font-weight:900;
+  font-size:15px;
+}
+
+.cameraWindow__sub{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:2px;
+}
+
+.cameraWindow__body{
+  background:#020617;
+  padding:10px;
+}
+
+.cameraWindow__img{
+  display:block;
+  width:100%;
+  max-height:70vh;
+  object-fit:contain;
+  border-radius:12px;
+  background:#020617;
+}
+
+.cameraWindow__close{
+  cursor:pointer;
+}
+
+.draggingCamera{
+  user-select:none;
+}
+
+@media (max-width: 760px){
+  .cameraWindow{
+    left:12px!important;
+    right:12px;
+    bottom:12px;
+    width:auto;
+  }
+}
 
 /* Config UI */
 .cfgSectionTitle{margin-top:14px;margin-bottom:8px;font-weight:900}

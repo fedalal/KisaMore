@@ -54,6 +54,10 @@ async def get_state():
 
             soil_moisture, soil_temperature = await _read_soil_sensor_for_rack(r.rack_id)
 
+            rack_cfg = runtime.cfg.racks.get(str(r.rack_id)) if runtime.cfg else None
+            camera_device = rack_cfg.camera_device if rack_cfg else None
+
+
             out.append(RackStateOut(
                 rack_id=r.rack_id,
                 light_on=r.light_on,
@@ -66,6 +70,7 @@ async def get_state():
                 water_next=water_next,
                 soil_moisture=soil_moisture,
                 soil_temperature=soil_temperature,
+                camera_device=camera_device,
             ))
 
         return out

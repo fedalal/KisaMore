@@ -38,6 +38,8 @@ class RackStateOut(BaseModel):
     soil_moisture: Optional[float] = None
     soil_temperature: Optional[float] = None
 
+    camera_device: Optional[str] = None
+
 
 class ManualSetIn(BaseModel):
     on: bool
