@@ -155,9 +155,16 @@ function cameraButtonHtml(r){
       class="btn btn--ghost btn--eye"
       title="Открыть камеру ${escapeHtml(r.camera_device)}"
       onclick="openCameraWindow(${r.rack_id}, '${escapeHtml(r.camera_device)}')"
-    >👁</button>
+      aria-label="Открыть камеру"
+    >
+      <svg class="eyeIcon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2.25 12s3.5-6.75 9.75-6.75S21.75 12 21.75 12 18.25 18.75 12 18.75 2.25 12 2.25 12Z"></path>
+        <circle cx="12" cy="12" r="3.25"></circle>
+      </svg>
+    </button>
   `;
 }
+
 
 function cardHtml(r){
   const lightToggle = toggleHtml(`t-light-${r.rack_id}`, r.light_mode === "manual", r.rack_id, "light");
