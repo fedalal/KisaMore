@@ -70,8 +70,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 }
 
 .cameraIcon{
-  width:32px;
-  height:32px;
+  width:36px;
+  height:36px;
   display:block;
 }
 
@@ -84,13 +84,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   stroke-linejoin:round;
 }
 
-.btn--eye:hover{
-  transform:translateY(-1px);
-}
-
-.btn--eye:active{
-  transform:translateY(0);
-}
 
 
 .card__meta{color:var(--muted);font-size:12px;margin-top:4px;max-width:100%;word-break:break-word}
