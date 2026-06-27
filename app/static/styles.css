@@ -60,8 +60,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 }
 
 .btn--eye{
-  width:48px;
-  height:48px;
+  width:40px;
+  height:40px;
   padding:0;
   display:inline-flex;
   align-items:center;
