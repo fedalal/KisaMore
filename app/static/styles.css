@@ -57,6 +57,22 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   gap:8px;
   flex-wrap:wrap;
   justify-content:flex-end;
+  max-width:100%;
+}
+
+.card__head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.card__head > div:first-child{
+  min-width:0;
+}
+
+.card__actions{
+  flex-shrink:0;
 }
 
 .btn--eye{
