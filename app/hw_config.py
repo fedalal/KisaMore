@@ -11,6 +11,7 @@ class CameraCaptureConfig(BaseModel):
     interval_seconds: int = Field(default=30, ge=5, le=86400)
     google_folder_id: Optional[str] = None
     credentials_file: Optional[str] = None
+    token_file: Optional[str] = None
     jpeg_quality: int = Field(default=85, ge=30, le=100)
 
 class RackHW(BaseModel):

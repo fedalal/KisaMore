@@ -38,15 +38,16 @@ class CameraCaptureService:
 
         cfg = runtime.cfg.camera_capture
 
-        if not cfg.credentials_file or not cfg.google_folder_id:
+        if not cfg.credentials_file or not cfg.google_folder_id or not cfg.token_file:
             return None
 
-        key = (cfg.credentials_file, cfg.google_folder_id)
+        key = (cfg.credentials_file, cfg.google_folder_id, cfg.token_file)
 
         if self.uploader is None or self.uploader_key != key:
             self.uploader = GoogleDriveUploader(
                 credentials_file=cfg.credentials_file,
                 folder_id=cfg.google_folder_id,
+                token_file=cfg.token_file,
             )
             self.uploader_key = key
 
@@ -81,7 +82,7 @@ class CameraCaptureService:
         uploader = self._get_uploader()
 
         if uploader is None:
-            print("[camera-capture] Google Drive не настроен: credentials_file или google_folder_id пустые")
+            print("[camera-capture] Google Drive не настроен: credentials_file, token_file или google_folder_id пустые")
             return
 
         quality = cfg.jpeg_quality
