@@ -29,7 +29,21 @@ def _get_camera_device(rack_id: int) -> str:
 
 def _mjpeg_generator(device: str):
     while True:
-        jpeg = camera_manager.get_jpeg(device)
+        quality = 90
+        frame_width = 1280
+        frame_height = 720
+
+        if runtime.cfg and runtime.cfg.camera_capture:
+            quality = runtime.cfg.camera_capture.jpeg_quality
+            frame_width = runtime.cfg.camera_capture.frame_width
+            frame_height = runtime.cfg.camera_capture.frame_height
+
+        jpeg = camera_manager.get_jpeg(
+            device=device,
+            jpeg_quality=quality,
+            frame_width=frame_width,
+            frame_height=frame_height,
+        )
 
         if jpeg:
             yield (

@@ -12,7 +12,17 @@ class CameraCaptureConfig(BaseModel):
     google_folder_id: Optional[str] = None
     credentials_file: Optional[str] = None
     token_file: Optional[str] = None
-    jpeg_quality: int = Field(default=85, ge=30, le=100)
+
+    # Качество JPEG
+    jpeg_quality: int = Field(default=90, ge=30, le=100)
+
+    # Разрешение камеры
+    frame_width: int = Field(default=1280, ge=320, le=3840)
+    frame_height: int = Field(default=720, ge=240, le=2160)
+
+    # Делать фото только если на полке включён свет
+    only_when_light_on: bool = True
+
 
 class RackHW(BaseModel):
     light_relay: int = Field(ge=1, le=16)
