@@ -92,17 +92,27 @@ class CameraWorker:
                     width = self.frame_width
                     height = self.frame_height
 
+                # Важно: у новой камеры высокие разрешения доступны именно в MJPG.
+                # Если не указать FOURCC, OpenCV может открыть камеру в YUYV
+                # и получить более низкое разрешение.
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                 self.cap.set(cv2.CAP_PROP_FPS, 15)
 
                 actual_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 actual_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                actual_fourcc = int(self.cap.get(cv2.CAP_PROP_FOURCC))
+                actual_fourcc_text = "".join(
+                    chr((actual_fourcc >> 8 * i) & 0xFF)
+                    for i in range(4)
+                )
 
                 print(
                     f"[camera-manager] {self.device} requested={width}x{height}, "
-                    f"actual={actual_width}x{actual_height}"
+                    f"actual={actual_width}x{actual_height}, fourcc={actual_fourcc_text}"
                 )
+
 
                 while not self.stop_event.is_set():
                     ok, frame = self.cap.read()
