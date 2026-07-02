@@ -171,12 +171,12 @@ class CameraWorker:
 
 
     @staticmethod
+    @staticmethod
     def _apply_perspective_warp(frame: Any, enabled: bool, points: Optional[list[float]]) -> Any:
         if not enabled or not points or len(points) != 8:
             return frame
 
         try:
-            h, w = frame.shape[:2]
             src = np.float32([
                 [points[0], points[1]],  # левый верхний
                 [points[2], points[3]],  # правый верхний
@@ -184,19 +184,33 @@ class CameraWorker:
                 [points[6], points[7]],  # левый нижний
             ])
 
+            # Итоговый размер считаем по выбранной трапеции, а не по размеру всего кадра.
+            # Иначе область растягивается на 1280x720 и перспектива выглядит неестественно.
+            width_top = np.linalg.norm(src[1] - src[0])
+            width_bottom = np.linalg.norm(src[2] - src[3])
+            max_width = int(round(max(width_top, width_bottom)))
+
+            height_right = np.linalg.norm(src[2] - src[1])
+            height_left = np.linalg.norm(src[3] - src[0])
+            max_height = int(round(max(height_left, height_right)))
+
+            if max_width < 2 or max_height < 2:
+                return frame
+
             dst = np.float32([
                 [0, 0],
-                [w - 1, 0],
-                [w - 1, h - 1],
-                [0, h - 1],
+                [max_width - 1, 0],
+                [max_width - 1, max_height - 1],
+                [0, max_height - 1],
             ])
 
             matrix = cv2.getPerspectiveTransform(src, dst)
-            return cv2.warpPerspective(frame, matrix, (w, h))
+            return cv2.warpPerspective(frame, matrix, (max_width, max_height))
+
         except Exception as e:
             print(f"[camera-manager] perspective warp error: {e}")
             return frame
-
+        
     def get_error(self) -> Optional[str]:
         with self.lock:
             return self.frame.last_error
