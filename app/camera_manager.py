@@ -1,28 +1,26 @@
 import threading
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 
 import cv2
 
 
 @dataclass
 class CameraFrame:
-    frame_jpeg: Optional[bytes] = None
+    frame: Optional[Any] = None
     last_error: Optional[str] = None
     updated_at: float = 0.0
 
 
 class CameraWorker:
     def __init__(
-        self,
-        device: str,
-        jpeg_quality: int = 90,
-        frame_width: int = 1280,
-        frame_height: int = 720,
+         self,
+         device: str,
+         frame_width: int = 1280,
+         frame_height: int = 720,
     ):
         self.device = device
-        self.jpeg_quality = jpeg_quality
         self.frame_width = frame_width
         self.frame_height = frame_height
 
@@ -34,7 +32,6 @@ class CameraWorker:
 
     def update_settings(
         self,
-        jpeg_quality: int = 90,
         frame_width: int = 1280,
         frame_height: int = 720,
     ):
@@ -44,7 +41,6 @@ class CameraWorker:
             if self.frame_width != frame_width or self.frame_height != frame_height:
                 need_restart = True
 
-            self.jpeg_quality = jpeg_quality
             self.frame_width = frame_width
             self.frame_height = frame_height
 
@@ -122,21 +118,9 @@ class CameraWorker:
                         time.sleep(0.3)
                         continue
 
-                    with self.lock:
-                        quality = self.jpeg_quality
-
-                    ok, jpg = cv2.imencode(
-                        ".jpg",
-                        frame,
-                        [int(cv2.IMWRITE_JPEG_QUALITY), quality],
-                    )
-
-                    if not ok:
-                        self._set_error(f"Не удалось закодировать кадр с {self.device}")
-                        continue
 
                     with self.lock:
-                        self.frame.frame_jpeg = jpg.tobytes()
+                        self.frame.frame = frame
                         self.frame.last_error = None
                         self.frame.updated_at = time.time()
 
@@ -151,9 +135,35 @@ class CameraWorker:
                     self.cap.release()
                     self.cap = None
 
-    def get_jpeg(self) -> Optional[bytes]:
+    def get_jpeg(
+            self,
+            jpeg_quality: int = 90,
+            flip_vertical: bool = False,
+            flip_horizontal: bool = False,
+    ) -> Optional[bytes]:
         with self.lock:
-            return self.frame.frame_jpeg
+            if self.frame.frame is None:
+                return None
+            frame = self.frame.frame.copy()
+
+        if flip_vertical and flip_horizontal:
+            frame = cv2.flip(frame, -1)
+        elif flip_vertical:
+            frame = cv2.flip(frame, 0)
+        elif flip_horizontal:
+            frame = cv2.flip(frame, 1)
+
+        ok, jpg = cv2.imencode(
+            ".jpg",
+            frame,
+            [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality],
+        )
+
+        if not ok:
+            self._set_error(f"Не удалось закодировать кадр с {self.device}")
+            return None
+
+        return jpg.tobytes()
 
     def get_error(self) -> Optional[str]:
         with self.lock:
@@ -168,7 +178,6 @@ class CameraManager:
     def get_worker(
         self,
         device: str,
-        jpeg_quality: int = 90,
         frame_width: int = 1280,
         frame_height: int = 720,
     ) -> CameraWorker:
@@ -176,7 +185,6 @@ class CameraManager:
             if device not in self.workers:
                 worker = CameraWorker(
                     device=device,
-                    jpeg_quality=jpeg_quality,
                     frame_width=frame_width,
                     frame_height=frame_height,
                 )
@@ -185,7 +193,6 @@ class CameraManager:
             else:
                 worker = self.workers[device]
                 worker.update_settings(
-                    jpeg_quality=jpeg_quality,
                     frame_width=frame_width,
                     frame_height=frame_height,
                 )
@@ -193,20 +200,25 @@ class CameraManager:
             return worker
 
     def get_jpeg(
-        self,
-        device: str,
-        jpeg_quality: int = 90,
-        frame_width: int = 1280,
-        frame_height: int = 720,
+            self,
+            device: str,
+            jpeg_quality: int = 90,
+            frame_width: int = 1280,
+            frame_height: int = 720,
+            flip_vertical: bool = False,
+            flip_horizontal: bool = False,
     ) -> Optional[bytes]:
         worker = self.get_worker(
             device=device,
-            jpeg_quality=jpeg_quality,
             frame_width=frame_width,
             frame_height=frame_height,
         )
-        return worker.get_jpeg()
 
+        return worker.get_jpeg(
+            jpeg_quality=jpeg_quality,
+            flip_vertical=flip_vertical,
+            flip_horizontal=flip_horizontal,
+        )
     def get_error(self, device: str) -> Optional[str]:
         worker = self.get_worker(device)
         return worker.get_error()

@@ -29,6 +29,8 @@ class RackHW(BaseModel):
     water_relay: int = Field(ge=1, le=16)
     sensor_slave_id: Optional[int] = Field(default=None, ge=1, le=247)
     camera_device: Optional[str] = Field(default=None, max_length=255)
+    camera_flip_vertical: bool = False
+    camera_flip_horizontal: bool = False
 
 class RS485Settings(BaseModel):
     port: str = Field(min_length=1)                 # "/dev/ttyUSB0" или "COM3"

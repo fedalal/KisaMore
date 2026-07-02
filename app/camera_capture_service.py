@@ -124,6 +124,8 @@ class CameraCaptureService:
                 jpeg_quality=quality,
                 frame_width=frame_width,
                 frame_height=frame_height,
+                flip_vertical=rack_cfg.camera_flip_vertical,
+                flip_horizontal=rack_cfg.camera_flip_horizontal,
             )
 
             if not jpeg:

@@ -56,6 +56,8 @@ async def get_state():
 
             rack_cfg = runtime.cfg.racks.get(str(r.rack_id)) if runtime.cfg else None
             camera_device = rack_cfg.camera_device if rack_cfg else None
+            camera_flip_vertical = rack_cfg.camera_flip_vertical if rack_cfg else False
+            camera_flip_horizontal = rack_cfg.camera_flip_horizontal if rack_cfg else False
 
 
             out.append(RackStateOut(
@@ -71,6 +73,8 @@ async def get_state():
                 soil_moisture=soil_moisture,
                 soil_temperature=soil_temperature,
                 camera_device=camera_device,
+                camera_flip_vertical=camera_flip_vertical,
+                camera_flip_horizontal=camera_flip_horizontal,
             ))
 
         return out

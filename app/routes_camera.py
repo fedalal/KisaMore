@@ -4,18 +4,19 @@ from . import runtime
 from .camera_manager import camera_manager
 import os
 import time
+from .hw_config import RackHW
 
 router = APIRouter(prefix="/api", tags=["camera"])
 
 
-def _get_camera_device(rack_id: int) -> str:
+def _get_camera_config(rack_id: int) -> tuple[str, RackHW]:
     if not runtime.cfg:
         raise HTTPException(status_code=503, detail="Конфигурация ещё не загружена")
 
     rack_cfg = runtime.cfg.racks.get(str(rack_id))
     device = (rack_cfg.camera_device or "").strip() if rack_cfg else ""
 
-    if not device:
+    if not rack_cfg or not device:
         raise HTTPException(status_code=404, detail="Для этой полки web камера не указана")
 
     if not device.startswith("/dev/video"):
@@ -24,11 +25,12 @@ def _get_camera_device(rack_id: int) -> str:
     if not os.path.exists(device):
         raise HTTPException(status_code=404, detail=f"Устройство камеры не найдено: {device}")
 
-    return device
+    return device, rack_cfg
 
-
-def _mjpeg_generator(device: str):
+def _mjpeg_generator(rack_id: int):
     while True:
+        device, rack_cfg = _get_camera_config(rack_id)
+
         quality = 90
         frame_width = 1280
         frame_height = 720
@@ -43,6 +45,8 @@ def _mjpeg_generator(device: str):
             jpeg_quality=quality,
             frame_width=frame_width,
             frame_height=frame_height,
+            flip_vertical=rack_cfg.camera_flip_vertical,
+            flip_horizontal=rack_cfg.camera_flip_horizontal,
         )
 
         if jpeg:
@@ -58,10 +62,10 @@ def _mjpeg_generator(device: str):
 
 @router.get("/rack/{rack_id}/camera/stream")
 def camera_stream(rack_id: int):
-    device = _get_camera_device(rack_id)
+    _get_camera_config(rack_id)
 
     return StreamingResponse(
-        _mjpeg_generator(device),
+        _mjpeg_generator(rack_id),
         media_type="multipart/x-mixed-replace; boundary=frame",
         headers={"Cache-Control": "no-store"},
     )
@@ -69,11 +73,13 @@ def camera_stream(rack_id: int):
 
 @router.get("/rack/{rack_id}/camera/info")
 async def camera_info(rack_id: int):
-    device = _get_camera_device(rack_id)
+    device, rack_cfg = _get_camera_config(rack_id)
 
     return {
         "rack_id": rack_id,
         "camera_device": device,
+        "camera_flip_vertical": rack_cfg.camera_flip_vertical,
+        "camera_flip_horizontal": rack_cfg.camera_flip_horizontal,
         "exists": True,
         "last_error": camera_manager.get_error(device),
     }

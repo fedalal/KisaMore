@@ -617,6 +617,7 @@ function renderCfg(){
         <div>Реле полива</div>
         <div>Адрес датчика</div>
         <div>Web камера</div>
+        <div>Поворот камеры</div>
       </div>
   `);
 
@@ -628,12 +629,17 @@ function renderCfg(){
         light_relay: 1,
         water_relay: 2,
         sensor_slave_id: i,
-        camera_device: `/dev/video${i - 1}`
+        camera_device: `/dev/video${i - 1}`,
+        camera_flip_vertical: false,
+        camera_flip_horizontal: false
       };
     }
 
     const r = cfgState.racks[rk];
     if(r.camera_device === undefined) r.camera_device = `/dev/video${i - 1}`;
+
+    if(r.camera_flip_vertical === undefined) r.camera_flip_vertical = false;
+    if(r.camera_flip_horizontal === undefined) r.camera_flip_horizontal = false;
 
     rows.push(`
       <div class="cfgTableRow">
@@ -672,6 +678,26 @@ function renderCfg(){
             onchange="cfgRackCameraChange(${i}, this.value)"
           />
         </div>
+        
+        <div class="cfgChecks">
+        <label class="cfgCheck">
+          <input
+            type="checkbox"
+            ${r.camera_flip_vertical ? "checked" : ""}
+            onchange="cfgRackCameraFlipChange(${i}, 'camera_flip_vertical', this.checked)"
+          />
+          <span>Поворот верх/низ</span>
+        </label>
+      
+        <label class="cfgCheck">
+          <input
+            type="checkbox"
+            ${r.camera_flip_horizontal ? "checked" : ""}
+            onchange="cfgRackCameraFlipChange(${i}, 'camera_flip_horizontal', this.checked)"
+          />
+          <span>Поворот влево/вправо</span>
+        </label>
+      </div>
 
       </div>
     `);
@@ -704,6 +730,12 @@ function cfgRackCameraChange(rackId, value){
   cfgState.racks[rk].camera_device = v || null;
 }
 
+function cfgRackCameraFlipChange(rackId, field, checked){
+  const rk = String(rackId);
+  cfgState.racks[rk][field] = Boolean(checked);
+}
+
+
 function cfgRacksCountChange(value){
   let n = Number(value);
   if(!Number.isFinite(n)) n = 1;
@@ -717,7 +749,9 @@ function cfgRacksCountChange(value){
         light_relay:1,
         water_relay:2,
         sensor_slave_id:i,
-        camera_device:`/dev/video${i - 1}`
+        camera_device:`/dev/video${i - 1}`,
+        camera_flip_vertical:false,
+        camera_flip_horizontal:false
       };
     }
   }
@@ -742,7 +776,9 @@ async function loadCfg(){
           light_relay:1,
           water_relay:2,
           sensor_slave_id:i,
-          camera_device:`/dev/video${i - 1}`
+          camera_device:`/dev/video${i - 1}`,
+          camera_flip_vertical:false,
+          camera_flip_horizontal:false
         };
       }
     }

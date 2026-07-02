@@ -39,7 +39,8 @@ class RackStateOut(BaseModel):
     soil_temperature: Optional[float] = None
 
     camera_device: Optional[str] = None
-
+    camera_flip_vertical: bool = False
+    camera_flip_horizontal: bool = False
 
 class ManualSetIn(BaseModel):
     on: bool
@@ -52,6 +53,8 @@ class RackHWOut(BaseModel):
     water_relay: int
     sensor_slave_id: Optional[int] = None
     camera_device: Optional[str] = None
+    camera_flip_vertical: bool = False
+    camera_flip_horizontal: bool = False
 
 class HWConfigOut(BaseModel):
     racks_count: int 
