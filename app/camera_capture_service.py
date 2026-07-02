@@ -2,6 +2,8 @@ import asyncio
 from datetime import datetime
 import os
 
+from pathlib import Path
+
 from sqlalchemy import select
 from .db import SessionLocal
 from .models import RackState
@@ -66,6 +68,73 @@ class CameraCaptureService:
 
         return self.uploader
 
+    def _reset_uploader(self):
+        # После сетевой ошибки лучше пересоздать Google Drive service при следующей попытке.
+        if self.uploader:
+            self.uploader.service = None
+
+    def _pending_dir(self) -> Path:
+        if runtime.cfg and runtime.cfg.camera_capture:
+            pending_dir = runtime.cfg.camera_capture.pending_dir or "data/camera_pending"
+        else:
+            pending_dir = "data/camera_pending"
+
+        return Path(pending_dir)
+
+    def _save_pending_file(self, jpeg: bytes, filename: str, reason: str):
+        pending_dir = self._pending_dir()
+        pending_dir.mkdir(parents=True, exist_ok=True)
+
+        path = pending_dir / filename
+
+        # На всякий случай, если имя уже есть, добавим микросекунды.
+        if path.exists():
+            stem = path.stem
+            suffix = path.suffix or ".jpg"
+            path = pending_dir / f"{stem}_{datetime.now().strftime('%f')}{suffix}"
+
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+
+        # Сначала пишем во временный файл, потом атомарно переименовываем.
+        # Так в очереди не появятся битые .jpg, если питание пропадёт во время записи.
+        tmp_path.write_bytes(jpeg)
+        tmp_path.replace(path)
+
+        print(f"[camera-capture] saved locally {path}: {reason}")
+
+    async def _upload_pending_files(self, uploader: GoogleDriveUploader):
+        pending_dir = self._pending_dir()
+        if not pending_dir.exists():
+            return
+
+        files = sorted(pending_dir.glob("*.jpg"))
+        if not files:
+            return
+
+        print(f"[camera-capture] pending files: {len(files)}")
+
+        # Чтобы при большом накоплении не блокировать обычные снимки слишком надолго.
+        for path in files[:50]:
+            if self.stop_event.is_set():
+                return
+
+            try:
+                data = await asyncio.to_thread(path.read_bytes)
+                result = await asyncio.to_thread(
+                    uploader.upload_jpeg_bytes,
+                    data,
+                    path.name,
+                )
+                await asyncio.to_thread(path.unlink)
+                print(f"[camera-capture] uploaded pending {path.name}: {result}")
+
+            except Exception as e:
+                self._reset_uploader()
+                print(f"[camera-capture] cannot upload pending {path.name}: {e}")
+
+                # Если интернет всё ещё недоступен, остальные файлы тоже, скорее всего, не загрузятся.
+                return
+
     async def _run(self):
         await asyncio.sleep(5)
 
@@ -94,9 +163,13 @@ class CameraCaptureService:
 
         uploader = self._get_uploader()
 
-        if uploader is None:
+        # В начале каждого цикла сначала пытаемся отправить накопленные локальные фото.
+        # Если интернета нет, файлы останутся в локальной очереди до следующей попытки.
+        if uploader is not None:
+            await self._upload_pending_files(uploader)
+        else:
             print("[camera-capture] Google Drive не настроен: credentials_file, token_file или google_folder_id пустые")
-            return
+
 
         light_states = await self._get_light_states()
 
@@ -151,13 +224,22 @@ class CameraCaptureService:
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"rack_{rack_id}_{now}.jpg"
 
-            result = await asyncio.to_thread(
-                uploader.upload_jpeg_bytes,
-                jpeg,
-                filename,
-            )
+            if uploader is None:
+                self._save_pending_file(jpeg, filename, "Google Drive uploader is not configured")
+                continue
 
-            print(f"[camera-capture] uploaded {filename}: {result}")
+            try:
+                result = await asyncio.to_thread(
+                    uploader.upload_jpeg_bytes,
+                    jpeg,
+                    filename,
+                )
+                print(f"[camera-capture] uploaded {filename}: {result}")
+
+            except Exception as e:
+                self._reset_uploader()
+                self._save_pending_file(jpeg, filename, f"upload failed: {e}")
+                
 
 
 camera_capture_service = CameraCaptureService()

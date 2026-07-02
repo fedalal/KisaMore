@@ -23,6 +23,9 @@ class CameraCaptureConfig(BaseModel):
     # Делать фото только если на полке включён свет
     only_when_light_on: bool = True
 
+    # Локальная очередь фото, которые не удалось загрузить в Google Drive.
+    # После успешной загрузки файл из этой папки удаляется.
+    pending_dir: str = "data/camera_pending"
 
 class CameraHW(BaseModel):
     name: str = Field(default="", max_length=100)
