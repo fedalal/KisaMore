@@ -176,10 +176,10 @@ function cardHtml(r){
     <div class="card__head">
       <div>
         <div class="card__title">Стеллаж ${r.rack_id}</div>
-        <div class="card__meta">Режимы: 💡 ${modeRu(r.light_mode)} · 💧 ${modeRu(r.water_mode)}</div>
+        <div class="card__meta">💡 ${modeRu(r.light_mode)} · 💧 ${modeRu(r.water_mode)}</div>
       </div>
        ${cameraButtonHtml(r)}
-      <button class="btn btn--ghost" onclick="openSchedule(${r.rack_id})">График</button>
+      <button class="btn btn--ghost" onclick="openSchedule(${r.rack_id})">Расписание</button>
     </div>
 
     <div class="badges">
