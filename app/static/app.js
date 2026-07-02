@@ -681,7 +681,7 @@ function renderCfg(){
           <select class="cfgSelect" onchange="cfgRackCameraIdChange(${i}, this.value)">
             ${cameraIdOptions(r.camera_id)}
           </select>
-          <div class="cfgHelpText">Настройка камер — на отдельной странице «Камеры»</div>
+          
         </div>
       </div>
     `);
