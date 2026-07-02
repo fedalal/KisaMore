@@ -182,6 +182,7 @@ function cardHtml(r){
       <button class="btn btn--ghost" onclick="openSchedule(${r.rack_id})">Расписание</button>
     </div>
 
+
     <div class="badges">
       ${badge("Свет", "💡", r.light_on, r.light_mode, r.light_until, r.light_next)}
       ${badge("Полив", "💧", r.water_on, r.water_mode, r.water_until, r.water_next)}
