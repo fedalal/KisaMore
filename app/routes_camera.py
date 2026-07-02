@@ -83,8 +83,13 @@ def _mjpeg_for_camera(cam: CameraHW, corrected: bool):
             jpeg_quality=quality,
             frame_width=frame_width,
             frame_height=frame_height,
-            flip_vertical=cam.flip_vertical if corrected else False,
-            flip_horizontal=cam.flip_horizontal if corrected else False,
+
+            # Поворот должен применяться и к "До коррекции", и к "После коррекции".
+            # Иначе точки выбираются на одном изображении, а применяются к другому.
+            flip_vertical=cam.flip_vertical,
+            flip_horizontal=cam.flip_horizontal,
+
+            # Перспективу применяем только для правого изображения "После коррекции".
             warp_enabled=cam.warp_enabled if corrected else False,
             warp_points=cam.warp_points if corrected else None,
         )
@@ -98,7 +103,6 @@ def _mjpeg_for_camera(cam: CameraHW, corrected: bool):
             )
 
         time.sleep(0.08)
-
 
 @router.get("/rack/{rack_id}/camera/stream")
 def rack_camera_stream(rack_id: int):
