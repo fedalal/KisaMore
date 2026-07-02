@@ -22,6 +22,9 @@ async def set_config(payload: HWConfig):
     if payload.rs485 is None and existing.rs485 is not None:
         payload = payload.model_copy(update={"rs485": existing.rs485})
 
+    if not payload.cameras and existing.cameras:
+        payload = payload.model_copy(update={"cameras": existing.cameras})
+
     if not payload.level_sensors and existing.level_sensors:
         payload = payload.model_copy(update={"level_sensors": existing.level_sensors})
 
@@ -47,6 +50,14 @@ async def set_config(payload: HWConfig):
 
         add(rack.light_relay, f"Стеллаж {rid} — Свет")
         add(rack.water_relay, f"Стеллаж {rid} — Полив")
+
+    # Проверка: если у полки выбрана camera_id, такая камера должна существовать.
+    for rack_id, rack in payload.racks.items():
+        if rack.camera_id and rack.camera_id not in payload.cameras:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Для стеллажа {rack_id} выбрана несуществующая камера: {rack.camera_id}",
+            )
 
     dups = {k: v for k, v in used.items() if len(v) > 1}
 

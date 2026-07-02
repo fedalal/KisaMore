@@ -106,7 +106,21 @@ class CameraCaptureService:
 
         for rack_id_str, rack_cfg in runtime.cfg.racks.items():
             rack_id = int(rack_id_str)
-            device = (rack_cfg.camera_device or "").strip()
+            camera_cfg = runtime.cfg.cameras.get(rack_cfg.camera_id) if rack_cfg.camera_id else None
+
+            if camera_cfg:
+                device = camera_cfg.device.strip()
+                flip_vertical = camera_cfg.flip_vertical
+                flip_horizontal = camera_cfg.flip_horizontal
+                warp_enabled = camera_cfg.warp_enabled
+                warp_points = camera_cfg.warp_points
+            else:
+                # Совместимость со старым config/kisamore.yaml.
+                device = (rack_cfg.camera_device or "").strip()
+                flip_vertical = rack_cfg.camera_flip_vertical
+                flip_horizontal = rack_cfg.camera_flip_horizontal
+                warp_enabled = rack_cfg.camera_warp_enabled
+                warp_points = rack_cfg.camera_warp_points
 
             if not device:
                 continue
@@ -124,8 +138,10 @@ class CameraCaptureService:
                 jpeg_quality=quality,
                 frame_width=frame_width,
                 frame_height=frame_height,
-                flip_vertical=rack_cfg.camera_flip_vertical,
-                flip_horizontal=rack_cfg.camera_flip_horizontal,
+                flip_vertical=flip_vertical,
+                flip_horizontal=flip_horizontal,
+                warp_enabled=warp_enabled,
+                warp_points=warp_points,
             )
 
             if not jpeg:

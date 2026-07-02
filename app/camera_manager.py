@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional, Any
 
 import cv2
+import numpy as np
 
 
 @dataclass
@@ -15,10 +16,10 @@ class CameraFrame:
 
 class CameraWorker:
     def __init__(
-         self,
-         device: str,
-         frame_width: int = 1280,
-         frame_height: int = 720,
+        self,
+        device: str,
+        frame_width: int = 1280,
+        frame_height: int = 720,
     ):
         self.device = device
         self.frame_width = frame_width
@@ -109,7 +110,6 @@ class CameraWorker:
                     f"actual={actual_width}x{actual_height}, fourcc={actual_fourcc_text}"
                 )
 
-
                 while not self.stop_event.is_set():
                     ok, frame = self.cap.read()
 
@@ -117,7 +117,6 @@ class CameraWorker:
                         self._set_error(f"Не удалось получить кадр с {self.device}")
                         time.sleep(0.3)
                         continue
-
 
                     with self.lock:
                         self.frame.frame = frame
@@ -136,22 +135,27 @@ class CameraWorker:
                     self.cap = None
 
     def get_jpeg(
-            self,
-            jpeg_quality: int = 90,
-            flip_vertical: bool = False,
-            flip_horizontal: bool = False,
+        self,
+        jpeg_quality: int = 90,
+        flip_vertical: bool = False,
+        flip_horizontal: bool = False,
+        warp_enabled: bool = False,
+        warp_points: Optional[list[float]] = None,
     ) -> Optional[bytes]:
         with self.lock:
             if self.frame.frame is None:
                 return None
             frame = self.frame.frame.copy()
 
+        # Сначала поворот/зеркало. Точки перспективы задаются уже для изображения после поворота.
         if flip_vertical and flip_horizontal:
             frame = cv2.flip(frame, -1)
         elif flip_vertical:
             frame = cv2.flip(frame, 0)
         elif flip_horizontal:
             frame = cv2.flip(frame, 1)
+
+        frame = self._apply_perspective_warp(frame, warp_enabled, warp_points)
 
         ok, jpg = cv2.imencode(
             ".jpg",
@@ -164,6 +168,34 @@ class CameraWorker:
             return None
 
         return jpg.tobytes()
+
+
+    @staticmethod
+    def _apply_perspective_warp(frame: Any, enabled: bool, points: Optional[list[float]]) -> Any:
+        if not enabled or not points or len(points) != 8:
+            return frame
+
+        try:
+            h, w = frame.shape[:2]
+            src = np.float32([
+                [points[0], points[1]],  # левый верхний
+                [points[2], points[3]],  # правый верхний
+                [points[4], points[5]],  # правый нижний
+                [points[6], points[7]],  # левый нижний
+            ])
+
+            dst = np.float32([
+                [0, 0],
+                [w - 1, 0],
+                [w - 1, h - 1],
+                [0, h - 1],
+            ])
+
+            matrix = cv2.getPerspectiveTransform(src, dst)
+            return cv2.warpPerspective(frame, matrix, (w, h))
+        except Exception as e:
+            print(f"[camera-manager] perspective warp error: {e}")
+            return frame
 
     def get_error(self) -> Optional[str]:
         with self.lock:
@@ -200,25 +232,29 @@ class CameraManager:
             return worker
 
     def get_jpeg(
-            self,
-            device: str,
-            jpeg_quality: int = 90,
-            frame_width: int = 1280,
-            frame_height: int = 720,
-            flip_vertical: bool = False,
-            flip_horizontal: bool = False,
+        self,
+        device: str,
+        jpeg_quality: int = 90,
+        frame_width: int = 1280,
+        frame_height: int = 720,
+        flip_vertical: bool = False,
+        flip_horizontal: bool = False,
+        warp_enabled: bool = False,
+        warp_points: Optional[list[float]] = None,
     ) -> Optional[bytes]:
         worker = self.get_worker(
             device=device,
             frame_width=frame_width,
             frame_height=frame_height,
         )
-
         return worker.get_jpeg(
             jpeg_quality=jpeg_quality,
             flip_vertical=flip_vertical,
             flip_horizontal=flip_horizontal,
+            warp_enabled=warp_enabled,
+            warp_points=warp_points,
         )
+
     def get_error(self, device: str) -> Optional[str]:
         worker = self.get_worker(device)
         return worker.get_error()

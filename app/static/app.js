@@ -594,6 +594,19 @@ function relayNumOptions(selected){
   return opts.join("");
 }
 
+function cameraIdOptions(selected){
+  const opts = [`<option value="" ${!selected ? "selected" : ""}>нет камеры</option>`];
+  const cameras = (cfgState && cfgState.cameras) ? cfgState.cameras : {};
+
+  for(const cameraId of Object.keys(cameras)){
+    const cam = cameras[cameraId] || {};
+    const label = cam.name ? `${cam.name} (${cam.device || cameraId})` : `${cameraId} (${cam.device || ""})`;
+    opts.push(`<option value="${escapeHtml(cameraId)}" ${String(cameraId)===String(selected) ? "selected":""}>${escapeHtml(label)}</option>`);
+  }
+
+  return opts.join("");
+}
+
 function escapeHtml(value){
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -616,8 +629,7 @@ function renderCfg(){
         <div>Реле света</div>
         <div>Реле полива</div>
         <div>Адрес датчика</div>
-        <div>Web камера</div>
-        <div>Поворот камеры</div>
+        <div>Камера</div>
       </div>
   `);
 
@@ -629,17 +641,12 @@ function renderCfg(){
         light_relay: 1,
         water_relay: 2,
         sensor_slave_id: i,
-        camera_device: `/dev/video${i - 1}`,
-        camera_flip_vertical: false,
-        camera_flip_horizontal: false
+        camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null
       };
     }
 
     const r = cfgState.racks[rk];
-    if(r.camera_device === undefined) r.camera_device = `/dev/video${i - 1}`;
-
-    if(r.camera_flip_vertical === undefined) r.camera_flip_vertical = false;
-    if(r.camera_flip_horizontal === undefined) r.camera_flip_horizontal = false;
+    if(r.camera_id === undefined) r.camera_id = r.camera_device ? `camera_${i}` : null;
 
     rows.push(`
       <div class="cfgTableRow">
@@ -670,35 +677,11 @@ function renderCfg(){
         </div>
         
         <div>
-          <input
-            class="cfgInput"
-            type="text"
-            placeholder="/dev/video"
-            value="${escapeHtml(r.camera_device ?? "")}"
-            onchange="cfgRackCameraChange(${i}, this.value)"
-          />
+          <select class="cfgSelect" onchange="cfgRackCameraIdChange(${i}, this.value)">
+            ${cameraIdOptions(r.camera_id)}
+          </select>
+          <div class="cfgHelpText">Настройка камер — на отдельной странице «Камеры»</div>
         </div>
-        
-        <div class="cfgChecks">
-        <label class="cfgCheck">
-          <input
-            type="checkbox"
-            ${r.camera_flip_vertical ? "checked" : ""}
-            onchange="cfgRackCameraFlipChange(${i}, 'camera_flip_vertical', this.checked)"
-          />
-          <span>Поворот верх/низ</span>
-        </label>
-      
-        <label class="cfgCheck">
-          <input
-            type="checkbox"
-            ${r.camera_flip_horizontal ? "checked" : ""}
-            onchange="cfgRackCameraFlipChange(${i}, 'camera_flip_horizontal', this.checked)"
-          />
-          <span>Поворот влево/вправо</span>
-        </label>
-      </div>
-
       </div>
     `);
   }
@@ -724,6 +707,12 @@ function cfgRackSensorChange(rackId, value){
   cfgState.racks[rk].sensor_slave_id = Number(v);
 }
 
+function cfgRackCameraIdChange(rackId, value){
+  const rk = String(rackId);
+  const v = String(value || "").trim();
+  cfgState.racks[rk].camera_id = v || null;
+}
+
 function cfgRackCameraChange(rackId, value){
   const rk = String(rackId);
   const v = String(value).trim();
@@ -735,6 +724,43 @@ function cfgRackCameraFlipChange(rackId, field, checked){
   cfgState.racks[rk][field] = Boolean(checked);
 }
 
+function formatCameraWarpPoints(points){
+  if(!Array.isArray(points) || points.length !== 8) return "";
+  return `${points[0]},${points[1]} ${points[2]},${points[3]} ${points[4]},${points[5]} ${points[6]},${points[7]}`;
+}
+
+function parseCameraWarpPoints(value){
+  const text = String(value || "").trim();
+  if(!text) return null;
+
+  const nums = text
+    .replace(/[;]/g, " ")
+    .split(/[\s,]+/)
+    .map(v => Number(v))
+    .filter(v => Number.isFinite(v));
+
+  if(nums.length !== 8){
+    alert("Нужно указать 4 точки: x1,y1 x2,y2 x3,y3 x4,y4");
+    return undefined;
+  }
+
+  return nums;
+}
+
+function cfgRackCameraWarpEnabledChange(rackId, checked){
+  const rk = String(rackId);
+  cfgState.racks[rk].camera_warp_enabled = Boolean(checked);
+}
+
+function cfgRackCameraWarpPointsChange(rackId, value){
+  const rk = String(rackId);
+  const points = parseCameraWarpPoints(value);
+  if(points === undefined){
+    renderCfg();
+    return;
+  }
+  cfgState.racks[rk].camera_warp_points = points;
+}
 
 function cfgRacksCountChange(value){
   let n = Number(value);
@@ -749,9 +775,7 @@ function cfgRacksCountChange(value){
         light_relay:1,
         water_relay:2,
         sensor_slave_id:i,
-        camera_device:`/dev/video${i - 1}`,
-        camera_flip_vertical:false,
-        camera_flip_horizontal:false
+        camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null
       };
     }
   }
@@ -768,6 +792,7 @@ async function loadCfg(){
     isBusy = true;
     cfgState = await api("/api/config");
     cfgState.racks = cfgState.racks || {};
+    cfgState.cameras = cfgState.cameras || {};
 
     for(let i=1;i<=cfgState.racks_count;i++){
       const k = String(i);
@@ -776,9 +801,7 @@ async function loadCfg(){
           light_relay:1,
           water_relay:2,
           sensor_slave_id:i,
-          camera_device:`/dev/video${i - 1}`,
-          camera_flip_vertical:false,
-          camera_flip_horizontal:false
+          camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null
         };
       }
     }
@@ -915,6 +938,13 @@ async function saveCfg(){
 document.getElementById("chartsBtn").addEventListener("click", ()=>{
   window.location.href = "/charts";
 });
+
+const camerasPageBtn = document.getElementById("camerasPageBtn");
+if(camerasPageBtn){
+  camerasPageBtn.addEventListener("click", ()=>{
+    window.location.href = "/cameras";
+  });
+}
 
 const shutdownBtn = document.getElementById("shutdownBtn");
 if(shutdownBtn){

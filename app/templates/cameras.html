@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Камеры · KisaMore</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap topbar">
+      <div class="brand">
+        <div class="dot"></div>
+        <div>
+          <div class="title">Камеры</div>
+          <div class="subtitle">Настройка изображения до и после коррекции</div>
+        </div>
+      </div>
+      <div class="right">
+        <button id="backBtn" class="btn btn--ghost">Назад</button>
+        <button id="addCameraBtn" class="btn btn--ghost">Добавить камеру</button>
+        <button id="saveCamerasBtn" class="btn btn--primary">Сохранить</button>
+        <span id="conn" class="pill">⏳ подключение…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap camerasPage">
+    <div class="hint camerasHint">
+      Для выравнивания нажми «Выбрать точки», затем кликни 4 угла на левом изображении: левый верхний, правый верхний, правый нижний, левый нижний.
+      Справа сразу видна картинка после коррекции.
+    </div>
+    <div id="camerasList"></div>
+  </main>
+
+  <script src="/static/cameras.js"></script>
+</body>
+</html>

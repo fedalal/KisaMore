@@ -77,6 +77,10 @@ async def on_shutdown():
 async def charts_page(request: Request):
     return templates.TemplateResponse("charts.html", {"request": request})
 
+@app.get("/cameras", response_class=HTMLResponse)
+async def cameras_page(request: Request):
+    return templates.TemplateResponse("cameras.html", {"request": request})
+
 @app.post("/api/system/shutdown")
 async def shutdown_pi():
     try:

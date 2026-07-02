@@ -55,9 +55,14 @@ async def get_state():
             soil_moisture, soil_temperature = await _read_soil_sensor_for_rack(r.rack_id)
 
             rack_cfg = runtime.cfg.racks.get(str(r.rack_id)) if runtime.cfg else None
-            camera_device = rack_cfg.camera_device if rack_cfg else None
-            camera_flip_vertical = rack_cfg.camera_flip_vertical if rack_cfg else False
-            camera_flip_horizontal = rack_cfg.camera_flip_horizontal if rack_cfg else False
+            camera_id = rack_cfg.camera_id if rack_cfg else None
+            camera_cfg = runtime.cfg.cameras.get(camera_id) if runtime.cfg and camera_id else None
+
+            camera_device = camera_cfg.device if camera_cfg else (rack_cfg.camera_device if rack_cfg else None)
+            camera_flip_vertical = camera_cfg.flip_vertical if camera_cfg else (rack_cfg.camera_flip_vertical if rack_cfg else False)
+            camera_flip_horizontal = camera_cfg.flip_horizontal if camera_cfg else (rack_cfg.camera_flip_horizontal if rack_cfg else False)
+            camera_warp_enabled = camera_cfg.warp_enabled if camera_cfg else (rack_cfg.camera_warp_enabled if rack_cfg else False)
+            camera_warp_points = camera_cfg.warp_points if camera_cfg else (rack_cfg.camera_warp_points if rack_cfg else None)
 
 
             out.append(RackStateOut(
@@ -72,9 +77,12 @@ async def get_state():
                 water_next=water_next,
                 soil_moisture=soil_moisture,
                 soil_temperature=soil_temperature,
+                camera_id=camera_id,
                 camera_device=camera_device,
                 camera_flip_vertical=camera_flip_vertical,
                 camera_flip_horizontal=camera_flip_horizontal,
+                camera_warp_enabled=camera_warp_enabled,
+                camera_warp_points=camera_warp_points,
             ))
 
         return out

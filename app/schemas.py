@@ -38,9 +38,13 @@ class RackStateOut(BaseModel):
     soil_moisture: Optional[float] = None
     soil_temperature: Optional[float] = None
 
+    camera_id: Optional[str] = None
     camera_device: Optional[str] = None
     camera_flip_vertical: bool = False
     camera_flip_horizontal: bool = False
+    camera_warp_enabled: bool = False
+    camera_warp_points: Optional[List[float]] = None
+
 
 class ManualSetIn(BaseModel):
     on: bool
@@ -52,10 +56,24 @@ class RackHWOut(BaseModel):
     light_relay: int
     water_relay: int
     sensor_slave_id: Optional[int] = None
+    camera_id: Optional[str] = None
+
+    # Старые поля оставлены в ответе API для совместимости.
     camera_device: Optional[str] = None
     camera_flip_vertical: bool = False
     camera_flip_horizontal: bool = False
+    camera_warp_enabled: bool = False
+    camera_warp_points: Optional[List[float]] = None
+
+class CameraHWOut(BaseModel):
+    name: str = ""
+    device: str
+    flip_vertical: bool = False
+    flip_horizontal: bool = False
+    warp_enabled: bool = False
+    warp_points: Optional[List[float]] = None
 
 class HWConfigOut(BaseModel):
     racks_count: int 
     racks: Dict[str, RackHWOut] = Field(default_factory=dict)
+    cameras: Dict[str, CameraHWOut] = Field(default_factory=dict)
