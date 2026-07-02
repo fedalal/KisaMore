@@ -115,6 +115,35 @@ function resetPoints(cameraId){
   renderCameras();
 }
 
+function setWarpInputValue(cameraId){
+  const input = document.getElementById(`warpInput_${cameraId}`);
+  if(input) input.value = formatWarpPoints(cfgState.cameras[cameraId]?.warp_points);
+}
+
+function setWarpEnabledCheckbox(cameraId){
+  const input = document.getElementById(`warpEnabled_${cameraId}`);
+  if(input) input.checked = Boolean(cfgState.cameras[cameraId]?.warp_enabled);
+}
+
+function refreshCameraPreview(cameraId, corrected){
+  const suffix = corrected ? "corrected" : "raw";
+  const img = document.getElementById(`cameraImg_${suffix}_${cameraId}`);
+  if(!img) return;
+  img.src = `/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=${corrected ? "true" : "false"}&t=${Date.now()}`;
+}
+
+function updateOverlayOnly(cameraId){
+  const overlay = document.getElementById(`cameraOverlayWrap_${cameraId}`);
+  if(overlay) overlay.innerHTML = overlaySvg(cameraId);
+
+  const btn = document.getElementById(`pickBtn_${cameraId}`);
+  if(btn){
+    btn.textContent = picking.cameraId === cameraId
+      ? `Кликни точку ${(picking.points.length / 2) + 1} из 4`
+      : "Выбрать точки";
+  }
+}
+
 function onRawPreviewClick(cameraId, event){
   if(picking.cameraId !== cameraId) return;
 
@@ -131,9 +160,16 @@ function onRawPreviewClick(cameraId, event){
     cfgState.cameras[cameraId].warp_points = [...picking.points];
     cfgState.cameras[cameraId].warp_enabled = true;
     picking = { cameraId: null, points: [] };
+    setWarpInputValue(cameraId);
+    setWarpEnabledCheckbox(cameraId);
+    updateOverlayOnly(cameraId);
+    return;
   }
 
-  renderCameras();
+  // Важно: не вызываем renderCameras() после каждого клика.
+  // Иначе браузер каждый раз пересоздаёт MJPEG-потоки,
+  // Raspberry Pi быстро забивается открытыми stream-запросами и страница зависает.
+  updateOverlayOnly(cameraId);
 }
 
 function overlaySvg(cameraId){
@@ -197,18 +233,18 @@ function cameraCard(cameraId){
         </label>
 
         <label class="cfgCheck cameraCheckInline">
-          <input type="checkbox" ${cam.warp_enabled ? "checked" : ""} onchange="changeCamera('${escapeHtml(cameraId)}', 'warp_enabled', this.checked)">
+          <input id="warpEnabled_${escapeHtml(cameraId)}" type="checkbox" ${cam.warp_enabled ? "checked" : ""} onchange="changeCamera('${escapeHtml(cameraId)}', 'warp_enabled', this.checked)">
           <span>Выравнивать перспективу</span>
         </label>
 
         <label class="cameraWarpText">
           <span>Точки</span>
-          <input class="cfgInput" value="${escapeHtml(formatWarpPoints(cam.warp_points))}" placeholder="x1,y1 x2,y2 x3,y3 x4,y4" onchange="changeWarpText('${escapeHtml(cameraId)}', this.value)">
+          <input id="warpInput_${escapeHtml(cameraId)}" class="cfgInput" value="${escapeHtml(formatWarpPoints(cam.warp_points))}" placeholder="x1,y1 x2,y2 x3,y3 x4,y4" onchange="changeWarpText('${escapeHtml(cameraId)}', this.value)">
         </label>
       </div>
 
       <div class="cameraToolsRow">
-        <button class="btn btn--ghost" onclick="startPickPoints('${escapeHtml(cameraId)}')">${pickText}</button>
+        <button id="pickBtn_${escapeHtml(cameraId)}" class="btn btn--ghost" onclick="startPickPoints('${escapeHtml(cameraId)}')">${pickText}</button>
         <button class="btn btn--ghost" onclick="resetPoints('${escapeHtml(cameraId)}')">Сбросить точки</button>
         <span class="muted">Порядок: ЛВ → ПВ → ПН → ЛН</span>
       </div>
@@ -217,14 +253,14 @@ function cameraCard(cameraId){
         <div>
           <div class="cameraPreviewTitle">До коррекции</div>
           <div class="cameraPreviewBox ${picking.cameraId === cameraId ? "isPicking" : ""}" onclick="onRawPreviewClick('${escapeHtml(cameraId)}', event)">
-            <img src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=false&t=${token}" alt="До коррекции">
-            ${overlaySvg(cameraId)}
+            <img id="cameraImg_raw_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=false&t=${token}" alt="До коррекции">
+            <div id="cameraOverlayWrap_${escapeHtml(cameraId)}">${overlaySvg(cameraId)}</div>
           </div>
         </div>
         <div>
           <div class="cameraPreviewTitle">После коррекции</div>
           <div class="cameraPreviewBox">
-            <img src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=true&t=${token}" alt="После коррекции">
+            <img id="cameraImg_corrected_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=true&t=${token}" alt="После коррекции">
           </div>
         </div>
       </div>
