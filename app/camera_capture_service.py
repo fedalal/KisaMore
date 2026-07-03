@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 from pathlib import Path
@@ -134,6 +134,71 @@ class CameraCaptureService:
 
                 # Если интернет всё ещё недоступен, остальные файлы тоже, скорее всего, не загрузятся.
                 return
+    def _archive_dir(self) -> Path:
+        if runtime.cfg and runtime.cfg.camera_capture:
+            archive_dir = runtime.cfg.camera_capture.local_archive_dir or "data/camera_archive"
+        else:
+            archive_dir = "data/camera_archive"
+
+        return Path(archive_dir)
+
+    def _save_archive_file(self, jpeg: bytes, filename: str, rack_id: int):
+        if not runtime.cfg or not runtime.cfg.camera_capture.local_archive_enabled:
+            return
+
+        # Храним по папкам: data/camera_archive/rack_1/2026-07-03/file.jpg
+        day = datetime.now().strftime("%Y-%m-%d")
+        archive_dir = self._archive_dir() / f"rack_{rack_id}" / day
+        archive_dir.mkdir(parents=True, exist_ok=True)
+
+        path = archive_dir / filename
+
+        if path.exists():
+            stem = path.stem
+            suffix = path.suffix or ".jpg"
+            path = archive_dir / f"{stem}_{datetime.now().strftime('%f')}{suffix}"
+
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        tmp_path.write_bytes(jpeg)
+        tmp_path.replace(path)
+
+        print(f"[camera-capture] saved archive {path}")
+
+    async def _cleanup_archive_files(self):
+        if not runtime.cfg or not runtime.cfg.camera_capture.local_archive_enabled:
+            return
+
+        archive_dir = self._archive_dir()
+        if not archive_dir.exists():
+            return
+
+        keep_days = runtime.cfg.camera_capture.local_archive_days
+        cutoff = datetime.now() - timedelta(days=keep_days)
+        deleted = 0
+
+        for path in archive_dir.rglob("*.jpg"):
+            if self.stop_event.is_set():
+                return
+
+            try:
+                mtime = datetime.fromtimestamp(path.stat().st_mtime)
+                if mtime < cutoff:
+                    await asyncio.to_thread(path.unlink)
+                    deleted += 1
+            except Exception as e:
+                print(f"[camera-capture] cannot cleanup archive file {path}: {e}")
+
+        # Удаляем пустые папки после удаления старых фото.
+        for folder in sorted(archive_dir.rglob("*"), reverse=True):
+            if folder.is_dir():
+                try:
+                    folder.rmdir()
+                except OSError:
+                    pass
+
+        if deleted:
+            print(f"[camera-capture] cleanup archive: deleted {deleted} old files")
+
 
     async def _run(self):
         await asyncio.sleep(5)
@@ -170,6 +235,8 @@ class CameraCaptureService:
         else:
             print("[camera-capture] Google Drive не настроен: credentials_file, token_file или google_folder_id пустые")
 
+        # Каждый цикл чистим локальный архив: оставляем только последние local_archive_days дней.
+        await self._cleanup_archive_files()
 
         light_states = await self._get_light_states()
 
@@ -224,6 +291,10 @@ class CameraCaptureService:
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"rack_{rack_id}_{now}.jpg"
 
+            # Всегда сохраняем локальную копию для таймлапсов.
+            # Она будет храниться local_archive_days дней и потом удалится автоматически.
+            self._save_archive_file(jpeg, filename, rack_id)
+
             if uploader is None:
                 self._save_pending_file(jpeg, filename, "Google Drive uploader is not configured")
                 continue
@@ -239,7 +310,7 @@ class CameraCaptureService:
             except Exception as e:
                 self._reset_uploader()
                 self._save_pending_file(jpeg, filename, f"upload failed: {e}")
-                
+
 
 
 camera_capture_service = CameraCaptureService()

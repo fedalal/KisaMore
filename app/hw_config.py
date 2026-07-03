@@ -27,6 +27,12 @@ class CameraCaptureConfig(BaseModel):
     # После успешной загрузки файл из этой папки удаляется.
     pending_dir: str = "data/camera_pending"
 
+    # Локальное хранение всех снимков для таймлапсов.
+    # Фото всегда сохраняются сюда, даже если загрузка в Google Drive прошла успешно.
+    local_archive_enabled: bool = True
+    local_archive_dir: str = "data/camera_archive"
+    local_archive_days: int = Field(default=60, ge=1, le=365)
+
 class CameraHW(BaseModel):
     name: str = Field(default="", max_length=100)
     device: str = Field(default="/dev/video0", min_length=1, max_length=255)
