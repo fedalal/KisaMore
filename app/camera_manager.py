@@ -1,5 +1,6 @@
 import threading
 import time
+import subprocess
 from dataclasses import dataclass
 from typing import Optional, Any
 
@@ -16,14 +17,23 @@ class CameraFrame:
 
 class CameraWorker:
     def __init__(
-        self,
-        device: str,
-        frame_width: int = 1280,
-        frame_height: int = 720,
+            self,
+            device: str,
+            frame_width: int = 1280,
+            frame_height: int = 720,
+            autofocus_enabled: bool = True,
+            focus_absolute: Optional[int] = None,
+            white_balance_auto: bool = True,
+            white_balance_temperature: Optional[int] = None,
     ):
         self.device = device
         self.frame_width = frame_width
         self.frame_height = frame_height
+
+        self.autofocus_enabled = autofocus_enabled
+        self.focus_absolute = focus_absolute
+        self.white_balance_auto = white_balance_auto
+        self.white_balance_temperature = white_balance_temperature
 
         self.frame = CameraFrame()
         self.lock = threading.Lock()
@@ -32,21 +42,40 @@ class CameraWorker:
         self.cap = None
 
     def update_settings(
-        self,
-        frame_width: int = 1280,
-        frame_height: int = 720,
+            self,
+            frame_width: int = 1280,
+            frame_height: int = 720,
+            autofocus_enabled: bool = True,
+            focus_absolute: Optional[int] = None,
+            white_balance_auto: bool = True,
+            white_balance_temperature: Optional[int] = None,
     ):
         need_restart = False
+        need_apply_controls = False
 
         with self.lock:
             if self.frame_width != frame_width or self.frame_height != frame_height:
                 need_restart = True
 
+            if (
+                    self.autofocus_enabled != autofocus_enabled
+                    or self.focus_absolute != focus_absolute
+                    or self.white_balance_auto != white_balance_auto
+                    or self.white_balance_temperature != white_balance_temperature
+            ):
+                need_apply_controls = True
+
             self.frame_width = frame_width
             self.frame_height = frame_height
+            self.autofocus_enabled = autofocus_enabled
+            self.focus_absolute = focus_absolute
+            self.white_balance_auto = white_balance_auto
+            self.white_balance_temperature = white_balance_temperature
 
         if need_restart:
             self.restart()
+        elif need_apply_controls:
+            self._apply_camera_controls()
 
     def start(self):
         if self.thread and self.thread.is_alive():
@@ -75,6 +104,59 @@ class CameraWorker:
             self.frame.last_error = message
             self.frame.updated_at = time.time()
 
+    def _run_v4l2_ctrl(self, ctrl: str):
+        try:
+            result = subprocess.run(
+                [
+                    "v4l2-ctl",
+                    "--device",
+                    self.device,
+                    "--set-ctrl",
+                    ctrl,
+                ],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=3,
+            )
+
+            if result.returncode != 0:
+                print(
+                    f"[camera-manager] v4l2 ctrl failed for {self.device}: "
+                    f"{ctrl}; {result.stderr.strip()}"
+                )
+
+        except Exception as e:
+            print(f"[camera-manager] v4l2 ctrl exception for {self.device}: {ctrl}; {e}")
+
+    def _apply_camera_controls(self):
+        with self.lock:
+            autofocus_enabled = self.autofocus_enabled
+            focus_absolute = self.focus_absolute
+            white_balance_auto = self.white_balance_auto
+            white_balance_temperature = self.white_balance_temperature
+
+        # Фокус.
+        # Для твоей камеры автофокус называется focus_automatic_continuous.
+        self._run_v4l2_ctrl(
+            f"focus_automatic_continuous={1 if autofocus_enabled else 0}"
+        )
+
+        if not autofocus_enabled and focus_absolute is not None:
+            time.sleep(0.1)
+            self._run_v4l2_ctrl(f"focus_absolute={int(focus_absolute)}")
+
+        # Баланс белого.
+        self._run_v4l2_ctrl(
+            f"white_balance_automatic={1 if white_balance_auto else 0}"
+        )
+
+        if not white_balance_auto and white_balance_temperature is not None:
+            self._run_v4l2_ctrl(
+                f"white_balance_temperature={int(white_balance_temperature)}"
+            )
+
     def _run(self):
         while not self.stop_event.is_set():
             try:
@@ -84,6 +166,8 @@ class CameraWorker:
                     self._set_error(f"Не удалось открыть камеру {self.device}")
                     time.sleep(3)
                     continue
+
+                self._apply_camera_controls()
 
                 with self.lock:
                     width = self.frame_width
@@ -171,7 +255,6 @@ class CameraWorker:
 
 
     @staticmethod
-    @staticmethod
     def _apply_perspective_warp(frame: Any, enabled: bool, points: Optional[list[float]]) -> Any:
         if not enabled or not points or len(points) != 8:
             return frame
@@ -222,10 +305,14 @@ class CameraManager:
         self.lock = threading.Lock()
 
     def get_worker(
-        self,
-        device: str,
-        frame_width: int = 1280,
-        frame_height: int = 720,
+            self,
+            device: str,
+            frame_width: int = 1280,
+            frame_height: int = 720,
+            autofocus_enabled: bool = True,
+            focus_absolute: Optional[int] = None,
+            white_balance_auto: bool = True,
+            white_balance_temperature: Optional[int] = None,
     ) -> CameraWorker:
         with self.lock:
             if device not in self.workers:
@@ -233,6 +320,10 @@ class CameraManager:
                     device=device,
                     frame_width=frame_width,
                     frame_height=frame_height,
+                    autofocus_enabled=autofocus_enabled,
+                    focus_absolute=focus_absolute,
+                    white_balance_auto=white_balance_auto,
+                    white_balance_temperature=white_balance_temperature,
                 )
                 self.workers[device] = worker
                 worker.start()
@@ -241,25 +332,37 @@ class CameraManager:
                 worker.update_settings(
                     frame_width=frame_width,
                     frame_height=frame_height,
+                    autofocus_enabled=autofocus_enabled,
+                    focus_absolute=focus_absolute,
+                    white_balance_auto=white_balance_auto,
+                    white_balance_temperature=white_balance_temperature,
                 )
 
             return worker
 
     def get_jpeg(
-        self,
-        device: str,
-        jpeg_quality: int = 90,
-        frame_width: int = 1280,
-        frame_height: int = 720,
-        flip_vertical: bool = False,
-        flip_horizontal: bool = False,
-        warp_enabled: bool = False,
-        warp_points: Optional[list[float]] = None,
+            self,
+            device: str,
+            jpeg_quality: int = 90,
+            frame_width: int = 1280,
+            frame_height: int = 720,
+            flip_vertical: bool = False,
+            flip_horizontal: bool = False,
+            warp_enabled: bool = False,
+            warp_points: Optional[list[float]] = None,
+            autofocus_enabled: bool = True,
+            focus_absolute: Optional[int] = None,
+            white_balance_auto: bool = True,
+            white_balance_temperature: Optional[int] = None,
     ) -> Optional[bytes]:
         worker = self.get_worker(
             device=device,
             frame_width=frame_width,
             frame_height=frame_height,
+            autofocus_enabled=autofocus_enabled,
+            focus_absolute=focus_absolute,
+            white_balance_auto=white_balance_auto,
+            white_balance_temperature=white_balance_temperature,
         )
         return worker.get_jpeg(
             jpeg_quality=jpeg_quality,

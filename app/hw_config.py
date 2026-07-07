@@ -43,6 +43,13 @@ class CameraHW(BaseModel):
     # [left_top_x, left_top_y, right_top_x, right_top_y, right_bottom_x, right_bottom_y, left_bottom_x, left_bottom_y]
     warp_points: Optional[list[float]] = Field(default=None, min_length=8, max_length=8)
 
+    # Фокус
+    autofocus_enabled: bool = True
+    focus_absolute: Optional[int] = Field(default=None, ge=0, le=1023)
+
+    # Баланс белого
+    white_balance_auto: bool = True
+    white_balance_temperature: Optional[int] = Field(default=None, ge=1, le=10000)
 
 class RackHW(BaseModel):
     light_relay: int = Field(ge=1, le=16)

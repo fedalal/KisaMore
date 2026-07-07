@@ -92,6 +92,11 @@ def _mjpeg_for_camera(cam: CameraHW, corrected: bool):
             # Перспективу применяем только для правого изображения "После коррекции".
             warp_enabled=cam.warp_enabled if corrected else False,
             warp_points=cam.warp_points if corrected else None,
+
+            autofocus_enabled=cam.autofocus_enabled,
+            focus_absolute=cam.focus_absolute,
+            white_balance_auto=cam.white_balance_auto,
+            white_balance_temperature=cam.white_balance_temperature,
         )
 
         if jpeg:

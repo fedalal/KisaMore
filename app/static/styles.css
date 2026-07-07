@@ -490,10 +490,15 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 
 .cameraSettingsGrid{
   display:grid;
-  grid-template-columns:1.1fr 1.1fr .9fr .9fr .9fr 1.8fr;
+  grid-template-columns:repeat(4, minmax(180px, 1fr));
   gap:12px;
   align-items:end;
   margin-bottom:12px;
+}
+
+.cameraSettingsGrid input:disabled{
+  opacity:.55;
+  cursor:not-allowed;
 }
 
 .cameraSettingsGrid label span:first-child{

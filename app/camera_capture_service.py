@@ -282,6 +282,10 @@ class CameraCaptureService:
                 flip_horizontal=flip_horizontal,
                 warp_enabled=warp_enabled,
                 warp_points=warp_points,
+                autofocus_enabled=camera_cfg.autofocus_enabled,
+                focus_absolute=camera_cfg.focus_absolute,
+                white_balance_auto=camera_cfg.white_balance_auto,
+                white_balance_temperature=camera_cfg.white_balance_temperature,
             )
 
             if not jpeg:

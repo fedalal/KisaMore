@@ -66,6 +66,25 @@ function changeCamera(cameraId, field, value){
   cfgState.cameras[cameraId][field] = value;
 }
 
+function changeCameraNumber(cameraId, field, value){
+  if(!cfgState.cameras[cameraId]) return;
+
+  const v = String(value ?? "").trim();
+  if(v === ""){
+    cfgState.cameras[cameraId][field] = null;
+    return;
+  }
+
+  const n = Number(v);
+  if(!Number.isFinite(n)){
+    alert("Нужно указать число");
+    renderCameras();
+    return;
+  }
+
+  cfgState.cameras[cameraId][field] = n;
+}
+
 function changeWarpText(cameraId, value){
   const points = parseWarpPoints(value);
   if(points === undefined){
@@ -84,7 +103,11 @@ function addCamera(){
     flip_vertical: false,
     flip_horizontal: false,
     warp_enabled: false,
-    warp_points: null
+    warp_points: null,
+    autofocus_enabled: true,
+    focus_absolute: 512,
+    white_balance_auto: true,
+    white_balance_temperature: 4
   };
   renderCameras();
 }
@@ -175,6 +198,7 @@ function onRawPreviewClick(cameraId, event){
 function overlaySvg(cameraId){
   const cam = cfgState.cameras[cameraId];
   const points = picking.cameraId === cameraId && picking.points.length ? picking.points : cam.warp_points;
+
   if(!Array.isArray(points) || points.length < 2) return "";
 
   const pairs = [];
@@ -195,6 +219,10 @@ function overlaySvg(cameraId){
 
 function cameraCard(cameraId){
   const cam = cfgState.cameras[cameraId];
+  if(cam.autofocus_enabled === undefined) cam.autofocus_enabled = true;
+  if(cam.focus_absolute === undefined) cam.focus_absolute = 512;
+  if(cam.white_balance_auto === undefined) cam.white_balance_auto = true;
+  if(cam.white_balance_temperature === undefined) cam.white_balance_temperature = 4;
   const pickText = picking.cameraId === cameraId
     ? `Кликни точку ${(picking.points.length / 2) + 1} из 4`
     : "Выбрать точки";
@@ -220,6 +248,52 @@ function cameraCard(cameraId){
         <label>
           <span>Устройство</span>
           <input class="cfgInput" value="${escapeHtml(cam.device || "")}" placeholder="/dev/video0" onchange="changeCamera('${escapeHtml(cameraId)}', 'device', this.value)">
+        </label>
+        
+        <label class="cfgCheck cameraCheckInline">
+          <input
+            type="checkbox"
+            ${cam.autofocus_enabled ? "checked" : ""}
+            onchange="changeCamera('${escapeHtml(cameraId)}', 'autofocus_enabled', this.checked); renderCameras();"
+          >
+          <span>Автофокус</span>
+        </label>
+        
+        <label>
+          <span>Фокус 0–1023</span>
+          <input
+            class="cfgInput"
+            type="number"
+            min="0"
+            max="1023"
+            step="1"
+            ${cam.autofocus_enabled ? "disabled" : ""}
+            value="${cam.focus_absolute ?? ""}"
+            onchange="changeCameraNumber('${escapeHtml(cameraId)}', 'focus_absolute', this.value)"
+          >
+        </label>
+        
+        <label class="cfgCheck cameraCheckInline">
+          <input
+            type="checkbox"
+            ${cam.white_balance_auto ? "checked" : ""}
+            onchange="changeCamera('${escapeHtml(cameraId)}', 'white_balance_auto', this.checked); renderCameras();"
+          >
+          <span>Автобаланс белого</span>
+        </label>
+        
+        <label>
+          <span>Баланс белого</span>
+          <input
+            class="cfgInput"
+            type="number"
+            min="1"
+            max="10000"
+            step="1"
+            ${cam.white_balance_auto ? "disabled" : ""}
+            value="${cam.white_balance_temperature ?? ""}"
+            onchange="changeCameraNumber('${escapeHtml(cameraId)}', 'white_balance_temperature', this.value)"
+          >
         </label>
 
         <label class="cfgCheck cameraCheckInline">
@@ -295,6 +369,21 @@ async function saveCameras(){
     for(const [cameraId, cam] of Object.entries(cfgState.cameras || {})){
       cam.name = String(cam.name || "").trim();
       cam.device = String(cam.device || "").trim();
+      cam.autofocus_enabled = Boolean(cam.autofocus_enabled);
+      cam.white_balance_auto = Boolean(cam.white_balance_auto);
+
+      if(cam.focus_absolute != null && cam.focus_absolute !== ""){
+        cam.focus_absolute = Number(cam.focus_absolute);
+      }else{
+        cam.focus_absolute = null;
+      }
+
+      if(cam.white_balance_temperature != null && cam.white_balance_temperature !== ""){
+        cam.white_balance_temperature = Number(cam.white_balance_temperature);
+      }else{
+        cam.white_balance_temperature = null;
+      }
+
       if(!cam.device){
         alert(`У камеры ${cameraId} не указано устройство`);
         return;

@@ -72,6 +72,11 @@ class CameraHWOut(BaseModel):
     flip_horizontal: bool = False
     warp_enabled: bool = False
     warp_points: Optional[List[float]] = None
+    autofocus_enabled: bool = True
+    focus_absolute: Optional[int] = None
+    white_balance_auto: bool = True
+    white_balance_temperature: Optional[int] = None
+
 
 class HWConfigOut(BaseModel):
     racks_count: int 
