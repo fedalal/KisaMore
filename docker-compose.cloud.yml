@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - kisamore-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    restart: unless-stopped
+    environment:
+      KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KISAMORE_CORS_ORIGINS: ${KISAMORE_CORS_ORIGINS}
+      KISAMORE_OFFLINE_AFTER_SECONDS: ${KISAMORE_OFFLINE_AFTER_SECONDS:-120}
+      KISAMORE_BOOTSTRAP_FARM_SLUG: ${KISAMORE_BOOTSTRAP_FARM_SLUG}
+      KISAMORE_BOOTSTRAP_FARM_NAME: ${KISAMORE_BOOTSTRAP_FARM_NAME}
+      KISAMORE_BOOTSTRAP_DEVICE_ID: ${KISAMORE_BOOTSTRAP_DEVICE_ID}
+      KISAMORE_BOOTSTRAP_DEVICE_NAME: ${KISAMORE_BOOTSTRAP_DEVICE_NAME}
+      KISAMORE_BOOTSTRAP_DEVICE_TOKEN: ${KISAMORE_BOOTSTRAP_DEVICE_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  kisamore-postgres:

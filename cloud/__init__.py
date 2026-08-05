@@ -1,0 +1,1 @@
+"""Central KisaMore cloud service."""

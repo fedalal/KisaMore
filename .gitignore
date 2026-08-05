@@ -50,4 +50,19 @@ config/*.local.json
 config/.secrets*
 .env
 .env.*
+!.env.example
+!**/.env.example
 kisamore.yaml
+
+# ---- Credentials / OAuth ----
+credentials_oauth.json
+token.json
+*_credentials.json
+*_token.json
+
+# ---- Camera captures / local queues ----
+data/camera_archive/
+data/camera_pending/
+
+# ---- Cloud service local data ----
+cloud-data/
