@@ -61,6 +61,24 @@ class CloudSyncSettings:
         )
 
 
+def _retry_delays(
+    exc: Exception,
+    *,
+    interval_seconds: int,
+    failure_delay: int,
+) -> tuple[int, int]:
+    """Return the next wait and backoff values after a failed send.
+
+    A read timeout is special: the VPS can finish committing the snapshot after
+    the Pi has stopped waiting for the response. Backing off in that situation
+    makes otherwise accepted telemetry appear stale for several minutes.
+    """
+    if isinstance(exc, httpx.ReadTimeout):
+        return interval_seconds, interval_seconds
+
+    return failure_delay, min(failure_delay * 2, 300)
+
+
 class CloudSyncService:
     """Pushes a read-only snapshot from the Pi to the central API."""
 
@@ -184,8 +202,11 @@ class CloudSyncService:
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
-                    delay = failure_delay
-                    failure_delay = min(failure_delay * 2, 300)
+                    delay, failure_delay = _retry_delays(
+                        exc,
+                        interval_seconds=self._settings.interval_seconds,
+                        failure_delay=failure_delay,
+                    )
                     print(
                         f"[cloud-sync] send failed; retry in {delay}s: "
                         f"{type(exc).__name__}: {exc!r}"
