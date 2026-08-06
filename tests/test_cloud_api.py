@@ -23,7 +23,7 @@ from sqlalchemy import select
 
 from cloud.app.db import SessionLocal
 from cloud.app.main import app
-from cloud.app.models import Device
+from cloud.app.models import Device, RackCurrent, TelemetrySample
 
 
 def _snapshot(observed_at: datetime | None = None) -> dict:
@@ -109,6 +109,25 @@ def test_authenticated_ingestion_and_public_read_only_api():
         assert data["racks"][0]["soil_moisture"] == 61.4
         assert data["racks"][0]["light_on"] is True
 
+        reduced_snapshot = _snapshot()
+        reduced_snapshot["racks_count"] = 1
+        reduced_snapshot["racks"] = reduced_snapshot["racks"][:1]
+        reduced = client.post(
+            "/api/v1/edge/snapshot",
+            headers={
+                "X-Device-ID": "test-pi-01",
+                "Authorization": f"Bearer {device_token}",
+            },
+            json=reduced_snapshot,
+        )
+        assert reduced.status_code == 202
+
+        reduced_live = client.get("/api/v1/public/farms/test-farm/live")
+        assert reduced_live.status_code == 200
+        reduced_data = reduced_live.json()
+        assert reduced_data["racks_count"] == 1
+        assert [rack["rack_id"] for rack in reduced_data["racks"]] == [1]
+
         # This stage intentionally exposes no public control route.
         no_control = client.post("/api/v1/public/farms/test-farm/racks/1/light")
         assert no_control.status_code == 404
@@ -123,13 +142,26 @@ def test_authenticated_ingestion_and_public_read_only_api():
         )
         assert future.status_code == 422
 
-    async def read_device():
+    async def read_persisted_state():
         async with SessionLocal() as session:
-            return (await session.execute(select(Device))).scalar_one()
+            device = (await session.execute(select(Device))).scalar_one()
+            current_rack_ids = (
+                await session.execute(
+                    select(RackCurrent.rack_id).order_by(RackCurrent.rack_id)
+                )
+            ).scalars().all()
+            telemetry_rack_ids = (
+                await session.execute(
+                    select(TelemetrySample.rack_id).order_by(TelemetrySample.rack_id)
+                )
+            ).scalars().all()
+            return device, current_rack_ids, telemetry_rack_ids
 
-    device = asyncio.run(read_device())
+    device, current_rack_ids, telemetry_rack_ids = asyncio.run(read_persisted_state())
     assert device.token_hash != device_token
     assert len(device.token_hash) == 64
+    assert current_rack_ids == [1, 2]
+    assert 2 in telemetry_rack_ids
 
 
 def test_snapshot_rejects_duplicate_rack_ids():
