@@ -8,7 +8,7 @@ import httpx
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import cloud_sync_service as sync_module
-from app.cloud_sync_service import CloudSyncService, CloudSyncSettings
+from app.cloud_sync_service import CloudSyncService, CloudSyncSettings, _retry_delays
 from app.models import Base, RackSensorHistory, RackState
 
 
@@ -71,6 +71,28 @@ def test_snapshot_is_sent_with_device_authentication(monkeypatch):
             await service._send_snapshot(client, snapshot)
 
     asyncio.run(send())
+
+
+def test_read_timeout_does_not_trigger_exponential_backoff():
+    delay, next_failure_delay = _retry_delays(
+        httpx.ReadTimeout("response was not received in time"),
+        interval_seconds=30,
+        failure_delay=240,
+    )
+
+    assert delay == 30
+    assert next_failure_delay == 30
+
+
+def test_other_failures_keep_exponential_backoff():
+    delay, next_failure_delay = _retry_delays(
+        RuntimeError("temporary failure"),
+        interval_seconds=30,
+        failure_delay=240,
+    )
+
+    assert delay == 240
+    assert next_failure_delay == 300
 
 
 def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch, tmp_path):
