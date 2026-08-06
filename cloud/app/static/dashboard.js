@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const refreshIntervalMs = 30_000;
+  const refreshIntervalMs = 10_000;
   const farmSlug = document.querySelector('meta[name="kisamore-farm-slug"]').content;
   const endpoint = `/api/v1/public/farms/${encodeURIComponent(farmSlug)}/live`;
 
