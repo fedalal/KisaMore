@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
-import httpx
 from sqlalchemy import select
 
 from . import runtime
@@ -73,10 +75,20 @@ def _retry_delays(
     the Pi has stopped waiting for the response. Backing off in that situation
     makes otherwise accepted telemetry appear stale for several minutes.
     """
-    if isinstance(exc, httpx.ReadTimeout):
+    if _is_timeout_error(exc):
         return interval_seconds, interval_seconds
 
     return failure_delay, min(failure_delay * 2, 300)
+
+
+def _is_timeout_error(exc: Exception) -> bool:
+    """Recognize direct and urllib-wrapped socket timeouts."""
+    if isinstance(exc, TimeoutError):
+        return True
+    return isinstance(exc, urllib_error.URLError) and isinstance(
+        exc.reason,
+        TimeoutError,
+    )
 
 
 def _remaining_delay(period_seconds: float, elapsed_seconds: float) -> float:
@@ -180,57 +192,73 @@ class CloudSyncService:
             "racks": racks,
         }
 
-    async def _send_snapshot(self, client: httpx.AsyncClient, snapshot: dict[str, Any]) -> None:
+    def _send_snapshot_blocking(self, snapshot: dict[str, Any]) -> None:
         assert self._settings is not None
-        response = await client.post(
+        body = json.dumps(
+            snapshot,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        request = urllib_request.Request(
             f"{self._settings.api_url}/api/v1/edge/snapshot",
+            data=body,
             headers={
                 "Authorization": f"Bearer {self._settings.device_token}",
                 "X-Device-ID": self._settings.device_id,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "Connection": "close",
             },
-            json=snapshot,
+            method="POST",
         )
-        response.raise_for_status()
+
+        with urllib_request.urlopen(
+            request,
+            timeout=self._settings.request_timeout_seconds,
+        ) as response:
+            response.read()
+
+    async def _send_snapshot(self, snapshot: dict[str, Any]) -> None:
+        await asyncio.to_thread(self._send_snapshot_blocking, snapshot)
 
     async def _run(self) -> None:
         assert self._settings is not None
         failure_delay = self._settings.interval_seconds
 
-        async with httpx.AsyncClient(timeout=self._settings.request_timeout_seconds) as client:
-            while not self._stop_event.is_set():
-                attempt_started_at = asyncio.get_running_loop().time()
-                try:
-                    snapshot = await self.collect_snapshot()
-                    await self._send_snapshot(client, snapshot)
-                    failure_delay = self._settings.interval_seconds
-                    period = self._settings.interval_seconds
-                    elapsed = asyncio.get_running_loop().time() - attempt_started_at
-                    print(
-                        f"[cloud-sync] snapshot sent: racks={len(snapshot['racks'])}, "
-                        f"elapsed={elapsed:.2f}s"
-                    )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:
-                    period, failure_delay = _retry_delays(
-                        exc,
-                        interval_seconds=self._settings.interval_seconds,
-                        failure_delay=failure_delay,
-                    )
-                    elapsed = asyncio.get_running_loop().time() - attempt_started_at
-                    delay = _remaining_delay(period, elapsed)
-                    print(
-                        f"[cloud-sync] send failed after {elapsed:.2f}s; "
-                        f"retry in {delay:.2f}s: "
-                        f"{type(exc).__name__}: {exc!r}"
-                    )
-                else:
-                    delay = _remaining_delay(period, elapsed)
+        while not self._stop_event.is_set():
+            attempt_started_at = asyncio.get_running_loop().time()
+            try:
+                snapshot = await self.collect_snapshot()
+                await self._send_snapshot(snapshot)
+                failure_delay = self._settings.interval_seconds
+                period = self._settings.interval_seconds
+                elapsed = asyncio.get_running_loop().time() - attempt_started_at
+                print(
+                    f"[cloud-sync] snapshot sent: racks={len(snapshot['racks'])}, "
+                    f"elapsed={elapsed:.2f}s"
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                period, failure_delay = _retry_delays(
+                    exc,
+                    interval_seconds=self._settings.interval_seconds,
+                    failure_delay=failure_delay,
+                )
+                elapsed = asyncio.get_running_loop().time() - attempt_started_at
+                delay = _remaining_delay(period, elapsed)
+                print(
+                    f"[cloud-sync] send failed after {elapsed:.2f}s; "
+                    f"retry in {delay:.2f}s: "
+                    f"{type(exc).__name__}: {exc!r}"
+                )
+            else:
+                delay = _remaining_delay(period, elapsed)
 
-                try:
-                    await asyncio.wait_for(self._stop_event.wait(), timeout=delay)
-                except asyncio.TimeoutError:
-                    pass
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=delay)
+            except asyncio.TimeoutError:
+                pass
 
 
 cloud_sync_service = CloudSyncService()
