@@ -44,15 +44,21 @@ async def ingest_snapshot(
     device.racks_count = payload.racks_count
     device.levels = payload.levels
 
-    for incoming in payload.racks:
-        current = (
+    rack_ids = [incoming.rack_id for incoming in payload.racks]
+    current_by_rack_id: dict[int, RackCurrent] = {}
+    if rack_ids:
+        current_racks = (
             await session.execute(
                 select(RackCurrent).where(
                     RackCurrent.device_id == device.id,
-                    RackCurrent.rack_id == incoming.rack_id,
+                    RackCurrent.rack_id.in_(rack_ids),
                 )
             )
-        ).scalar_one_or_none()
+        ).scalars().all()
+        current_by_rack_id = {rack.rack_id: rack for rack in current_racks}
+
+    for incoming in payload.racks:
+        current = current_by_rack_id.get(incoming.rack_id)
 
         values = {
             "light_on": incoming.light_on,
@@ -69,6 +75,7 @@ async def ingest_snapshot(
         if current is None:
             current = RackCurrent(device_id=device.id, rack_id=incoming.rack_id, **values)
             session.add(current)
+            current_by_rack_id[incoming.rack_id] = current
         else:
             for key, value in values.items():
                 setattr(current, key, value)
