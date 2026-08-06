@@ -130,7 +130,10 @@ async def public_farm_live(
     racks = (
         await session.execute(
             select(RackCurrent)
-            .where(RackCurrent.device_id == device.id)
+            .where(
+                RackCurrent.device_id == device.id,
+                RackCurrent.rack_id <= device.racks_count,
+            )
             .order_by(RackCurrent.rack_id)
         )
     ).scalars().all()
