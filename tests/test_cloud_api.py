@@ -71,6 +71,10 @@ def test_authenticated_ingestion_and_public_read_only_api():
         assert dashboard_css.status_code == 200
         assert "text/css" in dashboard_css.headers["content-type"]
 
+        dashboard_js = client.get("/static/dashboard.js")
+        assert dashboard_js.status_code == 200
+        assert "const refreshIntervalMs = 10_000;" in dashboard_js.text
+
         health = client.get("/api/v1/health")
         assert health.status_code == 200
 
