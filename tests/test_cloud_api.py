@@ -62,6 +62,15 @@ def _snapshot(observed_at: datetime | None = None) -> dict:
 
 def test_authenticated_ingestion_and_public_read_only_api():
     with TestClient(app) as client:
+        dashboard = client.get("/")
+        assert dashboard.status_code == 200
+        assert "KisaMore Farm" in dashboard.text
+        assert 'content="test-farm"' in dashboard.text
+
+        dashboard_css = client.get("/static/dashboard.css")
+        assert dashboard_css.status_code == 200
+        assert "text/css" in dashboard_css.headers["content-type"]
+
         health = client.get("/api/v1/health")
         assert health.status_code == 200
 

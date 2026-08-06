@@ -186,7 +186,10 @@ class CloudSyncService:
                 except Exception as exc:
                     delay = failure_delay
                     failure_delay = min(failure_delay * 2, 300)
-                    print(f"[cloud-sync] send failed; retry in {delay}s: {exc}")
+                    print(
+                        f"[cloud-sync] send failed; retry in {delay}s: "
+                        f"{type(exc).__name__}: {exc!r}"
+                    )
 
                 try:
                     await asyncio.wait_for(self._stop_event.wait(), timeout=delay)

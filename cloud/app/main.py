@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from html import escape
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .bootstrap import bootstrap_first_device
 from .config import get_settings
 from .db import create_tables, engine
+
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+DASHBOARD_TEMPLATE = STATIC_DIR / "index.html"
 
 
 @asynccontextmanager
@@ -37,4 +45,18 @@ if settings.cors_origins:
         allow_headers=["Authorization", "Content-Type", "X-Device-ID"],
     )
 
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def dashboard() -> HTMLResponse:
+    content = DASHBOARD_TEMPLATE.read_text(encoding="utf-8").replace(
+        "__KISAMORE_FARM_SLUG__",
+        escape(settings.bootstrap_farm_slug, quote=True),
+    )
+    return HTMLResponse(
+        content,
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(router)

@@ -62,6 +62,7 @@ local controller continues to operate normally.
 
 ## API
 
+- `GET /` — public live dashboard for the configured farm.
 - `GET /api/v1/health` — service/database health.
 - `POST /api/v1/edge/snapshot` — authenticated device ingestion.
 - `GET /api/v1/public/farms/demo-farm/live` — public read-only state.
