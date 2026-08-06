@@ -151,3 +151,12 @@ Designed for Raspberry Pi, fully runnable on PC for development and testing.
 ## License
 
 Private / internal project (license to be defined).
+
+---
+
+## Central cloud API (first read-only stage)
+
+The repository now also contains an optional central API for a VPS. The Raspberry Pi makes
+outbound authenticated requests; no Pi control endpoints are exposed to the public site.
+
+Deployment and configuration: [`cloud/README.md`](cloud/README.md).

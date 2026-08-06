@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123e32">
+  <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
+  <title>KisaMore Farm — состояние теплицы</title>
+  <link rel="stylesheet" href="/static/dashboard.css?v=1">
+</head>
+<body>
+  <div class="page-glow page-glow-one" aria-hidden="true"></div>
+  <div class="page-glow page-glow-two" aria-hidden="true"></div>
+
+  <main class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="KisaMore Farm">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="brand-leaf brand-leaf-left"></span>
+          <span class="brand-leaf brand-leaf-right"></span>
+        </span>
+        <span>
+          <strong>KisaMore</strong>
+          <small>умная теплица</small>
+        </span>
+      </a>
+
+      <div class="connection-pill is-waiting" id="connectionPill" role="status">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="connectionText">Подключение…</span>
+      </div>
+    </header>
+
+    <section class="hero" aria-labelledby="farmName">
+      <div>
+        <p class="eyebrow">Прямой эфир с фермы</p>
+        <h1 id="farmName">KisaMore Farm</h1>
+        <p class="hero-subtitle">
+          <span id="deviceName">Greenhouse Pi</span>
+          <span class="separator" aria-hidden="true"></span>
+          <span id="lastSeen">Ожидаем первые данные</span>
+        </p>
+      </div>
+
+      <button class="refresh-button" id="refreshButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/>
+        </svg>
+        <span>Обновить</span>
+      </button>
+    </section>
+
+    <section class="summary" aria-label="Общее состояние">
+      <div class="summary-item">
+        <span class="summary-icon summary-icon-green" aria-hidden="true">▦</span>
+        <span><strong id="rackCount">—</strong><small>полок</small></span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-icon summary-icon-yellow" aria-hidden="true">☀</span>
+        <span><strong id="lightsOn">—</strong><small>с включённым светом</small></span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-icon summary-icon-blue" aria-hidden="true">●</span>
+        <span><strong id="wateringOn">—</strong><small>поливаются сейчас</small></span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-icon summary-icon-mint" aria-hidden="true">⌁</span>
+        <span><strong id="sensorsOnline">—</strong><small>датчиков с данными</small></span>
+      </div>
+    </section>
+
+    <div class="notice is-hidden" id="notice" role="alert"></div>
+
+    <section class="racks-section" aria-labelledby="racksTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Состояние оборудования</p>
+          <h2 id="racksTitle">Полки</h2>
+        </div>
+        <p>Данные обновляются автоматически каждые 10 секунд</p>
+      </div>
+
+      <div class="racks-grid" id="racksGrid" aria-live="polite" aria-busy="true">
+        <div class="loading-card">
+          <span class="spinner" aria-hidden="true"></span>
+          Получаем данные теплицы…
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Только просмотр — управление оборудованием недоступно</span>
+      <span id="pageUpdated">Страница ещё не обновлялась</span>
+    </footer>
+  </main>
+
+  <template id="rackTemplate">
+    <article class="rack-card">
+      <header class="rack-header">
+        <div>
+          <p class="rack-kicker">Зона выращивания</p>
+          <h3 class="rack-title">Полка</h3>
+        </div>
+        <span class="sensor-badge">
+          <span class="sensor-dot" aria-hidden="true"></span>
+          <span class="sensor-badge-text">Нет данных</span>
+        </span>
+      </header>
+
+      <div class="equipment-row">
+        <div class="equipment-state light-state">
+          <span class="equipment-icon" aria-hidden="true">☀</span>
+          <span><small>Свет</small><strong class="light-value">—</strong></span>
+          <span class="mode-label light-mode">—</span>
+        </div>
+        <div class="equipment-state water-state">
+          <span class="equipment-icon drop-icon" aria-hidden="true">●</span>
+          <span><small>Полив</small><strong class="water-value">—</strong></span>
+          <span class="mode-label water-mode">—</span>
+        </div>
+      </div>
+
+      <div class="sensor-panel">
+        <div class="sensor-reading">
+          <span class="reading-icon temperature-icon" aria-hidden="true">°</span>
+          <span><small>Температура</small><strong class="temperature-value">—</strong></span>
+        </div>
+        <div class="sensor-reading">
+          <span class="reading-icon moisture-icon" aria-hidden="true">%</span>
+          <span><small>Влажность почвы</small><strong class="moisture-value">—</strong></span>
+        </div>
+      </div>
+
+      <footer class="rack-footer">
+        <div class="camera-state">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h3l1.4-2h7.2L17 7h3v12H4V7Zm8 9.2a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2Z"/>
+          </svg>
+          <span><strong class="camera-value">Нет камеры</strong><small class="camera-id"></small></span>
+        </div>
+        <time class="rack-updated">—</time>
+      </footer>
+    </article>
+  </template>
+
+  <script src="/static/dashboard.js?v=2" defer></script>
+</body>
+</html>
