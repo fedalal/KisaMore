@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-from urllib import error as urllib_error
-from urllib import request as urllib_request
 
 from sqlalchemy import select
 
@@ -82,13 +82,8 @@ def _retry_delays(
 
 
 def _is_timeout_error(exc: Exception) -> bool:
-    """Recognize direct and urllib-wrapped socket timeouts."""
-    if isinstance(exc, TimeoutError):
-        return True
-    return isinstance(exc, urllib_error.URLError) and isinstance(
-        exc.reason,
-        TimeoutError,
-    )
+    """Recognize request timeouts reported by the curl transport."""
+    return isinstance(exc, TimeoutError)
 
 
 def _remaining_delay(period_seconds: float, elapsed_seconds: float) -> float:
@@ -194,29 +189,87 @@ class CloudSyncService:
 
     def _send_snapshot_blocking(self, snapshot: dict[str, Any]) -> None:
         assert self._settings is not None
-        body = json.dumps(
-            snapshot,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ).encode("utf-8")
-        request = urllib_request.Request(
-            f"{self._settings.api_url}/api/v1/edge/snapshot",
-            data=body,
-            headers={
-                "Authorization": f"Bearer {self._settings.device_token}",
-                "X-Device-ID": self._settings.device_id,
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "Connection": "close",
-            },
-            method="POST",
-        )
+        payload_path: str | None = None
 
-        with urllib_request.urlopen(
-            request,
-            timeout=self._settings.request_timeout_seconds,
-        ) as response:
-            response.read()
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                prefix="kisamore-cloud-snapshot-",
+                suffix=".json",
+                delete=False,
+            ) as payload_file:
+                json.dump(
+                    snapshot,
+                    payload_file,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+                payload_path = payload_file.name
+
+            headers = (
+                f"Authorization: Bearer {self._settings.device_token}\n"
+                f"X-Device-ID: {self._settings.device_id}\n"
+                "Content-Type: application/json\n"
+                "Accept: application/json\n"
+                "Connection: close\n"
+            ).encode("utf-8")
+            timeout = self._settings.request_timeout_seconds
+            command = [
+                "curl",
+                "--http1.1",
+                "--noproxy",
+                "*",
+                "--silent",
+                "--show-error",
+                "--request",
+                "POST",
+                "--connect-timeout",
+                f"{min(timeout, 5.0):g}",
+                "--max-time",
+                f"{timeout:g}",
+                "--header",
+                "@-",
+                "--data-binary",
+                f"@{payload_path}",
+                "--output",
+                os.devnull,
+                "--write-out",
+                "%{http_code}",
+                f"{self._settings.api_url}/api/v1/edge/snapshot",
+            ]
+
+            try:
+                result = subprocess.run(
+                    command,
+                    input=headers,
+                    capture_output=True,
+                    check=False,
+                    timeout=timeout + 1.0,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise TimeoutError("curl request timed out") from exc
+            except FileNotFoundError as exc:
+                raise RuntimeError("curl executable is not installed") from exc
+
+            error_message = result.stderr.decode("utf-8", errors="replace").strip()
+            if result.returncode == 28:
+                raise TimeoutError(error_message or "curl request timed out")
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"curl failed with exit code {result.returncode}: "
+                    f"{error_message or 'unknown error'}"
+                )
+
+            status_code = result.stdout.decode("ascii", errors="replace").strip()
+            if status_code != "202":
+                raise RuntimeError(f"cloud API returned HTTP {status_code or 'unknown'}")
+        finally:
+            if payload_path is not None:
+                try:
+                    os.unlink(payload_path)
+                except FileNotFoundError:
+                    pass
 
     async def _send_snapshot(self, snapshot: dict[str, Any]) -> None:
         await asyncio.to_thread(self._send_snapshot_blocking, snapshot)

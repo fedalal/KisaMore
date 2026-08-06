@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
-from urllib import error as urllib_error
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -62,34 +62,41 @@ def test_snapshot_is_sent_with_device_authentication(monkeypatch):
         "racks": [],
     }
 
-    class FakeResponse:
-        def __enter__(self):
-            return self
+    captured_payload_path = None
 
-        def __exit__(self, exc_type, exc, traceback):
-            return False
+    def fake_run(command, *, input, capture_output, check, timeout):
+        nonlocal captured_payload_path
+        assert command[0] == "curl"
+        assert "--http1.1" in command
+        assert command[command.index("--noproxy") + 1] == "*"
+        assert command[command.index("--connect-timeout") + 1] == "5"
+        assert command[command.index("--max-time") + 1] == "10"
+        assert command[command.index("--header") + 1] == "@-"
+        assert command[-1] == "https://api.example.test/api/v1/edge/snapshot"
+        assert not any(settings.device_token in argument for argument in command)
+        assert not any(settings.device_id in argument for argument in command)
 
-        def read(self):
-            return b'{"accepted":true}'
-
-    def fake_urlopen(request, timeout):
-        assert request.full_url == "https://api.example.test/api/v1/edge/snapshot"
-        assert request.get_method() == "POST"
-        assert request.get_header("X-device-id") == "pi-01"
-        assert request.get_header("Authorization") == (
-            "Bearer secret-device-token-with-at-least-32-characters"
+        captured_payload_path = Path(command[command.index("--data-binary") + 1][1:])
+        assert json.loads(captured_payload_path.read_text(encoding="utf-8")) == snapshot
+        assert input == (
+            b"Authorization: Bearer secret-device-token-with-at-least-32-characters\n"
+            b"X-Device-ID: pi-01\n"
+            b"Content-Type: application/json\n"
+            b"Accept: application/json\n"
+            b"Connection: close\n"
         )
-        assert request.get_header("Content-type") == "application/json"
-        assert request.get_header("Connection") == "close"
-        assert json.loads(request.data) == snapshot
-        assert timeout == settings.request_timeout_seconds
-        return FakeResponse()
+        assert capture_output is True
+        assert check is False
+        assert timeout == settings.request_timeout_seconds + 1.0
+        return SimpleNamespace(returncode=0, stdout=b"202", stderr=b"")
 
-    monkeypatch.setattr(sync_module.urllib_request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(sync_module.subprocess, "run", fake_run)
     service = CloudSyncService()
     service._settings = settings
 
     asyncio.run(service._send_snapshot(snapshot))
+    assert captured_payload_path is not None
+    assert not captured_payload_path.exists()
 
 
 def test_read_timeout_does_not_trigger_exponential_backoff():
@@ -103,15 +110,30 @@ def test_read_timeout_does_not_trigger_exponential_backoff():
     assert next_failure_delay == 30
 
 
-def test_wrapped_read_timeout_does_not_trigger_exponential_backoff():
-    delay, next_failure_delay = _retry_delays(
-        urllib_error.URLError(TimeoutError("response was not received in time")),
-        interval_seconds=30,
-        failure_delay=240,
+def test_curl_timeout_is_reported_as_timeout_error(monkeypatch):
+    settings = CloudSyncSettings(
+        api_url="https://api.example.test",
+        device_id="pi-01",
+        device_token="test-token-with-at-least-32-characters",
     )
 
-    assert delay == 30
-    assert next_failure_delay == 30
+    def fake_run(*args, **kwargs):
+        return SimpleNamespace(
+            returncode=28,
+            stdout=b"000",
+            stderr=b"curl: (28) Operation timed out",
+        )
+
+    monkeypatch.setattr(sync_module.subprocess, "run", fake_run)
+    service = CloudSyncService()
+    service._settings = settings
+
+    try:
+        service._send_snapshot_blocking({"racks": []})
+    except TimeoutError as exc:
+        assert "Operation timed out" in str(exc)
+    else:
+        raise AssertionError("curl exit code 28 must be treated as a timeout")
 
 
 def test_other_failures_keep_exponential_backoff():
