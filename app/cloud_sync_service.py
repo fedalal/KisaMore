@@ -79,6 +79,11 @@ def _retry_delays(
     return failure_delay, min(failure_delay * 2, 300)
 
 
+def _remaining_delay(period_seconds: float, elapsed_seconds: float) -> float:
+    """Keep attempts on their configured start-to-start cadence."""
+    return max(0.0, period_seconds - elapsed_seconds)
+
+
 class CloudSyncService:
     """Pushes a read-only snapshot from the Pi to the central API."""
 
@@ -193,24 +198,34 @@ class CloudSyncService:
 
         async with httpx.AsyncClient(timeout=self._settings.request_timeout_seconds) as client:
             while not self._stop_event.is_set():
+                attempt_started_at = asyncio.get_running_loop().time()
                 try:
                     snapshot = await self.collect_snapshot()
                     await self._send_snapshot(client, snapshot)
                     failure_delay = self._settings.interval_seconds
-                    delay = self._settings.interval_seconds
-                    print(f"[cloud-sync] snapshot sent: racks={len(snapshot['racks'])}")
+                    period = self._settings.interval_seconds
+                    elapsed = asyncio.get_running_loop().time() - attempt_started_at
+                    print(
+                        f"[cloud-sync] snapshot sent: racks={len(snapshot['racks'])}, "
+                        f"elapsed={elapsed:.2f}s"
+                    )
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
-                    delay, failure_delay = _retry_delays(
+                    period, failure_delay = _retry_delays(
                         exc,
                         interval_seconds=self._settings.interval_seconds,
                         failure_delay=failure_delay,
                     )
+                    elapsed = asyncio.get_running_loop().time() - attempt_started_at
+                    delay = _remaining_delay(period, elapsed)
                     print(
-                        f"[cloud-sync] send failed; retry in {delay}s: "
+                        f"[cloud-sync] send failed after {elapsed:.2f}s; "
+                        f"retry in {delay:.2f}s: "
                         f"{type(exc).__name__}: {exc!r}"
                     )
+                else:
+                    delay = _remaining_delay(period, elapsed)
 
                 try:
                     await asyncio.wait_for(self._stop_event.wait(), timeout=delay)
