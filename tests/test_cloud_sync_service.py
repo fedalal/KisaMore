@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from urllib import error as urllib_error
 
-import httpx
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import cloud_sync_service as sync_module
@@ -61,26 +62,50 @@ def test_snapshot_is_sent_with_device_authentication(monkeypatch):
         "racks": [],
     }
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url == "https://api.example.test/api/v1/edge/snapshot"
-        assert request.headers["X-Device-ID"] == "pi-01"
-        assert request.headers["Authorization"] == (
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b'{"accepted":true}'
+
+    def fake_urlopen(request, timeout):
+        assert request.full_url == "https://api.example.test/api/v1/edge/snapshot"
+        assert request.get_method() == "POST"
+        assert request.get_header("X-device-id") == "pi-01"
+        assert request.get_header("Authorization") == (
             "Bearer secret-device-token-with-at-least-32-characters"
         )
-        return httpx.Response(202, json={"accepted": True})
+        assert request.get_header("Content-type") == "application/json"
+        assert request.get_header("Connection") == "close"
+        assert json.loads(request.data) == snapshot
+        assert timeout == settings.request_timeout_seconds
+        return FakeResponse()
 
-    async def send():
-        service = CloudSyncService()
-        service._settings = settings
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            await service._send_snapshot(client, snapshot)
+    monkeypatch.setattr(sync_module.urllib_request, "urlopen", fake_urlopen)
+    service = CloudSyncService()
+    service._settings = settings
 
-    asyncio.run(send())
+    asyncio.run(service._send_snapshot(snapshot))
 
 
 def test_read_timeout_does_not_trigger_exponential_backoff():
     delay, next_failure_delay = _retry_delays(
-        httpx.ReadTimeout("response was not received in time"),
+        TimeoutError("response was not received in time"),
+        interval_seconds=30,
+        failure_delay=240,
+    )
+
+    assert delay == 30
+    assert next_failure_delay == 30
+
+
+def test_wrapped_read_timeout_does_not_trigger_exponential_backoff():
+    delay, next_failure_delay = _retry_delays(
+        urllib_error.URLError(TimeoutError("response was not received in time")),
         interval_seconds=30,
         failure_delay=240,
     )
