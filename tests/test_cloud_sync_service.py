@@ -8,7 +8,12 @@ import httpx
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import cloud_sync_service as sync_module
-from app.cloud_sync_service import CloudSyncService, CloudSyncSettings, _retry_delays
+from app.cloud_sync_service import (
+    CloudSyncService,
+    CloudSyncSettings,
+    _remaining_delay,
+    _retry_delays,
+)
 from app.models import Base, RackSensorHistory, RackState
 
 
@@ -93,6 +98,12 @@ def test_other_failures_keep_exponential_backoff():
 
     assert delay == 240
     assert next_failure_delay == 300
+
+
+def test_request_time_is_included_in_sync_interval():
+    assert _remaining_delay(30, 10) == 20
+    assert _remaining_delay(30, 30) == 0
+    assert _remaining_delay(30, 45) == 0
 
 
 def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch, tmp_path):
