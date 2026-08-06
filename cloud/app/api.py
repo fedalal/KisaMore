@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from time import perf_counter
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, text
@@ -35,6 +36,7 @@ async def ingest_snapshot(
     device: Device = Depends(authenticate_device),
     session: AsyncSession = Depends(get_session),
 ):
+    started_at = perf_counter()
     now = datetime.now(timezone.utc)
     if payload.observed_at > now + timedelta(minutes=5):
         raise HTTPException(status_code=422, detail="observed_at is too far in the future")
@@ -94,6 +96,10 @@ async def ingest_snapshot(
         )
 
     await session.commit()
+    print(
+        f"[cloud-api] snapshot accepted: device={device.id}, "
+        f"racks={len(payload.racks)}, elapsed={perf_counter() - started_at:.3f}s"
+    )
     return {"accepted": True, "received_at": now}
 
 
