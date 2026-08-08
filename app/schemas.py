@@ -72,6 +72,8 @@ class CameraHWOut(BaseModel):
     flip_horizontal: bool = False
     warp_enabled: bool = False
     warp_points: Optional[List[float]] = None
+    warp_reference_width: int = 1280
+    warp_reference_height: int = 720
     autofocus_enabled: bool = True
     focus_absolute: Optional[int] = None
     white_balance_auto: bool = True

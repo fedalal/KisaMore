@@ -20,6 +20,11 @@
     racksGrid: document.getElementById("racksGrid"),
     rackTemplate: document.getElementById("rackTemplate"),
     pageUpdated: document.getElementById("pageUpdated"),
+    streamModal: document.getElementById("streamModal"),
+    streamBackdrop: document.getElementById("streamBackdrop"),
+    streamClose: document.getElementById("streamClose"),
+    streamTitle: document.getElementById("streamTitle"),
+    streamFrame: document.getElementById("streamFrame"),
   };
 
   let refreshTimer = null;
@@ -103,6 +108,24 @@
     modeValue.textContent = modeLabel(mode);
   };
 
+  const closeStream = () => {
+    elements.streamFrame.src = "about:blank";
+    elements.streamModal.hidden = true;
+    document.body.classList.remove("has-stream-modal");
+  };
+
+  const openStream = (rackId, streamUrl) => {
+    if (!streamUrl) return;
+    closeStream();
+    const separator = streamUrl.includes("?") ? "&" : "?";
+    elements.streamTitle.textContent = `Полка ${rackId}`;
+    elements.streamFrame.src =
+      `${streamUrl}${separator}autoplay=true&muted=true&controls=true&playsInline=true`;
+    elements.streamModal.hidden = false;
+    document.body.classList.add("has-stream-modal");
+    elements.streamClose.focus();
+  };
+
   const renderRack = (rack, rackId) => {
     const card = elements.rackTemplate.content.firstElementChild.cloneNode(true);
     const available = Boolean(rack);
@@ -131,6 +154,14 @@
     camera.classList.toggle("has-camera", hasCamera);
     card.querySelector(".camera-value").textContent = hasCamera ? "Камера подключена" : "Нет камеры";
     card.querySelector(".camera-id").textContent = hasCamera ? rack.camera_id : "";
+
+    const streamButton = card.querySelector(".stream-button");
+    const hasStream = hasCamera && Boolean(rack?.stream_url);
+    streamButton.hidden = !hasStream;
+    streamButton.disabled = !hasStream;
+    if (hasStream) {
+      streamButton.addEventListener("click", () => openStream(rackId, rack.stream_url));
+    }
 
     const rackUpdated = card.querySelector(".rack-updated");
     rackUpdated.textContent = rack?.observed_at ? relativeTime(rack.observed_at) : "нет данных";
@@ -222,8 +253,14 @@
   };
 
   elements.refreshButton.addEventListener("click", loadData);
+  elements.streamClose.addEventListener("click", closeStream);
+  elements.streamBackdrop.addEventListener("click", closeStream);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !elements.streamModal.hidden) closeStream();
+  });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) loadData();
+    if (document.hidden) closeStream();
+    else loadData();
   });
 
   loadData();

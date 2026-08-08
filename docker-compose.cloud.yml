@@ -14,6 +14,20 @@ services:
       timeout: 5s
       retries: 10
 
+  media:
+    image: bluenviron/mediamtx:1
+    restart: unless-stopped
+    environment:
+      MTX_AUTHINTERNALUSERS_0_USER: ${KISAMORE_MEDIA_PUBLISH_USER}
+      MTX_AUTHINTERNALUSERS_0_PASS: ${KISAMORE_MEDIA_PUBLISH_PASSWORD}
+    volumes:
+      - ./cloud/mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      # Raspberry Pi публикует сюда четыре исходящих RTSP/H.264-потока.
+      - "8554:8554"
+      # HLS доступен снаружи только через HTTPS reverse proxy Nginx.
+      - "127.0.0.1:8888:8888"
+
   api:
     build:
       context: .
@@ -28,6 +42,7 @@ services:
       KISAMORE_BOOTSTRAP_DEVICE_ID: ${KISAMORE_BOOTSTRAP_DEVICE_ID}
       KISAMORE_BOOTSTRAP_DEVICE_NAME: ${KISAMORE_BOOTSTRAP_DEVICE_NAME}
       KISAMORE_BOOTSTRAP_DEVICE_TOKEN: ${KISAMORE_BOOTSTRAP_DEVICE_TOKEN}
+      KISAMORE_PUBLIC_HLS_BASE_URL: ${KISAMORE_PUBLIC_HLS_BASE_URL:-/hls}
     depends_on:
       postgres:
         condition: service_healthy

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#123e32">
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
   <title>KisaMore Farm — состояние теплицы</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=1">
+  <link rel="stylesheet" href="/static/dashboard.css?v=2">
 </head>
 <body>
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
@@ -138,11 +138,37 @@
           </svg>
           <span><strong class="camera-value">Нет камеры</strong><small class="camera-id"></small></span>
         </div>
+        <button class="stream-button" type="button" hidden>
+          Смотреть
+        </button>
         <time class="rack-updated">—</time>
       </footer>
     </article>
   </template>
 
-  <script src="/static/dashboard.js?v=2" defer></script>
+  <div class="stream-modal" id="streamModal" hidden>
+    <button class="stream-backdrop" id="streamBackdrop" type="button" aria-label="Закрыть видео"></button>
+    <section class="stream-dialog" role="dialog" aria-modal="true" aria-labelledby="streamTitle">
+      <header class="stream-dialog-header">
+        <div>
+          <p class="eyebrow">Прямой эфир</p>
+          <h2 id="streamTitle">Полка</h2>
+        </div>
+        <button class="stream-close" id="streamClose" type="button" aria-label="Закрыть">×</button>
+      </header>
+      <div class="stream-frame-wrap">
+        <iframe
+          id="streamFrame"
+          title="Прямой эфир с полки"
+          src="about:blank"
+          allow="autoplay; fullscreen; picture-in-picture"
+          scrolling="no"
+        ></iframe>
+      </div>
+      <p class="stream-note">Поток 1024 × 768. При съёмке полноразмерного фото возможна короткая пауза.</p>
+    </section>
+  </div>
+
+  <script src="/static/dashboard.js?v=3" defer></script>
 </body>
 </html>

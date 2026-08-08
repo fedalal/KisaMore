@@ -1,0 +1,43 @@
+logLevel: info
+logDestinations: [stdout]
+
+authMethod: internal
+authInternalUsers:
+  # Имя и пароль этого пользователя переопределяются переменными окружения
+  # MTX_AUTHINTERNALUSERS_0_USER/PASS из docker-compose.cloud.yml.
+  - user: publisher
+    pass: replace-me
+    ips: []
+    permissions:
+      - action: publish
+        path: ~^farm/[a-z0-9-]+/rack_[0-9]+$
+  # Просмотр бесплатной публичной версии не требует учётных данных.
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+        path: ~^farm/[a-z0-9-]+/rack_[0-9]+$
+
+rtsp: true
+rtspTransports: [tcp]
+rtspAuthMethods: [basic]
+
+rtmp: false
+webrtc: false
+srt: false
+moq: false
+
+hls: true
+hlsAllowOrigins: ["*"]
+hlsAlwaysRemux: true
+hlsVariant: fmp4
+hlsSegmentCount: 4
+hlsSegmentDuration: 1s
+
+pathDefaults:
+  source: publisher
+  overridePublisher: true
+
+paths:
+  all_others:

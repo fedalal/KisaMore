@@ -160,3 +160,7 @@ The repository now also contains an optional central API for a VPS. The Raspberr
 outbound authenticated requests; no Pi control endpoints are exposed to the public site.
 
 Deployment and configuration: [`cloud/README.md`](cloud/README.md).
+
+The cloud stack can also receive one H.264 stream per rack and expose it to users as HLS.
+Raspberry Pi live capture defaults to `1024x768`; archive photos use the maximum MJPG mode
+reported by each camera. See the cloud deployment guide for MediaMTX, Nginx and edge variables.

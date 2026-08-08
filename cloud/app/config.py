@@ -19,6 +19,7 @@ class Settings:
     bootstrap_device_id: str
     bootstrap_device_name: str
     bootstrap_device_token: str
+    public_hls_base_url: str
 
 
 @lru_cache
@@ -42,4 +43,8 @@ def get_settings() -> Settings:
         bootstrap_device_id=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_ID", "").strip(),
         bootstrap_device_name=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_NAME", "Greenhouse Pi").strip(),
         bootstrap_device_token=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_TOKEN", "").strip(),
+        public_hls_base_url=(
+            os.getenv("KISAMORE_PUBLIC_HLS_BASE_URL", "/hls").strip().rstrip("/")
+            or "/hls"
+        ),
     )

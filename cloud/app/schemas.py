@@ -62,6 +62,7 @@ class RackLiveOut(BaseModel):
     soil_temperature: float | None
     sensor_observed_at: datetime | None
     camera_id: str | None
+    stream_url: str | None
     observed_at: datetime
 
 

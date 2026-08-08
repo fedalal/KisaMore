@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, text
@@ -168,6 +169,12 @@ async def public_farm_live(
                 soil_temperature=rack.soil_temperature,
                 sensor_observed_at=_as_aware_utc(rack.sensor_observed_at),
                 camera_id=rack.camera_id,
+                stream_url=(
+                    f"{get_settings().public_hls_base_url}/farm/"
+                    f"{quote(farm.slug, safe='')}/rack_{rack.rack_id}"
+                    if rack.camera_id
+                    else None
+                ),
                 observed_at=_as_aware_utc(rack.observed_at),
             )
             for rack in racks
