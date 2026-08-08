@@ -22,9 +22,11 @@ services:
       MTX_AUTHINTERNALUSERS_0_PASS: ${KISAMORE_MEDIA_PUBLISH_PASSWORD}
     volumes:
       - ./cloud/mediamtx.yml:/mediamtx.yml:ro
+      - ${KISAMORE_TLS_CERT_PATH}:/certs/server.crt:ro
+      - ${KISAMORE_TLS_KEY_PATH}:/certs/server.key:ro
     ports:
-      # Raspberry Pi публикует сюда четыре исходящих RTSP/H.264-потока.
-      - "8554:8554"
+      # Raspberry Pi публикует сюда четыре зашифрованных RTSPS/H.264-потока.
+      - "8322:8322"
       # HLS доступен снаружи только через HTTPS reverse proxy Nginx.
       - "127.0.0.1:8888:8888"
 
