@@ -20,6 +20,10 @@ authInternalUsers:
         path: ~^farm/[a-z0-9-]+/rack_[0-9]+$
 
 rtsp: true
+rtspEncryption: strict
+rtspsAddress: :8322
+rtspServerKey: /certs/server.key
+rtspServerCert: /certs/server.crt
 rtspTransports: [tcp]
 rtspAuthMethods: [basic]
 
