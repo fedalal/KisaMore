@@ -147,6 +147,8 @@ def build_ffmpeg_command(
         "rtsp",
         "-rtsp_transport",
         "tcp",
-        settings.rack_publish_url(rack_id),
     ])
+    if urlsplit(settings.publish_url).scheme == "rtsps":
+        command.extend(["-tls_verify", "1"])
+    command.append(settings.rack_publish_url(rack_id))
     return command
