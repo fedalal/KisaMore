@@ -12,7 +12,7 @@ or shutdown commands.
 4. The public site reads only `/api/v1/public/farms/{slug}/live`.
 
 Video uses a separate media path: each camera is opened once by the Raspberry Pi application,
-encoded to H.264 by FFmpeg and published to MediaMTX on the VPS. MediaMTX creates HLS for public
+encoded to H.264 by FFmpeg and published over encrypted RTSPS to MediaMTX on the VPS. MediaMTX creates HLS for public
 viewers, so adding viewers does not add outgoing connections from the Raspberry Pi.
 
 The Raspberry Pi does not accept incoming internet connections.
@@ -24,6 +24,8 @@ cp cloud/.env.example cloud/.env
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 # Generate two different values. Put them in KISAMORE_BOOTSTRAP_DEVICE_TOKEN and
 # KISAMORE_MEDIA_PUBLISH_PASSWORD.
+# Set KISAMORE_TLS_CERT_PATH and KISAMORE_TLS_KEY_PATH to the current
+# Let's Encrypt certificate and private key on this VPS.
 
 docker compose --env-file cloud/.env -f docker-compose.cloud.yml up -d --build
 curl http://127.0.0.1:8080/api/v1/health
@@ -54,10 +56,11 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-MediaMTX publishes HLS only on `127.0.0.1:8888`. TCP port `8554` accepts the Raspberry Pi
+MediaMTX publishes HLS only on `127.0.0.1:8888`. TCP port `8322` accepts the encrypted RTSPS
 publisher and must be allowed by the VPS firewall. If the Pi has a fixed public IP, restrict the
-port to that address. The publisher account can publish but cannot administer the media server;
-anonymous users can only read the public farm streams.
+port to that address. MediaMTX reads the same valid TLS certificate used by the VPS. The publisher
+account can publish but cannot administer the media server; anonymous users can only read the
+public farm streams.
 
 ## Raspberry Pi configuration
 
@@ -74,7 +77,7 @@ KISAMORE_SOFTWARE_VERSION=d7caafd-cloud-sync
 
 # Live video. The hostname is the public VPS hostname; do not add a rack path.
 KISAMORE_MEDIA_ENABLED=true
-KISAMORE_MEDIA_PUBLISH_URL=rtsp://api.kisamore.com:8554
+KISAMORE_MEDIA_PUBLISH_URL=rtsps://api.kisamore.com:8322
 KISAMORE_MEDIA_PUBLISH_USER=kisamore-edge
 KISAMORE_MEDIA_PUBLISH_PASSWORD=the-same-media-password-used-on-the-vps
 KISAMORE_MEDIA_FARM_SLUG=demo-farm
