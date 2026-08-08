@@ -56,6 +56,13 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+Let's Encrypt certificates issued directly for an IP address are short-lived (160 hours).
+Run the Certbot renewal scheduler at least daily and verify it with `certbot renew --dry-run`.
+Install a Certbot deploy hook that reloads Nginx and runs
+`docker compose --env-file /path/to/KisaMore/cloud/.env -f /path/to/KisaMore/docker-compose.cloud.yml restart media`.
+Restarting MediaMTX after renewal is required so new RTSPS connections receive the renewed
+certificate instead of the certificate loaded when the container started.
+
 MediaMTX publishes HLS only on `127.0.0.1:8888`. TCP port `8322` accepts the encrypted RTSPS
 publisher and must be allowed by the VPS firewall. If the Pi has a fixed public IP, restrict the
 port to that address. MediaMTX reads the same valid TLS certificate used by the VPS. The publisher
