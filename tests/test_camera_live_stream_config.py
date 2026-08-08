@@ -37,7 +37,7 @@ def test_settings_build_authenticated_rack_url(monkeypatch):
 
 def test_ffmpeg_command_uses_requested_1024_by_768_stream():
     settings = CameraLiveStreamSettings(
-        publish_url="rtsp://media.example.test:8554",
+        publish_url="rtsps://media.example.test:8322",
         publish_user="edge",
         publish_password="a-strong-password",
         farm_slug="demo-farm",
@@ -57,6 +57,8 @@ def test_ffmpeg_command_uses_requested_1024_by_768_stream():
     assert command[command.index("-framerate") + 1] == "8"
     assert command[command.index("-b:v") + 1] == "1200k"
     assert command[command.index("-g") + 1] == "16"
+    assert command[command.index("-tls_verify") + 1] == "1"
+    assert command[-1].startswith("rtsps://")
     assert command[-1].endswith("/farm/demo-farm/rack_1")
 
 
