@@ -10,16 +10,18 @@ router = APIRouter(prefix="/api", tags=["camera"])
 
 
 def _camera_runtime_settings():
-    quality = 90
-    frame_width = 1280
-    frame_height = 720
+    quality = 85
+    frame_width = 1024
+    frame_height = 768
+    frame_fps = 8
 
-    if runtime.cfg and runtime.cfg.camera_capture:
-        quality = runtime.cfg.camera_capture.jpeg_quality
-        frame_width = runtime.cfg.camera_capture.frame_width
-        frame_height = runtime.cfg.camera_capture.frame_height
+    if runtime.cfg and runtime.cfg.camera_stream:
+        quality = runtime.cfg.camera_stream.jpeg_quality
+        frame_width = runtime.cfg.camera_stream.frame_width
+        frame_height = runtime.cfg.camera_stream.frame_height
+        frame_fps = runtime.cfg.camera_stream.fps
 
-    return quality, frame_width, frame_height
+    return quality, frame_width, frame_height, frame_fps
 
 
 def _validate_device(device: str):
@@ -76,13 +78,14 @@ def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
 
 def _mjpeg_for_camera(cam: CameraHW, corrected: bool):
     while True:
-        quality, frame_width, frame_height = _camera_runtime_settings()
+        quality, frame_width, frame_height, frame_fps = _camera_runtime_settings()
 
         jpeg = camera_manager.get_jpeg(
             device=cam.device,
             jpeg_quality=quality,
             frame_width=frame_width,
             frame_height=frame_height,
+            frame_fps=frame_fps,
 
             # Поворот должен применяться и к "До коррекции", и к "После коррекции".
             # Иначе точки выбираются на одном изображении, а применяются к другому.
@@ -92,6 +95,8 @@ def _mjpeg_for_camera(cam: CameraHW, corrected: bool):
             # Перспективу применяем только для правого изображения "После коррекции".
             warp_enabled=cam.warp_enabled if corrected else False,
             warp_points=cam.warp_points if corrected else None,
+            warp_reference_width=cam.warp_reference_width,
+            warp_reference_height=cam.warp_reference_height,
 
             autofocus_enabled=cam.autofocus_enabled,
             focus_absolute=cam.focus_absolute,
@@ -147,6 +152,10 @@ async def rack_camera_info(rack_id: int):
         "camera_flip_horizontal": cam.flip_horizontal,
         "camera_warp_enabled": cam.warp_enabled,
         "camera_warp_points": cam.warp_points,
+        "camera_warp_reference_width": cam.warp_reference_width,
+        "camera_warp_reference_height": cam.warp_reference_height,
+        "stream_width": runtime.cfg.camera_stream.frame_width if runtime.cfg else 1024,
+        "stream_height": runtime.cfg.camera_stream.frame_height if runtime.cfg else 768,
         "exists": True,
         "last_error": camera_manager.get_error(cam.device),
     }
@@ -164,6 +173,10 @@ async def camera_info(camera_id: str):
         "camera_flip_horizontal": cam.flip_horizontal,
         "camera_warp_enabled": cam.warp_enabled,
         "camera_warp_points": cam.warp_points,
+        "camera_warp_reference_width": cam.warp_reference_width,
+        "camera_warp_reference_height": cam.warp_reference_height,
+        "stream_width": runtime.cfg.camera_stream.frame_width if runtime.cfg else 1024,
+        "stream_height": runtime.cfg.camera_stream.frame_height if runtime.cfg else 768,
         "exists": True,
         "last_error": camera_manager.get_error(cam.device),
     }

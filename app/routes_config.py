@@ -3,6 +3,7 @@ from .hw_config import HWConfig, save_config, load_config
 from .schemas import HWConfigOut
 from . import runtime
 from .bootstrap import ensure_db_racks
+from .camera_live_stream_service import camera_live_stream_service
 
 router = APIRouter(prefix="/api", tags=["config"])
 
@@ -27,6 +28,10 @@ async def set_config(payload: HWConfig):
 
     if not payload.level_sensors and existing.level_sensors:
         payload = payload.model_copy(update={"level_sensors": existing.level_sensors})
+
+    # Параметры постоянного потока пока не редактируются из локального UI.
+    # Частичный payload страницы настроек не должен сбрасывать 1024x768 и bitrate.
+    payload = payload.model_copy(update={"camera_stream": existing.camera_stream})
 
     if (
         not payload.camera_capture.google_folder_id
@@ -76,5 +81,6 @@ async def set_config(payload: HWConfig):
     # переинициализируем драйвер/конфиг в runtime
     await runtime.init_runtime(active_low=True)
     await ensure_db_racks(runtime.cfg.racks_count)
+    await camera_live_stream_service.restart()
 
     return {"ok": True}

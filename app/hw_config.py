@@ -16,9 +16,12 @@ class CameraCaptureConfig(BaseModel):
     # Качество JPEG
     jpeg_quality: int = Field(default=90, ge=30, le=100)
 
-    # Разрешение камеры
-    frame_width: int = Field(default=1280, ge=320, le=3840)
-    frame_height: int = Field(default=720, ge=240, le=2160)
+    # Для архивных фотографий сначала определяется максимальное MJPG-разрешение
+    # конкретной камеры. Указанный размер используется как безопасный fallback,
+    # если v4l2-ctl недоступен или камера не сообщает список форматов.
+    use_max_resolution: bool = True
+    frame_width: int = Field(default=3840, ge=320, le=7680)
+    frame_height: int = Field(default=2160, ge=240, le=4320)
 
     # Делать фото только если на полке включён свет
     only_when_light_on: bool = True
@@ -33,6 +36,17 @@ class CameraCaptureConfig(BaseModel):
     local_archive_dir: str = "data/camera_archive"
     local_archive_days: int = Field(default=60, ge=1, le=365)
 
+
+class CameraStreamConfig(BaseModel):
+    # Один и тот же поток кадров используется локальной MJPEG-трансляцией и
+    # отправкой на VPS. Это не даёт двум процессам одновременно открыть UVC-камеру.
+    frame_width: int = Field(default=1024, ge=320, le=1920)
+    frame_height: int = Field(default=768, ge=240, le=1080)
+    fps: int = Field(default=8, ge=1, le=15)
+    bitrate_kbps: int = Field(default=1200, ge=200, le=10000)
+    jpeg_quality: int = Field(default=85, ge=30, le=100)
+
+
 class CameraHW(BaseModel):
     name: str = Field(default="", max_length=100)
     device: str = Field(default="/dev/video0", min_length=1, max_length=255)
@@ -42,6 +56,10 @@ class CameraHW(BaseModel):
     # 4 точки перспективного выравнивания в пикселях:
     # [left_top_x, left_top_y, right_top_x, right_top_y, right_bottom_x, right_bottom_y, left_bottom_x, left_bottom_y]
     warp_points: Optional[list[float]] = Field(default=None, min_length=8, max_length=8)
+    # Размер изображения, на котором пользователь выбрал warp_points. Точки
+    # автоматически масштабируются для 1024x768-потока и полноразмерного фото.
+    warp_reference_width: int = Field(default=1280, ge=1, le=7680)
+    warp_reference_height: int = Field(default=720, ge=1, le=4320)
 
     # Фокус
     autofocus_enabled: bool = True
@@ -93,6 +111,10 @@ class HWConfig(BaseModel):
 
     # Настройки автоматической отправки фото с камер в Google Drive
     camera_capture: CameraCaptureConfig = Field(default_factory=CameraCaptureConfig)
+
+    # Настройки постоянного видео. Секреты и адрес VPS задаются только через
+    # переменные окружения, а не через общий YAML-конфиг.
+    camera_stream: CameraStreamConfig = Field(default_factory=CameraStreamConfig)
 
     @field_validator("racks")
     @classmethod
@@ -181,6 +203,7 @@ def load_config() -> HWConfig:
                 credentials_file=None,
                 jpeg_quality=85,
             ),
+            camera_stream=CameraStreamConfig(),
         )
         save_config(cfg)
         return cfg
@@ -191,6 +214,9 @@ def load_config() -> HWConfig:
     need_save = False
 
     if "camera_capture" not in data:
+        need_save = True
+
+    if "camera_stream" not in data:
         need_save = True
 
     cfg = HWConfig.model_validate(data)

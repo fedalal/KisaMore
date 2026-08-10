@@ -1,5 +1,5 @@
 let cfgState = null;
-let picking = { cameraId: null, points: [] };
+let picking = { cameraId: null, points: [], referenceWidth: null, referenceHeight: null };
 
 async function api(path, method="GET", body=null){
   const res = await fetch(path, {
@@ -104,6 +104,8 @@ function addCamera(){
     flip_horizontal: false,
     warp_enabled: false,
     warp_points: null,
+    warp_reference_width: 1024,
+    warp_reference_height: 768,
     autofocus_enabled: true,
     focus_absolute: 512,
     white_balance_auto: true,
@@ -128,13 +130,21 @@ function deleteCamera(cameraId){
 }
 
 function startPickPoints(cameraId){
-  picking = { cameraId, points: [] };
+  const img = document.getElementById(`cameraImg_raw_${cameraId}`);
+  picking = {
+    cameraId,
+    points: [],
+    referenceWidth: img?.naturalWidth || 1024,
+    referenceHeight: img?.naturalHeight || 768,
+  };
   renderCameras();
 }
 
 function resetPoints(cameraId){
   cfgState.cameras[cameraId].warp_points = null;
-  if(picking.cameraId === cameraId) picking = { cameraId: null, points: [] };
+  if(picking.cameraId === cameraId){
+    picking = { cameraId: null, points: [], referenceWidth: null, referenceHeight: null };
+  }
   renderCameras();
 }
 
@@ -177,12 +187,17 @@ function onRawPreviewClick(cameraId, event){
   const x = Math.round((event.clientX - rect.left) * img.naturalWidth / rect.width);
   const y = Math.round((event.clientY - rect.top) * img.naturalHeight / rect.height);
 
+  picking.referenceWidth = img.naturalWidth;
+  picking.referenceHeight = img.naturalHeight;
+
   picking.points.push(x, y);
 
   if(picking.points.length === 8){
     cfgState.cameras[cameraId].warp_points = [...picking.points];
+    cfgState.cameras[cameraId].warp_reference_width = picking.referenceWidth;
+    cfgState.cameras[cameraId].warp_reference_height = picking.referenceHeight;
     cfgState.cameras[cameraId].warp_enabled = true;
-    picking = { cameraId: null, points: [] };
+    picking = { cameraId: null, points: [], referenceWidth: null, referenceHeight: null };
     setWarpInputValue(cameraId);
     setWarpEnabledCheckbox(cameraId);
     updateOverlayOnly(cameraId);
@@ -198,6 +213,12 @@ function onRawPreviewClick(cameraId, event){
 function overlaySvg(cameraId){
   const cam = cfgState.cameras[cameraId];
   const points = picking.cameraId === cameraId && picking.points.length ? picking.points : cam.warp_points;
+  const referenceWidth = picking.cameraId === cameraId
+    ? (picking.referenceWidth || 1024)
+    : (cam.warp_reference_width || 1280);
+  const referenceHeight = picking.cameraId === cameraId
+    ? (picking.referenceHeight || 768)
+    : (cam.warp_reference_height || 720);
 
   if(!Array.isArray(points) || points.length < 2) return "";
 
@@ -210,7 +231,7 @@ function overlaySvg(cameraId){
   `).join("");
 
   return `
-    <svg class="cameraOverlay" viewBox="0 0 1280 720" preserveAspectRatio="none">
+    <svg class="cameraOverlay" viewBox="0 0 ${referenceWidth} ${referenceHeight}" preserveAspectRatio="none">
       <polyline points="${poly}" fill="none"></polyline>
       ${circles}
     </svg>
@@ -223,6 +244,8 @@ function cameraCard(cameraId){
   if(cam.focus_absolute === undefined) cam.focus_absolute = 512;
   if(cam.white_balance_auto === undefined) cam.white_balance_auto = true;
   if(cam.white_balance_temperature === undefined) cam.white_balance_temperature = 4;
+  if(cam.warp_reference_width === undefined) cam.warp_reference_width = 1280;
+  if(cam.warp_reference_height === undefined) cam.warp_reference_height = 720;
   const pickText = picking.cameraId === cameraId
     ? `Кликни точку ${(picking.points.length / 2) + 1} из 4`
     : "Выбрать точки";

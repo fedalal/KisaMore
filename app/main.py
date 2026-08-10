@@ -17,6 +17,7 @@ from .sensor_history_service import SensorHistoryService
 from .routes_sensor_history import router as sensor_history_router
 from .camera_capture_service import camera_capture_service
 from .camera_manager import camera_manager
+from .camera_live_stream_service import camera_live_stream_service
 from .cloud_sync_service import cloud_sync_service
 
 
@@ -65,8 +66,12 @@ async def on_startup():
     # 6) безопасная исходящая синхронизация состояния с центральным API
     await cloud_sync_service.start()
 
+    # 7) один исходящий видеопоток на полку; зрителей обслуживает VPS
+    await camera_live_stream_service.start()
+
 @app.on_event("shutdown")
 async def on_shutdown():
+    await camera_live_stream_service.stop()
     await cloud_sync_service.stop()
     await camera_capture_service.stop()
     camera_manager.stop_all()

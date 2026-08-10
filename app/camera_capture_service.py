@@ -30,6 +30,15 @@ class CameraCaptureService:
         }
 
     async def start(self):
+        # Временно не запускаем фотосъёмку одновременно с постоянным видеопотоком:
+        # перенастройка UVC-камеры для 4K-снимка может привести OpenCV/V4L2 к SIGSEGV.
+        # Явное значение true позволит вернуть сбор фото после исправления общего
+        # доступа к камере, не меняя config/kisamore.yaml на каждой установке.
+        capture_enabled = os.getenv("KISAMORE_CAMERA_CAPTURE_ENABLED", "false")
+        if capture_enabled.strip().lower() not in {"1", "true", "yes", "on"}:
+            print("[camera-capture] disabled by KISAMORE_CAMERA_CAPTURE_ENABLED")
+            return
+
         if self.task and not self.task.done():
             return
 
@@ -243,6 +252,9 @@ class CameraCaptureService:
         quality = cfg.jpeg_quality
         frame_width = cfg.frame_width
         frame_height = cfg.frame_height
+        stream_width = runtime.cfg.camera_stream.frame_width
+        stream_height = runtime.cfg.camera_stream.frame_height
+        stream_fps = runtime.cfg.camera_stream.fps
 
         for rack_id_str, rack_cfg in runtime.cfg.racks.items():
             rack_id = int(rack_id_str)
@@ -254,6 +266,12 @@ class CameraCaptureService:
                 flip_horizontal = camera_cfg.flip_horizontal
                 warp_enabled = camera_cfg.warp_enabled
                 warp_points = camera_cfg.warp_points
+                warp_reference_width = camera_cfg.warp_reference_width
+                warp_reference_height = camera_cfg.warp_reference_height
+                autofocus_enabled = camera_cfg.autofocus_enabled
+                focus_absolute = camera_cfg.focus_absolute
+                white_balance_auto = camera_cfg.white_balance_auto
+                white_balance_temperature = camera_cfg.white_balance_temperature
             else:
                 # Совместимость со старым config/kisamore.yaml.
                 device = (rack_cfg.camera_device or "").strip()
@@ -261,6 +279,12 @@ class CameraCaptureService:
                 flip_horizontal = rack_cfg.camera_flip_horizontal
                 warp_enabled = rack_cfg.camera_warp_enabled
                 warp_points = rack_cfg.camera_warp_points
+                warp_reference_width = 1280
+                warp_reference_height = 720
+                autofocus_enabled = True
+                focus_absolute = None
+                white_balance_auto = True
+                white_balance_temperature = None
 
             if not device:
                 continue
@@ -273,19 +297,26 @@ class CameraCaptureService:
                 print(f"[camera-capture] camera not found: rack={rack_id}, device={device}")
                 continue
 
-            jpeg = camera_manager.get_jpeg(
+            jpeg = await asyncio.to_thread(
+                camera_manager.capture_still_jpeg,
                 device=device,
                 jpeg_quality=quality,
-                frame_width=frame_width,
-                frame_height=frame_height,
+                fallback_width=frame_width,
+                fallback_height=frame_height,
+                use_max_resolution=cfg.use_max_resolution,
                 flip_vertical=flip_vertical,
                 flip_horizontal=flip_horizontal,
                 warp_enabled=warp_enabled,
                 warp_points=warp_points,
-                autofocus_enabled=camera_cfg.autofocus_enabled,
-                focus_absolute=camera_cfg.focus_absolute,
-                white_balance_auto=camera_cfg.white_balance_auto,
-                white_balance_temperature=camera_cfg.white_balance_temperature,
+                warp_reference_width=warp_reference_width,
+                warp_reference_height=warp_reference_height,
+                autofocus_enabled=autofocus_enabled,
+                focus_absolute=focus_absolute,
+                white_balance_auto=white_balance_auto,
+                white_balance_temperature=white_balance_temperature,
+                live_frame_width=stream_width,
+                live_frame_height=stream_height,
+                live_frame_fps=stream_fps,
             )
 
             if not jpeg:

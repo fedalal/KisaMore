@@ -66,6 +66,7 @@ def test_authenticated_ingestion_and_public_read_only_api():
         assert dashboard.status_code == 200
         assert "KisaMore Farm" in dashboard.text
         assert 'content="test-farm"' in dashboard.text
+        assert 'id="streamModal"' in dashboard.text
 
         dashboard_css = client.get("/static/dashboard.css")
         assert dashboard_css.status_code == 200
@@ -108,6 +109,8 @@ def test_authenticated_ingestion_and_public_read_only_api():
         assert [rack["rack_id"] for rack in data["racks"]] == [1, 2]
         assert data["racks"][0]["soil_moisture"] == 61.4
         assert data["racks"][0]["light_on"] is True
+        assert data["racks"][0]["stream_url"] == "/hls/farm/test-farm/rack_1"
+        assert data["racks"][1]["stream_url"] == "/hls/farm/test-farm/rack_2"
 
         reduced_snapshot = _snapshot()
         reduced_snapshot["racks_count"] = 1
