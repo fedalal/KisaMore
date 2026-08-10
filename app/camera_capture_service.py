@@ -30,6 +30,15 @@ class CameraCaptureService:
         }
 
     async def start(self):
+        # Временно не запускаем фотосъёмку одновременно с постоянным видеопотоком:
+        # перенастройка UVC-камеры для 4K-снимка может привести OpenCV/V4L2 к SIGSEGV.
+        # Явное значение true позволит вернуть сбор фото после исправления общего
+        # доступа к камере, не меняя config/kisamore.yaml на каждой установке.
+        capture_enabled = os.getenv("KISAMORE_CAMERA_CAPTURE_ENABLED", "false")
+        if capture_enabled.strip().lower() not in {"1", "true", "yes", "on"}:
+            print("[camera-capture] disabled by KISAMORE_CAMERA_CAPTURE_ENABLED")
+            return
+
         if self.task and not self.task.done():
             return
 
