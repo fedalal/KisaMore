@@ -11,6 +11,7 @@ from .config import get_settings
 from .models import Device, Farm, RackCurrent, TelemetrySample
 from .schemas import EdgeSnapshotIn, FarmLiveOut, RackLiveOut
 from .security import authenticate_device, get_session
+from .marketplace_service import process_waitlist, sync_edge_inventory
 
 
 router = APIRouter(prefix="/api/v1")
@@ -94,6 +95,9 @@ async def ingest_snapshot(
                 received_at=now,
             )
         )
+
+    await sync_edge_inventory(session, device.id, payload, now)
+    await process_waitlist(session, device.id)
 
     await session.commit()
     print(

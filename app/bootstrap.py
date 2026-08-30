@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from .db import engine, SessionLocal
-from .models import Base, RackState, RackSchedule
+from .models import Base, RackSlot, RackState, RackSchedule
 
 _EMPTY = {"mon": [], "tue": [], "wed": [], "thu": [], "fri": [], "sat": [], "sun": []}
 
@@ -21,4 +21,15 @@ async def ensure_db_racks(racks_count: int):
                     rack_id=rack_id,
                     schedule_json={"light": dict(_EMPTY), "water": dict(_EMPTY)},
                 ))
+
+            existing_slots = set(
+                (
+                    await s.execute(
+                        select(RackSlot.slot_number).where(RackSlot.rack_id == rack_id)
+                    )
+                ).scalars().all()
+            )
+            for slot_number in range(1, 7):
+                if slot_number not in existing_slots:
+                    s.add(RackSlot(rack_id=rack_id, slot_number=slot_number))
         await s.commit()

@@ -164,6 +164,14 @@ class CameraCaptureService:
 
         print(f"[camera-capture] saved archive {path}")
 
+    def _save_latest_file(self, jpeg: bytes, rack_id: int):
+        latest_dir = Path(runtime.cfg.camera_capture.latest_dir or "data/camera_latest")
+        latest_dir.mkdir(parents=True, exist_ok=True)
+        path = latest_dir / f"rack_{rack_id}.jpg"
+        tmp_path = path.with_suffix(".jpg.tmp")
+        tmp_path.write_bytes(jpeg)
+        tmp_path.replace(path)
+
     async def _cleanup_archive_files(self):
         if not runtime.cfg or not runtime.cfg.camera_capture.local_archive_enabled:
             return
@@ -254,6 +262,10 @@ class CameraCaptureService:
                 flip_horizontal = camera_cfg.flip_horizontal
                 warp_enabled = camera_cfg.warp_enabled
                 warp_points = camera_cfg.warp_points
+                autofocus_enabled = camera_cfg.autofocus_enabled
+                focus_absolute = camera_cfg.focus_absolute
+                white_balance_auto = camera_cfg.white_balance_auto
+                white_balance_temperature = camera_cfg.white_balance_temperature
             else:
                 # Совместимость со старым config/kisamore.yaml.
                 device = (rack_cfg.camera_device or "").strip()
@@ -261,6 +273,10 @@ class CameraCaptureService:
                 flip_horizontal = rack_cfg.camera_flip_horizontal
                 warp_enabled = rack_cfg.camera_warp_enabled
                 warp_points = rack_cfg.camera_warp_points
+                autofocus_enabled = True
+                focus_absolute = None
+                white_balance_auto = True
+                white_balance_temperature = None
 
             if not device:
                 continue
@@ -282,10 +298,10 @@ class CameraCaptureService:
                 flip_horizontal=flip_horizontal,
                 warp_enabled=warp_enabled,
                 warp_points=warp_points,
-                autofocus_enabled=camera_cfg.autofocus_enabled,
-                focus_absolute=camera_cfg.focus_absolute,
-                white_balance_auto=camera_cfg.white_balance_auto,
-                white_balance_temperature=camera_cfg.white_balance_temperature,
+                autofocus_enabled=autofocus_enabled,
+                focus_absolute=focus_absolute,
+                white_balance_auto=white_balance_auto,
+                white_balance_temperature=white_balance_temperature,
             )
 
             if not jpeg:
@@ -295,12 +311,14 @@ class CameraCaptureService:
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"rack_{rack_id}_{now}.jpg"
 
+            # Атомарно обновляем кадр, который отправляется на VPS вместе с телеметрией.
+            self._save_latest_file(jpeg, rack_id)
+
             # Всегда сохраняем локальную копию для таймлапсов.
             # Она будет храниться local_archive_days дней и потом удалится автоматически.
             self._save_archive_file(jpeg, filename, rack_id)
 
             if uploader is None:
-                self._save_pending_file(jpeg, filename, "Google Drive uploader is not configured")
                 continue
 
             try:

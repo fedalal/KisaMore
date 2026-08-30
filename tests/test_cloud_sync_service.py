@@ -223,6 +223,40 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
             "soil_moisture": 58.2,
             "soil_temperature": 22.4,
             "sensor_observed_at": sensor_time.isoformat(),
-            "camera_id": "camera_1",
-        }
-    ]
+                "camera_id": "camera_1",
+                "slots": [],
+            }
+        ]
+    assert snapshot["plants"] == []
+
+
+def test_only_changed_latest_photos_are_uploaded(monkeypatch, tmp_path):
+    latest_dir = tmp_path / "latest"
+    latest_dir.mkdir()
+    photo = latest_dir / "rack_1.jpg"
+    photo.write_bytes(b"\xff\xd8\xff\xe0photo")
+    monkeypatch.setattr(
+        sync_module.runtime,
+        "cfg",
+        SimpleNamespace(
+            racks_count=2,
+            camera_capture=SimpleNamespace(latest_dir=str(latest_dir)),
+        ),
+    )
+    service = CloudSyncService()
+    service._settings = CloudSyncSettings(
+        api_url="https://api.example.test",
+        device_id="pi-01",
+        device_token="test-token-with-at-least-32-characters",
+    )
+    uploads = []
+
+    def fake_upload(rack_id, path, captured_at):
+        uploads.append((rack_id, path.name, captured_at))
+
+    monkeypatch.setattr(service, "_send_photo_blocking", fake_upload)
+    assert asyncio.run(service._send_changed_photos()) == 1
+    assert asyncio.run(service._send_changed_photos()) == 0
+    photo.write_bytes(b"\xff\xd8\xff\xe0new-photo")
+    assert asyncio.run(service._send_changed_photos()) == 1
+    assert [item[0] for item in uploads] == [1, 1]

@@ -15,6 +15,7 @@ from .routes_inputs import router as inputs_router
 from .routes_camera import router as camera_router
 from .sensor_history_service import SensorHistoryService
 from .routes_sensor_history import router as sensor_history_router
+from .routes_growing import router as growing_router
 from .camera_capture_service import camera_capture_service
 from .camera_manager import camera_manager
 from .cloud_sync_service import cloud_sync_service
@@ -32,6 +33,7 @@ app.include_router(config_router)
 app.include_router(inputs_router)
 app.include_router(sensor_history_router)
 app.include_router(camera_router)
+app.include_router(growing_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
@@ -85,6 +87,11 @@ async def charts_page(request: Request):
 @app.get("/cameras", response_class=HTMLResponse)
 async def cameras_page(request: Request):
     return templates.TemplateResponse("cameras.html", {"request": request})
+
+
+@app.get("/growing", response_class=HTMLResponse)
+async def growing_page(request: Request):
+    return templates.TemplateResponse("growing.html", {"request": request})
 
 @app.post("/api/system/shutdown")
 async def shutdown_pi():

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KisaMore — Growing</title>
+  <link rel="stylesheet" href="/static/growing.css">
+  <script src="/static/growing.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">KisaMore</a>
+    <div class="topbar-actions">
+      <a href="/" data-i18n="dashboard">Dashboard</a>
+      <select id="languageSelect" aria-label="Language">
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow" data-i18n="operator">Operator workspace</p>
+        <h1 data-i18n="title">Plants and containers</h1>
+        <p data-i18n="subtitle">Manage the plant catalog and six container positions on every rack.</p>
+      </div>
+      <button id="newPlantButton" type="button" data-i18n="newPlant">Add plant</button>
+    </section>
+
+    <div id="notice" class="notice hidden" role="alert"></div>
+
+    <section>
+      <div class="section-title">
+        <h2 data-i18n="catalog">Plant catalog</h2>
+      </div>
+      <div id="plantCatalog" class="plant-catalog"></div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2 data-i18n="racks">Racks</h2>
+        <span data-i18n="sixSlots">Six containers per rack</span>
+      </div>
+      <div id="racksGrid" class="racks-grid"></div>
+    </section>
+  </main>
+
+  <dialog id="plantDialog">
+    <form id="plantForm">
+      <header>
+        <h2 data-i18n="plantEditor">Plant</h2>
+        <button type="button" class="plain" data-close-dialog aria-label="Close">×</button>
+      </header>
+      <input type="hidden" name="plantId">
+      <label><span data-i18n="code">Code</span><input name="code" required pattern="[a-z0-9][a-z0-9_-]*"></label>
+      <label><span data-i18n="nameEnglish">Name (English)</span><input name="nameEn" required></label>
+      <label><span data-i18n="nameRussian">Name (Russian)</span><input name="nameRu"></label>
+      <label><span data-i18n="nameChinese">Name (Chinese)</span><input name="nameZh"></label>
+      <label><span data-i18n="growDays">Growing days</span><input name="growDays" type="number" min="1" max="365" value="14" required></label>
+      <label class="checkbox"><input name="active" type="checkbox" checked><span data-i18n="active">Available for selection</span></label>
+      <footer>
+        <button type="button" class="secondary" data-close-dialog data-i18n="cancel">Cancel</button>
+        <button type="submit" data-i18n="save">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="plantingDialog">
+    <form id="plantingForm">
+      <header>
+        <h2 data-i18n="startPlanting">Start planting</h2>
+        <button type="button" class="plain" data-close-dialog aria-label="Close">×</button>
+      </header>
+      <input type="hidden" name="rackId">
+      <input type="hidden" name="slotNumber">
+      <label><span data-i18n="plant">Plant</span><select name="plantId" required></select></label>
+      <label><span data-i18n="plantedAt">Planted at</span><input name="plantedAt" type="datetime-local" required></label>
+      <label><span data-i18n="notes">Notes</span><textarea name="notes" rows="3"></textarea></label>
+      <footer>
+        <button type="button" class="secondary" data-close-dialog data-i18n="cancel">Cancel</button>
+        <button type="submit" data-i18n="start">Start</button>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>

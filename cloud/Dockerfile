@@ -8,7 +8,9 @@ WORKDIR /srv/kisamore
 COPY cloud/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt \
     && addgroup --system kisamore \
-    && adduser --system --ingroup kisamore kisamore
+    && adduser --system --ingroup kisamore kisamore \
+    && mkdir -p /srv/kisamore/data/photos \
+    && chown -R kisamore:kisamore /srv/kisamore/data
 
 COPY --chown=kisamore:kisamore cloud /srv/kisamore/cloud
 

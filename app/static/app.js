@@ -940,6 +940,13 @@ document.getElementById("chartsBtn").addEventListener("click", ()=>{
   window.location.href = "/charts";
 });
 
+const growingPageBtn = document.getElementById("growingPageBtn");
+if(growingPageBtn){
+  growingPageBtn.addEventListener("click", ()=>{
+    window.location.href = "/growing";
+  });
+}
+
 const camerasPageBtn = document.getElementById("camerasPageBtn");
 if(camerasPageBtn){
   camerasPageBtn.addEventListener("click", ()=>{

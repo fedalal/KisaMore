@@ -21,6 +21,11 @@ KisaMore — это веб-приложение на **Python + FastAPI** для
   - привязка канал реле → GPIO pin Raspberry Pi
 - 🧪 Запуск на ПК (Windows / Linux / macOS) в режиме **mock GPIO**
 - 🔁 Подготовлено для расширения (датчики, защита насоса, логирование)
+- 🌱 Справочник растений и история посадок
+- 📦 Шесть контейнеров на каждой полке
+- ☁️ Регистрация, тестовая покупка, бронирование и очередь ожидания на VPS
+- 🌍 Многоязычный публичный интерфейс
+- 📷 Последний JPEG каждой полки отправляется на VPS без постоянного видеопотока
 
 ---
 
@@ -51,6 +56,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 Открыть в браузере:
 - 🌐 Веб-панель: `http://raspberrypi.local:8000/`
 - 🔌 API состояния: `http://raspberrypi.local:8000/api/state`
+- 🌱 Управление растениями: `http://raspberrypi.local:8000/growing`
 
 ---
 
@@ -154,9 +160,10 @@ Private / internal project (license to be defined).
 
 ---
 
-## Central cloud API (first read-only stage)
+## Central cloud API and marketplace core
 
 The repository now also contains an optional central API for a VPS. The Raspberry Pi makes
 outbound authenticated requests; no Pi control endpoints are exposed to the public site.
 
-Deployment and configuration: [`cloud/README.md`](cloud/README.md).
+Deployment and configuration: [`cloud/README.md`](cloud/README.md). Step-by-step update commands
+for the Raspberry Pi and VPS are in [`MARKETPLACE_DEPLOYMENT.md`](MARKETPLACE_DEPLOYMENT.md).

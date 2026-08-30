@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from datetime import datetime, timezone
 from typing import List, Literal, Dict, Optional
 
 Mode = Literal["manual", "schedule"]
@@ -82,3 +83,68 @@ class HWConfigOut(BaseModel):
     racks_count: int 
     racks: Dict[str, RackHWOut] = Field(default_factory=dict)
     cameras: Dict[str, CameraHWOut] = Field(default_factory=dict)
+
+
+PlantingStatus = Literal["planned", "growing", "ready", "harvested", "cancelled"]
+SlotStatus = Literal["available", "reserved", "growing", "ready", "maintenance", "disabled"]
+
+
+class PlantIn(BaseModel):
+    code: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    names: Dict[str, str] = Field(min_length=1)
+    descriptions: Dict[str, str] = Field(default_factory=dict)
+    grow_days: int = Field(default=14, ge=1, le=365)
+    active: bool = True
+
+
+class PlantOut(PlantIn):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PlantingCreateIn(BaseModel):
+    rack_id: int = Field(ge=1, le=16)
+    slot_number: int = Field(ge=1, le=6)
+    plant_id: str = Field(min_length=1, max_length=36)
+    planted_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    expected_harvest_at: Optional[datetime] = None
+    notes: str = Field(default="", max_length=2000)
+
+
+class PlantingUpdateIn(BaseModel):
+    status: Optional[PlantingStatus] = None
+    expected_harvest_at: Optional[datetime] = None
+    actual_harvest_at: Optional[datetime] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+
+class SlotUpdateIn(BaseModel):
+    status: SlotStatus
+    enabled: Optional[bool] = None
+
+
+class PlantingOut(BaseModel):
+    id: str
+    plant_id: str
+    plant_code: str
+    plant_names: Dict[str, str]
+    planted_at: datetime
+    expected_harvest_at: datetime
+    actual_harvest_at: Optional[datetime]
+    status: PlantingStatus
+    cloud_allocation_id: Optional[str]
+    notes: str
+
+
+class RackSlotOut(BaseModel):
+    id: int
+    rack_id: int
+    slot_number: int
+    status: SlotStatus
+    enabled: bool
+    cloud_allocation_id: Optional[str]
+    requested_plant_id: Optional[str]
+    current_planting: Optional[PlantingOut]

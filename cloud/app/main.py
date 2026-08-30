@@ -10,6 +10,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
+from .auth_api import router as auth_router
+from .marketplace_api import router as marketplace_router
 from .bootstrap import bootstrap_first_device
 from .config import get_settings
 from .db import create_tables, engine
@@ -40,8 +42,8 @@ if settings.cors_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Device-ID"],
     )
 
@@ -60,3 +62,5 @@ async def dashboard() -> HTMLResponse:
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(router)
+app.include_router(auth_router)
+app.include_router(marketplace_router)

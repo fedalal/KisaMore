@@ -19,6 +19,11 @@ class Settings:
     bootstrap_device_id: str
     bootstrap_device_name: str
     bootstrap_device_token: str
+    session_days: int
+    cookie_secure: bool
+    offer_hours: int
+    photo_dir: str
+    photo_max_bytes: int
 
 
 @lru_cache
@@ -42,4 +47,12 @@ def get_settings() -> Settings:
         bootstrap_device_id=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_ID", "").strip(),
         bootstrap_device_name=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_NAME", "Greenhouse Pi").strip(),
         bootstrap_device_token=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_TOKEN", "").strip(),
+        session_days=max(1, int(os.getenv("KISAMORE_SESSION_DAYS", "30"))),
+        cookie_secure=os.getenv("KISAMORE_COOKIE_SECURE", "true").strip().lower()
+        not in ("0", "false", "no"),
+        offer_hours=max(1, int(os.getenv("KISAMORE_OFFER_HOURS", "24"))),
+        photo_dir=os.getenv("KISAMORE_PHOTO_DIR", "/srv/kisamore/data/photos").strip(),
+        photo_max_bytes=max(
+            100_000, int(os.getenv("KISAMORE_PHOTO_MAX_BYTES", "2097152"))
+        ),
     )

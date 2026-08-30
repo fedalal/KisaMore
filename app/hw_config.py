@@ -33,6 +33,9 @@ class CameraCaptureConfig(BaseModel):
     local_archive_dir: str = "data/camera_archive"
     local_archive_days: int = Field(default=60, ge=1, le=365)
 
+    # Последний кадр каждой полки. Cloud sync отправляет только изменившийся JPEG на VPS.
+    latest_dir: str = "data/camera_latest"
+
 class CameraHW(BaseModel):
     name: str = Field(default="", max_length=100)
     device: str = Field(default="/dev/video0", min_length=1, max_length=255)

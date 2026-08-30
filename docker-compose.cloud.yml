@@ -23,6 +23,11 @@ services:
       KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       KISAMORE_CORS_ORIGINS: ${KISAMORE_CORS_ORIGINS}
       KISAMORE_OFFLINE_AFTER_SECONDS: ${KISAMORE_OFFLINE_AFTER_SECONDS:-120}
+      KISAMORE_SESSION_DAYS: ${KISAMORE_SESSION_DAYS:-30}
+      KISAMORE_COOKIE_SECURE: ${KISAMORE_COOKIE_SECURE:-true}
+      KISAMORE_OFFER_HOURS: ${KISAMORE_OFFER_HOURS:-24}
+      KISAMORE_PHOTO_DIR: ${KISAMORE_PHOTO_DIR:-/srv/kisamore/data/photos}
+      KISAMORE_PHOTO_MAX_BYTES: ${KISAMORE_PHOTO_MAX_BYTES:-2097152}
       KISAMORE_BOOTSTRAP_FARM_SLUG: ${KISAMORE_BOOTSTRAP_FARM_SLUG}
       KISAMORE_BOOTSTRAP_FARM_NAME: ${KISAMORE_BOOTSTRAP_FARM_NAME}
       KISAMORE_BOOTSTRAP_DEVICE_ID: ${KISAMORE_BOOTSTRAP_DEVICE_ID}
@@ -33,6 +38,8 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8080:8000"
+    volumes:
+      - kisamore-photos:/srv/kisamore/data/photos
     healthcheck:
       test:
         - CMD
@@ -45,3 +52,4 @@ services:
 
 volumes:
   kisamore-postgres:
+  kisamore-photos:
