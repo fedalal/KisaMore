@@ -38,8 +38,10 @@ class CameraWorker:
         self.frame = CameraFrame()
         self.lock = threading.Lock()
         self.stop_event = threading.Event()
+        self.reconfigure_event = threading.Event()
         self.thread: Optional[threading.Thread] = None
         self.cap = None
+        self._supported_controls_cache: Optional[set[str]] = None
 
     def update_settings(
             self,
@@ -50,12 +52,11 @@ class CameraWorker:
             white_balance_auto: bool = True,
             white_balance_temperature: Optional[int] = None,
     ):
-        need_restart = False
-        need_apply_controls = False
+        need_reconfigure = False
 
         with self.lock:
             if self.frame_width != frame_width or self.frame_height != frame_height:
-                need_restart = True
+                need_reconfigure = True
 
             if (
                     self.autofocus_enabled != autofocus_enabled
@@ -63,7 +64,7 @@ class CameraWorker:
                     or self.white_balance_auto != white_balance_auto
                     or self.white_balance_temperature != white_balance_temperature
             ):
-                need_apply_controls = True
+                need_reconfigure = True
 
             self.frame_width = frame_width
             self.frame_height = frame_height
@@ -72,10 +73,12 @@ class CameraWorker:
             self.white_balance_auto = white_balance_auto
             self.white_balance_temperature = white_balance_temperature
 
-        if need_restart:
-            self.restart()
-        elif need_apply_controls:
-            self._apply_camera_controls()
+        # VideoCapture.read(), VideoCapture.release() and v4l2-ctl must never run
+        # concurrently for the same USB camera. Some UVC drivers block in the
+        # kernel when a control ioctl is sent while a frame is being read.
+        # The worker owns the device and performs the reconfiguration itself.
+        if need_reconfigure:
+            self.reconfigure_event.set()
 
     def start(self):
         if self.thread and self.thread.is_alive():
@@ -86,25 +89,76 @@ class CameraWorker:
         self.thread.start()
 
     def restart(self):
-        self.stop()
-        self.start()
+        self.reconfigure_event.set()
 
     def stop(self):
         self.stop_event.set()
+        self.reconfigure_event.set()
 
         if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=2)
+            self.thread.join(timeout=3)
 
-        if self.cap:
-            self.cap.release()
-            self.cap = None
+        # Never release a VideoCapture from a thread different from the one
+        # executing read(). The worker's finally block owns that operation.
+        if self.thread and self.thread.is_alive():
+            print(f"[camera-manager] worker did not stop in time for {self.device}")
+        else:
+            self.thread = None
 
     def _set_error(self, message: str):
         with self.lock:
             self.frame.last_error = message
             self.frame.updated_at = time.time()
 
-    def _run_v4l2_ctrl(self, ctrl: str):
+    def _read_supported_controls(self) -> set[str]:
+        if self._supported_controls_cache is not None:
+            return self._supported_controls_cache
+
+        try:
+            result = subprocess.run(
+                [
+                    "v4l2-ctl",
+                    "--device",
+                    self.device,
+                    "--list-ctrls",
+                ],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=3,
+            )
+        except Exception as e:
+            print(
+                f"[camera-manager] cannot list controls for {self.device}: {e}"
+            )
+            return set()
+
+        if result.returncode != 0:
+            print(
+                f"[camera-manager] cannot list controls for {self.device}: "
+                f"{result.stderr.strip()}"
+            )
+            return set()
+
+        controls: set[str] = set()
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            name = stripped.split(maxsplit=1)[0]
+            if name.replace("_", "").isalnum():
+                controls.add(name)
+
+        self._supported_controls_cache = controls
+        return controls
+
+    def _find_control(self, *candidates: str) -> Optional[str]:
+        supported = self._read_supported_controls()
+        return next((name for name in candidates if name in supported), None)
+
+    def _run_v4l2_ctrl(self, name: str, value: int):
+        ctrl = f"{name}={value}"
         try:
             result = subprocess.run(
                 [
@@ -137,37 +191,60 @@ class CameraWorker:
             white_balance_auto = self.white_balance_auto
             white_balance_temperature = self.white_balance_temperature
 
-        # Фокус.
-        # Для твоей камеры автофокус называется focus_automatic_continuous.
-        self._run_v4l2_ctrl(
-            f"focus_automatic_continuous={1 if autofocus_enabled else 0}"
+        # Different UVC cameras expose different names for the same controls.
+        # Apply only controls that the selected device actually reports.
+        autofocus_control = self._find_control(
+            "focus_automatic_continuous",
+            "focus_auto",
         )
-
-        if not autofocus_enabled and focus_absolute is not None:
-            time.sleep(0.1)
-            self._run_v4l2_ctrl(f"focus_absolute={int(focus_absolute)}")
-
-        # Баланс белого.
-        self._run_v4l2_ctrl(
-            f"white_balance_automatic={1 if white_balance_auto else 0}"
-        )
-
-        if not white_balance_auto and white_balance_temperature is not None:
+        if autofocus_control:
             self._run_v4l2_ctrl(
-                f"white_balance_temperature={int(white_balance_temperature)}"
+                autofocus_control,
+                1 if autofocus_enabled else 0,
+            )
+
+        focus_control = self._find_control("focus_absolute")
+        if not autofocus_enabled and focus_absolute is not None and focus_control:
+            time.sleep(0.1)
+            self._run_v4l2_ctrl(focus_control, int(focus_absolute))
+
+        white_balance_auto_control = self._find_control(
+            "white_balance_automatic",
+            "white_balance_temperature_auto",
+        )
+        if white_balance_auto_control:
+            self._run_v4l2_ctrl(
+                white_balance_auto_control,
+                1 if white_balance_auto else 0,
+            )
+
+        temperature_control = self._find_control("white_balance_temperature")
+        if (
+                not white_balance_auto
+                and white_balance_temperature is not None
+                and temperature_control
+        ):
+            self._run_v4l2_ctrl(
+                temperature_control,
+                int(white_balance_temperature),
             )
 
     def _run(self):
         while not self.stop_event.is_set():
             try:
+                # Clear the request before taking a settings snapshot. A request
+                # arriving afterwards remains set and causes another clean cycle.
+                self.reconfigure_event.clear()
+
+                # v4l2-ctl gets exclusive access before OpenCV opens the stream.
+                self._apply_camera_controls()
+
                 self.cap = cv2.VideoCapture(self.device, cv2.CAP_V4L2)
 
                 if not self.cap.isOpened():
                     self._set_error(f"Не удалось открыть камеру {self.device}")
                     time.sleep(3)
                     continue
-
-                self._apply_camera_controls()
 
                 with self.lock:
                     width = self.frame_width
@@ -194,7 +271,10 @@ class CameraWorker:
                     f"actual={actual_width}x{actual_height}, fourcc={actual_fourcc_text}"
                 )
 
-                while not self.stop_event.is_set():
+                while (
+                        not self.stop_event.is_set()
+                        and not self.reconfigure_event.is_set()
+                ):
                     ok, frame = self.cap.read()
 
                     if not ok:
@@ -314,8 +394,10 @@ class CameraManager:
             white_balance_auto: bool = True,
             white_balance_temperature: Optional[int] = None,
     ) -> CameraWorker:
+        created = False
         with self.lock:
-            if device not in self.workers:
+            worker = self.workers.get(device)
+            if worker is None:
                 worker = CameraWorker(
                     device=device,
                     frame_width=frame_width,
@@ -326,19 +408,23 @@ class CameraManager:
                     white_balance_temperature=white_balance_temperature,
                 )
                 self.workers[device] = worker
-                worker.start()
-            else:
-                worker = self.workers[device]
-                worker.update_settings(
-                    frame_width=frame_width,
-                    frame_height=frame_height,
-                    autofocus_enabled=autofocus_enabled,
-                    focus_absolute=focus_absolute,
-                    white_balance_auto=white_balance_auto,
-                    white_balance_temperature=white_balance_temperature,
-                )
+                created = True
 
-            return worker
+        if created:
+            worker.start()
+        else:
+            # Do not hold the manager lock while touching a worker. This keeps
+            # an unhealthy camera from delaying all other cameras.
+            worker.update_settings(
+                frame_width=frame_width,
+                frame_height=frame_height,
+                autofocus_enabled=autofocus_enabled,
+                focus_absolute=focus_absolute,
+                white_balance_auto=white_balance_auto,
+                white_balance_temperature=white_balance_temperature,
+            )
+
+        return worker
 
     def get_jpeg(
             self,
@@ -373,15 +459,20 @@ class CameraManager:
         )
 
     def get_error(self, device: str) -> Optional[str]:
-        worker = self.get_worker(device)
-        return worker.get_error()
+        # Status reads must not create a worker or reset camera settings to
+        # defaults. Previously every /info request could trigger a restart and
+        # toggle autofocus/white balance back and forth.
+        with self.lock:
+            worker = self.workers.get(device)
+        return worker.get_error() if worker else None
 
     def stop_all(self):
         with self.lock:
-            for worker in self.workers.values():
-                worker.stop()
-
+            workers = list(self.workers.values())
             self.workers.clear()
+
+        for worker in workers:
+            worker.stop()
 
 
 camera_manager = CameraManager()
