@@ -78,7 +78,6 @@ function changeCameraNumber(cameraId, field, value){
   const n = Number(v);
   if(!Number.isFinite(n)){
     alert("Нужно указать число");
-    renderCameras();
     return;
   }
 
@@ -88,11 +87,17 @@ function changeCameraNumber(cameraId, field, value){
 function changeWarpText(cameraId, value){
   const points = parseWarpPoints(value);
   if(points === undefined){
-    renderCameras();
+    setWarpInputValue(cameraId);
     return;
   }
   cfgState.cameras[cameraId].warp_points = points;
-  renderCameras();
+  updateOverlayOnly(cameraId);
+}
+
+function changeAutomaticControl(cameraId, field, enabled, manualInputId){
+  changeCamera(cameraId, field, enabled);
+  const manualInput = document.getElementById(manualInputId);
+  if(manualInput) manualInput.disabled = enabled;
 }
 
 function addCamera(){
@@ -128,14 +133,21 @@ function deleteCamera(cameraId){
 }
 
 function startPickPoints(cameraId){
+  const previousCameraId = picking.cameraId;
   picking = { cameraId, points: [] };
-  renderCameras();
+  if(previousCameraId && previousCameraId !== cameraId){
+    updateOverlayOnly(previousCameraId);
+  }
+  updateOverlayOnly(cameraId);
 }
 
 function resetPoints(cameraId){
   cfgState.cameras[cameraId].warp_points = null;
+  cfgState.cameras[cameraId].warp_enabled = false;
   if(picking.cameraId === cameraId) picking = { cameraId: null, points: [] };
-  renderCameras();
+  setWarpInputValue(cameraId);
+  setWarpEnabledCheckbox(cameraId);
+  updateOverlayOnly(cameraId);
 }
 
 function setWarpInputValue(cameraId){
@@ -155,6 +167,21 @@ function refreshCameraPreview(cameraId, corrected){
   img.src = `/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=${corrected ? "true" : "false"}&t=${Date.now()}`;
 }
 
+function wait(milliseconds){
+  return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+}
+
+async function refreshAllCameraPreviewsSequentially(){
+  // Reconnect one HTTP stream at a time. Replacing all eight raw/corrected
+  // streams simultaneously can exhaust a Raspberry Pi or an unstable USB hub.
+  for(const cameraId of cameraIds()){
+    refreshCameraPreview(cameraId, false);
+    await wait(250);
+    refreshCameraPreview(cameraId, true);
+    await wait(250);
+  }
+}
+
 function updateOverlayOnly(cameraId){
   const overlay = document.getElementById(`cameraOverlayWrap_${cameraId}`);
   if(overlay) overlay.innerHTML = overlaySvg(cameraId);
@@ -164,6 +191,12 @@ function updateOverlayOnly(cameraId){
     btn.textContent = picking.cameraId === cameraId
       ? `Кликни точку ${(picking.points.length / 2) + 1} из 4`
       : "Выбрать точки";
+  }
+
+  const rawImage = document.getElementById(`cameraImg_raw_${cameraId}`);
+  const previewBox = rawImage?.closest(".cameraPreviewBox");
+  if(previewBox){
+    previewBox.classList.toggle("isPicking", picking.cameraId === cameraId);
   }
 }
 
@@ -254,7 +287,7 @@ function cameraCard(cameraId){
           <input
             type="checkbox"
             ${cam.autofocus_enabled ? "checked" : ""}
-            onchange="changeCamera('${escapeHtml(cameraId)}', 'autofocus_enabled', this.checked); renderCameras();"
+            onchange="changeAutomaticControl('${escapeHtml(cameraId)}', 'autofocus_enabled', this.checked, 'focusInput_${escapeHtml(cameraId)}')"
           >
           <span>Автофокус</span>
         </label>
@@ -262,6 +295,7 @@ function cameraCard(cameraId){
         <label>
           <span>Фокус 0–1023</span>
           <input
+            id="focusInput_${escapeHtml(cameraId)}"
             class="cfgInput"
             type="number"
             min="0"
@@ -277,7 +311,7 @@ function cameraCard(cameraId){
           <input
             type="checkbox"
             ${cam.white_balance_auto ? "checked" : ""}
-            onchange="changeCamera('${escapeHtml(cameraId)}', 'white_balance_auto', this.checked); renderCameras();"
+            onchange="changeAutomaticControl('${escapeHtml(cameraId)}', 'white_balance_auto', this.checked, 'whiteBalanceInput_${escapeHtml(cameraId)}')"
           >
           <span>Автобаланс белого</span>
         </label>
@@ -285,6 +319,7 @@ function cameraCard(cameraId){
         <label>
           <span>Баланс белого</span>
           <input
+            id="whiteBalanceInput_${escapeHtml(cameraId)}"
             class="cfgInput"
             type="number"
             min="1"
@@ -391,8 +426,8 @@ async function saveCameras(){
     }
 
     await api("/api/config", "POST", cfgState);
+    await refreshAllCameraPreviewsSequentially();
     alert("Настройки камер сохранены");
-    await loadCfg();
   }catch(e){
     console.error(e);
     alert("Не удалось сохранить настройки камер: " + e.message);
