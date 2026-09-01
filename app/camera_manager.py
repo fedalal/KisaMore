@@ -1,6 +1,7 @@
 import threading
 import time
 import subprocess
+import re
 from dataclasses import dataclass
 from typing import Optional, Any
 
@@ -42,6 +43,7 @@ class CameraWorker:
         self.thread: Optional[threading.Thread] = None
         self.cap = None
         self._supported_controls_cache: Optional[set[str]] = None
+        self._control_ranges_cache: dict[str, tuple[int, int, int]] = {}
 
     def update_settings(
             self,
@@ -142,6 +144,7 @@ class CameraWorker:
             return set()
 
         controls: set[str] = set()
+        ranges: dict[str, tuple[int, int, int]] = {}
         for line in result.stdout.splitlines():
             stripped = line.strip()
             if not stripped:
@@ -150,14 +153,54 @@ class CameraWorker:
             if name.replace("_", "").isalnum():
                 controls.add(name)
 
+            minimum = re.search(r"\bmin=(-?\d+)", stripped)
+            maximum = re.search(r"\bmax=(-?\d+)", stripped)
+            step = re.search(r"\bstep=(\d+)", stripped)
+            if minimum and maximum:
+                ranges[name] = (
+                    int(minimum.group(1)),
+                    int(maximum.group(1)),
+                    max(1, int(step.group(1))) if step else 1,
+                )
+
         self._supported_controls_cache = controls
+        self._control_ranges_cache = ranges
         return controls
 
     def _find_control(self, *candidates: str) -> Optional[str]:
         supported = self._read_supported_controls()
         return next((name for name in candidates if name in supported), None)
 
+    def _normalize_control_value(self, name: str, value: int) -> int:
+        self._read_supported_controls()
+        limits = self._control_ranges_cache.get(name)
+        if limits is None:
+            return value
+
+        minimum, maximum, step = limits
+        # The UI represents focus on a stable 0..1023 scale, while many UVC
+        # cameras expose only 0..255. Preserve the relative focus position.
+        if (
+                name == "focus_absolute"
+                and minimum >= 0
+                and maximum < 1023
+                and 0 <= value <= 1023
+        ):
+            normalized = minimum + round(value / 1023 * (maximum - minimum))
+        else:
+            normalized = min(max(value, minimum), maximum)
+        normalized = minimum + round((normalized - minimum) / step) * step
+        normalized = min(max(normalized, minimum), maximum)
+        if normalized != value:
+            print(
+                f"[camera-manager] adjusted {name} for {self.device}: "
+                f"requested={value}, applied={normalized}, "
+                f"range={minimum}..{maximum}, step={step}"
+            )
+        return normalized
+
     def _run_v4l2_ctrl(self, name: str, value: int):
+        value = self._normalize_control_value(name, value)
         ctrl = f"{name}={value}"
         try:
             result = subprocess.run(
@@ -183,6 +226,67 @@ class CameraWorker:
 
         except Exception as e:
             print(f"[camera-manager] v4l2 ctrl exception for {self.device}: {ctrl}; {e}")
+
+    def _set_opencv_control(self, property_name: str, value: int) -> bool:
+        if self.cap is None:
+            return False
+        property_id = getattr(cv2, property_name, None)
+        if property_id is None:
+            return False
+        try:
+            return bool(self.cap.set(property_id, value))
+        except Exception as e:
+            print(
+                f"[camera-manager] OpenCV ctrl exception for {self.device}: "
+                f"{property_name}={value}; {e}"
+            )
+            return False
+
+    def _apply_opencv_controls(self):
+        """Reapply controls after VideoCapture opens, before the first read()."""
+        with self.lock:
+            autofocus_enabled = self.autofocus_enabled
+            focus_absolute = self.focus_absolute
+            white_balance_auto = self.white_balance_auto
+            white_balance_temperature = self.white_balance_temperature
+
+        self._set_opencv_control(
+            "CAP_PROP_AUTOFOCUS",
+            1 if autofocus_enabled else 0,
+        )
+        if not autofocus_enabled and focus_absolute is not None:
+            focus_control = self._find_control("focus_absolute")
+            focus_value = (
+                self._normalize_control_value(focus_control, int(focus_absolute))
+                if focus_control
+                else int(focus_absolute)
+            )
+            self._set_opencv_control("CAP_PROP_FOCUS", focus_value)
+
+        self._set_opencv_control(
+            "CAP_PROP_AUTO_WB",
+            1 if white_balance_auto else 0,
+        )
+        if not white_balance_auto and white_balance_temperature is not None:
+            temperature_control = self._find_control("white_balance_temperature")
+            temperature_value = (
+                self._normalize_control_value(
+                    temperature_control,
+                    int(white_balance_temperature),
+                )
+                if temperature_control
+                else int(white_balance_temperature)
+            )
+            self._set_opencv_control(
+                "CAP_PROP_WB_TEMPERATURE",
+                temperature_value,
+            )
+
+        print(
+            f"[camera-manager] controls applied for {self.device}: "
+            f"autofocus={autofocus_enabled}, focus={focus_absolute}, "
+            f"auto_wb={white_balance_auto}, wb_temperature={white_balance_temperature}"
+        )
 
     def _apply_camera_controls(self):
         with self.lock:
@@ -257,6 +361,11 @@ class CameraWorker:
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                 self.cap.set(cv2.CAP_PROP_FPS, 15)
+
+                # Opening or changing the UVC format can reset automatic
+                # controls. Apply them again through the same capture handle,
+                # still before read(), so there is no concurrent USB ioctl.
+                self._apply_opencv_controls()
 
                 actual_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 actual_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -335,17 +444,42 @@ class CameraWorker:
 
 
     @staticmethod
+    def _order_warp_points(points: list[float]) -> Any:
+        """Return corners as top-left, top-right, bottom-right, bottom-left."""
+        src = np.float32(points).reshape(4, 2)
+        center = src.mean(axis=0)
+        angles = np.arctan2(src[:, 1] - center[1], src[:, 0] - center[0])
+        ordered = src[np.argsort(angles)]
+        top_left_index = int(np.argmin(ordered.sum(axis=1)))
+        ordered = np.roll(ordered, -top_left_index, axis=0)
+
+        # In image coordinates Y grows downwards. Ensure the point after the
+        # top-left corner is the right-hand corner, not the bottom-left one.
+        if ordered[1][0] < ordered[-1][0]:
+            ordered = ordered[[0, 3, 2, 1]]
+        return ordered
+
+    @staticmethod
     def _apply_perspective_warp(frame: Any, enabled: bool, points: Optional[list[float]]) -> Any:
         if not enabled or not points or len(points) != 8:
             return frame
 
         try:
-            src = np.float32([
-                [points[0], points[1]],  # левый верхний
-                [points[2], points[3]],  # правый верхний
-                [points[4], points[5]],  # правый нижний
-                [points[6], points[7]],  # левый нижний
-            ])
+            src = CameraWorker._order_warp_points(points)
+            frame_height, frame_width = frame.shape[:2]
+            if (
+                    np.any(src[:, 0] < -1)
+                    or np.any(src[:, 0] > frame_width)
+                    or np.any(src[:, 1] < -1)
+                    or np.any(src[:, 1] > frame_height)
+            ):
+                print(
+                    "[camera-manager] perspective points do not match "
+                    f"the current frame size {frame_width}x{frame_height}: {points}"
+                )
+                return frame
+            src[:, 0] = np.clip(src[:, 0], 0, frame_width - 1)
+            src[:, 1] = np.clip(src[:, 1], 0, frame_height - 1)
 
             # Итоговый размер считаем по выбранной трапеции, а не по размеру всего кадра.
             # Иначе область растягивается на 1280x720 и перспектива выглядит неестественно.

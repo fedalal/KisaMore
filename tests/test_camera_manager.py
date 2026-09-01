@@ -59,3 +59,25 @@ def test_camera_control_aliases_are_selected_only_when_supported():
         == "white_balance_temperature_auto"
     )
     assert worker._find_control("unsupported") is None
+
+
+def test_camera_control_value_is_clamped_to_reported_range():
+    worker = CameraWorker("/dev/video-test")
+    worker._supported_controls_cache = {"focus_absolute"}
+    worker._control_ranges_cache = {"focus_absolute": (0, 255, 5)}
+
+    assert worker._normalize_control_value("focus_absolute", 512) == 130
+    assert worker._normalize_control_value("focus_absolute", 100) == 25
+
+
+def test_warp_points_are_normalized_after_a_vertical_flip():
+    points = [600, 450, 20, 20, 600, 20, 20, 450]
+
+    ordered = CameraWorker._order_warp_points(points).tolist()
+
+    assert ordered == [
+        [20.0, 20.0],
+        [600.0, 20.0],
+        [600.0, 450.0],
+        [20.0, 450.0],
+    ]

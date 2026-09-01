@@ -1,4 +1,5 @@
 let cfgState = null;
+let savedCfgState = null;
 let picking = { cameraId: null, points: [] };
 
 async function api(path, method="GET", body=null){
@@ -133,6 +134,19 @@ function deleteCamera(cameraId){
 }
 
 function startPickPoints(cameraId){
+  const current = cfgState.cameras[cameraId];
+  const saved = savedCfgState?.cameras?.[cameraId];
+  if(
+    saved &&
+    (
+      Boolean(current.flip_vertical) !== Boolean(saved.flip_vertical) ||
+      Boolean(current.flip_horizontal) !== Boolean(saved.flip_horizontal)
+    )
+  ){
+    alert("Сначала сохрани поворот изображения, затем выбирай точки на обновлённом кадре.");
+    return;
+  }
+
   const previousCameraId = picking.cameraId;
   picking = { cameraId, points: [] };
   if(previousCameraId && previousCameraId !== cameraId){
@@ -207,8 +221,17 @@ function onRawPreviewClick(cameraId, event){
   if(!img || !img.naturalWidth || !img.naturalHeight) return;
 
   const rect = img.getBoundingClientRect();
-  const x = Math.round((event.clientX - rect.left) * img.naturalWidth / rect.width);
-  const y = Math.round((event.clientY - rect.top) * img.naturalHeight / rect.height);
+  const relativeX = event.clientX - rect.left;
+  const relativeY = event.clientY - rect.top;
+  if(relativeX < 0 || relativeY < 0 || relativeX > rect.width || relativeY > rect.height) return;
+  const x = Math.max(0, Math.min(
+    img.naturalWidth - 1,
+    Math.round(relativeX * img.naturalWidth / rect.width)
+  ));
+  const y = Math.max(0, Math.min(
+    img.naturalHeight - 1,
+    Math.round(relativeY * img.naturalHeight / rect.height)
+  ));
 
   picking.points.push(x, y);
 
@@ -242,8 +265,12 @@ function overlaySvg(cameraId){
     <text x="${p[0] + 10}" y="${p[1] - 10}">${idx + 1}</text>
   `).join("");
 
+  const image = document.getElementById(`cameraImg_raw_${cameraId}`);
+  const viewWidth = image?.naturalWidth || cfgState?.camera_capture?.frame_width || 1280;
+  const viewHeight = image?.naturalHeight || cfgState?.camera_capture?.frame_height || 720;
+
   return `
-    <svg class="cameraOverlay" viewBox="0 0 1280 720" preserveAspectRatio="none">
+    <svg class="cameraOverlay" viewBox="0 0 ${viewWidth} ${viewHeight}" preserveAspectRatio="none">
       <polyline points="${poly}" fill="none"></polyline>
       ${circles}
     </svg>
@@ -362,7 +389,7 @@ function cameraCard(cameraId){
         <div>
           <div class="cameraPreviewTitle">До коррекции</div>
           <div class="cameraPreviewBox ${picking.cameraId === cameraId ? "isPicking" : ""}" onclick="onRawPreviewClick('${escapeHtml(cameraId)}', event)">
-            <img id="cameraImg_raw_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=false&t=${token}" alt="До коррекции">
+            <img id="cameraImg_raw_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=false&t=${token}" alt="До коррекции" onload="updateOverlayOnly('${escapeHtml(cameraId)}')">
             <div id="cameraOverlayWrap_${escapeHtml(cameraId)}">${overlaySvg(cameraId)}</div>
           </div>
         </div>
@@ -390,6 +417,7 @@ async function loadCfg(){
     cfgState = await api("/api/config");
     cfgState.racks = cfgState.racks || {};
     cfgState.cameras = cfgState.cameras || {};
+    savedCfgState = JSON.parse(JSON.stringify(cfgState));
     renderCameras();
     setConn(true);
   }catch(e){
@@ -426,6 +454,7 @@ async function saveCameras(){
     }
 
     await api("/api/config", "POST", cfgState);
+    savedCfgState = JSON.parse(JSON.stringify(cfgState));
     await refreshAllCameraPreviewsSequentially();
     alert("Настройки камер сохранены");
   }catch(e){
