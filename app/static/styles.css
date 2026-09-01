@@ -488,6 +488,14 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   margin-top:2px;
 }
 
+.cameraSettingsActions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
 .cameraSettingsGrid{
   display:grid;
   grid-template-columns:repeat(4, minmax(180px, 1fr));
@@ -531,6 +539,15 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:14px;
+}
+
+.cameraPreviewClosed{
+  padding:14px 16px;
+  border:1px dashed var(--line);
+  border-radius:16px;
+  background:#f8fafc;
+  font-size:13px;
+  font-weight:700;
 }
 
 .cameraPreviewTitle{
@@ -594,5 +611,15 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
   }
   .cameraPreviewGrid{
     grid-template-columns:1fr;
+  }
+}
+
+@media (max-width: 700px){
+  .cameraSettingsHead{
+    flex-direction:column;
+  }
+
+  .cameraSettingsActions{
+    justify-content:flex-start;
   }
 }

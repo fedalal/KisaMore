@@ -1,6 +1,7 @@
 let cfgState = null;
 let savedCfgState = null;
 let picking = { cameraId: null, points: [] };
+let visibleCameraId = null;
 
 async function api(path, method="GET", body=null){
   const res = await fetch(path, {
@@ -118,6 +119,17 @@ function addCamera(){
   renderCameras();
 }
 
+function toggleCameraPreviews(cameraId){
+  const shouldShow = visibleCameraId !== cameraId;
+
+  if(picking.cameraId && (!shouldShow || picking.cameraId !== cameraId)){
+    picking = { cameraId: null, points: [] };
+  }
+
+  visibleCameraId = shouldShow ? cameraId : null;
+  renderCameras();
+}
+
 function deleteCamera(cameraId){
   const usedBy = Object.entries(cfgState.racks || {})
     .filter(([_, rack]) => rack.camera_id === cameraId)
@@ -130,6 +142,8 @@ function deleteCamera(cameraId){
 
   if(!confirm(`Удалить камеру ${cameraId}?`)) return;
   delete cfgState.cameras[cameraId];
+  if(visibleCameraId === cameraId) visibleCameraId = null;
+  if(picking.cameraId === cameraId) picking = { cameraId: null, points: [] };
   renderCameras();
 }
 
@@ -147,8 +161,16 @@ function startPickPoints(cameraId){
     return;
   }
 
+  const needsRender = visibleCameraId !== cameraId;
   const previousCameraId = picking.cameraId;
+  visibleCameraId = cameraId;
   picking = { cameraId, points: [] };
+
+  if(needsRender){
+    renderCameras();
+    return;
+  }
+
   if(previousCameraId && previousCameraId !== cameraId){
     updateOverlayOnly(previousCameraId);
   }
@@ -185,15 +207,14 @@ function wait(milliseconds){
   return new Promise(resolve => window.setTimeout(resolve, milliseconds));
 }
 
-async function refreshAllCameraPreviewsSequentially(){
-  // Reconnect one HTTP stream at a time. Replacing all eight raw/corrected
-  // streams simultaneously can exhaust a Raspberry Pi or an unstable USB hub.
-  for(const cameraId of cameraIds()){
-    refreshCameraPreview(cameraId, false);
-    await wait(250);
-    refreshCameraPreview(cameraId, true);
-    await wait(250);
-  }
+async function refreshVisibleCameraPreviews(){
+  if(!visibleCameraId) return;
+
+  // Only the selected camera has active MJPEG connections. Reconnect its raw
+  // and corrected previews one at a time after saving camera settings.
+  refreshCameraPreview(visibleCameraId, false);
+  await wait(250);
+  refreshCameraPreview(visibleCameraId, true);
 }
 
 function updateOverlayOnly(cameraId){
@@ -279,6 +300,7 @@ function overlaySvg(cameraId){
 
 function cameraCard(cameraId){
   const cam = cfgState.cameras[cameraId];
+  const previewsVisible = visibleCameraId === cameraId;
   if(cam.autofocus_enabled === undefined) cam.autofocus_enabled = true;
   if(cam.focus_absolute === undefined) cam.focus_absolute = 512;
   if(cam.white_balance_auto === undefined) cam.white_balance_auto = true;
@@ -296,7 +318,12 @@ function cameraCard(cameraId){
           <div class="cameraSettingsTitle">${escapeHtml(cam.name || cameraId)}</div>
           <div class="cameraSettingsSub">${escapeHtml(cameraId)} · ${escapeHtml(cam.device || "")}</div>
         </div>
-        <button class="btn btn--danger" onclick="deleteCamera('${escapeHtml(cameraId)}')">Удалить</button>
+        <div class="cameraSettingsActions">
+          <button class="btn btn--ghost" onclick="toggleCameraPreviews('${escapeHtml(cameraId)}')">
+            ${previewsVisible ? "Скрыть изображения" : "Показать изображения"}
+          </button>
+          <button class="btn btn--danger" onclick="deleteCamera('${escapeHtml(cameraId)}')">Удалить</button>
+        </div>
       </div>
 
       <div class="cameraSettingsGrid">
@@ -385,21 +412,27 @@ function cameraCard(cameraId){
         <span class="muted">Порядок: ЛВ → ПВ → ПН → ЛН</span>
       </div>
 
-      <div class="cameraPreviewGrid">
-        <div>
-          <div class="cameraPreviewTitle">До коррекции</div>
-          <div class="cameraPreviewBox ${picking.cameraId === cameraId ? "isPicking" : ""}" onclick="onRawPreviewClick('${escapeHtml(cameraId)}', event)">
-            <img id="cameraImg_raw_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=false&t=${token}" alt="До коррекции" onload="updateOverlayOnly('${escapeHtml(cameraId)}')">
-            <div id="cameraOverlayWrap_${escapeHtml(cameraId)}">${overlaySvg(cameraId)}</div>
+      ${previewsVisible ? `
+        <div class="cameraPreviewGrid">
+          <div>
+            <div class="cameraPreviewTitle">До коррекции</div>
+            <div class="cameraPreviewBox ${picking.cameraId === cameraId ? "isPicking" : ""}" onclick="onRawPreviewClick('${escapeHtml(cameraId)}', event)">
+              <img id="cameraImg_raw_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=false&t=${token}" alt="До коррекции" onload="updateOverlayOnly('${escapeHtml(cameraId)}')">
+              <div id="cameraOverlayWrap_${escapeHtml(cameraId)}">${overlaySvg(cameraId)}</div>
+            </div>
+          </div>
+          <div>
+            <div class="cameraPreviewTitle">После коррекции</div>
+            <div class="cameraPreviewBox">
+              <img id="cameraImg_corrected_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=true&t=${token}" alt="После коррекции">
+            </div>
           </div>
         </div>
-        <div>
-          <div class="cameraPreviewTitle">После коррекции</div>
-          <div class="cameraPreviewBox">
-            <img id="cameraImg_corrected_${escapeHtml(cameraId)}" src="/api/camera/${encodeURIComponent(cameraId)}/stream?corrected=true&t=${token}" alt="После коррекции">
-          </div>
+      ` : `
+        <div class="cameraPreviewClosed muted">
+          Изображения отключены. Нажми «Показать изображения» для просмотра и настройки.
         </div>
-      </div>
+      `}
     </section>
   `;
 }
@@ -455,7 +488,7 @@ async function saveCameras(){
 
     await api("/api/config", "POST", cfgState);
     savedCfgState = JSON.parse(JSON.stringify(cfgState));
-    await refreshAllCameraPreviewsSequentially();
+    await refreshVisibleCameraPreviews();
     alert("Настройки камер сохранены");
   }catch(e){
     console.error(e);
