@@ -51,6 +51,20 @@
     return now.toISOString().slice(0, 16);
   }
 
+  function createPlantCode(englishName) {
+    const slug = String(englishName || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60) || "plant";
+    const uniquePart = window.crypto && typeof window.crypto.randomUUID === "function"
+      ? window.crypto.randomUUID().replaceAll("-", "").slice(0, 8)
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`.slice(-10);
+    return `${slug}_${uniquePart}`;
+  }
+
   function renderPlants() {
     const catalog = $("#plantCatalog");
     if (!plants.length) {
@@ -186,7 +200,8 @@
       const value = form.elements[field].value.trim();
       if (value) names[locale] = value;
     }
-    const payload = { code: form.elements.code.value.trim(), names, descriptions: {}, grow_days: Number(form.elements.growDays.value), active: form.elements.active.checked };
+    const code = form.elements.code.value.trim() || createPlantCode(names.en);
+    const payload = { code, names, descriptions: {}, grow_days: Number(form.elements.growDays.value), active: form.elements.active.checked };
     try {
       await api(id ? `/api/growing/plants/${id}` : "/api/growing/plants", { method: id ? "PUT" : "POST", body: JSON.stringify(payload) });
       $("#plantDialog").close(); await load();

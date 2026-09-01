@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KisaMore — Growing</title>
   <link rel="stylesheet" href="/static/growing.css?v=2">
-  <script src="/static/growing.js?v=2" defer></script>
+  <script src="/static/growing.js?v=3" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -55,7 +55,7 @@
         <button type="button" class="plain" data-close-dialog aria-label="Close">×</button>
       </header>
       <input type="hidden" name="plantId">
-      <label><span data-i18n="code">Code</span><input name="code" required pattern="[a-z0-9][a-z0-9_-]*"></label>
+      <input type="hidden" name="code">
       <div class="plant-name-grid">
         <label><span data-i18n="nameEnglish">Name (English)</span><input name="nameEn" required></label>
         <label><span data-i18n="nameRussian">Name (Russian)</span><input name="nameRu"></label>
