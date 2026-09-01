@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KisaMore — Growing</title>
-  <link rel="stylesheet" href="/static/growing.css">
-  <script src="/static/growing.js" defer></script>
+  <link rel="stylesheet" href="/static/growing.css?v=2">
+  <script src="/static/growing.js?v=2" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -56,9 +56,17 @@
       </header>
       <input type="hidden" name="plantId">
       <label><span data-i18n="code">Code</span><input name="code" required pattern="[a-z0-9][a-z0-9_-]*"></label>
-      <label><span data-i18n="nameEnglish">Name (English)</span><input name="nameEn" required></label>
-      <label><span data-i18n="nameRussian">Name (Russian)</span><input name="nameRu"></label>
-      <label><span data-i18n="nameChinese">Name (Chinese)</span><input name="nameZh"></label>
+      <div class="plant-name-grid">
+        <label><span data-i18n="nameEnglish">Name (English)</span><input name="nameEn" required></label>
+        <label><span data-i18n="nameRussian">Name (Russian)</span><input name="nameRu"></label>
+        <label><span data-i18n="nameGerman">Name (German)</span><input name="nameDe"></label>
+        <label><span data-i18n="nameFrench">Name (French)</span><input name="nameFr"></label>
+        <label><span data-i18n="nameSpanish">Name (Spanish)</span><input name="nameEs"></label>
+        <label><span data-i18n="nameItalian">Name (Italian)</span><input name="nameIt"></label>
+        <label><span data-i18n="namePortuguese">Name (Portuguese)</span><input name="namePt"></label>
+        <label><span data-i18n="namePolish">Name (Polish)</span><input name="namePl"></label>
+        <label><span data-i18n="nameChinese">Name (Chinese)</span><input name="nameZh"></label>
+      </div>
       <label><span data-i18n="growDays">Growing days</span><input name="growDays" type="number" min="1" max="365" value="14" required></label>
       <label class="checkbox"><input name="active" type="checkbox" checked><span data-i18n="active">Available for selection</span></label>
       <footer>
