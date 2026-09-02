@@ -22,9 +22,15 @@ section + section { margin-top: 42px; }
 .section-title { margin-bottom: 15px; }
 .section-title h2 { margin: 0; }
 .section-title span { color: #71827b; }
+.archive-toggle { display: flex; align-items: center; gap: 8px; color: #536960; font-weight: 650; cursor: pointer; }
+.archive-toggle input { width: auto; margin: 0; }
 .plant-catalog { display: flex; flex-wrap: wrap; gap: 10px; }
 .plant-chip { display: flex; gap: 10px; align-items: center; padding: 10px 13px; border: 1px solid #d8e5df; border-radius: 13px; background: white; }
 .plant-chip button { padding: 5px 8px; color: #16815f; background: #e2f4ec; font-size: 12px; }
+.plant-chip.archived { border-style: dashed; background: #eef2f0; opacity: .8; }
+.plant-chip .archive-badge { padding: 3px 7px; border-radius: 999px; color: #6b6257; background: #e4ddd3; font-size: 11px; font-weight: 800; }
+.plant-chip button.archive-action { color: #7c4c28; background: #f8eadc; }
+.plant-chip button.restore-action { color: #126f53; background: #dff3e9; }
 .racks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(410px, 1fr)); gap: 18px; }
 .rack { padding: 20px; border: 1px solid #dbe7e1; border-radius: 18px; background: white; box-shadow: 0 12px 30px rgba(27, 70, 56, .06); }
 .rack h3 { margin: 0 0 14px; }

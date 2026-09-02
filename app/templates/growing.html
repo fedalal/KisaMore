@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KisaMore — Growing</title>
-  <link rel="stylesheet" href="/static/growing.css?v=2">
-  <script src="/static/growing.js?v=4" defer></script>
+  <link rel="stylesheet" href="/static/growing.css?v=3">
+  <script src="/static/growing.js?v=5" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -35,6 +35,10 @@
     <section>
       <div class="section-title">
         <h2 data-i18n="catalog">Plant catalog</h2>
+        <label class="archive-toggle">
+          <input id="showArchived" type="checkbox">
+          <span data-i18n="showArchived">Show archived</span>
+        </label>
       </div>
       <div id="plantCatalog" class="plant-catalog"></div>
     </section>

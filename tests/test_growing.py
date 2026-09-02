@@ -69,6 +69,23 @@ def test_six_slots_and_planting_lifecycle(monkeypatch, tmp_path):
             1, 1, SlotUpdateIn(status="available")
         )
         assert slot.status == "available"
+
+        archived = await routes_growing.update_plant(
+            plant.id,
+            PlantIn(
+                code=plant.code,
+                names=plant.names,
+                seed_image_name=plant.seed_image_name,
+                microgreen_image_name=plant.microgreen_image_name,
+                grow_days=plant.grow_days,
+                active=False,
+            ),
+        )
+        assert archived.active is False
+        assert await routes_growing.list_plants() == []
+        all_plants = await routes_growing.list_plants(include_inactive=True)
+        assert len(all_plants) == 1
+        assert all_plants[0].id == plant.id
         await engine.dispose()
 
     asyncio.run(scenario())

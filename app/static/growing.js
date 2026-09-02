@@ -2,9 +2,9 @@
   "use strict";
 
   const messages = {
-    en: { dashboard: "Dashboard", operator: "Operator workspace", title: "Plants and containers", subtitle: "Manage the plant catalog and six container positions on every rack.", newPlant: "Add plant", catalog: "Plant catalog", racks: "Racks", sixSlots: "Six containers per rack", plantEditor: "Plant", code: "Code", nameEnglish: "Name (English)", nameRussian: "Name (Russian)", nameGerman: "Name (German)", nameFrench: "Name (French)", nameSpanish: "Name (Spanish)", nameItalian: "Name (Italian)", namePortuguese: "Name (Portuguese)", namePolish: "Name (Polish)", nameChinese: "Name (Chinese)", seedImageName: "Seed image filename", microgreenImageName: "Microgreen image filename", growDays: "Growing days", active: "Available for selection", cancel: "Cancel", save: "Save", startPlanting: "Start planting", plant: "Plant", plantedAt: "Planted at", notes: "Notes", start: "Start", rack: "Rack", slot: "Container", available: "Available", reserved: "Reserved", growing: "Growing", ready: "Ready", maintenance: "Cleaning", disabled: "Disabled", harvested: "Harvested", markReady: "Mark ready", finish: "Harvest", makeAvailable: "Cleaning complete", noPlants: "Add a plant to start growing.", edit: "Edit", loadError: "Could not load growing data.", saveError: "Could not save changes." },
-    ru: { dashboard: "Панель", operator: "Рабочее место оператора", title: "Растения и контейнеры", subtitle: "Управление справочником растений и шестью местами на каждой полке.", newPlant: "Добавить растение", catalog: "Справочник растений", racks: "Полки", sixSlots: "Шесть контейнеров на полке", plantEditor: "Растение", code: "Код", nameEnglish: "Название (английский)", nameRussian: "Название (русский)", nameGerman: "Название (немецкий)", nameFrench: "Название (французский)", nameSpanish: "Название (испанский)", nameItalian: "Название (итальянский)", namePortuguese: "Название (португальский)", namePolish: "Название (польский)", nameChinese: "Название (китайский)", seedImageName: "Имя изображения семян", microgreenImageName: "Имя изображения микрозелени", growDays: "Дней выращивания", active: "Доступно для выбора", cancel: "Отмена", save: "Сохранить", startPlanting: "Начать выращивание", plant: "Растение", plantedAt: "Дата посадки", notes: "Комментарий", start: "Посадить", rack: "Полка", slot: "Контейнер", available: "Свободен", reserved: "Забронирован", growing: "Растёт", ready: "Готов", maintenance: "Очистка", disabled: "Отключён", harvested: "Убран", markReady: "Отметить готовым", finish: "Убрать", makeAvailable: "Очистка завершена", noPlants: "Добавьте растение, чтобы начать выращивание.", edit: "Изменить", loadError: "Не удалось загрузить данные выращивания.", saveError: "Не удалось сохранить изменения." },
-    zh: { dashboard: "控制面板", operator: "操作员工作区", title: "植物和容器", subtitle: "管理植物目录和每个架子的六个容器位置。", newPlant: "添加植物", catalog: "植物目录", racks: "种植架", sixSlots: "每架六个容器", plantEditor: "植物", code: "代码", nameEnglish: "英文名称", nameRussian: "俄文名称", nameGerman: "德文名称", nameFrench: "法文名称", nameSpanish: "西班牙文名称", nameItalian: "意大利文名称", namePortuguese: "葡萄牙文名称", namePolish: "波兰文名称", nameChinese: "中文名称", seedImageName: "种子图片文件名", microgreenImageName: "微型蔬菜图片文件名", growDays: "生长天数", active: "可供选择", cancel: "取消", save: "保存", startPlanting: "开始种植", plant: "植物", plantedAt: "种植时间", notes: "备注", start: "开始", rack: "架子", slot: "容器", available: "空闲", reserved: "已预订", growing: "生长中", ready: "可收获", maintenance: "清洁中", disabled: "已停用", harvested: "已收获", markReady: "标记可收获", finish: "收获", makeAvailable: "完成清洁", noPlants: "请先添加植物。", edit: "编辑", loadError: "无法加载种植数据。", saveError: "无法保存更改。" },
+    en: { dashboard: "Dashboard", operator: "Operator workspace", title: "Plants and containers", subtitle: "Manage the plant catalog and six container positions on every rack.", newPlant: "Add plant", catalog: "Plant catalog", showArchived: "Show archived", archive: "Archive", archived: "Archived", restore: "Restore", archiveConfirm: "Move this plant to the archive? Existing planting history will be preserved.", noActivePlants: "There are no active plants. Turn on “Show archived” to restore one.", racks: "Racks", sixSlots: "Six containers per rack", plantEditor: "Plant", code: "Code", nameEnglish: "Name (English)", nameRussian: "Name (Russian)", nameGerman: "Name (German)", nameFrench: "Name (French)", nameSpanish: "Name (Spanish)", nameItalian: "Name (Italian)", namePortuguese: "Name (Portuguese)", namePolish: "Name (Polish)", nameChinese: "Name (Chinese)", seedImageName: "Seed image filename", microgreenImageName: "Microgreen image filename", growDays: "Growing days", active: "Available for selection", cancel: "Cancel", save: "Save", startPlanting: "Start planting", plant: "Plant", plantedAt: "Planted at", notes: "Notes", start: "Start", rack: "Rack", slot: "Container", available: "Available", reserved: "Reserved", growing: "Growing", ready: "Ready", maintenance: "Cleaning", disabled: "Disabled", harvested: "Harvested", markReady: "Mark ready", finish: "Harvest", makeAvailable: "Cleaning complete", noPlants: "Add a plant to start growing.", edit: "Edit", loadError: "Could not load growing data.", saveError: "Could not save changes." },
+    ru: { dashboard: "Панель", operator: "Рабочее место оператора", title: "Растения и контейнеры", subtitle: "Управление справочником растений и шестью местами на каждой полке.", newPlant: "Добавить растение", catalog: "Справочник растений", showArchived: "Показывать архивные", archive: "В архив", archived: "Архив", restore: "Восстановить", archiveConfirm: "Перенести это растение в архив? История посадок сохранится.", noActivePlants: "Активных растений нет. Включите «Показывать архивные», чтобы восстановить растение.", racks: "Полки", sixSlots: "Шесть контейнеров на полке", plantEditor: "Растение", code: "Код", nameEnglish: "Название (английский)", nameRussian: "Название (русский)", nameGerman: "Название (немецкий)", nameFrench: "Название (французский)", nameSpanish: "Название (испанский)", nameItalian: "Название (итальянский)", namePortuguese: "Название (португальский)", namePolish: "Название (польский)", nameChinese: "Название (китайский)", seedImageName: "Имя изображения семян", microgreenImageName: "Имя изображения микрозелени", growDays: "Дней выращивания", active: "Доступно для выбора", cancel: "Отмена", save: "Сохранить", startPlanting: "Начать выращивание", plant: "Растение", plantedAt: "Дата посадки", notes: "Комментарий", start: "Посадить", rack: "Полка", slot: "Контейнер", available: "Свободен", reserved: "Забронирован", growing: "Растёт", ready: "Готов", maintenance: "Очистка", disabled: "Отключён", harvested: "Убран", markReady: "Отметить готовым", finish: "Убрать", makeAvailable: "Очистка завершена", noPlants: "Добавьте растение, чтобы начать выращивание.", edit: "Изменить", loadError: "Не удалось загрузить данные выращивания.", saveError: "Не удалось сохранить изменения." },
+    zh: { dashboard: "控制面板", operator: "操作员工作区", title: "植物和容器", subtitle: "管理植物目录和每个架子的六个容器位置。", newPlant: "添加植物", catalog: "植物目录", showArchived: "显示已归档", archive: "归档", archived: "已归档", restore: "恢复", archiveConfirm: "将此植物移至归档？现有种植历史将保留。", noActivePlants: "没有可用植物。请启用“显示已归档”以恢复植物。", racks: "种植架", sixSlots: "每架六个容器", plantEditor: "植物", code: "代码", nameEnglish: "英文名称", nameRussian: "俄文名称", nameGerman: "德文名称", nameFrench: "法文名称", nameSpanish: "西班牙文名称", nameItalian: "意大利文名称", namePortuguese: "葡萄牙文名称", namePolish: "波兰文名称", nameChinese: "中文名称", seedImageName: "种子图片文件名", microgreenImageName: "微型蔬菜图片文件名", growDays: "生长天数", active: "可供选择", cancel: "取消", save: "保存", startPlanting: "开始种植", plant: "植物", plantedAt: "种植时间", notes: "备注", start: "开始", rack: "架子", slot: "容器", available: "空闲", reserved: "已预订", growing: "生长中", ready: "可收获", maintenance: "清洁中", disabled: "已停用", harvested: "已收获", markReady: "标记可收获", finish: "收获", makeAvailable: "完成清洁", noPlants: "请先添加植物。", edit: "编辑", loadError: "无法加载种植数据。", saveError: "无法保存更改。" },
   };
 
   const plantNameFields = [
@@ -21,6 +21,7 @@
 
   let language = localStorage.getItem("kisamore-language") || "en";
   if (!messages[language]) language = "en";
+  let showArchived = false;
   let plants = [];
   let slots = [];
 
@@ -71,18 +72,35 @@
       catalog.textContent = t("noPlants");
       return;
     }
-    catalog.replaceChildren(...plants.map((plant) => {
+    const visiblePlants = showArchived ? plants : plants.filter((plant) => plant.active);
+    if (!visiblePlants.length) {
+      catalog.textContent = t("noActivePlants");
+      return;
+    }
+    catalog.replaceChildren(...visiblePlants.map((plant) => {
       const chip = document.createElement("div");
-      chip.className = "plant-chip";
+      chip.className = `plant-chip${plant.active ? "" : " archived"}`;
       const name = document.createElement("strong");
       name.textContent = plantName(plant);
       const days = document.createElement("span");
       days.textContent = `${plant.grow_days} d`;
+      if (!plant.active) {
+        const badge = document.createElement("span");
+        badge.className = "archive-badge";
+        badge.textContent = t("archived");
+        chip.append(badge);
+      }
       const edit = document.createElement("button");
       edit.type = "button";
       edit.textContent = t("edit");
       edit.addEventListener("click", () => openPlantEditor(plant));
-      chip.append(name, days, edit);
+      const archive = document.createElement("button");
+      archive.type = "button";
+      archive.className = plant.active ? "archive-action" : "restore-action";
+      archive.textContent = t(plant.active ? "archive" : "restore");
+      archive.addEventListener("click", () => setPlantActive(plant, !plant.active));
+      chip.prepend(name, days);
+      chip.append(edit, archive);
       return chip;
     }));
   }
@@ -100,7 +118,7 @@
       ? new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(new Date(planting.expected_harvest_at))
       : t(slot.status);
     const actions = card.querySelector(".slot-actions");
-    if (slot.status === "available" && plants.length) {
+    if (slot.status === "available" && plants.some((plant) => plant.active)) {
       actions.append(actionButton(t("start"), () => openPlanting(slot)));
     } else if (planting?.status === "growing") {
       actions.append(actionButton(t("markReady"), () => updatePlanting(planting.id, { status: "ready" })));
@@ -189,7 +207,25 @@
     catch (error) { console.error(error); showError(t("saveError")); }
   }
 
+  async function setPlantActive(plant, active) {
+    if (!active && !window.confirm(t("archiveConfirm"))) return;
+    const payload = {
+      code: plant.code,
+      names: plant.names || {},
+      descriptions: plant.descriptions || {},
+      seed_image_name: plant.seed_image_name || "",
+      microgreen_image_name: plant.microgreen_image_name || "",
+      grow_days: plant.grow_days,
+      active,
+    };
+    try {
+      await api(`/api/growing/plants/${plant.id}`, { method: "PUT", body: JSON.stringify(payload) });
+      await load();
+    } catch (error) { console.error(error); showError(t("saveError")); }
+  }
+
   $("#languageSelect").addEventListener("change", (event) => { language = event.target.value; localStorage.setItem("kisamore-language", language); applyLanguage(); });
+  $("#showArchived").addEventListener("change", (event) => { showArchived = event.target.checked; renderPlants(); });
   $("#newPlantButton").addEventListener("click", () => openPlantEditor());
   document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
 
