@@ -28,11 +28,29 @@ def aware_utc(value: datetime | None) -> datetime | None:
 
 async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, now: datetime) -> None:
     """Upsert the plant catalog and six physical slots reported by an edge device."""
+    planting_inputs = [
+        incoming.planting
+        for rack in payload.racks
+        for incoming in rack.slots
+        if incoming.planting is not None
+    ]
+    required_plant_ids = {
+        *(incoming.plant_id for incoming in payload.plants),
+        *(incoming.plant_id for incoming in planting_inputs),
+    }
+    plants_by_id: dict[str, Plant] = {}
+    if required_plant_ids:
+        plants = (
+            await session.execute(select(Plant).where(Plant.id.in_(required_plant_ids)))
+        ).scalars().all()
+        plants_by_id = {plant.id: plant for plant in plants}
+
     for incoming in payload.plants:
-        plant = await session.get(Plant, incoming.plant_id)
+        plant = plants_by_id.get(incoming.plant_id)
         if plant is None:
             plant = Plant(id=incoming.plant_id, code=incoming.code)
             session.add(plant)
+            plants_by_id[plant.id] = plant
         plant.code = incoming.code
         plant.names = incoming.names
         plant.descriptions = incoming.descriptions
@@ -43,17 +61,27 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
         plant.edge_updated_at = incoming.updated_at
     await session.flush()
 
+    rack_ids = {rack.rack_id for rack in payload.racks}
+    slots_by_key: dict[tuple[int, int], RackSlot] = {}
+    if rack_ids:
+        slots = (
+            await session.execute(
+                select(RackSlot).where(
+                    RackSlot.device_id == device_id,
+                    RackSlot.rack_id.in_(rack_ids),
+                )
+            )
+        ).scalars().all()
+        slots_by_key = {
+            (slot.rack_id, slot.slot_number): slot
+            for slot in slots
+        }
+
+    planting_slots: list[tuple[RackSlot, object]] = []
     for rack in payload.racks:
         for incoming in rack.slots:
-            slot = (
-                await session.execute(
-                    select(RackSlot).where(
-                        RackSlot.device_id == device_id,
-                        RackSlot.rack_id == rack.rack_id,
-                        RackSlot.slot_number == incoming.slot_number,
-                    )
-                )
-            ).scalar_one_or_none()
+            slot_key = (rack.rack_id, incoming.slot_number)
+            slot = slots_by_key.get(slot_key)
             if slot is None:
                 slot = RackSlot(
                     device_id=device_id,
@@ -62,7 +90,7 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
                     observed_at=payload.observed_at,
                 )
                 session.add(slot)
-                await session.flush()
+                slots_by_key[slot_key] = slot
             slot.physical_status = incoming.status
             slot.enabled = incoming.enabled
             slot.edge_allocation_id = incoming.cloud_allocation_id
@@ -73,31 +101,49 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
             )
 
             if incoming.planting:
-                plant = await session.get(Plant, incoming.planting.plant_id)
-                if plant is None:
-                    # Rejecting the whole sensor snapshot would hide healthy telemetry.
-                    # The next snapshot will repair this after the edge catalog is synced.
-                    continue
-                planting = await session.get(Planting, incoming.planting.planting_id)
-                if planting is None:
-                    planting = Planting(
-                        id=incoming.planting.planting_id,
-                        slot_id=slot.id,
-                        plant_id=incoming.planting.plant_id,
-                        planted_at=incoming.planting.planted_at,
-                        expected_harvest_at=incoming.planting.expected_harvest_at,
-                        status=incoming.planting.status,
-                        observed_at=payload.observed_at,
-                    )
-                    session.add(planting)
-                planting.slot_id = slot.id
-                planting.plant_id = incoming.planting.plant_id
-                planting.planted_at = incoming.planting.planted_at
-                planting.expected_harvest_at = incoming.planting.expected_harvest_at
-                planting.actual_harvest_at = incoming.planting.actual_harvest_at
-                planting.status = incoming.planting.status
-                planting.cloud_allocation_id = incoming.planting.cloud_allocation_id
-                planting.observed_at = payload.observed_at
+                planting_slots.append((slot, incoming.planting))
+
+    # One flush assigns IDs to every newly discovered slot instead of flushing
+    # once per container. This keeps a four-rack snapshot well below the edge
+    # request timeout even on a small VPS.
+    await session.flush()
+
+    planting_ids = {incoming.planting_id for _, incoming in planting_slots}
+    plantings_by_id: dict[str, Planting] = {}
+    if planting_ids:
+        plantings = (
+            await session.execute(
+                select(Planting).where(Planting.id.in_(planting_ids))
+            )
+        ).scalars().all()
+        plantings_by_id = {planting.id: planting for planting in plantings}
+
+    for slot, incoming in planting_slots:
+        if incoming.plant_id not in plants_by_id:
+            # Rejecting the whole sensor snapshot would hide healthy telemetry.
+            # The next snapshot will repair this after the edge catalog is synced.
+            continue
+        planting = plantings_by_id.get(incoming.planting_id)
+        if planting is None:
+            planting = Planting(
+                id=incoming.planting_id,
+                slot_id=slot.id,
+                plant_id=incoming.plant_id,
+                planted_at=incoming.planted_at,
+                expected_harvest_at=incoming.expected_harvest_at,
+                status=incoming.status,
+                observed_at=payload.observed_at,
+            )
+            session.add(planting)
+            plantings_by_id[planting.id] = planting
+        planting.slot_id = slot.id
+        planting.plant_id = incoming.plant_id
+        planting.planted_at = incoming.planted_at
+        planting.expected_harvest_at = incoming.expected_harvest_at
+        planting.actual_harvest_at = incoming.actual_harvest_at
+        planting.status = incoming.status
+        planting.cloud_allocation_id = incoming.cloud_allocation_id
+        planting.observed_at = payload.observed_at
 
 
 async def active_inventory(session: AsyncSession, device_id: str):

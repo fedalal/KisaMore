@@ -96,13 +96,16 @@ async def ingest_snapshot(
             )
         )
 
-    await sync_edge_inventory(session, device.id, payload, now)
-    await process_waitlist(session, device.id)
+    has_growing_data = bool(payload.plants) or any(rack.slots for rack in payload.racks)
+    if has_growing_data:
+        await sync_edge_inventory(session, device.id, payload, now)
+        await process_waitlist(session, device.id)
 
     await session.commit()
     print(
         f"[cloud-api] snapshot accepted: device={device.id}, "
-        f"racks={len(payload.racks)}, elapsed={perf_counter() - started_at:.3f}s"
+        f"racks={len(payload.racks)}, growing={has_growing_data}, "
+        f"elapsed={perf_counter() - started_at:.3f}s"
     )
     return {"accepted": True, "received_at": now}
 

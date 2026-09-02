@@ -15,7 +15,7 @@ from app.cloud_sync_service import (
     _remaining_delay,
     _retry_delays,
 )
-from app.models import Base, Plant, RackSensorHistory, RackState
+from app.models import Base, Plant, RackSensorHistory, RackSlot, RackState
 
 
 def test_cloud_settings_are_disabled_without_all_credentials(monkeypatch):
@@ -197,6 +197,7 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
                     grow_days=12,
                 )
             )
+            session.add(RackSlot(rack_id=1, slot_number=1, status="available"))
             await session.commit()
 
         monkeypatch.setattr(sync_module, "SessionLocal", session_factory)
@@ -217,11 +218,12 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
             device_token="test-token-with-at-least-32-characters",
             software_version="test-version",
         )
-        snapshot = await service.collect_snapshot()
+        automatic_snapshot = await service.collect_snapshot()
+        manual_snapshot = await service.collect_snapshot(include_growing=True)
         await engine.dispose()
-        return snapshot
+        return automatic_snapshot, manual_snapshot
 
-    snapshot = asyncio.run(collect())
+    snapshot, manual_snapshot = asyncio.run(collect())
     assert snapshot["racks_count"] == 1
     assert snapshot["levels"] == {"low": True, "critical": False}
     assert snapshot["racks"] == [
@@ -238,8 +240,39 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
                 "slots": [],
             }
         ]
-    assert snapshot["plants"][0]["seed_image_name"] == "radish_seeds.jpg"
-    assert snapshot["plants"][0]["microgreen_image_name"] == "radish_microgreens.jpg"
+    assert snapshot["plants"] == []
+    assert snapshot["racks"][0]["slots"] == []
+    assert manual_snapshot["plants"][0]["seed_image_name"] == "radish_seeds.jpg"
+    assert manual_snapshot["plants"][0]["microgreen_image_name"] == "radish_microgreens.jpg"
+    assert manual_snapshot["racks"][0]["slots"][0]["slot_number"] == 1
+
+
+def test_manual_growing_sync_includes_catalog_and_placement(monkeypatch):
+    service = CloudSyncService()
+    service._settings = CloudSyncSettings(
+        api_url="https://api.example.test",
+        device_id="pi-01",
+        device_token="test-token-with-at-least-32-characters",
+    )
+    sent = []
+
+    async def fake_collect_snapshot(*, include_growing=False):
+        assert include_growing is True
+        return {
+            "plants": [{"plant_id": "plant-radish"}],
+            "racks": [{"slots": [{"slot_number": 1}]}],
+        }
+
+    async def fake_send_snapshot(snapshot):
+        sent.append(snapshot)
+
+    monkeypatch.setattr(service, "collect_snapshot", fake_collect_snapshot)
+    monkeypatch.setattr(service, "_send_snapshot", fake_send_snapshot)
+    monkeypatch.setattr(service, "_sync_assignments", lambda: asyncio.sleep(0, result=2))
+
+    result = asyncio.run(service.sync_growing_now())
+    assert result == {"plants_count": 1, "slots_count": 1, "assignments_count": 2}
+    assert sent[0]["plants"][0]["plant_id"] == "plant-radish"
 
 
 def test_only_changed_latest_photos_are_uploaded(monkeypatch, tmp_path):

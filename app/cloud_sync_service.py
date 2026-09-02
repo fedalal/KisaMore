@@ -98,6 +98,7 @@ class CloudSyncService:
     def __init__(self) -> None:
         self._task: asyncio.Task | None = None
         self._stop_event = asyncio.Event()
+        self._send_lock = asyncio.Lock()
         self._settings: CloudSyncSettings | None = None
         self._uploaded_photo_mtimes: dict[int, int] = {}
 
@@ -132,24 +133,28 @@ class CloudSyncService:
                 pass
             self._task = None
 
-    async def collect_snapshot(self) -> dict[str, Any]:
+    async def collect_snapshot(self, *, include_growing: bool = False) -> dict[str, Any]:
         if self._settings is None:
             raise RuntimeError("cloud sync is not configured")
 
         racks: list[dict[str, Any]] = []
+        plants: list[Plant] = []
         max_racks = runtime.cfg.racks_count if runtime.cfg else 0
 
         async with SessionLocal() as session:
-            plants = (
-                await session.execute(select(Plant).order_by(Plant.code))
-            ).scalars().all()
-            slots = (
-                await session.execute(
-                    select(RackSlot)
-                    .where(RackSlot.rack_id <= max_racks)
-                    .order_by(RackSlot.rack_id, RackSlot.slot_number)
-                )
-            ).scalars().all()
+            if include_growing:
+                plants = (
+                    await session.execute(select(Plant).order_by(Plant.code))
+                ).scalars().all()
+            slots = []
+            if include_growing:
+                slots = (
+                    await session.execute(
+                        select(RackSlot)
+                        .where(RackSlot.rack_id <= max_racks)
+                        .order_by(RackSlot.rack_id, RackSlot.slot_number)
+                    )
+                ).scalars().all()
             slot_ids = [slot.id for slot in slots]
             active_plantings = []
             if slot_ids:
@@ -338,6 +343,26 @@ class CloudSyncService:
     async def _send_snapshot(self, snapshot: dict[str, Any]) -> None:
         await asyncio.to_thread(self._send_snapshot_blocking, snapshot)
 
+    async def sync_growing_now(self) -> dict[str, int]:
+        """Synchronize the plant catalog and rack placement after a UI request."""
+        if self._settings is None:
+            raise RuntimeError("cloud sync is not configured")
+        async with self._send_lock:
+            snapshot = await self.collect_snapshot(include_growing=True)
+            await self._send_snapshot(snapshot)
+            assignments_count = await self._sync_assignments()
+        plants_count = len(snapshot["plants"])
+        slots_count = sum(len(rack["slots"]) for rack in snapshot["racks"])
+        print(
+            f"[cloud-sync] growing data sent manually: plants={plants_count}, "
+            f"slots={slots_count}, assignments={assignments_count}"
+        )
+        return {
+            "plants_count": plants_count,
+            "slots_count": slots_count,
+            "assignments_count": assignments_count,
+        }
+
     def _fetch_assignments_blocking(self) -> dict[str, Any]:
         assert self._settings is not None
         output_path: str | None = None
@@ -522,8 +547,11 @@ class CloudSyncService:
             attempt_started_at = asyncio.get_running_loop().time()
             try:
                 snapshot = await self.collect_snapshot()
-                await self._send_snapshot(snapshot)
-                assignments_count = await self._sync_assignments()
+                async with self._send_lock:
+                    await self._send_snapshot(snapshot)
+                # Catalog, container placement and cloud reservations are
+                # synchronized explicitly from the /growing page.
+                assignments_count = 0
                 photos_count = 0
                 try:
                     photos_count = await self._send_changed_photos()

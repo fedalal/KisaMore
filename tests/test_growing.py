@@ -13,6 +13,21 @@ from app.models import Base, Plant, Planting, RackSlot
 from app.schemas import PlantIn, PlantingCreateIn, PlantingUpdateIn, SlotUpdateIn
 
 
+def test_manual_growing_sync_endpoint(monkeypatch):
+    async def fake_sync():
+        return {"plants_count": 22, "slots_count": 24, "assignments_count": 1}
+
+    monkeypatch.setattr(routes_growing.cloud_sync_service, "sync_growing_now", fake_sync)
+
+    result = asyncio.run(routes_growing.sync_growing())
+    assert result == {
+        "synced": True,
+        "plants_count": 22,
+        "slots_count": 24,
+        "assignments_count": 1,
+    }
+
+
 def test_six_slots_and_planting_lifecycle(monkeypatch, tmp_path):
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'growing.db'}")
     session_factory = async_sessionmaker(engine, expire_on_commit=False)

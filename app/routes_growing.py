@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
 from . import runtime
+from .cloud_sync_service import cloud_sync_service
 from .db import SessionLocal
 from .models import Plant, Planting, RackSlot
 from .schemas import (
@@ -98,6 +99,20 @@ async def list_plants(include_inactive: bool = False):
             query = query.where(Plant.active.is_(True))
         plants = (await session.execute(query)).scalars().all()
         return [_plant_out(plant) for plant in plants]
+
+
+@router.post("/sync")
+async def sync_growing():
+    try:
+        result = await cloud_sync_service.sync_growing_now()
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail="Cloud synchronization timed out") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        print(f"[cloud-sync] manual plant synchronization failed: {type(exc).__name__}: {exc!r}")
+        raise HTTPException(status_code=502, detail="Cloud synchronization failed") from exc
+    return {"synced": True, **result}
 
 
 @router.post("/plants", response_model=PlantOut, status_code=201)

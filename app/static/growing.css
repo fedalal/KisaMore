@@ -4,6 +4,7 @@ body { margin: 0; }
 a { color: inherit; }
 button, select, input, textarea { font: inherit; }
 button { border: 0; border-radius: 12px; padding: 11px 16px; color: white; background: #16815f; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
 button.secondary { color: #173b31; background: #e7efeb; }
 button.plain { padding: 3px 8px; color: #173b31; background: transparent; font-size: 25px; }
 .topbar { display: flex; justify-content: space-between; align-items: center; padding: 18px max(24px, calc((100% - 1280px) / 2)); background: white; border-bottom: 1px solid #dfe9e4; }
@@ -15,6 +16,7 @@ select, input, textarea { width: 100%; border: 1px solid #cfdcd6; border-radius:
 main { width: min(1280px, calc(100% - 40px)); margin: 0 auto; padding: 36px 0 60px; }
 .hero, .section-title { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
 .hero { margin-bottom: 36px; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .hero h1 { margin: 4px 0 8px; font-size: clamp(32px, 5vw, 54px); }
 .hero p { max-width: 720px; margin: 0; color: #667a72; }
 .eyebrow { color: #16815f !important; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; }
@@ -45,6 +47,7 @@ section + section { margin-top: 42px; }
 .slot-actions { display: flex; gap: 7px; margin-top: 12px; }
 .slot-actions button { flex: 1; padding: 8px; font-size: 12px; }
 .notice { margin-bottom: 20px; padding: 13px 15px; border-radius: 12px; background: #ffeded; color: #913e3e; }
+.notice.success { background: #e2f4ec; color: #126f53; }
 .hidden { display: none; }
 dialog { width: min(520px, calc(100% - 30px)); max-height: calc(100vh - 30px); overflow: auto; border: 0; border-radius: 18px; padding: 0; box-shadow: 0 24px 80px rgba(18, 60, 48, .25); }
 #plantDialog { width: min(760px, calc(100% - 30px)); }
