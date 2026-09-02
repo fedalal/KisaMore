@@ -36,6 +36,8 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
         plant.code = incoming.code
         plant.names = incoming.names
         plant.descriptions = incoming.descriptions
+        plant.seed_image_name = incoming.seed_image_name
+        plant.microgreen_image_name = incoming.microgreen_image_name
         plant.grow_days = incoming.grow_days
         plant.active = incoming.active
         plant.edge_updated_at = incoming.updated_at

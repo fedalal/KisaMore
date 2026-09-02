@@ -42,6 +42,8 @@ def _snapshot(observed_at: datetime | None = None) -> dict:
                 "code": "radish",
                 "names": {"en": "Radish", "ru": "Редис", "zh": "萝卜"},
                 "descriptions": {},
+                "seed_image_name": "radish_seeds.jpg",
+                "microgreen_image_name": "radish_microgreens.jpg",
                 "grow_days": 12,
                 "active": True,
                 "updated_at": timestamp.isoformat(),
@@ -164,6 +166,8 @@ def test_authenticated_ingestion_and_public_read_only_api():
         assert market.status_code == 200
         market_data = market.json()
         assert market_data["plants"][0]["names"]["ru"] == "Редис"
+        assert market_data["plants"][0]["seed_image_name"] == "radish_seeds.jpg"
+        assert market_data["plants"][0]["microgreen_image_name"] == "radish_microgreens.jpg"
         assert len(market_data["racks"][0]["slots"]) == 6
         assert market_data["racks"][0]["whole_rack_available"] is True
         assert market_data["racks"][0]["photo_url"].endswith("/racks/1/photo")

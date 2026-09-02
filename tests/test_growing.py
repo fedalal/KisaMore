@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import bootstrap, cloud_sync_service, routes_growing
@@ -39,9 +39,13 @@ def test_six_slots_and_planting_lifecycle(monkeypatch, tmp_path):
             PlantIn(
                 code="radish",
                 names={"en": "Radish", "ru": "Редис"},
+                seed_image_name="radish_seeds.jpg",
+                microgreen_image_name="radish_microgreens.jpg",
                 grow_days=12,
             )
         )
+        assert plant.seed_image_name == "radish_seeds.jpg"
+        assert plant.microgreen_image_name == "radish_microgreens.jpg"
         planting = await routes_growing.create_planting(
             PlantingCreateIn(
                 rack_id=1,
@@ -65,6 +69,42 @@ def test_six_slots_and_planting_lifecycle(monkeypatch, tmp_path):
             1, 1, SlotUpdateIn(status="available")
         )
         assert slot.status == "available"
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_existing_plant_table_gets_image_columns(monkeypatch, tmp_path):
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'old.db'}")
+    monkeypatch.setattr(bootstrap, "engine", engine)
+
+    async def scenario():
+        async with engine.begin() as connection:
+            await connection.exec_driver_sql(
+                """
+                CREATE TABLE plants (
+                    id VARCHAR(36) PRIMARY KEY,
+                    code VARCHAR(80) NOT NULL UNIQUE,
+                    names JSON NOT NULL,
+                    descriptions JSON NOT NULL,
+                    grow_days INTEGER NOT NULL,
+                    active BOOLEAN NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+
+        await bootstrap.ensure_db_tables()
+
+        async with engine.connect() as connection:
+            columns = await connection.run_sync(
+                lambda sync_connection: {
+                    item["name"]
+                    for item in inspect(sync_connection).get_columns("plants")
+                }
+            )
+        assert {"seed_image_name", "microgreen_image_name"} <= columns
         await engine.dispose()
 
     asyncio.run(scenario())

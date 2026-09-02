@@ -15,7 +15,7 @@ from app.cloud_sync_service import (
     _remaining_delay,
     _retry_delays,
 )
-from app.models import Base, RackSensorHistory, RackState
+from app.models import Base, Plant, RackSensorHistory, RackState
 
 
 def test_cloud_settings_are_disabled_without_all_credentials(monkeypatch):
@@ -186,6 +186,17 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
                     created_at=sensor_time,
                 )
             )
+            session.add(
+                Plant(
+                    id="plant-radish",
+                    code="radish",
+                    names={"en": "Radish", "ru": "Редис"},
+                    descriptions={},
+                    seed_image_name="radish_seeds.jpg",
+                    microgreen_image_name="radish_microgreens.jpg",
+                    grow_days=12,
+                )
+            )
             await session.commit()
 
         monkeypatch.setattr(sync_module, "SessionLocal", session_factory)
@@ -227,7 +238,8 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
                 "slots": [],
             }
         ]
-    assert snapshot["plants"] == []
+    assert snapshot["plants"][0]["seed_image_name"] == "radish_seeds.jpg"
+    assert snapshot["plants"][0]["microgreen_image_name"] == "radish_microgreens.jpg"
 
 
 def test_only_changed_latest_photos_are_uploaded(monkeypatch, tmp_path):

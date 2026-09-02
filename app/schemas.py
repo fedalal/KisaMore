@@ -93,6 +93,8 @@ class PlantIn(BaseModel):
     code: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     names: Dict[str, str] = Field(min_length=1)
     descriptions: Dict[str, str] = Field(default_factory=dict)
+    seed_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
+    microgreen_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     grow_days: int = Field(default=14, ge=1, le=365)
     active: bool = True
 

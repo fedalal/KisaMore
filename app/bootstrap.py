@@ -1,12 +1,28 @@
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from .db import engine, SessionLocal
 from .models import Base, RackSlot, RackState, RackSchedule
 
 _EMPTY = {"mon": [], "tue": [], "wed": [], "thu": [], "fri": [], "sat": [], "sun": []}
 
+_PLANT_IMAGE_COLUMNS = {
+    "seed_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
+    "microgreen_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
+}
+
+
+def _ensure_plant_image_columns(connection) -> None:
+    inspector = inspect(connection)
+    if "plants" not in inspector.get_table_names():
+        return
+    existing = {column["name"] for column in inspector.get_columns("plants")}
+    for name, definition in _PLANT_IMAGE_COLUMNS.items():
+        if name not in existing:
+            connection.exec_driver_sql(f"ALTER TABLE plants ADD COLUMN {name} {definition}")
+
 async def ensure_db_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_ensure_plant_image_columns)
 
 async def ensure_db_racks(racks_count: int):
     async with SessionLocal() as s:

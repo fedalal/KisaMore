@@ -240,6 +240,8 @@ class CloudSyncService:
                     "code": plant.code,
                     "names": plant.names,
                     "descriptions": plant.descriptions,
+                    "seed_image_name": plant.seed_image_name,
+                    "microgreen_image_name": plant.microgreen_image_name,
                     "grow_days": plant.grow_days,
                     "active": plant.active,
                     "updated_at": _as_utc_iso(plant.updated_at),

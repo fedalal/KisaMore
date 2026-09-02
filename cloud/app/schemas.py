@@ -16,6 +16,8 @@ class PlantSnapshotIn(BaseModel):
     code: str = Field(min_length=1, max_length=80)
     names: dict[str, str] = Field(min_length=1)
     descriptions: dict[str, str] = Field(default_factory=dict)
+    seed_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
+    microgreen_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     grow_days: int = Field(ge=1, le=365)
     active: bool = True
     updated_at: datetime | None = None
@@ -115,6 +117,8 @@ class PlantPublicOut(BaseModel):
     code: str
     names: dict[str, str]
     descriptions: dict[str, str]
+    seed_image_name: str
+    microgreen_image_name: str
     grow_days: int
 
 

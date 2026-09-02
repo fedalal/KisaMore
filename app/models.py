@@ -49,6 +49,8 @@ class Plant(Base):
     code: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
     names: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     descriptions: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    seed_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    microgreen_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     grow_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow_naive, nullable=False)

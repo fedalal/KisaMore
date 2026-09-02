@@ -219,6 +219,8 @@ async def public_market(
                 code=plant.code,
                 names=plant.names,
                 descriptions=plant.descriptions,
+                seed_image_name=plant.seed_image_name,
+                microgreen_image_name=plant.microgreen_image_name,
                 grow_days=plant.grow_days,
             )
             for plant in plants

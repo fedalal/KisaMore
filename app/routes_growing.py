@@ -40,6 +40,8 @@ def _plant_out(plant: Plant) -> PlantOut:
         code=plant.code,
         names=plant.names,
         descriptions=plant.descriptions,
+        seed_image_name=plant.seed_image_name,
+        microgreen_image_name=plant.microgreen_image_name,
         grow_days=plant.grow_days,
         active=plant.active,
         created_at=plant.created_at,
