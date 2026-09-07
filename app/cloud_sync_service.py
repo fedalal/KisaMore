@@ -32,6 +32,7 @@ class CloudSyncSettings:
     device_token: str
     interval_seconds: int = 30
     request_timeout_seconds: float = 10.0
+    growing_sync_timeout_seconds: float = 120.0
     software_version: str = "unknown"
 
     @classmethod
@@ -53,6 +54,10 @@ class CloudSyncSettings:
 
         interval = max(10, int(os.getenv("KISAMORE_CLOUD_INTERVAL_SECONDS", "30")))
         timeout = max(1.0, float(os.getenv("KISAMORE_CLOUD_TIMEOUT_SECONDS", "10")))
+        growing_timeout = max(
+            timeout,
+            float(os.getenv("KISAMORE_GROWING_SYNC_TIMEOUT_SECONDS", "120")),
+        )
 
         return cls(
             api_url=api_url,
@@ -60,6 +65,7 @@ class CloudSyncSettings:
             device_token=device_token,
             interval_seconds=interval,
             request_timeout_seconds=timeout,
+            growing_sync_timeout_seconds=growing_timeout,
             software_version=os.getenv("KISAMORE_SOFTWARE_VERSION", "unknown").strip() or "unknown",
         )
 
@@ -256,7 +262,11 @@ class CloudSyncService:
             "racks": racks,
         }
 
-    def _send_snapshot_blocking(self, snapshot: dict[str, Any]) -> None:
+    def _send_snapshot_blocking(
+        self,
+        snapshot: dict[str, Any],
+        timeout_seconds: float | None = None,
+    ) -> None:
         assert self._settings is not None
         payload_path: str | None = None
 
@@ -283,7 +293,7 @@ class CloudSyncService:
                 "Accept: application/json\n"
                 "Connection: close\n"
             ).encode("utf-8")
-            timeout = self._settings.request_timeout_seconds
+            timeout = timeout_seconds or self._settings.request_timeout_seconds
             command = [
                 "curl",
                 "--http1.1",
@@ -340,8 +350,16 @@ class CloudSyncService:
                 except FileNotFoundError:
                     pass
 
-    async def _send_snapshot(self, snapshot: dict[str, Any]) -> None:
-        await asyncio.to_thread(self._send_snapshot_blocking, snapshot)
+    async def _send_snapshot(
+        self,
+        snapshot: dict[str, Any],
+        timeout_seconds: float | None = None,
+    ) -> None:
+        await asyncio.to_thread(
+            self._send_snapshot_blocking,
+            snapshot,
+            timeout_seconds,
+        )
 
     async def sync_growing_now(self) -> dict[str, int]:
         """Synchronize the plant catalog and rack placement after a UI request."""
@@ -349,7 +367,10 @@ class CloudSyncService:
             raise RuntimeError("cloud sync is not configured")
         async with self._send_lock:
             snapshot = await self.collect_snapshot(include_growing=True)
-            await self._send_snapshot(snapshot)
+            await self._send_snapshot(
+                snapshot,
+                self._settings.growing_sync_timeout_seconds,
+            )
             assignments_count = await self._sync_assignments()
         plants_count = len(snapshot["plants"])
         slots_count = sum(len(rack["slots"]) for rack in snapshot["racks"])

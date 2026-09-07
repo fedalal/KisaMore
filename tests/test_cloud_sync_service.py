@@ -53,6 +53,7 @@ def test_snapshot_is_sent_with_device_authentication(monkeypatch):
     settings = CloudSyncSettings.from_env()
     assert settings is not None
     assert settings.api_url == "https://api.example.test"
+    assert settings.growing_sync_timeout_seconds == 120
 
     snapshot = {
         "observed_at": "2026-08-05T12:00:00+00:00",
@@ -263,7 +264,8 @@ def test_manual_growing_sync_includes_catalog_and_placement(monkeypatch):
             "racks": [{"slots": [{"slot_number": 1}]}],
         }
 
-    async def fake_send_snapshot(snapshot):
+    async def fake_send_snapshot(snapshot, timeout_seconds=None):
+        assert timeout_seconds == 120
         sent.append(snapshot)
 
     monkeypatch.setattr(service, "collect_snapshot", fake_collect_snapshot)
