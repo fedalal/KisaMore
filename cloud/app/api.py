@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import get_settings
+from .db import SessionLocal
 from .models import Device, Farm, RackCurrent, TelemetrySample
 from .schemas import EdgeSnapshotIn, FarmLiveOut, RackLiveOut
 from .security import authenticate_device, get_session
@@ -15,6 +17,8 @@ from .marketplace_service import process_waitlist, sync_edge_inventory
 
 
 router = APIRouter(prefix="/api/v1")
+_pending_inventory: dict[str, tuple[EdgeSnapshotIn, datetime]] = {}
+_inventory_locks: dict[str, asyncio.Lock] = {}
 
 
 def _as_aware_utc(value: datetime | None) -> datetime | None:
@@ -23,6 +27,54 @@ def _as_aware_utc(value: datetime | None) -> datetime | None:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+async def _sync_queued_inventory(
+    device_id: str,
+    payload: EdgeSnapshotIn,
+    received_at: datetime,
+) -> None:
+    """Process only the latest queued growing snapshot for a device.
+
+    This runs after the telemetry response has been sent. Slow inventory or
+    waitlist queries therefore cannot block the Pi's regular sensor exchange.
+    """
+    _pending_inventory[device_id] = (payload, received_at)
+    lock = _inventory_locks.setdefault(device_id, asyncio.Lock())
+    if lock.locked():
+        return
+
+    async with lock:
+        while True:
+            queued = _pending_inventory.pop(device_id, None)
+            if queued is None:
+                return
+            queued_payload, queued_at = queued
+            started_at = perf_counter()
+            try:
+                async with SessionLocal() as session:
+                    await sync_edge_inventory(
+                        session,
+                        device_id,
+                        queued_payload,
+                        queued_at,
+                    )
+                    await process_waitlist(session, device_id)
+                    await session.commit()
+                print(
+                    f"[cloud-api] growing inventory synchronized: device={device_id}, "
+                    f"plants={len(queued_payload.plants)}, "
+                    f"slots={sum(len(rack.slots) for rack in queued_payload.racks)}, "
+                    f"elapsed={perf_counter() - started_at:.3f}s"
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                print(
+                    f"[cloud-api] growing inventory failed: device={device_id}, "
+                    f"elapsed={perf_counter() - started_at:.3f}s, "
+                    f"error={type(exc).__name__}: {exc!r}"
+                )
 
 
 @router.get("/health")
@@ -34,6 +86,7 @@ async def health(session: AsyncSession = Depends(get_session)):
 @router.post("/edge/snapshot", status_code=202)
 async def ingest_snapshot(
     payload: EdgeSnapshotIn,
+    background_tasks: BackgroundTasks,
     device: Device = Depends(authenticate_device),
     session: AsyncSession = Depends(get_session),
 ):
@@ -97,14 +150,17 @@ async def ingest_snapshot(
         )
 
     has_growing_data = bool(payload.plants) or any(rack.slots for rack in payload.racks)
-    if has_growing_data:
-        await sync_edge_inventory(session, device.id, payload, now)
-        await process_waitlist(session, device.id)
-
     await session.commit()
+    if has_growing_data:
+        background_tasks.add_task(
+            _sync_queued_inventory,
+            device.id,
+            payload,
+            now,
+        )
     print(
         f"[cloud-api] snapshot accepted: device={device.id}, "
-        f"racks={len(payload.racks)}, growing={has_growing_data}, "
+        f"racks={len(payload.racks)}, growing_queued={has_growing_data}, "
         f"elapsed={perf_counter() - started_at:.3f}s"
     )
     return {"accepted": True, "received_at": now}

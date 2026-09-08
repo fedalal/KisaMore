@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from cloud.app.db import SessionLocal
+from cloud.app.api import _inventory_locks, _pending_inventory
 from cloud.app.main import app
 from cloud.app.models import Device, RackCurrent, TelemetrySample
 
@@ -95,6 +96,8 @@ def _snapshot(observed_at: datetime | None = None) -> dict:
 
 
 def test_authenticated_ingestion_and_public_read_only_api():
+    _pending_inventory.clear()
+    _inventory_locks.clear()
     with TestClient(app) as client:
         dashboard = client.get("/")
         assert dashboard.status_code == 200
