@@ -77,6 +77,81 @@ async def _sync_queued_inventory(
                 )
 
 
+async def process_edge_snapshot(
+    device_id: str,
+    payload: EdgeSnapshotIn,
+    received_at: datetime,
+    *,
+    sync_inventory_now: bool = True,
+) -> bool:
+    """Persist telemetry immediately and queue inventory work when present."""
+    async with SessionLocal() as session:
+        device = await session.get(Device, device_id)
+        if device is None or not device.is_active:
+            raise RuntimeError(f"active device {device_id!r} was not found")
+
+        device.last_seen_at = received_at
+        device.software_version = payload.software_version
+        device.racks_count = payload.racks_count
+        device.levels = payload.levels
+
+        rack_ids = [incoming.rack_id for incoming in payload.racks]
+        current_by_rack_id: dict[int, RackCurrent] = {}
+        if rack_ids:
+            current_racks = (
+                await session.execute(
+                    select(RackCurrent).where(
+                        RackCurrent.device_id == device.id,
+                        RackCurrent.rack_id.in_(rack_ids),
+                    )
+                )
+            ).scalars().all()
+            current_by_rack_id = {rack.rack_id: rack for rack in current_racks}
+
+        for incoming in payload.racks:
+            current = current_by_rack_id.get(incoming.rack_id)
+
+            values = {
+                "light_on": incoming.light_on,
+                "water_on": incoming.water_on,
+                "light_mode": incoming.light_mode,
+                "water_mode": incoming.water_mode,
+                "soil_moisture": incoming.soil_moisture,
+                "soil_temperature": incoming.soil_temperature,
+                "sensor_observed_at": incoming.sensor_observed_at,
+                "camera_id": incoming.camera_id,
+                "observed_at": payload.observed_at,
+            }
+
+            if current is None:
+                current = RackCurrent(device_id=device.id, rack_id=incoming.rack_id, **values)
+                session.add(current)
+                current_by_rack_id[incoming.rack_id] = current
+            else:
+                for key, value in values.items():
+                    setattr(current, key, value)
+
+            session.add(
+                TelemetrySample(
+                    device_id=device.id,
+                    rack_id=incoming.rack_id,
+                    light_on=incoming.light_on,
+                    water_on=incoming.water_on,
+                    soil_moisture=incoming.soil_moisture,
+                    soil_temperature=incoming.soil_temperature,
+                    observed_at=payload.observed_at,
+                    received_at=received_at,
+                )
+            )
+
+        has_growing_data = bool(payload.plants) or any(rack.slots for rack in payload.racks)
+        await session.commit()
+
+    if has_growing_data and sync_inventory_now:
+        await _sync_queued_inventory(device_id, payload, received_at)
+    return has_growing_data
+
+
 @router.get("/health")
 async def health(session: AsyncSession = Depends(get_session)):
     await session.execute(text("SELECT 1"))
@@ -88,69 +163,14 @@ async def ingest_snapshot(
     payload: EdgeSnapshotIn,
     background_tasks: BackgroundTasks,
     device: Device = Depends(authenticate_device),
-    session: AsyncSession = Depends(get_session),
 ):
     started_at = perf_counter()
     now = datetime.now(timezone.utc)
     if payload.observed_at > now + timedelta(minutes=5):
         raise HTTPException(status_code=422, detail="observed_at is too far in the future")
 
-    device.last_seen_at = now
-    device.software_version = payload.software_version
-    device.racks_count = payload.racks_count
-    device.levels = payload.levels
-
-    rack_ids = [incoming.rack_id for incoming in payload.racks]
-    current_by_rack_id: dict[int, RackCurrent] = {}
-    if rack_ids:
-        current_racks = (
-            await session.execute(
-                select(RackCurrent).where(
-                    RackCurrent.device_id == device.id,
-                    RackCurrent.rack_id.in_(rack_ids),
-                )
-            )
-        ).scalars().all()
-        current_by_rack_id = {rack.rack_id: rack for rack in current_racks}
-
-    for incoming in payload.racks:
-        current = current_by_rack_id.get(incoming.rack_id)
-
-        values = {
-            "light_on": incoming.light_on,
-            "water_on": incoming.water_on,
-            "light_mode": incoming.light_mode,
-            "water_mode": incoming.water_mode,
-            "soil_moisture": incoming.soil_moisture,
-            "soil_temperature": incoming.soil_temperature,
-            "sensor_observed_at": incoming.sensor_observed_at,
-            "camera_id": incoming.camera_id,
-            "observed_at": payload.observed_at,
-        }
-
-        if current is None:
-            current = RackCurrent(device_id=device.id, rack_id=incoming.rack_id, **values)
-            session.add(current)
-            current_by_rack_id[incoming.rack_id] = current
-        else:
-            for key, value in values.items():
-                setattr(current, key, value)
-
-        session.add(
-            TelemetrySample(
-                device_id=device.id,
-                rack_id=incoming.rack_id,
-                light_on=incoming.light_on,
-                water_on=incoming.water_on,
-                soil_moisture=incoming.soil_moisture,
-                soil_temperature=incoming.soil_temperature,
-                observed_at=payload.observed_at,
-                received_at=now,
-            )
-        )
-
     has_growing_data = bool(payload.plants) or any(rack.slots for rack in payload.racks)
-    await session.commit()
+    await process_edge_snapshot(device.id, payload, now, sync_inventory_now=False)
     if has_growing_data:
         background_tasks.add_task(
             _sync_queued_inventory,

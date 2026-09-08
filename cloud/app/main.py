@@ -15,6 +15,7 @@ from .marketplace_api import router as marketplace_router
 from .bootstrap import bootstrap_first_device
 from .config import get_settings
 from .db import create_tables, engine
+from .mqtt_sync import mqtt_snapshot_consumer
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -25,7 +26,9 @@ DASHBOARD_TEMPLATE = STATIC_DIR / "index.html"
 async def lifespan(_: FastAPI):
     await create_tables()
     await bootstrap_first_device()
+    await mqtt_snapshot_consumer.start()
     yield
+    await mqtt_snapshot_consumer.stop()
     await engine.dispose()
 
 

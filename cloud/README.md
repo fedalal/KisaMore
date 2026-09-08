@@ -8,7 +8,9 @@ remain unavailable to public users.
 ## Data flow
 
 1. The Pi reads its existing SQLite state and latest saved sensor samples.
-2. Every 30 seconds it sends an HTTPS request authenticated by a device ID and a random token.
+2. Every 30 seconds it sends a snapshot authenticated by a device ID and a random token.
+   The default transport is HTTPS. If MQTT is configured, the Pi publishes the same JSON as
+   small QoS 1 chunks and the cloud API reassembles it before processing.
 3. The same snapshot includes the plant catalog and all six container positions per rack.
 4. The API stores current rack state, telemetry history and growing inventory in PostgreSQL.
 5. The public site reads telemetry and the six container positions of each rack.
@@ -45,6 +47,22 @@ KISAMORE_CLOUD_TIMEOUT_SECONDS=10
 KISAMORE_GROWING_SYNC_TIMEOUT_SECONDS=120
 KISAMORE_SOFTWARE_VERSION=d7caafd-cloud-sync
 ```
+
+To send snapshots through Mosquitto instead of the large HTTPS POST, add MQTT settings to the
+same environment file:
+
+```dotenv
+KISAMORE_MQTT_HOST=161.35.78.21
+KISAMORE_MQTT_PORT=1883
+KISAMORE_MQTT_USERNAME=your-mqtt-user
+KISAMORE_MQTT_PASSWORD=your-mqtt-password
+KISAMORE_MQTT_TLS=false
+KISAMORE_MQTT_TOPIC_PREFIX=kisamore
+KISAMORE_MQTT_CHUNK_BYTES=900
+```
+
+`KISAMORE_MQTT_CHUNK_BYTES` is capped at 1200 bytes in code. The default `900` leaves room for
+MQTT topic and packet overhead so each publish stays comfortably below 1500 bytes.
 
 Then run:
 

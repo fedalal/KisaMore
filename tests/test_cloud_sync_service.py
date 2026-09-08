@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import json
+import types
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -135,6 +137,90 @@ def test_curl_timeout_is_reported_as_timeout_error(monkeypatch):
         assert "Operation timed out" in str(exc)
     else:
         raise AssertionError("curl exit code 28 must be treated as a timeout")
+
+
+def test_mqtt_snapshot_is_published_in_small_chunks(monkeypatch):
+    published = []
+    clients = []
+
+    class FakePublishInfo:
+        rc = 0
+
+        def wait_for_publish(self, timeout=None):
+            assert timeout is None or timeout > 0
+
+        def is_published(self):
+            return True
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            self.username = None
+            clients.append(self)
+
+        def username_pw_set(self, username, password=None):
+            self.username = (username, password)
+
+        def tls_set(self):
+            raise AssertionError("TLS must not be enabled by default")
+
+        def connect(self, host, port, keepalive=60):
+            assert (host, port) == ("mqtt.example.test", 1883)
+            assert keepalive >= 15
+
+        def loop_start(self):
+            pass
+
+        def publish(self, topic, payload, qos=0, retain=False):
+            published.append((topic, payload, qos, retain))
+            return FakePublishInfo()
+
+        def loop_stop(self):
+            pass
+
+        def disconnect(self):
+            pass
+
+    fake_mqtt = types.ModuleType("paho.mqtt.client")
+    fake_mqtt.CallbackAPIVersion = types.SimpleNamespace(VERSION2=object())
+    fake_mqtt.MQTTv311 = object()
+    fake_mqtt.MQTT_ERR_SUCCESS = 0
+    fake_mqtt.Client = FakeClient
+    monkeypatch.setitem(sys.modules, "paho", types.ModuleType("paho"))
+    monkeypatch.setitem(sys.modules, "paho.mqtt", types.ModuleType("paho.mqtt"))
+    monkeypatch.setitem(sys.modules, "paho.mqtt.client", fake_mqtt)
+
+    service = CloudSyncService()
+    service._settings = CloudSyncSettings(
+        api_url="https://api.example.test",
+        device_id="pi-01",
+        device_token="test-token-with-at-least-32-characters",
+        mqtt_host="mqtt.example.test",
+        mqtt_username="edge",
+        mqtt_password="secret",
+        mqtt_chunk_bytes=512,
+    )
+    snapshot = {
+        "observed_at": "2026-08-05T12:00:00+00:00",
+        "software_version": "test",
+        "racks_count": 1,
+        "levels": {},
+        "plants": [{"plant_id": "x", "name": "y" * 3000}],
+        "racks": [{"rack_id": 1, "slots": []}],
+    }
+
+    service._send_snapshot_blocking(snapshot, timeout_seconds=10)
+
+    assert clients[0].username == ("edge", "secret")
+    chunk_messages = [item for item in published if "/chunk/" in item[0]]
+    done_messages = [item for item in published if item[0].endswith("/done")]
+    assert len(chunk_messages) > 1
+    assert len(done_messages) == 1
+    assert all(len(payload) <= 512 for _, payload, _, _ in chunk_messages)
+    assert all(qos == 1 and retain is False for _, _, qos, retain in published)
+    done = json.loads(done_messages[0][1])
+    rebuilt = b"".join(payload for _, payload, _, _ in chunk_messages)
+    assert done["bytes"] == len(rebuilt)
+    assert done["chunks"] == len(chunk_messages)
 
 
 def test_other_failures_keep_exponential_backoff():

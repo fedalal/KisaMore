@@ -72,6 +72,12 @@ grep -q '^KISAMORE_COOKIE_SECURE=' cloud/.env || echo 'KISAMORE_COOKIE_SECURE=tr
 grep -q '^KISAMORE_OFFER_HOURS=' cloud/.env || echo 'KISAMORE_OFFER_HOURS=24' >> cloud/.env
 grep -q '^KISAMORE_PHOTO_DIR=' cloud/.env || echo 'KISAMORE_PHOTO_DIR=/srv/kisamore/data/photos' >> cloud/.env
 grep -q '^KISAMORE_PHOTO_MAX_BYTES=' cloud/.env || echo 'KISAMORE_PHOTO_MAX_BYTES=2097152' >> cloud/.env
+grep -q '^KISAMORE_MQTT_HOST=' cloud/.env || echo 'KISAMORE_MQTT_HOST=host.docker.internal' >> cloud/.env
+grep -q '^KISAMORE_MQTT_PORT=' cloud/.env || echo 'KISAMORE_MQTT_PORT=1883' >> cloud/.env
+grep -q '^KISAMORE_MQTT_USERNAME=' cloud/.env || echo 'KISAMORE_MQTT_USERNAME=your-mqtt-user' >> cloud/.env
+grep -q '^KISAMORE_MQTT_PASSWORD=' cloud/.env || echo 'KISAMORE_MQTT_PASSWORD=your-mqtt-password' >> cloud/.env
+grep -q '^KISAMORE_MQTT_TLS=' cloud/.env || echo 'KISAMORE_MQTT_TLS=false' >> cloud/.env
+grep -q '^KISAMORE_MQTT_TOPIC_PREFIX=' cloud/.env || echo 'KISAMORE_MQTT_TOPIC_PREFIX=kisamore' >> cloud/.env
 
 sudo docker compose --env-file cloud/.env -f docker-compose.cloud.yml up -d --build
 sudo docker compose --env-file cloud/.env -f docker-compose.cloud.yml ps
@@ -81,6 +87,19 @@ curl -fsS http://127.0.0.1:8080/api/v1/health
 
 The API startup creates the new PostgreSQL tables. Nginx configuration does not change because
 the website and API continue to use the existing root and `/api` routes.
+
+If Mosquitto runs directly on the VPS host, keep `KISAMORE_MQTT_HOST=host.docker.internal` for
+the Docker API container. On the Raspberry Pi use the public VPS address instead:
+
+```dotenv
+KISAMORE_MQTT_HOST=161.35.78.21
+KISAMORE_MQTT_PORT=1883
+KISAMORE_MQTT_USERNAME=your-mqtt-user
+KISAMORE_MQTT_PASSWORD=your-mqtt-password
+KISAMORE_MQTT_TLS=false
+KISAMORE_MQTT_TOPIC_PREFIX=kisamore
+KISAMORE_MQTT_CHUNK_BYTES=900
+```
 
 ## End-to-end verification
 

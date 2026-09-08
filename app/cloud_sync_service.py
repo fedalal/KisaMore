@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import subprocess
 import tempfile
+import time
+from base64 import urlsafe_b64encode
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -34,6 +37,13 @@ class CloudSyncSettings:
     request_timeout_seconds: float = 10.0
     growing_sync_timeout_seconds: float = 120.0
     software_version: str = "unknown"
+    mqtt_host: str = ""
+    mqtt_port: int = 1883
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+    mqtt_tls: bool = False
+    mqtt_topic_prefix: str = "kisamore"
+    mqtt_chunk_bytes: int = 900
 
     @classmethod
     def from_env(cls) -> "CloudSyncSettings | None":
@@ -67,7 +77,25 @@ class CloudSyncSettings:
             request_timeout_seconds=timeout,
             growing_sync_timeout_seconds=growing_timeout,
             software_version=os.getenv("KISAMORE_SOFTWARE_VERSION", "unknown").strip() or "unknown",
+            mqtt_host=os.getenv("KISAMORE_MQTT_HOST", "").strip(),
+            mqtt_port=int(os.getenv("KISAMORE_MQTT_PORT", "1883")),
+            mqtt_username=os.getenv("KISAMORE_MQTT_USERNAME", "").strip(),
+            mqtt_password=os.getenv("KISAMORE_MQTT_PASSWORD", "").strip(),
+            mqtt_tls=os.getenv("KISAMORE_MQTT_TLS", "false").strip().lower()
+            in ("1", "true", "yes", "on"),
+            mqtt_topic_prefix=(
+                os.getenv("KISAMORE_MQTT_TOPIC_PREFIX", "kisamore").strip().strip("/")
+                or "kisamore"
+            ),
+            mqtt_chunk_bytes=max(
+                256,
+                min(1200, int(os.getenv("KISAMORE_MQTT_CHUNK_BYTES", "900"))),
+            ),
         )
+
+    @property
+    def mqtt_enabled(self) -> bool:
+        return bool(self.mqtt_host)
 
 
 def _retry_delays(
@@ -128,6 +156,11 @@ class CloudSyncService:
             f"[cloud-sync] enabled: device={self._settings.device_id}, "
             f"interval={self._settings.interval_seconds}s"
         )
+        if self._settings.mqtt_enabled:
+            print(
+                f"[cloud-sync] MQTT transport enabled: host={self._settings.mqtt_host}, "
+                f"port={self._settings.mqtt_port}, chunk={self._settings.mqtt_chunk_bytes} bytes"
+            )
 
     async def stop(self) -> None:
         self._stop_event.set()
@@ -268,6 +301,10 @@ class CloudSyncService:
         timeout_seconds: float | None = None,
     ) -> None:
         assert self._settings is not None
+        if self._settings.mqtt_enabled:
+            self._publish_snapshot_mqtt(snapshot, timeout_seconds)
+            return
+
         payload_path: str | None = None
 
         try:
@@ -351,6 +388,96 @@ class CloudSyncService:
                     os.unlink(payload_path)
                 except FileNotFoundError:
                     pass
+
+    def _snapshot_payload_bytes(self, snapshot: dict[str, Any]) -> bytes:
+        return json.dumps(
+            snapshot,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+    def _mqtt_message_id(self, payload: bytes) -> str:
+        nonce = f"{time.time_ns()}:{os.getpid()}".encode("ascii")
+        return urlsafe_b64encode(hashlib.sha256(nonce + payload).digest()[:12]).decode("ascii").rstrip("=")
+
+    def _publish_snapshot_mqtt(
+        self,
+        snapshot: dict[str, Any],
+        timeout_seconds: float | None = None,
+    ) -> None:
+        assert self._settings is not None
+        try:
+            import paho.mqtt.client as mqtt
+        except ImportError as exc:
+            raise RuntimeError("paho-mqtt is not installed") from exc
+
+        payload = self._snapshot_payload_bytes(snapshot)
+        chunk_size = self._settings.mqtt_chunk_bytes
+        chunks = [payload[index : index + chunk_size] for index in range(0, len(payload), chunk_size)]
+        if not chunks:
+            chunks = [b""]
+        message_id = self._mqtt_message_id(payload)
+        digest = hashlib.sha256(payload).hexdigest()
+        base_topic = (
+            f"{self._settings.mqtt_topic_prefix}/edge/"
+            f"{self._settings.device_id}/snapshot/{message_id}"
+        )
+        timeout = timeout_seconds or self._settings.request_timeout_seconds
+
+        client = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2,
+            client_id=f"kisamore-edge-{self._settings.device_id}",
+            protocol=mqtt.MQTTv311,
+        )
+        if self._settings.mqtt_username:
+            client.username_pw_set(
+                self._settings.mqtt_username,
+                self._settings.mqtt_password or None,
+            )
+        if self._settings.mqtt_tls:
+            client.tls_set()
+
+        deadline = time.monotonic() + timeout
+        client.connect(
+            self._settings.mqtt_host,
+            self._settings.mqtt_port,
+            keepalive=max(15, int(timeout) + 5),
+        )
+        client.loop_start()
+        try:
+            for index, chunk in enumerate(chunks):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("MQTT publish timed out")
+                topic = f"{base_topic}/chunk/{index}/{len(chunks)}"
+                info = client.publish(topic, chunk, qos=1, retain=False)
+                info.wait_for_publish(timeout=remaining)
+                if not info.is_published():
+                    raise TimeoutError("MQTT publish timed out")
+                if info.rc != mqtt.MQTT_ERR_SUCCESS:
+                    raise RuntimeError(f"MQTT publish failed with code {info.rc}")
+
+            done_payload = json.dumps(
+                {
+                    "sha256": digest,
+                    "bytes": len(payload),
+                    "chunks": len(chunks),
+                    "observed_at": snapshot.get("observed_at"),
+                },
+                separators=(",", ":"),
+            ).encode("ascii")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("MQTT publish timed out")
+            info = client.publish(f"{base_topic}/done", done_payload, qos=1, retain=False)
+            info.wait_for_publish(timeout=remaining)
+            if not info.is_published():
+                raise TimeoutError("MQTT publish timed out")
+            if info.rc != mqtt.MQTT_ERR_SUCCESS:
+                raise RuntimeError(f"MQTT publish failed with code {info.rc}")
+        finally:
+            client.loop_stop()
+            client.disconnect()
 
     async def _send_snapshot(
         self,

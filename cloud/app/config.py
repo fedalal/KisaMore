@@ -24,6 +24,13 @@ class Settings:
     offer_hours: int
     photo_dir: str
     photo_max_bytes: int
+    mqtt_host: str
+    mqtt_port: int
+    mqtt_username: str
+    mqtt_password: str
+    mqtt_tls: bool
+    mqtt_topic_prefix: str
+    mqtt_message_ttl_seconds: int
 
 
 @lru_cache
@@ -54,5 +61,18 @@ def get_settings() -> Settings:
         photo_dir=os.getenv("KISAMORE_PHOTO_DIR", "/srv/kisamore/data/photos").strip(),
         photo_max_bytes=max(
             100_000, int(os.getenv("KISAMORE_PHOTO_MAX_BYTES", "2097152"))
+        ),
+        mqtt_host=os.getenv("KISAMORE_MQTT_HOST", "").strip(),
+        mqtt_port=int(os.getenv("KISAMORE_MQTT_PORT", "1883")),
+        mqtt_username=os.getenv("KISAMORE_MQTT_USERNAME", "").strip(),
+        mqtt_password=os.getenv("KISAMORE_MQTT_PASSWORD", "").strip(),
+        mqtt_tls=os.getenv("KISAMORE_MQTT_TLS", "false").strip().lower()
+        in ("1", "true", "yes", "on"),
+        mqtt_topic_prefix=(
+            os.getenv("KISAMORE_MQTT_TOPIC_PREFIX", "kisamore").strip().strip("/")
+            or "kisamore"
+        ),
+        mqtt_message_ttl_seconds=max(
+            30, int(os.getenv("KISAMORE_MQTT_MESSAGE_TTL_SECONDS", "300"))
         ),
     )
