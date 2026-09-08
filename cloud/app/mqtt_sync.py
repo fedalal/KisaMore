@@ -77,7 +77,7 @@ class MqttSnapshotConsumer:
 
     def _on_connect(self, client, _userdata, _flags, reason_code, _properties) -> None:
         settings = get_settings()
-        if int(reason_code) != 0:
+        if _mqtt_reason_code_failed(reason_code):
             print(f"[cloud-mqtt] connect failed: reason={reason_code}")
             return
         client.subscribe(f"{settings.mqtt_topic_prefix}/edge/+/snapshot/#", qos=1)
@@ -196,3 +196,13 @@ class MqttSnapshotConsumer:
 
 
 mqtt_snapshot_consumer = MqttSnapshotConsumer()
+
+
+def _mqtt_reason_code_failed(reason_code) -> bool:
+    is_failure = getattr(reason_code, "is_failure", None)
+    if is_failure is not None:
+        return bool(is_failure() if callable(is_failure) else is_failure)
+    value = getattr(reason_code, "value", None)
+    if value is not None:
+        return int(value) != 0
+    return int(reason_code) != 0
