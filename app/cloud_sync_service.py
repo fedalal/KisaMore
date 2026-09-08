@@ -539,7 +539,7 @@ class CloudSyncService:
             raise RuntimeError(f"cloud photo API returned HTTP {status_code or 'unknown'}")
 
     async def _send_changed_photos(self) -> int:
-        if not runtime.cfg:
+        if not runtime.cfg or not runtime.cfg.camera_capture.enabled:
             return 0
         latest_dir = Path(runtime.cfg.camera_capture.latest_dir or "data/camera_latest")
         sent = 0

@@ -329,7 +329,7 @@ def test_only_changed_latest_photos_are_uploaded(monkeypatch, tmp_path):
         "cfg",
         SimpleNamespace(
             racks_count=2,
-            camera_capture=SimpleNamespace(latest_dir=str(latest_dir)),
+            camera_capture=SimpleNamespace(enabled=True, latest_dir=str(latest_dir)),
         ),
     )
     service = CloudSyncService()
@@ -349,3 +349,30 @@ def test_only_changed_latest_photos_are_uploaded(monkeypatch, tmp_path):
     photo.write_bytes(b"\xff\xd8\xff\xe0new-photo")
     assert asyncio.run(service._send_changed_photos()) == 1
     assert [item[0] for item in uploads] == [1, 1]
+
+
+def test_photos_are_not_uploaded_when_camera_capture_is_disabled(monkeypatch, tmp_path):
+    latest_dir = tmp_path / "latest"
+    latest_dir.mkdir()
+    (latest_dir / "rack_1.jpg").write_bytes(b"\xff\xd8\xff\xe0photo")
+    monkeypatch.setattr(
+        sync_module.runtime,
+        "cfg",
+        SimpleNamespace(
+            racks_count=1,
+            camera_capture=SimpleNamespace(enabled=False, latest_dir=str(latest_dir)),
+        ),
+    )
+    service = CloudSyncService()
+    service._settings = CloudSyncSettings(
+        api_url="https://api.example.test",
+        device_id="pi-01",
+        device_token="test-token-with-at-least-32-characters",
+    )
+
+    def unexpected_upload(*args, **kwargs):
+        raise AssertionError("disabled camera capture must not upload photos")
+
+    monkeypatch.setattr(service, "_send_photo_blocking", unexpected_upload)
+
+    assert asyncio.run(service._send_changed_photos()) == 0
