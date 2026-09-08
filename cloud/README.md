@@ -9,10 +9,11 @@ remain unavailable to public users.
 
 1. The Pi reads its existing SQLite state and latest saved sensor samples.
 2. Every 30 seconds it sends an HTTPS request authenticated by a device ID and a random token.
-3. The API stores current rack state and telemetry history in PostgreSQL.
-4. The public site reads telemetry and the six container positions of each rack.
-5. The Pi polls authenticated assignments after every successful snapshot.
-6. Changed latest JPEGs are uploaded separately and replace the previous rack photo.
+3. The same snapshot includes the plant catalog and all six container positions per rack.
+4. The API stores current rack state, telemetry history and growing inventory in PostgreSQL.
+5. The public site reads telemetry and the six container positions of each rack.
+6. The Pi polls authenticated assignments after every successful snapshot.
+7. Changed latest JPEGs are uploaded separately and replace the previous rack photo.
 
 The Raspberry Pi does not accept incoming internet connections.
 
@@ -58,7 +59,7 @@ journalctl -u kisamore.service -f
 Expected log line:
 
 ```text
-[cloud-sync] snapshot sent: racks=4
+[cloud-sync] snapshot sent: racks=4, plants=22, slots=24, assignments=0
 ```
 
 Without the three required cloud variables, synchronization stays disabled and the existing

@@ -277,6 +277,48 @@ def test_manual_growing_sync_includes_catalog_and_placement(monkeypatch):
     assert sent[0]["plants"][0]["plant_id"] == "plant-radish"
 
 
+def test_background_sync_includes_growing_data_and_fetches_assignments(monkeypatch):
+    service = CloudSyncService()
+    service._settings = CloudSyncSettings(
+        api_url="https://api.example.test",
+        device_id="pi-01",
+        device_token="test-token-with-at-least-32-characters",
+    )
+    calls = []
+
+    async def fake_collect_snapshot(*, include_growing=False):
+        calls.append(("collect", include_growing))
+        return {
+            "plants": [{"plant_id": "plant-radish"}],
+            "racks": [{"slots": [{"slot_number": 1}]}],
+        }
+
+    async def fake_send_snapshot(snapshot, timeout_seconds=None):
+        calls.append(("send", timeout_seconds, snapshot))
+
+    async def fake_sync_assignments():
+        calls.append(("assignments",))
+        return 2
+
+    async def fake_send_changed_photos():
+        calls.append(("photos",))
+        service._stop_event.set()
+        return 0
+
+    monkeypatch.setattr(service, "collect_snapshot", fake_collect_snapshot)
+    monkeypatch.setattr(service, "_send_snapshot", fake_send_snapshot)
+    monkeypatch.setattr(service, "_sync_assignments", fake_sync_assignments)
+    monkeypatch.setattr(service, "_send_changed_photos", fake_send_changed_photos)
+
+    asyncio.run(service._run())
+
+    assert calls[0] == ("collect", True)
+    assert calls[1][0:2] == ("send", 120)
+    assert calls[1][2]["plants"][0]["plant_id"] == "plant-radish"
+    assert calls[2] == ("assignments",)
+    assert calls[3] == ("photos",)
+
+
 def test_only_changed_latest_photos_are_uploaded(monkeypatch, tmp_path):
     latest_dir = tmp_path / "latest"
     latest_dir.mkdir()

@@ -567,12 +567,13 @@ class CloudSyncService:
         while not self._stop_event.is_set():
             attempt_started_at = asyncio.get_running_loop().time()
             try:
-                snapshot = await self.collect_snapshot()
+                snapshot = await self.collect_snapshot(include_growing=True)
                 async with self._send_lock:
-                    await self._send_snapshot(snapshot)
-                # Catalog, container placement and cloud reservations are
-                # synchronized explicitly from the /growing page.
-                assignments_count = 0
+                    await self._send_snapshot(
+                        snapshot,
+                        self._settings.growing_sync_timeout_seconds,
+                    )
+                    assignments_count = await self._sync_assignments()
                 photos_count = 0
                 try:
                     photos_count = await self._send_changed_photos()
@@ -584,8 +585,11 @@ class CloudSyncService:
                 failure_delay = self._settings.interval_seconds
                 period = self._settings.interval_seconds
                 elapsed = asyncio.get_running_loop().time() - attempt_started_at
+                plants_count = len(snapshot["plants"])
+                slots_count = sum(len(rack["slots"]) for rack in snapshot["racks"])
                 print(
                     f"[cloud-sync] snapshot sent: racks={len(snapshot['racks'])}, "
+                    f"plants={plants_count}, slots={slots_count}, "
                     f"assignments={assignments_count}, photos={photos_count}, "
                     f"elapsed={elapsed:.2f}s"
                 )
