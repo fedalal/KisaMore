@@ -314,7 +314,8 @@ class CloudSyncService:
                 "--output",
                 os.devnull,
                 "--write-out",
-                "%{http_code}",
+                "%{http_code} uploaded=%{size_upload} connect=%{time_connect} "
+                "tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total}",
                 f"{self._settings.api_url}/api/v1/edge/snapshot",
             ]
 
@@ -332,15 +333,16 @@ class CloudSyncService:
                 raise RuntimeError("curl executable is not installed") from exc
 
             error_message = result.stderr.decode("utf-8", errors="replace").strip()
+            transfer_info = result.stdout.decode("ascii", errors="replace").strip()
             if result.returncode == 28:
-                raise TimeoutError(error_message or "curl request timed out")
+                raise TimeoutError(f"{error_message or 'curl request timed out'}; {transfer_info}")
             if result.returncode != 0:
                 raise RuntimeError(
                     f"curl failed with exit code {result.returncode}: "
                     f"{error_message or 'unknown error'}"
                 )
 
-            status_code = result.stdout.decode("ascii", errors="replace").strip()
+            status_code = transfer_info.split()[0] if transfer_info else ""
             if status_code != "202":
                 raise RuntimeError(f"cloud API returned HTTP {status_code or 'unknown'}")
         finally:
@@ -569,11 +571,27 @@ class CloudSyncService:
             try:
                 snapshot = await self.collect_snapshot(include_growing=True)
                 async with self._send_lock:
-                    await self._send_snapshot(
-                        snapshot,
-                        self._settings.growing_sync_timeout_seconds,
-                    )
-                    assignments_count = await self._sync_assignments()
+                    try:
+                        await self._send_snapshot(snapshot)
+                    except (TimeoutError, RuntimeError) as exc:
+                        print(
+                            f"[cloud-sync] full snapshot failed; sending telemetry only: "
+                            f"{type(exc).__name__}: {exc!r}"
+                        )
+                        snapshot = {
+                            **snapshot,
+                            "plants": [],
+                            "racks": [{**rack, "slots": []} for rack in snapshot["racks"]],
+                        }
+                        await self._send_snapshot(snapshot)
+                    assignments_count = 0
+                    try:
+                        assignments_count = await self._sync_assignments()
+                    except Exception as exc:
+                        print(
+                            f"[cloud-sync] assignments failed (snapshot already accepted): "
+                            f"{type(exc).__name__}: {exc!r}"
+                        )
                 photos_count = 0
                 try:
                     photos_count = await self._send_changed_photos()

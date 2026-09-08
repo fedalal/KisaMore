@@ -313,10 +313,53 @@ def test_background_sync_includes_growing_data_and_fetches_assignments(monkeypat
     asyncio.run(service._run())
 
     assert calls[0] == ("collect", True)
-    assert calls[1][0:2] == ("send", 120)
+    assert calls[1][0:2] == ("send", None)
     assert calls[1][2]["plants"][0]["plant_id"] == "plant-radish"
     assert calls[2] == ("assignments",)
     assert calls[3] == ("photos",)
+
+
+def test_failed_inventory_falls_back_to_telemetry_and_assignment_failure_is_separate(monkeypatch, capsys):
+    service = CloudSyncService()
+    service._settings = CloudSyncSettings(
+        api_url="https://api.example.test", device_id="pi-01",
+        device_token="test-token-with-at-least-32-characters",
+    )
+    original = {
+        "plants": [{"plant_id": "radish"}],
+        "racks": [{"rack_id": 1, "soil_temperature": 23, "slots": [{"slot_number": 1}]}],
+    }
+    sent = []
+
+    async def collect(**kwargs):
+        return original
+
+    async def send(snapshot, timeout_seconds=None):
+        assert timeout_seconds is None
+        sent.append(snapshot)
+        if snapshot["plants"]:
+            raise TimeoutError("full payload timed out")
+
+    async def assignments():
+        raise TimeoutError("assignments timed out")
+
+    async def photos():
+        service._stop_event.set()
+        return 0
+
+    monkeypatch.setattr(service, "collect_snapshot", collect)
+    monkeypatch.setattr(service, "_send_snapshot", send)
+    monkeypatch.setattr(service, "_sync_assignments", assignments)
+    monkeypatch.setattr(service, "_send_changed_photos", photos)
+    asyncio.run(service._run())
+    assert len(sent) == 2
+    assert sent[1]["plants"] == []
+    assert sent[1]["racks"][0]["slots"] == []
+    assert sent[1]["racks"][0]["soil_temperature"] == 23
+    assert original["plants"] and original["racks"][0]["slots"]
+    log = capsys.readouterr().out
+    assert "snapshot sent" in log
+    assert "assignments failed (snapshot already accepted)" in log
 
 
 def test_only_changed_latest_photos_are_uploaded(monkeypatch, tmp_path):
