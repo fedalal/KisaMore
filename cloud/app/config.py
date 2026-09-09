@@ -34,6 +34,9 @@ class Settings:
     telegram_bot_token: str = ""
     telegram_bot_username: str = "KisaMoreBot"
     telegram_support_contact: str = ""
+    admin_email: str = ""
+    admin_password: str = ""
+    admin_name: str = "KisaMore Admin"
 
 
 @lru_cache
@@ -81,4 +84,7 @@ def get_settings() -> Settings:
         telegram_bot_token=os.getenv("KISAMORE_TELEGRAM_BOT_TOKEN", "").strip(),
         telegram_bot_username=os.getenv("KISAMORE_TELEGRAM_BOT_USERNAME", "KisaMoreBot").strip(),
         telegram_support_contact=os.getenv("KISAMORE_TELEGRAM_SUPPORT_CONTACT", "").strip(),
+        admin_email=os.getenv("KISAMORE_ADMIN_EMAIL", "").strip().lower(),
+        admin_password=os.getenv("KISAMORE_ADMIN_PASSWORD", ""),
+        admin_name=os.getenv("KISAMORE_ADMIN_NAME", "KisaMore Admin").strip() or "KisaMore Admin",
     )
