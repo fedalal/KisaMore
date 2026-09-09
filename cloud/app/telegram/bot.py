@@ -8,6 +8,31 @@ import httpx
 from .profile_locales import BOT_PROFILE_LOCALIZATIONS, DEFAULT_LANGUAGE
 
 
+HELP_COMMAND_DESCRIPTIONS = {
+    "en": "Help",
+    "ru": "Помощь",
+    "de": "Hilfe",
+    "fr": "Aide",
+    "es": "Ayuda",
+    "it": "Aiuto",
+    "pt": "Ajuda",
+    "pl": "Pomoc",
+    "zh": "帮助",
+}
+
+
+def _commands_for(language_code: str, locale: dict) -> list[dict]:
+    commands = list(locale["commands"])
+    if not any(item.get("command") == "help" for item in commands):
+        commands.append(
+            {
+                "command": "help",
+                "description": HELP_COMMAND_DESCRIPTIONS.get(language_code, "Help"),
+            }
+        )
+    return commands
+
+
 class TelegramAPIError(RuntimeError):
     pass
 
@@ -34,7 +59,10 @@ class TelegramBotAPI:
         fallback = BOT_PROFILE_LOCALIZATIONS[DEFAULT_LANGUAGE]
         await self.call("setMyShortDescription", {"short_description": fallback["short_description"]})
         await self.call("setMyDescription", {"description": fallback["description"]})
-        await self.call("setMyCommands", {"commands": fallback["commands"]})
+        await self.call(
+            "setMyCommands",
+            {"commands": _commands_for(DEFAULT_LANGUAGE, fallback)},
+        )
         for language_code, locale in BOT_PROFILE_LOCALIZATIONS.items():
             await self.call(
                 "setMyShortDescription",
@@ -46,7 +74,10 @@ class TelegramBotAPI:
             )
             await self.call(
                 "setMyCommands",
-                {"commands": locale["commands"], "language_code": language_code},
+                {
+                    "commands": _commands_for(language_code, locale),
+                    "language_code": language_code,
+                },
             )
 
     async def prepare_long_polling(self) -> None:
