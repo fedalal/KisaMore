@@ -21,6 +21,7 @@ from .marketplace_api import router as marketplace_router
 from .mqtt_sync import mqtt_snapshot_consumer
 from .mqtt_photo_sync import mqtt_photo_consumer
 from .rack_photo_api import router as rack_photo_router
+from .rack_photo_bootstrap import backfill_rack_photo_derivatives
 from .rental_admin_api import router as rental_admin_router
 
 
@@ -34,6 +35,7 @@ async def lifespan(_: FastAPI):
     await create_tables()
     await bootstrap_first_device()
     await bootstrap_admin()
+    await backfill_rack_photo_derivatives()
     await mqtt_snapshot_consumer.start()
     await mqtt_photo_consumer.start()
     yield
