@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import os
 import subprocess
 import tempfile
@@ -197,6 +196,8 @@ def generate_slot_timelapse(
             "-y",
             "-framerate",
             str(FPS),
+            "-start_number",
+            "1",
             "-i",
             str(temp_dir / "frame_%06d.jpg"),
             "-vf",
