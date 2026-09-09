@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>KisaMore Admin</title>
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+  <div id="loginView" class="login-shell">
+    <form id="loginForm" class="login-card">
+      <div class="brand-mark">🌱</div>
+      <h1>KisaMore Admin</h1>
+      <p>Управление пользователями, Kisa и контентом теплицы.</p>
+      <label>Email<input id="loginEmail" type="email" autocomplete="username" required></label>
+      <label>Пароль<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="primary">Войти</button>
+      <div id="loginError" class="error"></div>
+    </form>
+  </div>
+
+  <div id="adminView" class="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand"><span>🌱</span><div><strong>KisaMore</strong><small>Administration</small></div></div>
+      <nav>
+        <button class="nav-item active" data-section="overview">Обзор</button>
+        <button class="nav-item" data-section="users">Пользователи</button>
+        <button class="nav-item" data-section="plantings">Растения и фото</button>
+        <button class="nav-item" data-section="comments">Комментарии</button>
+      </nav>
+      <button id="logoutButton" class="logout">Выйти</button>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div><h1 id="pageTitle">Обзор</h1><p id="pageSubtitle">Состояние KisaMore</p></div>
+        <div id="adminIdentity" class="admin-identity"></div>
+      </header>
+
+      <section id="section-overview" class="section active">
+        <div id="overviewCards" class="stat-grid"></div>
+        <div class="panel intro-panel">
+          <h2>Администрирование KisaMore</h2>
+          <p>Все операции с Kisa записываются в историю кошелька. Загруженные здесь фотографии привязываются к конкретной посадке и могут показываться в Telegram вместо общего кадра полки.</p>
+        </div>
+      </section>
+
+      <section id="section-users" class="section">
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Telegram-пользователи</h2><p>Баланс, язык и регистрационные данные.</p></div>
+            <div class="search-row"><input id="userSearch" placeholder="Имя, @username или Telegram ID"><button id="userSearchButton">Найти</button></div>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Telegram ID</th><th>Язык</th><th>Баланс</th><th>Регистрация</th><th></th></tr></thead><tbody id="usersBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="section-plantings" class="section">
+        <div class="panel">
+          <div class="panel-head"><div><h2>Активные растения</h2><p>Посадки и опубликованные вручную фотографии.</p></div><button id="reloadPlantings">Обновить</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Растение</th><th>Место</th><th>Статус</th><th>Посажено</th><th>Фото</th><th></th></tr></thead><tbody id="plantingsBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="section-comments" class="section">
+        <div class="panel">
+          <div class="panel-head"><div><h2>Комментарии</h2><p>Модерация сообщений сообщества.</p></div><button id="reloadComments">Обновить</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Автор</th><th>Комментарий</th><th>Дата</th><th>Статус</th><th></th></tr></thead><tbody id="commentsBody"></tbody></table></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="giftDialog">
+    <form id="giftForm" method="dialog" class="dialog-card">
+      <div class="dialog-head"><div><h3>Подарить Kisa</h3><p id="giftUserName"></p></div><button type="button" class="icon-button" data-close-dialog="giftDialog">×</button></div>
+      <input id="giftUserId" type="hidden">
+      <label>Количество Kisa<input id="giftAmount" type="number" min="1" max="1000000" value="100" required></label>
+      <label>Причина<textarea id="giftReason" rows="3" maxlength="300" placeholder="Например: подарок за участие в тестировании" required></textarea></label>
+      <div class="dialog-actions"><button type="button" data-close-dialog="giftDialog">Отмена</button><button type="submit" class="primary">Начислить</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="photoDialog">
+    <form id="photoForm" class="dialog-card">
+      <div class="dialog-head"><div><h3>Опубликовать фото</h3><p id="photoPlantName"></p></div><button type="button" class="icon-button" data-close-dialog="photoDialog">×</button></div>
+      <input id="photoPlantingId" type="hidden">
+      <label>Файл<input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+      <label>Подпись<textarea id="photoCaption" rows="3" maxlength="1000" placeholder="Необязательно"></textarea></label>
+      <div class="dialog-actions"><button type="button" data-close-dialog="photoDialog">Отмена</button><button type="submit" class="primary">Опубликовать</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+  <script src="/static/admin.js" defer></script>
+</body>
+</html>
