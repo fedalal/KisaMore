@@ -7,6 +7,7 @@ from sqlalchemy import select
 from ..admin_models import PlantingPhoto
 from ..db import SessionLocal
 from . import worker_core as core
+from .rental_service import create_rental_request, list_available_slots
 
 
 _original_get_plant_card = core.get_plant_card
@@ -37,7 +38,7 @@ async def get_plant_card(planting_id: str, user_id: int):
 async def show_rental_plants(bot, chat_id: int, tg: dict, slot_id: int) -> None:
     """Show plants sorted by the localized name visible to the current user."""
     lang = core.language_for(tg)
-    slots = await core.list_available_slots(50)
+    slots = await list_available_slots(50)
     slot = next((item for item in slots if item.id == slot_id), None)
     if slot is None:
         await show_rental_slots(bot, chat_id, tg)
@@ -76,9 +77,9 @@ async def show_rental_plants(bot, chat_id: int, tg: dict, slot_id: int) -> None:
 
 
 async def show_rental_slots(bot, chat_id: int, tg: dict) -> None:
-    """Start rental with the first available container instead of asking for a slot."""
+    """Start rental with the first truly available container."""
     lang = core.language_for(tg)
-    slots = await core.list_available_slots(1)
+    slots = await list_available_slots(1)
     if not slots:
         await bot.send_message(
             chat_id,
@@ -97,6 +98,8 @@ async def show_rental_slots(bot, chat_id: int, tg: dict) -> None:
 # Functions defined in worker_core resolve globals in that module at runtime.
 # Replace only the small integration helpers without duplicating the whole worker.
 core.get_plant_card = get_plant_card
+core.list_available_slots = list_available_slots
+core.create_rental_request = create_rental_request
 core.show_rental_plants = show_rental_plants
 core.show_rental_slots = show_rental_slots
 
