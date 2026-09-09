@@ -14,6 +14,7 @@ from .timelapse_service import (
     generate_slot_timelapse,
     period_window,
     planting_timelapse_path,
+    slot_timelapse_path,
 )
 
 
@@ -57,6 +58,28 @@ def _position(slot: RackSlot) -> tuple[str, int, int]:
     return slot.device_id, slot.rack_id, slot.slot_number
 
 
+def _clear_previous_cycle_video(slot: RackSlot, period: str, planted_at: datetime) -> None:
+    target = slot_timelapse_path(
+        settings.photo_dir,
+        slot.device_id,
+        slot.rack_id,
+        slot.slot_number,
+        period,
+    )
+    try:
+        if target.is_file() and target.stat().st_mtime < planted_at.timestamp():
+            target.unlink()
+            logger.info(
+                "Removed previous-cycle %s timelapse: device=%s rack=%s slot=%s",
+                period,
+                slot.device_id,
+                slot.rack_id,
+                slot.slot_number,
+            )
+    except OSError:
+        logger.exception("Could not remove stale timelapse %s", target)
+
+
 async def run_once() -> None:
     now = datetime.now(timezone.utc)
     rows = await _load_relevant_plantings()
@@ -84,6 +107,7 @@ async def run_once() -> None:
         if planted_at is None:
             continue
         for period in ("24h", "3d"):
+            _clear_previous_cycle_video(slot, period, planted_at)
             start_at, end_at = period_window(period, now)
             start_at = max(start_at, planted_at)
             try:
