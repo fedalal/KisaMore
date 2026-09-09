@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import httpx
 
+from .profile_locales import BOT_PROFILE_LOCALIZATIONS, DEFAULT_LANGUAGE
+
 
 class TelegramAPIError(RuntimeError):
     pass
@@ -23,17 +25,37 @@ class TelegramBotAPI:
             raise TelegramAPIError(f"Telegram API {method} failed: {data.get('description', 'unknown error')}")
         return data.get("result")
 
+    async def configure_localized_profile(self) -> None:
+        fallback = BOT_PROFILE_LOCALIZATIONS[DEFAULT_LANGUAGE]
+
+        # Empty language_code sets the fallback shown when no dedicated locale exists.
+        await self.call("setMyShortDescription", {
+            "short_description": fallback["short_description"],
+        })
+        await self.call("setMyDescription", {
+            "description": fallback["description"],
+        })
+        await self.call("setMyCommands", {
+            "commands": fallback["commands"],
+        })
+
+        for language_code, locale in BOT_PROFILE_LOCALIZATIONS.items():
+            await self.call("setMyShortDescription", {
+                "short_description": locale["short_description"],
+                "language_code": language_code,
+            })
+            await self.call("setMyDescription", {
+                "description": locale["description"],
+                "language_code": language_code,
+            })
+            await self.call("setMyCommands", {
+                "commands": locale["commands"],
+                "language_code": language_code,
+            })
+
     async def prepare_long_polling(self) -> None:
         await self.call("deleteWebhook", {"drop_pending_updates": False})
-        await self.call("setMyCommands", {"commands": [
-            {"command": "start", "description": "Открыть KisaMore"},
-            {"command": "plants", "description": "Текущие растения"},
-            {"command": "garden", "description": "Мой сад"},
-            {"command": "wallet", "description": "Кошелёк Kisa"},
-            {"command": "profile", "description": "Мой профиль"},
-            {"command": "terms", "description": "Условия использования"},
-            {"command": "paysupport", "description": "Поддержка по платежам"},
-        ]})
+        await self.configure_localized_profile()
 
     async def get_updates(self, *, offset: int | None, timeout_seconds: int = 30) -> list[dict]:
         payload = {"timeout": timeout_seconds, "allowed_updates": ["message", "callback_query", "pre_checkout_query"]}
