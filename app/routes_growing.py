@@ -44,6 +44,7 @@ def _plant_out(plant: Plant) -> PlantOut:
         seed_image_name=plant.seed_image_name,
         microgreen_image_name=plant.microgreen_image_name,
         grow_days=plant.grow_days,
+        rental_price_kisa=plant.rental_price_kisa,
         active=plant.active,
         created_at=plant.created_at,
         updated_at=plant.updated_at,
@@ -123,7 +124,10 @@ async def create_plant(payload: PlantIn):
         ).scalar_one_or_none()
         if existing:
             raise HTTPException(status_code=409, detail="Plant code already exists")
-        plant = Plant(id=str(uuid4()), **payload.model_dump())
+        values = payload.model_dump()
+        if values.get("rental_price_kisa") is None:
+            values["rental_price_kisa"] = 20
+        plant = Plant(id=str(uuid4()), **values)
         session.add(plant)
         await session.commit()
         await session.refresh(plant)
@@ -144,6 +148,8 @@ async def update_plant(plant_id: str, payload: PlantIn):
         if duplicate:
             raise HTTPException(status_code=409, detail="Plant code already exists")
         for key, value in payload.model_dump().items():
+            if key == "rental_price_kisa" and value is None:
+                continue
             setattr(plant, key, value)
         plant.updated_at = _now_naive()
         await session.commit()
