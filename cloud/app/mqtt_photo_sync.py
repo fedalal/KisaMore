@@ -7,13 +7,13 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 
 from sqlalchemy import select
 
 from .config import get_settings
 from .db import SessionLocal
 from .models import Device, RackPhoto
+from .rack_photo_storage import store_rack_photo
 
 
 @dataclass
@@ -245,13 +245,14 @@ class MqttPhotoConsumer:
             if rack_id < 1 or rack_id > max(device.racks_count, 1):
                 raise ValueError("MQTT photo rack was not found")
 
-            device_dir = hashlib.sha256(device.id.encode("utf-8")).hexdigest()[:20]
-            target_dir = Path(settings.photo_dir) / device_dir
-            await asyncio.to_thread(target_dir.mkdir, parents=True, exist_ok=True)
-            target = target_dir / f"rack_{rack_id}.jpg"
-            temporary = target.with_suffix(".jpg.tmp")
-            await asyncio.to_thread(temporary.write_bytes, payload_bytes)
-            await asyncio.to_thread(temporary.replace, target)
+            stored = await asyncio.to_thread(
+                store_rack_photo,
+                photo_dir=settings.photo_dir,
+                device_id=device.id,
+                rack_id=rack_id,
+                captured_at=captured_at,
+                content=payload_bytes,
+            )
 
             now = datetime.now(timezone.utc)
             record = (
@@ -266,7 +267,7 @@ class MqttPhotoConsumer:
                 record = RackPhoto(
                     device_id=device.id,
                     rack_id=rack_id,
-                    file_path=str(target),
+                    file_path=str(stored.latest_path),
                     content_type="image/jpeg",
                     size_bytes=len(payload_bytes),
                     captured_at=captured_at,
@@ -274,7 +275,7 @@ class MqttPhotoConsumer:
                 )
                 session.add(record)
             else:
-                record.file_path = str(target)
+                record.file_path = str(stored.latest_path)
                 record.content_type = "image/jpeg"
                 record.size_bytes = len(payload_bytes)
                 record.captured_at = captured_at
@@ -283,7 +284,8 @@ class MqttPhotoConsumer:
 
         print(
             f"[cloud-mqtt-photo] photo accepted: device={device_id}, rack={rack_id}, "
-            f"message={message_id}, bytes={len(payload_bytes)}, chunks={done.get('chunks')}"
+            f"message={message_id}, bytes={len(payload_bytes)}, chunks={done.get('chunks')}, "
+            f"image={stored.width}x{stored.height}, slots=6, archive={stored.archive_path.name}"
         )
         return {"sha256": actual_hash, "bytes": len(payload_bytes)}
 
