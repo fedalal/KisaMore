@@ -61,6 +61,25 @@ services:
       timeout: 5s
       retries: 5
 
+  timelapse-worker:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "cloud.app.timelapse_worker"]
+    environment:
+      KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KISAMORE_PHOTO_DIR: ${KISAMORE_PHOTO_DIR:-/srv/kisamore/data/photos}
+      KISAMORE_TIMELAPSE_CHECK_SECONDS: ${KISAMORE_TIMELAPSE_CHECK_SECONDS:-300}
+      KISAMORE_TIMELAPSE_PRESET: ${KISAMORE_TIMELAPSE_PRESET:-veryfast}
+      KISAMORE_TIMELAPSE_CRF: ${KISAMORE_TIMELAPSE_CRF:-23}
+      KISAMORE_TIMELAPSE_FFMPEG_TIMEOUT: ${KISAMORE_TIMELAPSE_FFMPEG_TIMEOUT:-180}
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - kisamore-photos:/srv/kisamore/data/photos
+
   telegram-bot:
     build:
       context: .
@@ -87,6 +106,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      timelapse-worker:
+        condition: service_started
     volumes:
       - kisamore-photos:/srv/kisamore/data/photos:ro
 
