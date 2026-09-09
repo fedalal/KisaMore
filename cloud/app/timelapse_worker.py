@@ -21,6 +21,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger(__name__)
 settings = get_settings()
 ACTIVE_STATUSES = ("planned", "growing", "ready")
+ENDED_SLOT_STATUSES = ("available", "maintenance", "disabled", "empty")
 
 
 def _aware(value: datetime | None) -> datetime | None:
@@ -46,19 +47,30 @@ async def _load_relevant_plantings() -> list[tuple[Planting, RackSlot]]:
                         Planting.observed_at >= recent,
                     )
                 )
-                .order_by(Planting.planted_at)
+                .order_by(RackSlot.device_id, RackSlot.rack_id, RackSlot.slot_number, Planting.planted_at)
             )
         ).all()
     return list(rows)
 
 
+def _position(slot: RackSlot) -> tuple[str, int, int]:
+    return slot.device_id, slot.rack_id, slot.slot_number
+
+
 async def run_once() -> None:
     now = datetime.now(timezone.utc)
     rows = await _load_relevant_plantings()
-    active_positions: dict[tuple[str, int, int], tuple[Planting, RackSlot]] = {}
+    by_position: dict[tuple[str, int, int], list[tuple[Planting, RackSlot]]] = {}
     for planting, slot in rows:
-        if planting.status in ACTIVE_STATUSES:
-            active_positions[(slot.device_id, slot.rack_id, slot.slot_number)] = (planting, slot)
+        by_position.setdefault(_position(slot), []).append((planting, slot))
+
+    active_positions: dict[tuple[str, int, int], tuple[Planting, RackSlot]] = {}
+    for key, items in by_position.items():
+        items.sort(key=lambda item: _aware(item[0].planted_at) or datetime.min.replace(tzinfo=timezone.utc))
+        planting, slot = items[-1]
+        slot_status = str(slot.physical_status or "").lower()
+        if planting.status in ACTIVE_STATUSES and slot_status not in ENDED_SLOT_STATUSES:
+            active_positions[key] = (planting, slot)
 
     generated = 0
     skipped = 0
@@ -99,36 +111,53 @@ async def run_once() -> None:
                     slot.slot_number,
                 )
 
-    # Full-cycle timelapse is tied to planting_id, so the next crop in the same
-    # container never overwrites the previous user's video.
-    for planting, slot in rows:
-        planted_at = _aware(planting.planted_at)
-        if planted_at is None:
-            continue
-        active = planting.status in ACTIVE_STATUSES
-        end_at = now if active else (_aware(planting.actual_harvest_at) or _aware(planting.observed_at) or now)
-        if end_at < planted_at:
-            continue
-        try:
-            path = await asyncio.to_thread(
-                generate_slot_timelapse,
-                photo_dir=settings.photo_dir,
-                device_id=slot.device_id,
-                rack_id=slot.rack_id,
-                slot_number=slot.slot_number,
-                period="full",
-                start_at=planted_at,
-                end_at=end_at,
-                target=planting_timelapse_path(settings.photo_dir, planting.id),
-                final=not active,
-            )
-            if path is None:
-                skipped += 1
+    # Full-cycle timelapses are tied to planting_id. A stale active status cannot
+    # leak frames from the next crop: the next planting start (or an available
+    # slot observation) becomes the previous cycle's effective end.
+    for key, items in by_position.items():
+        items.sort(key=lambda item: _aware(item[0].planted_at) or datetime.min.replace(tzinfo=timezone.utc))
+        for index, (planting, slot) in enumerate(items):
+            planted_at = _aware(planting.planted_at)
+            if planted_at is None:
+                continue
+            next_start = None
+            if index + 1 < len(items):
+                next_start = _aware(items[index + 1][0].planted_at)
+
+            is_current = active_positions.get(key, (None, None))[0] is planting
+            if is_current:
+                end_at = now
+                final = False
             else:
-                generated += 1
-        except Exception:
-            failed += 1
-            logger.exception("Could not generate full timelapse for planting %s", planting.id)
+                end_at = _aware(planting.actual_harvest_at)
+                if end_at is None and next_start is not None:
+                    end_at = next_start
+                if end_at is None:
+                    end_at = _aware(slot.observed_at) or _aware(planting.observed_at) or now
+                final = True
+
+            if end_at < planted_at:
+                continue
+            try:
+                path = await asyncio.to_thread(
+                    generate_slot_timelapse,
+                    photo_dir=settings.photo_dir,
+                    device_id=slot.device_id,
+                    rack_id=slot.rack_id,
+                    slot_number=slot.slot_number,
+                    period="full",
+                    start_at=planted_at,
+                    end_at=end_at,
+                    target=planting_timelapse_path(settings.photo_dir, planting.id),
+                    final=final,
+                )
+                if path is None:
+                    skipped += 1
+                else:
+                    generated += 1
+            except Exception:
+                failed += 1
+                logger.exception("Could not generate full timelapse for planting %s", planting.id)
 
     logger.info(
         "Timelapse pass complete: plantings=%s active_positions=%s generated_or_current=%s skipped=%s failed=%s",
