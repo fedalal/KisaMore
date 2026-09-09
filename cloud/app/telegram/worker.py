@@ -2,7 +2,36 @@ from __future__ import annotations
 
 import asyncio
 
+from sqlalchemy import select
+
+from ..admin_models import PlantingPhoto
+from ..db import SessionLocal
 from . import worker_core as core
+
+
+_original_get_plant_card = core.get_plant_card
+
+
+async def get_plant_card(planting_id: str, user_id: int):
+    """Prefer an admin-published photo for this planting over the generic rack photo."""
+    card = await _original_get_plant_card(planting_id, user_id)
+    if card is None:
+        return None
+    async with SessionLocal() as session:
+        photo = (
+            await session.execute(
+                select(PlantingPhoto)
+                .where(
+                    PlantingPhoto.planting_id == planting_id,
+                    PlantingPhoto.is_public.is_(True),
+                )
+                .order_by(PlantingPhoto.published_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+    if photo is not None:
+        card.photo = photo
+    return card
 
 
 async def show_rental_plants(bot, chat_id: int, tg: dict, slot_id: int) -> None:
@@ -66,7 +95,8 @@ async def show_rental_slots(bot, chat_id: int, tg: dict) -> None:
 
 
 # Functions defined in worker_core resolve globals in that module at runtime.
-# Replace the rental helpers without duplicating the rest of the bot worker.
+# Replace only the small integration helpers without duplicating the whole worker.
+core.get_plant_card = get_plant_card
 core.show_rental_plants = show_rental_plants
 core.show_rental_slots = show_rental_slots
 
