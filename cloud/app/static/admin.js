@@ -4,6 +4,7 @@ const qsa = (s) => [...document.querySelectorAll(s)];
 const titles = {
   overview: ["Обзор", "Состояние KisaMore"],
   users: ["Пользователи", "Telegram-пользователи и баланс Kisa"],
+  rentals: ["Заявки на аренду", "Подтверждение контейнеров и выбранных растений"],
   plantings: ["Растения и фото", "Активные посадки и публикация контента"],
   comments: ["Комментарии", "Модерация сообщества"],
 };
@@ -51,7 +52,7 @@ function toast(message) {
   el.textContent = message;
   el.classList.add("show");
   clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => el.classList.remove("show"), 2400);
+  toast._timer = setTimeout(() => el.classList.remove("show"), 3000);
 }
 
 function showLogin(message = "") {
@@ -111,6 +112,7 @@ function selectSection(name) {
   qs("#pageSubtitle").textContent = titles[name][1];
   if (name === "overview") loadOverview();
   if (name === "users") loadUsers();
+  if (name === "rentals") loadRentals();
   if (name === "plantings") loadPlantings();
   if (name === "comments") loadComments();
 }
@@ -169,6 +171,66 @@ async function submitGift(event) {
   } catch (error) {
     toast(`Ошибка: ${error.message}`);
   }
+}
+
+function rentalStatus(status) {
+  const labels = { requested: "Ожидает", approved: "Одобрено", rejected: "Отклонено" };
+  const cls = status === "approved" ? "green" : status === "rejected" ? "red" : "";
+  return `<span class="badge ${cls}">${esc(labels[status] || status)}</span>`;
+}
+
+async function loadRentals() {
+  const rows = await api("/api/v1/admin/rental-requests");
+  qs("#rentalsBody").innerHTML = rows.length ? rows.map((item) => {
+    const fullName = [item.first_name, item.last_name].filter(Boolean).join(" ") || "Без имени";
+    const username = item.username ? `@${item.username}` : `Telegram ${item.telegram_user_id}`;
+    const actions = item.status === "requested"
+      ? `<div class="table-actions"><button class="approve-rental primary" data-id="${item.id}">Одобрить</button><button class="reject-rental danger" data-id="${item.id}">Отклонить</button></div>`
+      : item.allocation_id
+        ? `<span class="username">Назначение: ${esc(item.allocation_id)}</span>`
+        : `<span class="muted">—</span>`;
+    const note = item.note && item.status === "rejected" ? `<div class="username">${esc(item.note)}</div>` : "";
+    return `<tr>
+      <td><div class="user-name">${esc(fullName)}</div><div class="username">${esc(username)}</div></td>
+      <td><div class="user-name">${esc(item.plant_name)}</div></td>
+      <td>Полка ${esc(item.rack_id)} · контейнер ${esc(item.slot_number)}<div class="username">${esc(item.device_id)}</div></td>
+      <td>${esc(fmtDate(item.created_at))}</td>
+      <td>${rentalStatus(item.status)}${note}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="6" class="muted">Заявок на аренду пока нет.</td></tr>`;
+
+  qsa(".approve-rental").forEach((button) => button.addEventListener("click", async () => {
+    if (!window.confirm("Одобрить эту заявку и отправить назначение на Raspberry?")) return;
+    button.disabled = true;
+    try {
+      const result = await api(`/api/v1/admin/rental-requests/${button.dataset.id}/approve`, { method: "POST" });
+      toast(`Заявка одобрена. Allocation: ${result.allocation_id || "создан"}`);
+      await loadRentals();
+      await loadOverview();
+    } catch (error) {
+      button.disabled = false;
+      toast(`Ошибка: ${error.message}`);
+    }
+  }));
+
+  qsa(".reject-rental").forEach((button) => button.addEventListener("click", async () => {
+    const reason = window.prompt("Причина отказа (можно оставить пустой):", "");
+    if (reason === null) return;
+    button.disabled = true;
+    try {
+      await api(`/api/v1/admin/rental-requests/${button.dataset.id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      toast("Заявка отклонена. Контейнер снова доступен для новых заявок.");
+      await loadRentals();
+      await loadOverview();
+    } catch (error) {
+      button.disabled = false;
+      toast(`Ошибка: ${error.message}`);
+    }
+  }));
 }
 
 async function loadPlantings() {
@@ -243,6 +305,7 @@ qs("#logoutButton").addEventListener("click", logout);
 qsa(".nav-item").forEach((button) => button.addEventListener("click", () => selectSection(button.dataset.section)));
 qs("#userSearchButton").addEventListener("click", loadUsers);
 qs("#userSearch").addEventListener("keydown", (event) => { if (event.key === "Enter") loadUsers(); });
+qs("#reloadRentals").addEventListener("click", loadRentals);
 qs("#reloadPlantings").addEventListener("click", loadPlantings);
 qs("#reloadComments").addEventListener("click", loadComments);
 qs("#giftForm").addEventListener("submit", submitGift);
