@@ -82,7 +82,7 @@ services:
       KISAMORE_TELEGRAM_BOT_USERNAME: ${KISAMORE_TELEGRAM_BOT_USERNAME:-KisaMoreBot}
       KISAMORE_TELEGRAM_SUPPORT_CONTACT: ${KISAMORE_TELEGRAM_SUPPORT_CONTACT:-}
     depends_on:
-      postgres:
+      api:
         condition: service_healthy
     volumes:
       - kisamore-photos:/srv/kisamore/data/photos:ro
