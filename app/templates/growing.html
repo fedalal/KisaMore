@@ -6,6 +6,7 @@
   <title>KisaMore — Growing</title>
   <link rel="stylesheet" href="/static/growing.css?v=4">
   <script src="/static/growing.js?v=6" defer></script>
+  <script src="/static/growing_rental_price.js?v=1" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -78,7 +79,10 @@
         <label><span data-i18n="seedImageName">Seed image filename</span><input name="seedImageName" maxlength="255" placeholder="rapini_seeds.jpg"></label>
         <label><span data-i18n="microgreenImageName">Microgreen image filename</span><input name="microgreenImageName" maxlength="255" placeholder="rapini_microgreens.jpg"></label>
       </div>
-      <label><span data-i18n="growDays">Growing days</span><input name="growDays" type="number" min="1" max="365" value="14" required></label>
+      <div class="plant-name-grid">
+        <label><span id="rentalPriceLabel">Rental price (Kisa)</span><input name="rentalPriceKisa" type="number" min="0" max="1000000" value="20" required></label>
+        <label><span data-i18n="growDays">Growing days</span><input name="growDays" type="number" min="1" max="365" value="14" required></label>
+      </div>
       <label class="checkbox"><input name="active" type="checkbox" checked><span data-i18n="active">Available for selection</span></label>
       <footer>
         <button type="button" class="secondary" data-close-dialog data-i18n="cancel">Cancel</button>
