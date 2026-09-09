@@ -19,6 +19,9 @@ class Settings:
     bootstrap_device_id: str
     bootstrap_device_name: str
     bootstrap_device_token: str
+    telegram_bot_token: str
+    telegram_bot_username: str
+    telegram_support_contact: str
 
 
 @lru_cache
@@ -42,4 +45,7 @@ def get_settings() -> Settings:
         bootstrap_device_id=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_ID", "").strip(),
         bootstrap_device_name=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_NAME", "Greenhouse Pi").strip(),
         bootstrap_device_token=os.getenv("KISAMORE_BOOTSTRAP_DEVICE_TOKEN", "").strip(),
+        telegram_bot_token=os.getenv("KISAMORE_TELEGRAM_BOT_TOKEN", "").strip(),
+        telegram_bot_username=os.getenv("KISAMORE_TELEGRAM_BOT_USERNAME", "KisaMoreBot").strip().lstrip("@"),
+        telegram_support_contact=os.getenv("KISAMORE_TELEGRAM_SUPPORT_CONTACT", "").strip(),
     )
