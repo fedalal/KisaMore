@@ -11,7 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .admin_models import AdminAuditLog
 from .models import Allocation, Offer, Plant, RackSlot, User
 from .security import get_admin_user, get_session
-from .telegram.models import TelegramRentalRequest, TelegramUser
+from .telegram.models import (
+    TelegramRentalRequest,
+    TelegramUser,
+    WalletAccount,
+    WalletTransaction,
+)
 
 
 router = APIRouter(prefix="/api/v1/admin/rental-requests", tags=["admin-rentals"])
@@ -41,6 +46,46 @@ def _blocks_slot(item, slot: RackSlot) -> bool:
     if item.device_id != slot.device_id or item.rack_id != slot.rack_id:
         return False
     return item.resource_type == "rack" or item.slot_number == slot.slot_number
+
+
+async def _refund_request(
+    session: AsyncSession,
+    request: TelegramRentalRequest,
+    *,
+    reason: str,
+) -> int:
+    """Refund a charged request once. Old pre-payment requests have price_kisa=0."""
+    price = max(0, int(request.price_kisa or 0))
+    if price == 0 or request.refunded_at is not None:
+        return 0
+
+    wallet = (
+        await session.execute(
+            select(WalletAccount)
+            .where(WalletAccount.user_id == request.user_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if wallet is None:
+        wallet = WalletAccount(user_id=request.user_id, balance=0)
+        session.add(wallet)
+        await session.flush()
+
+    wallet.balance += price
+    now = datetime.now(timezone.utc)
+    request.refunded_at = now
+    session.add(
+        WalletTransaction(
+            user_id=request.user_id,
+            amount=price,
+            balance_after=wallet.balance,
+            kind="rental_refund",
+            reference_type="telegram_rental_request",
+            reference_id=str(request.id),
+            details={"reason": reason, "price_kisa": price},
+        )
+    )
+    return price
 
 
 async def _ensure_marketplace_user(
@@ -130,6 +175,8 @@ async def list_rental_requests(
                 "id": request.id,
                 "status": request.status,
                 "note": request.note,
+                "price_kisa": int(request.price_kisa or 0),
+                "refunded_at": _aware(request.refunded_at),
                 "created_at": _aware(request.created_at),
                 "updated_at": _aware(request.updated_at),
                 "telegram_user_id": telegram_user.telegram_user_id,
@@ -257,10 +304,16 @@ async def approve_rental_request(
             )
         ).scalars().all()
     )
+    duplicate_refund = 0
     for duplicate in duplicates:
         duplicate.status = "rejected"
         duplicate.note = "Container allocated to another request"
         duplicate.updated_at = now
+        duplicate_refund += await _refund_request(
+            session,
+            duplicate,
+            reason="Container allocated to another request",
+        )
 
     session.add(
         AdminAuditLog(
@@ -275,6 +328,8 @@ async def approve_rental_request(
                 "rack_id": slot.rack_id,
                 "slot_number": slot.slot_number,
                 "plant_id": plant.id,
+                "price_kisa": int(request.price_kisa or 0),
+                "duplicate_refund_kisa": duplicate_refund,
             },
         )
     )
@@ -299,21 +354,23 @@ async def reject_rental_request(
     if request is None:
         raise HTTPException(status_code=404, detail="Rental request not found")
     if request.status == "rejected":
-        return {"ok": True, "status": "rejected"}
+        return {"ok": True, "status": "rejected", "refunded_kisa": 0}
     if request.status != "requested":
         raise HTTPException(status_code=409, detail="Only a pending request can be rejected")
 
+    reason = payload.reason.strip() or "Rejected by administrator"
     request.status = "rejected"
-    request.note = payload.reason.strip() or "Rejected by administrator"
+    request.note = reason
     request.updated_at = datetime.now(timezone.utc)
+    refunded = await _refund_request(session, request, reason=reason)
     session.add(
         AdminAuditLog(
             admin_user_id=admin.id,
             action="reject_rental",
             target_type="telegram_rental_request",
             target_id=str(request.id),
-            details={"reason": request.note},
+            details={"reason": request.note, "refunded_kisa": refunded},
         )
     )
     await session.commit()
-    return {"ok": True, "status": "rejected"}
+    return {"ok": True, "status": "rejected", "refunded_kisa": refunded}
