@@ -63,6 +63,21 @@ class RackSnapshotIn(BaseModel):
 
 
 class EdgeSnapshotIn(BaseModel):
+    inventory_sync_id: str | None = Field(default=None, min_length=1, max_length=36)
+    inventory_observed_at: datetime | None = None
+    inventory_base_id: str | None = Field(default=None, min_length=1, max_length=36)
+
+    @model_validator(mode="after")
+    def inventory_version_is_complete(self):
+        if self.inventory_base_id is not None and self.inventory_sync_id is None:
+            raise ValueError("inventory baseline requires a sync ID")
+        if (self.inventory_sync_id is None) != (self.inventory_observed_at is None):
+            raise ValueError("inventory version requires both ID and timestamp")
+        if self.inventory_observed_at is not None:
+            if self.inventory_observed_at.tzinfo is None or self.inventory_observed_at > self.observed_at:
+                raise ValueError("invalid inventory timestamp")
+        return self
+
     observed_at: datetime
     software_version: str = Field(default="unknown", min_length=1, max_length=100)
     racks_count: int = Field(ge=1, le=16)

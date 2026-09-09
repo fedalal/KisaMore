@@ -325,3 +325,76 @@ def test_snapshot_rejects_duplicate_rack_ids():
             json=payload,
         )
         assert response.status_code == 422
+
+
+def test_inventory_delta_receipts_are_atomic_and_preserve_unchanged_records():
+    import copy
+    import pytest
+    from uuid import uuid4
+    from cloud.app.api import _sync_queued_inventory
+    from cloud.app.models import InventorySyncReceipt, Plant, Planting, RackSlot
+    from cloud.app.schemas import EdgeSnapshotIn
+
+    _inventory_locks.clear()
+    _pending_inventory.clear()
+    headers = {"X-Device-ID": "test-pi-01", "Authorization": f"Bearer {device_token}"}
+    with TestClient(app) as client:
+        full = _snapshot()
+        full["inventory_sync_id"] = str(uuid4())
+        full["inventory_observed_at"] = full["observed_at"]
+        now = datetime.fromisoformat(full["observed_at"])
+        full["racks"][0]["slots"][0].update({
+            "status": "growing",
+            "planting": {
+                "planting_id": "delta-planting", "plant_id": "plant-radish",
+                "planted_at": now.isoformat(),
+                "expected_harvest_at": (now + timedelta(days=12)).isoformat(),
+                "status": "growing",
+            },
+        })
+        assert client.post("/api/v1/edge/snapshot", headers=headers, json=full).status_code == 202
+        assert client.get("/api/v1/edge/assignments", headers=headers).json()["inventory_sync_id"] == full["inventory_sync_id"]
+        delta = copy.deepcopy(full)
+        delta["observed_at"] = datetime.now(timezone.utc).isoformat()
+        delta["inventory_observed_at"] = delta["observed_at"]
+        delta["inventory_sync_id"] = str(uuid4())
+        delta["inventory_base_id"] = full["inventory_sync_id"]
+        delta["plants"] = []
+        delta["racks"][0]["slots"] = delta["racks"][0]["slots"][:1]
+        delta["racks"][1]["slots"] = []
+        slot = delta["racks"][0]["slots"][0]
+        slot["status"] = "maintenance"
+        slot["planting"]["status"] = "harvested"
+        slot["planting"]["actual_harvest_at"] = delta["observed_at"]
+        assert client.post("/api/v1/edge/snapshot", headers=headers, json=delta).status_code == 202
+        # Duplicate delivery and a delayed old full snapshot must not undo it.
+        assert client.post("/api/v1/edge/snapshot", headers=headers, json=delta).status_code == 202
+        assert client.post("/api/v1/edge/snapshot", headers=headers, json=full).status_code == 202
+
+        async def verify_and_fail():
+            async with SessionLocal() as session:
+                assert (await session.get(Plant, "plant-radish")).names["en"] == "Radish"
+                assert (await session.get(Planting, "delta-planting")).status == "harvested"
+                slots = (await session.execute(select(RackSlot).where(RackSlot.device_id == "test-pi-01"))).scalars().all()
+                assert len(slots) == 12
+                target = next(s for s in slots if s.rack_id == 1 and s.slot_number == 1)
+                assert target.physical_status == "maintenance"
+                assert target.expected_available_at is None
+                assert next(s for s in slots if s.rack_id == 1 and s.slot_number == 2).physical_status == "available"
+            bad = copy.deepcopy(delta)
+            bad["inventory_base_id"] = delta["inventory_sync_id"]
+            bad["inventory_sync_id"] = str(uuid4())
+            bad["inventory_observed_at"] = bad["observed_at"] = datetime.now(timezone.utc).isoformat()
+            bad["plants"] = copy.deepcopy(full["plants"])
+            bad["plants"][0]["names"]["en"] = "Must roll back"
+            bad["racks"][0]["slots"][0]["planting"]["plant_id"] = "missing-plant"
+            with pytest.raises(ValueError, match="unknown plant"):
+                await _sync_queued_inventory("test-pi-01", EdgeSnapshotIn.model_validate(bad), datetime.now(timezone.utc))
+            async with SessionLocal() as session:
+                assert (await session.get(InventorySyncReceipt, "test-pi-01")).sync_id == delta["inventory_sync_id"]
+                assert (await session.get(Plant, "plant-radish")).names["en"] == "Radish"
+            bad["inventory_base_id"] = "wrong-baseline"
+            with pytest.raises(RuntimeError, match="baseline mismatch"):
+                await _sync_queued_inventory("test-pi-01", EdgeSnapshotIn.model_validate(bad), datetime.now(timezone.utc))
+        asyncio.run(verify_and_fail())
+        assert client.get("/api/v1/edge/assignments", headers=headers).json()["inventory_sync_id"] == delta["inventory_sync_id"]

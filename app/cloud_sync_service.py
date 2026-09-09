@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import copy
+from uuid import uuid4
 import hashlib
 import json
 import os
@@ -135,6 +137,9 @@ class CloudSyncService:
         self._send_lock = asyncio.Lock()
         self._settings: CloudSyncSettings | None = None
         self._uploaded_photo_mtimes: dict[int, int] = {}
+        self._inventory_baseline: dict | None = None
+        self._inventory_pending: dict | None = None
+        self._inventory_ack_id: str | None = None
 
     async def start(self) -> None:
         if self._task and not self._task.done():
@@ -195,17 +200,20 @@ class CloudSyncService:
                     )
                 ).scalars().all()
             slot_ids = [slot.id for slot in slots]
-            active_plantings = []
+            slot_plantings = []
             if slot_ids:
-                active_plantings = (
+                slot_plantings = (
                     await session.execute(
                         select(Planting).where(
                             Planting.slot_id.in_(slot_ids),
-                            Planting.status.in_(("planned", "growing", "ready")),
-                        )
+                        ).order_by(Planting.planted_at, Planting.id)
                     )
                 ).scalars().all()
-            planting_by_slot = {planting.slot_id: planting for planting in active_plantings}
+            planting_by_slot = {planting.slot_id: planting for planting in slot_plantings}
+            # Keep terminal states visible to the cloud, while preferring an
+            # active planting if planting dates were entered out of order.
+            planting_by_slot.update({p.slot_id: p for p in slot_plantings
+                                     if p.status in ("planned", "growing", "ready")})
             slots_by_rack: dict[int, list[dict[str, Any]]] = {}
             for slot in slots:
                 planting = planting_by_slot.get(slot.id)
@@ -523,12 +531,67 @@ class CloudSyncService:
             timeout_seconds,
         )
 
+    def _inventory_delta(self, snapshot: dict, *, force: bool = False) -> dict:
+        """Only advance the baseline after the VPS confirms its DB commit."""
+        if (self._inventory_pending and
+                self._inventory_pending["baseline"]["racks_count"] != snapshot["racks_count"]):
+            self._inventory_pending = None
+            self._inventory_baseline = None
+        if self._inventory_pending is None:
+            baseline = None if force else self._inventory_baseline
+            old_plants = {p["plant_id"]: p for p in baseline["plants"]} if baseline else {}
+            old_slots = {
+                (r["rack_id"], p["slot_number"]): p
+                for r in baseline["racks"] for p in r["slots"]
+            } if baseline else {}
+            plants = [p for p in snapshot["plants"] if old_plants.get(p["plant_id"]) != p]
+            slots = {
+                r["rack_id"]: [p for p in r["slots"]
+                              if old_slots.get((r["rack_id"], p["slot_number"])) != p]
+                for r in snapshot["racks"]
+            }
+            if baseline is None or plants or any(slots.values()):
+                self._inventory_pending = copy.deepcopy({
+                    "id": str(uuid4()), "observed_at": snapshot["observed_at"],
+                    "base_id": self._inventory_ack_id if baseline is not None else None,
+                    "plants": plants, "slots": slots, "baseline": snapshot,
+                })
+        pending = self._inventory_pending
+        result = {
+            **snapshot,
+            "plants": copy.deepcopy(pending["plants"]) if pending else [],
+            "racks": [{**r, "slots": copy.deepcopy(pending["slots"].get(r["rack_id"], []))
+                       if pending else []} for r in snapshot["racks"]],
+        }
+        if pending:
+            result["inventory_sync_id"] = pending["id"]
+            result["inventory_observed_at"] = pending["observed_at"]
+            result["inventory_base_id"] = pending["base_id"]
+        return result
+
+    def _acknowledge_inventory(self, payload: dict) -> None:
+        if "inventory_sync_id" not in payload:
+            return  # Older VPS: continue repeating until it is upgraded.
+        ack = payload["inventory_sync_id"]
+        pending = self._inventory_pending
+        if pending and ack == pending["id"]:
+            self._inventory_baseline = pending["baseline"]
+            self._inventory_pending = None
+            self._inventory_ack_id = ack
+            print(f"[cloud-sync] inventory confirmed by VPS: {ack}")
+        elif self._inventory_baseline is not None and ack != self._inventory_ack_id:
+            # A restored/replaced cloud database needs a fresh baseline.
+            self._inventory_baseline = None
+            self._inventory_pending = None
+            self._inventory_ack_id = None
+
     async def sync_growing_now(self) -> dict[str, int]:
         """Synchronize the plant catalog and rack placement after a UI request."""
         if self._settings is None:
             raise RuntimeError("cloud sync is not configured")
         async with self._send_lock:
             snapshot = await self.collect_snapshot(include_growing=True)
+            snapshot = self._inventory_delta(snapshot, force=True)
             await self._send_snapshot(
                 snapshot,
                 self._settings.growing_sync_timeout_seconds,
@@ -643,6 +706,7 @@ class CloudSyncService:
     async def _sync_assignments(self) -> int:
         payload = await asyncio.to_thread(self._fetch_assignments_blocking)
         await self._apply_assignments(payload)
+        self._acknowledge_inventory(payload)
         return len(payload.get("assignments", []))
 
     def _send_photo_blocking(self, rack_id: int, path: Path, captured_at: str) -> None:
@@ -729,13 +793,14 @@ class CloudSyncService:
         while not self._stop_event.is_set():
             attempt_started_at = asyncio.get_running_loop().time()
             try:
-                snapshot = await self.collect_snapshot(include_growing=True)
                 async with self._send_lock:
+                    snapshot = await self.collect_snapshot(include_growing=True)
+                    snapshot = self._inventory_delta(snapshot)
                     try:
                         await self._send_snapshot(snapshot)
                     except (TimeoutError, RuntimeError) as exc:
                         print(
-                            f"[cloud-sync] full snapshot failed; sending telemetry only: "
+                            f"[cloud-sync] snapshot failed; sending telemetry only: "
                             f"{type(exc).__name__}: {exc!r}"
                         )
                         snapshot = {
@@ -743,6 +808,9 @@ class CloudSyncService:
                             "plants": [],
                             "racks": [{**rack, "slots": []} for rack in snapshot["racks"]],
                         }
+                        snapshot.pop("inventory_sync_id", None)
+                        snapshot.pop("inventory_observed_at", None)
+                        snapshot.pop("inventory_base_id", None)
                         await self._send_snapshot(snapshot)
                     assignments_count = 0
                     try:

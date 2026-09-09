@@ -97,7 +97,9 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
             slot.requested_plant_id = incoming.requested_plant_id
             slot.observed_at = payload.observed_at
             slot.expected_available_at = (
-                incoming.planting.expected_harvest_at if incoming.planting else None
+                incoming.planting.expected_harvest_at
+                if incoming.planting and incoming.planting.status in ("planned", "growing", "ready")
+                else None
             )
 
             if incoming.planting:
@@ -120,6 +122,8 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
 
     for slot, incoming in planting_slots:
         if incoming.plant_id not in plants_by_id:
+            if getattr(payload, "inventory_sync_id", None):
+                raise ValueError("cannot confirm inventory with an unknown plant")
             # Rejecting the whole sensor snapshot would hide healthy telemetry.
             # The next snapshot will repair this after the edge catalog is synced.
             continue

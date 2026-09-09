@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .auth_api import user_out
 from .models import (
     Allocation,
+    InventorySyncReceipt,
     Device,
     Farm,
     Notification,
@@ -593,7 +594,9 @@ async def edge_assignments(
             .order_by(Allocation.rack_id, Allocation.slot_number)
         )
     ).scalars().all()
+    receipt = await session.get(InventorySyncReceipt, device.id)
     return {
+        "inventory_sync_id": receipt.sync_id if receipt else None,
         "assignments": [
             {
                 "allocation_id": item.id,

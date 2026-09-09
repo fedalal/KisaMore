@@ -226,3 +226,11 @@ class Notification(Base):
     payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+
+
+class InventorySyncReceipt(Base):
+    __tablename__ = "inventory_sync_receipts"
+
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"), primary_key=True)
+    sync_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

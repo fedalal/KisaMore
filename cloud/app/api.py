@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import get_settings
 from .db import SessionLocal
-from .models import Device, Farm, RackCurrent, TelemetrySample
+from .models import Device, Farm, RackCurrent, TelemetrySample, InventorySyncReceipt
 from .schemas import EdgeSnapshotIn, FarmLiveOut, RackLiveOut
 from .security import authenticate_device, get_session
 from .marketplace_service import process_waitlist, sync_edge_inventory
@@ -39,6 +39,36 @@ async def _sync_queued_inventory(
     This runs after the telemetry response has been sent. Slow inventory or
     waitlist queries therefore cannot block the Pi's regular sensor exchange.
     """
+    if payload.inventory_sync_id:
+        # Deltas must never be coalesced like legacy full snapshots.
+        lock = _inventory_locks.setdefault(device_id, asyncio.Lock())
+        async with lock:
+            async with SessionLocal() as session:
+                await session.execute(select(Device).where(Device.id == device_id).with_for_update())
+                receipt = await session.get(InventorySyncReceipt, device_id)
+                if receipt and (
+                    receipt.sync_id == payload.inventory_sync_id or
+                    _as_aware_utc(receipt.observed_at) > payload.inventory_observed_at
+                ):
+                    return
+                if payload.inventory_base_id is not None and (
+                    receipt is None or receipt.sync_id != payload.inventory_base_id
+                ):
+                    raise RuntimeError("inventory baseline mismatch; full sync required")
+                await sync_edge_inventory(session, device_id, payload, received_at)
+                await process_waitlist(session, device_id)
+                if receipt is None:
+                    receipt = InventorySyncReceipt(device_id=device_id)
+                    session.add(receipt)
+                receipt.sync_id = payload.inventory_sync_id
+                receipt.observed_at = payload.inventory_observed_at
+                await session.commit()
+            print(
+                f"[cloud-api] inventory delta committed: device={device_id}, "
+                f"plants={len(payload.plants)}, "
+                f"slots={sum(len(r.slots) for r in payload.racks)}"
+            )
+        return
     _pending_inventory[device_id] = (payload, received_at)
     lock = _inventory_locks.setdefault(device_id, asyncio.Lock())
     if lock.locked():
@@ -144,7 +174,7 @@ async def process_edge_snapshot(
                 )
             )
 
-        has_growing_data = bool(payload.plants) or any(rack.slots for rack in payload.racks)
+        has_growing_data = bool(payload.inventory_sync_id or payload.plants) or any(rack.slots for rack in payload.racks)
         await session.commit()
 
     if has_growing_data and sync_inventory_now:
@@ -169,7 +199,7 @@ async def ingest_snapshot(
     if payload.observed_at > now + timedelta(minutes=5):
         raise HTTPException(status_code=422, detail="observed_at is too far in the future")
 
-    has_growing_data = bool(payload.plants) or any(rack.slots for rack in payload.racks)
+    has_growing_data = bool(payload.inventory_sync_id or payload.plants) or any(rack.slots for rack in payload.racks)
     await process_edge_snapshot(device.id, payload, now, sync_inventory_now=False)
     if has_growing_data:
         background_tasks.add_task(

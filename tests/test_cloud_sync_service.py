@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import sys
 import json
 import types
@@ -19,7 +20,7 @@ from app.cloud_sync_service import (
     _remaining_delay,
     _retry_delays,
 )
-from app.models import Base, Plant, RackSensorHistory, RackSlot, RackState
+from app.models import Base, Plant, Planting, RackSensorHistory, RackSlot, RackState
 
 
 def test_cloud_settings_are_disabled_without_all_credentials(monkeypatch):
@@ -283,7 +284,8 @@ def test_request_time_is_included_in_sync_interval():
     assert _remaining_delay(30, 45) == 0
 
 
-def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch, tmp_path):
+@pytest.mark.parametrize("planting_status", ["growing", "harvested", "cancelled"])
+def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch, tmp_path, planting_status):
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'edge.db'}"
     engine = create_async_engine(database_url)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -327,7 +329,15 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
                     grow_days=12,
                 )
             )
-            session.add(RackSlot(rack_id=1, slot_number=1, status="available"))
+            slot = RackSlot(rack_id=1, slot_number=1, status="available")
+            session.add(slot)
+            await session.flush()
+            session.add(Planting(
+                id="test-planting", slot_id=slot.id, plant_id="plant-radish",
+                planted_at=sensor_time.replace(tzinfo=None),
+                expected_harvest_at=sensor_time.replace(tzinfo=None),
+                status=planting_status,
+            ))
             await session.commit()
 
         monkeypatch.setattr(sync_module, "SessionLocal", session_factory)
@@ -375,6 +385,7 @@ def test_snapshot_uses_saved_sensor_history_without_polling_hardware(monkeypatch
     assert manual_snapshot["plants"][0]["seed_image_name"] == "radish_seeds.jpg"
     assert manual_snapshot["plants"][0]["microgreen_image_name"] == "radish_microgreens.jpg"
     assert manual_snapshot["racks"][0]["slots"][0]["slot_number"] == 1
+    assert manual_snapshot["racks"][0]["slots"][0]["planting"]["status"] == planting_status
 
 
 def test_manual_growing_sync_includes_catalog_and_placement(monkeypatch):
@@ -389,8 +400,10 @@ def test_manual_growing_sync_includes_catalog_and_placement(monkeypatch):
     async def fake_collect_snapshot(*, include_growing=False):
         assert include_growing is True
         return {
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "racks_count": 1,
             "plants": [{"plant_id": "plant-radish"}],
-            "racks": [{"slots": [{"slot_number": 1}]}],
+            "racks": [{"rack_id": 1, "slots": [{"slot_number": 1}]}],
         }
 
     async def fake_send_snapshot(snapshot, timeout_seconds=None):
@@ -418,8 +431,10 @@ def test_background_sync_includes_growing_data_and_fetches_assignments(monkeypat
     async def fake_collect_snapshot(*, include_growing=False):
         calls.append(("collect", include_growing))
         return {
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "racks_count": 1,
             "plants": [{"plant_id": "plant-radish"}],
-            "racks": [{"slots": [{"slot_number": 1}]}],
+            "racks": [{"rack_id": 1, "slots": [{"slot_number": 1}]}],
         }
 
     async def fake_send_snapshot(snapshot, timeout_seconds=None):
@@ -455,6 +470,8 @@ def test_failed_inventory_falls_back_to_telemetry_and_assignment_failure_is_sepa
         device_token="test-token-with-at-least-32-characters",
     )
     original = {
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "racks_count": 1,
         "plants": [{"plant_id": "radish"}],
         "racks": [{"rack_id": 1, "soil_temperature": 23, "slots": [{"slot_number": 1}]}],
     }
@@ -482,6 +499,8 @@ def test_failed_inventory_falls_back_to_telemetry_and_assignment_failure_is_sepa
     monkeypatch.setattr(service, "_send_changed_photos", photos)
     asyncio.run(service._run())
     assert len(sent) == 2
+    assert "inventory_sync_id" not in sent[1]
+    assert service._inventory_pending is not None
     assert sent[1]["plants"] == []
     assert sent[1]["racks"][0]["slots"] == []
     assert sent[1]["racks"][0]["soil_temperature"] == 23
@@ -548,3 +567,43 @@ def test_photos_are_not_uploaded_when_camera_capture_is_disabled(monkeypatch, tm
     monkeypatch.setattr(service, "_send_photo_blocking", unexpected_upload)
 
     assert asyncio.run(service._send_changed_photos()) == 0
+
+
+def test_inventory_changes_require_database_ack_and_survive_lost_ack():
+    service = CloudSyncService()
+    snapshot = {
+        "observed_at": datetime.now(timezone.utc).isoformat(), "racks_count": 1,
+        "plants": [{"plant_id": "a", "names": {"en": "A"}}, {"plant_id": "b"}],
+        "racks": [{"rack_id": 1, "slots": [
+            {"slot_number": 1, "status": "growing"},
+            {"slot_number": 2, "status": "available"},
+        ]}],
+    }
+    first = service._inventory_delta(snapshot)
+    changed = copy.deepcopy(snapshot)
+    changed["plants"][0]["names"]["en"] = "New name"
+    changed["racks"][0]["slots"][0]["status"] = "ready"
+    # MQTT publication alone does not discard pending data, nor does a failed
+    # cloud transaction or an old server without the receipt field.
+    service._acknowledge_inventory({})
+    retry = service._inventory_delta(changed)
+    assert retry["inventory_sync_id"] == first["inventory_sync_id"]
+    assert retry["plants"] == snapshot["plants"]
+    service._acknowledge_inventory({"inventory_sync_id": first["inventory_sync_id"]})
+    delta = service._inventory_delta(changed)
+    assert len(delta["plants"]) == 1
+    assert delta["racks"][0]["slots"] == [{"slot_number": 1, "status": "ready"}]
+    assert delta["inventory_base_id"] == first["inventory_sync_id"]
+    service._acknowledge_inventory({"inventory_sync_id": delta["inventory_sync_id"]})
+    unchanged = service._inventory_delta(changed)
+    assert unchanged["plants"] == []
+    assert unchanged["racks"][0]["slots"] == []
+    assert "inventory_sync_id" not in unchanged
+    # Cloud DB restoration resets the baseline, including with a pending delta.
+    changed["plants"][0]["active"] = False
+    service._inventory_delta(changed)
+    service._acknowledge_inventory({"inventory_sync_id": None})
+    full = service._inventory_delta(changed)
+    assert len(full["plants"]) == 2
+    assert full["inventory_base_id"] is None
+    assert len(CloudSyncService()._inventory_delta(changed)["plants"]) == 2
