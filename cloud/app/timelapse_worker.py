@@ -64,11 +64,16 @@ async def run_once() -> None:
     skipped = 0
     failed = 0
 
-    # Operational timelapses belong to the current physical container. Only one
-    # set is needed even if old planting rows exist for the same position.
-    for (_device_id, _rack_id, _slot_number), (_planting, slot) in active_positions.items():
+    # Operational timelapses belong to the current physical container. Clamp
+    # the rolling window to the current planting start so a new crop never shows
+    # frames from the previous occupant of the same container.
+    for (_device_id, _rack_id, _slot_number), (planting, slot) in active_positions.items():
+        planted_at = _aware(planting.planted_at)
+        if planted_at is None:
+            continue
         for period in ("24h", "3d"):
             start_at, end_at = period_window(period, now)
+            start_at = max(start_at, planted_at)
             try:
                 path = await asyncio.to_thread(
                     generate_slot_timelapse,
