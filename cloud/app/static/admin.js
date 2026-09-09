@@ -5,6 +5,7 @@ const titles = {
   overview: ["Обзор", "Состояние KisaMore"],
   users: ["Пользователи", "Telegram-пользователи и баланс Kisa"],
   rentals: ["Заявки на аренду", "Подтверждение контейнеров и выбранных растений"],
+  cameras: ["Камеры / Фото полок", "Последние кадры, полученные с Raspberry Pi"],
   plantings: ["Растения и фото", "Активные посадки и публикация контента"],
   comments: ["Комментарии", "Модерация сообщества"],
 };
@@ -23,6 +24,14 @@ function fmtDate(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(d);
+}
+
+function fmtBytes(value) {
+  const bytes = Number(value || 0);
+  if (!bytes) return "—";
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
 function kisa(value) {
@@ -117,6 +126,7 @@ function selectSection(name) {
   if (name === "overview") loadOverview();
   if (name === "users") loadUsers();
   if (name === "rentals") loadRentals();
+  if (name === "cameras") loadRackPhotos();
   if (name === "plantings") loadPlantings();
   if (name === "comments") loadComments();
 }
@@ -239,6 +249,37 @@ async function loadRentals() {
   }));
 }
 
+async function loadRackPhotos() {
+  const grid = qs("#rackPhotosGrid");
+  grid.innerHTML = `<div class="muted">Загрузка последних кадров…</div>`;
+  try {
+    const rows = await api("/api/v1/admin/rack-photos");
+    if (!rows.length) {
+      grid.innerHTML = `<div class="muted">Активные устройства или полки пока не найдены.</div>`;
+      return;
+    }
+    grid.innerHTML = rows.map((item) => {
+      const photo = item.photo_url
+        ? `<a class="camera-image-link" href="${esc(item.photo_url)}" target="_blank" rel="noopener"><img class="camera-image" src="${esc(item.photo_url)}?t=${encodeURIComponent(item.updated_at || Date.now())}" alt="Полка ${esc(item.rack_id)}"></a>`
+        : `<div class="camera-empty">Фото ещё не получено</div>`;
+      return `<article class="camera-card">
+        <div class="camera-card-head">
+          <div><h3>Полка ${esc(item.rack_id)}</h3><div class="username">${esc(item.device_name || item.device_id)}</div></div>
+          <span class="badge ${item.has_photo ? "green" : ""}">${item.has_photo ? "Фото получено" : "Нет фото"}</span>
+        </div>
+        ${photo}
+        <div class="camera-meta">
+          <span><b>Снято:</b> ${esc(fmtDate(item.captured_at))}</span>
+          <span><b>Получено:</b> ${esc(fmtDate(item.updated_at))}</span>
+          <span><b>Размер:</b> ${esc(fmtBytes(item.size_bytes))}</span>
+        </div>
+      </article>`;
+    }).join("");
+  } catch (error) {
+    grid.innerHTML = `<div class="error">Не удалось загрузить фотографии: ${esc(error.message)}</div>`;
+  }
+}
+
 async function loadPlantings() {
   const rows = await api("/api/v1/admin/plantings");
   qs("#plantingsBody").innerHTML = rows.length ? rows.map((item) => `<tr>
@@ -312,6 +353,7 @@ qsa(".nav-item").forEach((button) => button.addEventListener("click", () => sele
 qs("#userSearchButton").addEventListener("click", loadUsers);
 qs("#userSearch").addEventListener("keydown", (event) => { if (event.key === "Enter") loadUsers(); });
 qs("#reloadRentals").addEventListener("click", loadRentals);
+qs("#reloadRackPhotos").addEventListener("click", loadRackPhotos);
 qs("#reloadPlantings").addEventListener("click", loadPlantings);
 qs("#reloadComments").addEventListener("click", loadComments);
 qs("#giftForm").addEventListener("submit", submitGift);
