@@ -25,6 +25,7 @@
       <nav>
         <button class="nav-item active" data-section="overview">Обзор</button>
         <button class="nav-item" data-section="users">Пользователи</button>
+        <button class="nav-item" data-section="rentals">Заявки на аренду</button>
         <button class="nav-item" data-section="plantings">Растения и фото</button>
         <button class="nav-item" data-section="comments">Комментарии</button>
       </nav>
@@ -41,7 +42,7 @@
         <div id="overviewCards" class="stat-grid"></div>
         <div class="panel intro-panel">
           <h2>Администрирование KisaMore</h2>
-          <p>Все операции с Kisa записываются в историю кошелька. Загруженные здесь фотографии привязываются к конкретной посадке и могут показываться в Telegram вместо общего кадра полки.</p>
+          <p>Все операции с Kisa записываются в историю кошелька. Подтверждённая заявка на аренду превращается в активное назначение и передаётся на Raspberry через существующую синхронизацию.</p>
         </div>
       </section>
 
@@ -52,6 +53,13 @@
             <div class="search-row"><input id="userSearch" placeholder="Имя, @username или Telegram ID"><button id="userSearchButton">Найти</button></div>
           </div>
           <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Telegram ID</th><th>Язык</th><th>Баланс</th><th>Регистрация</th><th></th></tr></thead><tbody id="usersBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="section-rentals" class="section">
+        <div class="panel">
+          <div class="panel-head"><div><h2>Заявки на аренду</h2><p>Подтверждение контейнера и выбранного растения.</p></div><button id="reloadRentals">Обновить</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Растение</th><th>Контейнер</th><th>Дата</th><th>Статус</th><th></th></tr></thead><tbody id="rentalsBody"></tbody></table></div>
         </div>
       </section>
 
