@@ -83,7 +83,7 @@
     <form id="giftForm" method="dialog" class="dialog-card">
       <div class="dialog-head"><div><h3>Подарить Kisa</h3><p id="giftUserName"></p></div><button type="button" class="icon-button" data-close-dialog="giftDialog">×</button></div>
       <input id="giftUserId" type="hidden">
-      <label>Количество Kisa<input id="giftAmount" type="number" min="1" max="1000000" value="100" required></label>
+      <label>Количество Kisa (Ⓚ)<input id="giftAmount" type="number" min="1" max="1000000" value="100" required></label>
       <label>Причина<textarea id="giftReason" rows="3" maxlength="300" placeholder="Например: подарок за участие в тестировании" required></textarea></label>
       <div class="dialog-actions"><button type="button" data-close-dialog="giftDialog">Отмена</button><button type="submit" class="primary">Начислить</button></div>
     </form>
@@ -95,11 +95,11 @@
       <input id="photoPlantingId" type="hidden">
       <label>Файл<input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp" required></label>
       <label>Подпись<textarea id="photoCaption" rows="3" maxlength="1000" placeholder="Необязательно"></textarea></label>
-      <div class="dialog-actions"><button type="button" data-close-dialog="photoDialog">Отмена</button><button type="submit" class="primary">Опубликовать</button></div>
+      <div class="dialog-actions"><button type="button" data-close-dialog data-close-dialog="photoDialog">Отмена</button><button type="submit" class="primary">Опубликовать</button></div>
     </form>
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/admin.js?v=20260909-2" defer></script>
+  <script src="/static/admin.js?v=20260909-3" defer></script>
 </body>
 </html>
