@@ -136,7 +136,7 @@ class PlantPublicOut(BaseModel):
     seed_image_name: str
     microgreen_image_name: str
     grow_days: int
-    rental_price_kisa: int
+    rental_price_kisa: int = 20
 
 
 class PlantingPublicOut(BaseModel):
