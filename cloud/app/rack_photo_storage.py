@@ -6,8 +6,6 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageOps
-
 
 SLOT_COLUMNS = 2
 SLOT_ROWS = 3
@@ -64,7 +62,7 @@ def _atomic_write(path: Path, content: bytes) -> None:
     temporary.replace(path)
 
 
-def _atomic_save_jpeg(image: Image.Image, path: Path) -> None:
+def _atomic_save_jpeg(image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     image.save(temporary, format="JPEG", quality=92, optimize=True)
@@ -101,6 +99,8 @@ def store_rack_photo(
     Historical storage contains only the original rack image. The six slot images
     are derived latest views and are overwritten for every new rack frame.
     """
+    from PIL import Image, ImageOps
+
     captured = _aware_utc(captured_at)
     digest = hashlib.sha256(content).hexdigest()
     root = device_photo_dir(photo_dir, device_id)
