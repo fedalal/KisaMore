@@ -52,6 +52,7 @@ class Plant(Base):
     seed_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     microgreen_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     grow_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
+    rental_price_kisa: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow_naive, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
