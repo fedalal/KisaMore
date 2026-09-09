@@ -19,9 +19,10 @@ if settings.database_url.startswith("sqlite"):
 engine = create_async_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-_PLANT_IMAGE_COLUMNS = {
+_PLANT_COLUMNS = {
     "seed_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     "microgreen_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
+    "rental_price_kisa": "INTEGER NOT NULL DEFAULT 20",
 }
 
 
@@ -37,8 +38,8 @@ def _ensure_columns(connection, table_name: str, columns: dict[str, str]) -> Non
             )
 
 
-def _ensure_plant_image_columns(connection) -> None:
-    _ensure_columns(connection, "plants", _PLANT_IMAGE_COLUMNS)
+def _ensure_plant_columns(connection) -> None:
+    _ensure_columns(connection, "plants", _PLANT_COLUMNS)
 
 
 def _ensure_telegram_columns(connection) -> None:
@@ -71,6 +72,16 @@ def _ensure_telegram_columns(connection) -> None:
             "last_notified_at": f"{timestamp_type} NULL",
         },
     )
+    _ensure_columns(
+        connection,
+        "telegram_rental_requests",
+        {
+            # Existing requests were never charged, therefore their migration
+            # value must be zero so rejecting an old request cannot mint Kisa.
+            "price_kisa": "INTEGER NOT NULL DEFAULT 0",
+            "refunded_at": f"{timestamp_type} NULL",
+        },
+    )
 
     tables = inspect(connection).get_table_names()
     if "social_follows" in tables:
@@ -94,5 +105,5 @@ def _ensure_telegram_columns(connection) -> None:
 async def create_tables() -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
-        await connection.run_sync(_ensure_plant_image_columns)
+        await connection.run_sync(_ensure_plant_columns)
         await connection.run_sync(_ensure_telegram_columns)
