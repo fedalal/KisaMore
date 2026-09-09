@@ -105,21 +105,22 @@ def store_rack_photo(
     digest = hashlib.sha256(content).hexdigest()
     root = device_photo_dir(photo_dir, device_id)
 
-    latest = rack_latest_path(photo_dir, device_id, rack_id)
-    _atomic_write(latest, content)
-
-    archive_dir = root / "archive" / f"rack_{int(rack_id)}" / captured.strftime("%Y-%m-%d")
-    archive_name = f"{captured.strftime('%H%M%S_%f')}_{digest[:10]}.jpg"
-    archive = archive_dir / archive_name
-    if not archive.exists():
-        _atomic_write(archive, content)
-
+    # Decode first so a corrupt JPEG can never replace a previously valid latest image.
     with Image.open(BytesIO(content)) as source:
         source.load()
         image = ImageOps.exif_transpose(source).convert("RGB")
         width, height = image.size
         if width < 2 or height < 3:
             raise ValueError("rack photo is too small to split into six slots")
+
+        latest = rack_latest_path(photo_dir, device_id, rack_id)
+        _atomic_write(latest, content)
+
+        archive_dir = root / "archive" / f"rack_{int(rack_id)}" / captured.strftime("%Y-%m-%d")
+        archive_name = f"{captured.strftime('%H%M%S_%f')}_{digest[:10]}.jpg"
+        archive = archive_dir / archive_name
+        if not archive.exists():
+            _atomic_write(archive, content)
 
         slot_paths: dict[int, Path] = {}
         for slot_number in range(1, SLOT_COUNT + 1):
