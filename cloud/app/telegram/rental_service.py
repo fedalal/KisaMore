@@ -118,6 +118,7 @@ async def create_rental_request(
             )
         ).scalar_one_or_none()
         if existing is not None:
+            existing._was_just_created = False
             return existing
 
         other_request = (
@@ -202,4 +203,5 @@ async def create_rental_request(
 
         await session.commit()
         await session.refresh(request)
+        request._was_just_created = True
         return request
