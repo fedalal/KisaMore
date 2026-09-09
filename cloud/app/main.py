@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .admin_api import router as admin_router
+from .admin_camera_api import router as admin_camera_router
 from .api import router
 from .auth_api import router as auth_router
 from .bootstrap import bootstrap_first_device
@@ -81,4 +82,5 @@ app.include_router(router)
 app.include_router(auth_router)
 app.include_router(marketplace_router)
 app.include_router(admin_router)
+app.include_router(admin_camera_router)
 app.include_router(rental_admin_router)
