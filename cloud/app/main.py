@@ -23,6 +23,7 @@ from .mqtt_photo_sync import mqtt_photo_consumer
 from .rack_photo_api import router as rack_photo_router
 from .rack_photo_bootstrap import backfill_rack_photo_derivatives
 from .rental_admin_api import router as rental_admin_router
+from .timelapse_api import router as timelapse_router
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -85,6 +86,7 @@ app.include_router(router)
 app.include_router(auth_router)
 app.include_router(marketplace_router)
 app.include_router(rack_photo_router)
+app.include_router(timelapse_router)
 app.include_router(admin_router)
 app.include_router(admin_camera_router)
 app.include_router(rental_admin_router)
