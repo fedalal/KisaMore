@@ -20,6 +20,7 @@ from .db import create_tables, engine
 from .marketplace_api import router as marketplace_router
 from .mqtt_sync import mqtt_snapshot_consumer
 from .mqtt_photo_sync import mqtt_photo_consumer
+from .rack_photo_api import router as rack_photo_router
 from .rental_admin_api import router as rental_admin_router
 
 
@@ -81,6 +82,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(router)
 app.include_router(auth_router)
 app.include_router(marketplace_router)
+app.include_router(rack_photo_router)
 app.include_router(admin_router)
 app.include_router(admin_camera_router)
 app.include_router(rental_admin_router)
