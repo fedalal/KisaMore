@@ -43,5 +43,27 @@ services:
       timeout: 5s
       retries: 5
 
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "cloud.app.telegram.worker"]
+    environment:
+      KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KISAMORE_CORS_ORIGINS: ${KISAMORE_CORS_ORIGINS}
+      KISAMORE_OFFLINE_AFTER_SECONDS: ${KISAMORE_OFFLINE_AFTER_SECONDS:-120}
+      KISAMORE_BOOTSTRAP_FARM_SLUG: ${KISAMORE_BOOTSTRAP_FARM_SLUG}
+      KISAMORE_BOOTSTRAP_FARM_NAME: ${KISAMORE_BOOTSTRAP_FARM_NAME}
+      KISAMORE_BOOTSTRAP_DEVICE_ID: ${KISAMORE_BOOTSTRAP_DEVICE_ID}
+      KISAMORE_BOOTSTRAP_DEVICE_NAME: ${KISAMORE_BOOTSTRAP_DEVICE_NAME}
+      KISAMORE_BOOTSTRAP_DEVICE_TOKEN: ${KISAMORE_BOOTSTRAP_DEVICE_TOKEN}
+      KISAMORE_TELEGRAM_BOT_TOKEN: ${KISAMORE_TELEGRAM_BOT_TOKEN}
+      KISAMORE_TELEGRAM_BOT_USERNAME: ${KISAMORE_TELEGRAM_BOT_USERNAME:-KisaMoreBot}
+      KISAMORE_TELEGRAM_SUPPORT_CONTACT: ${KISAMORE_TELEGRAM_SUPPORT_CONTACT:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   kisamore-postgres:
