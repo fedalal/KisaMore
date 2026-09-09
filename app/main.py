@@ -20,12 +20,14 @@ from .camera_capture_service import camera_capture_service
 from .camera_manager import camera_manager
 from .cloud_sync_service import cloud_sync_service
 from .rental_price_sync import install_rental_price_sync
+from .cloud_photo_mqtt import install_cloud_photo_mqtt
 
 
 import subprocess
 from fastapi import HTTPException
 
 install_rental_price_sync(cloud_sync_service)
+install_cloud_photo_mqtt(cloud_sync_service)
 
 app = FastAPI(title="Система KisaMore — Raspberry Pi")
 
