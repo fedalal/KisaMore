@@ -72,9 +72,19 @@ def _ensure_telegram_columns(connection) -> None:
         },
     )
 
+    tables = inspect(connection).get_table_names()
+    if "social_follows" in tables:
+        # Existing follows predate last_notified_at. Starting from created_at
+        # prevents an old subscription from being permanently excluded from
+        # the new-photo notification query.
+        connection.exec_driver_sql(
+            "UPDATE social_follows SET last_notified_at = created_at "
+            "WHERE last_notified_at IS NULL"
+        )
+
     # Keep linking optional for now. The partial integration must not fail when
     # older Telegram rows have no marketplace account.
-    if "telegram_users" in inspect(connection).get_table_names():
+    if "telegram_users" in tables:
         connection.exec_driver_sql(
             "CREATE INDEX IF NOT EXISTS ix_telegram_users_marketplace_user_id "
             "ON telegram_users (marketplace_user_id)"
