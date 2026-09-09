@@ -99,11 +99,14 @@ async def create_rental_request(
 
         existing = (
             await session.execute(
-                select(TelegramRentalRequest).where(
+                select(TelegramRentalRequest)
+                .where(
                     TelegramRentalRequest.user_id == user_id,
                     TelegramRentalRequest.slot_id == slot_id,
                     TelegramRentalRequest.status.in_(ACTIVE_REQUEST_STATUSES),
                 )
+                .order_by(TelegramRentalRequest.created_at)
+                .limit(1)
             )
         ).scalar_one_or_none()
         if existing is not None:
@@ -111,10 +114,12 @@ async def create_rental_request(
 
         other_request = (
             await session.execute(
-                select(TelegramRentalRequest.id).where(
+                select(TelegramRentalRequest.id)
+                .where(
                     TelegramRentalRequest.slot_id == slot_id,
                     TelegramRentalRequest.status.in_(ACTIVE_REQUEST_STATUSES),
                 )
+                .limit(1)
             )
         ).scalar_one_or_none()
         if other_request is not None:
