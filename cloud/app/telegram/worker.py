@@ -22,9 +22,18 @@ _original_st = core.st
 _KISA_AMOUNT_RE = re.compile(r"(?<![\wⓀ])([+-]?\d[\d\s.,]*)\s+Kisa\b")
 
 
+def _replace_kisa_amount(match: re.Match[str]) -> str:
+    amount = match.group(1).strip()
+    if amount.startswith("+"):
+        return f"+Ⓚ {amount[1:].strip()}"
+    if amount.startswith("-"):
+        return f"−Ⓚ {amount[1:].strip()}"
+    return f"Ⓚ {amount}"
+
+
 def format_kisa_text(value: str) -> str:
     """Use the compact Ⓚ symbol for displayed amounts, while keeping Kisa as the currency name."""
-    return _KISA_AMOUNT_RE.sub(lambda match: f"Ⓚ {match.group(1).strip()}", value)
+    return _KISA_AMOUNT_RE.sub(_replace_kisa_amount, value)
 
 
 def display_t(lang: str, key: str, **kwargs) -> str:
@@ -275,6 +284,39 @@ async def show_garden(bot, chat_id: int, tg: dict) -> None:
 
 async def handle_callback(bot, query: dict) -> None:
     data = str(query.get("data") or "")
+
+    if data.startswith("wallet:buy:"):
+        qid = query.get("id")
+        tg = query.get("from")
+        chat_id = ((query.get("message") or {}).get("chat") or {}).get("id")
+        if not qid or tg is None or chat_id is None:
+            return
+        lang = core.language_for(tg)
+        user, _ = await core.get_or_create_user(tg)
+        await bot.answer_callback_query(qid)
+        if not user.terms_accepted_at:
+            await bot.send_message(
+                chat_id,
+                core.t(lang, "terms"),
+                reply_markup=core.terms_keyboard(lang, wallet_back=False),
+            )
+            return
+        try:
+            stars = int(data.rsplit(":", 1)[-1])
+        except ValueError:
+            return
+        kisa = core.PACKAGES.get(stars)
+        if kisa is None:
+            return
+        await bot.send_invoice(
+            chat_id,
+            title=f"Ⓚ {kisa}",
+            description=core.t(lang, "invoice_description", kisa=kisa),
+            payload=core.invoice_payload(int(tg["id"]), stars, kisa),
+            stars=stars,
+        )
+        return
+
     if not data.startswith("rent:plant:"):
         await _original_handle_callback(bot, query)
         return
