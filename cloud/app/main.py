@@ -18,6 +18,7 @@ from .config import get_settings
 from .db import create_tables, engine
 from .marketplace_api import router as marketplace_router
 from .mqtt_sync import mqtt_snapshot_consumer
+from .mqtt_photo_sync import mqtt_photo_consumer
 from .rental_admin_api import router as rental_admin_router
 
 
@@ -32,7 +33,9 @@ async def lifespan(_: FastAPI):
     await bootstrap_first_device()
     await bootstrap_admin()
     await mqtt_snapshot_consumer.start()
+    await mqtt_photo_consumer.start()
     yield
+    await mqtt_photo_consumer.stop()
     await mqtt_snapshot_consumer.stop()
     await engine.dispose()
 
