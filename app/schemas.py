@@ -96,11 +96,13 @@ class PlantIn(BaseModel):
     seed_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     microgreen_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     grow_days: int = Field(default=14, ge=1, le=365)
+    rental_price_kisa: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     active: bool = True
 
 
 class PlantOut(PlantIn):
     id: str
+    rental_price_kisa: int
     created_at: datetime
     updated_at: datetime
 
