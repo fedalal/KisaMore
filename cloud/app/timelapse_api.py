@@ -22,7 +22,6 @@ def _video_response(path: Path) -> FileResponse:
     return FileResponse(
         path,
         media_type="video/mp4",
-        filename=path.name,
         headers={"Cache-Control": "no-store"},
     )
 
