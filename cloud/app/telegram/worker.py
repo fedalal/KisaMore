@@ -258,7 +258,8 @@ async def handle_callback(bot, query: dict) -> None:
         await show_garden(bot, chat_id, tg)
         return
 
-    await bot.send_message(chat_id, rt(lang, "charged", price=request.price_kisa))
+    if getattr(request, "_was_just_created", True):
+        await bot.send_message(chat_id, rt(lang, "charged", price=request.price_kisa))
     await show_garden(bot, chat_id, tg)
 
 
