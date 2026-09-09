@@ -2,9 +2,9 @@
   "use strict";
 
   const labels = {
-    en: "Rental price (Kisa)",
-    ru: "Цена аренды (Kisa)",
-    zh: "租赁价格 (Kisa)",
+    en: "Rental price (Ⓚ)",
+    ru: "Цена аренды (Ⓚ)",
+    zh: "租赁价格 (Ⓚ)",
   };
 
   const dialog = document.querySelector("#plantDialog");
