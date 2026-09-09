@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import tempfile
@@ -10,6 +11,7 @@ from pathlib import Path
 from .rack_photo_storage import SLOT_COUNT, device_photo_dir
 
 
+logger = logging.getLogger(__name__)
 FPS = 12
 MAX_FRAMES = 360
 MIN_FRAMES = 12
@@ -225,6 +227,16 @@ def generate_slot_timelapse(
             raise RuntimeError(f"ffmpeg timelapse failed: {message}") from exc
         temporary.replace(output)
 
+    logger.info(
+        "Generated timelapse: period=%s device=%s rack=%s slot=%s frames=%s duration=%.1fs target=%s",
+        period,
+        device_id,
+        rack_id,
+        slot_number,
+        len(frames),
+        len(frames) / FPS,
+        output,
+    )
     return output
 
 
