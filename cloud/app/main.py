@@ -18,6 +18,7 @@ from .config import get_settings
 from .db import create_tables, engine
 from .marketplace_api import router as marketplace_router
 from .mqtt_sync import mqtt_snapshot_consumer
+from .rental_admin_api import router as rental_admin_router
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -77,3 +78,4 @@ app.include_router(router)
 app.include_router(auth_router)
 app.include_router(marketplace_router)
 app.include_router(admin_router)
+app.include_router(rental_admin_router)
