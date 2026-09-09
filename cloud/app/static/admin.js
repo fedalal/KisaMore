@@ -25,6 +25,10 @@ function fmtDate(value) {
   return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(d);
 }
 
+function kisa(value) {
+  return `Ⓚ ${Number(value || 0).toLocaleString("ru-RU")}`;
+}
+
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -121,7 +125,7 @@ async function loadOverview() {
   const data = await api("/api/v1/admin/overview");
   const cards = [
     ["Пользователи", data.telegram_users],
-    ["Kisa в кошельках", data.total_kisa],
+    ["Kisa в кошельках", kisa(data.total_kisa)],
     ["Активные растения", data.active_plantings],
     ["Комментарии", data.published_comments],
     ["Заявки на аренду", data.rental_requests],
@@ -139,7 +143,7 @@ async function loadUsers() {
       <td><div class="user-name">${esc(fullName)}</div><div class="username">${esc(username)}</div></td>
       <td>${esc(user.telegram_user_id)}</td>
       <td>${esc(user.language_code || "—")}</td>
-      <td class="balance">${esc(user.balance)} Kisa</td>
+      <td class="balance">${esc(kisa(user.balance))}</td>
       <td>${esc(fmtDate(user.created_at))}</td>
       <td><button class="gift-button" data-user-id="${user.id}" data-user-name="${esc(fullName)}">Подарить Kisa</button></td>
     </tr>`;
@@ -165,7 +169,7 @@ async function submitGift(event) {
       body: JSON.stringify({ amount, reason }),
     });
     qs("#giftDialog").close();
-    toast(`Начислено ${amount} Kisa. Новый баланс: ${result.balance}`);
+    toast(`Начислено ${kisa(amount)}. Новый баланс: ${kisa(result.balance)}`);
     await loadUsers();
     await loadOverview();
   } catch (error) {
@@ -190,12 +194,13 @@ async function loadRentals() {
         ? `<span class="username">Назначение: ${esc(item.allocation_id)}</span>`
         : `<span class="muted">—</span>`;
     const note = item.note && item.status === "rejected" ? `<div class="username">${esc(item.note)}</div>` : "";
+    const refund = item.refunded_at ? `<div class="username">Возвращено ${esc(kisa(item.price_kisa))}</div>` : "";
     return `<tr>
       <td><div class="user-name">${esc(fullName)}</div><div class="username">${esc(username)}</div></td>
-      <td><div class="user-name">${esc(item.plant_name)}</div></td>
+      <td><div class="user-name">${esc(item.plant_name)}</div><div class="username">Аренда: ${esc(kisa(item.price_kisa))}</div></td>
       <td>Полка ${esc(item.rack_id)} · контейнер ${esc(item.slot_number)}<div class="username">${esc(item.device_id)}</div></td>
       <td>${esc(fmtDate(item.created_at))}</td>
-      <td>${rentalStatus(item.status)}${note}</td>
+      <td>${rentalStatus(item.status)}${note}${refund}</td>
       <td>${actions}</td>
     </tr>`;
   }).join("") : `<tr><td colspan="6" class="muted">Заявок на аренду пока нет.</td></tr>`;
@@ -219,11 +224,12 @@ async function loadRentals() {
     if (reason === null) return;
     button.disabled = true;
     try {
-      await api(`/api/v1/admin/rental-requests/${button.dataset.id}/reject`, {
+      const result = await api(`/api/v1/admin/rental-requests/${button.dataset.id}/reject`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       });
-      toast("Заявка отклонена. Контейнер снова доступен для новых заявок.");
+      const refundText = result.refunded_kisa > 0 ? ` Возвращено ${kisa(result.refunded_kisa)}.` : "";
+      toast(`Заявка отклонена.${refundText} Контейнер снова доступен.`);
       await loadRentals();
       await loadOverview();
     } catch (error) {
