@@ -140,6 +140,42 @@ class TelegramBotAPI:
             )
         return payload.get("result")
 
+    async def send_video(
+        self,
+        chat_id: int,
+        video_path: str | Path,
+        *,
+        caption: str = "",
+        reply_markup: dict | None = None,
+    ):
+        if not self.token:
+            raise TelegramAPIError("Telegram bot token is not configured")
+        path = Path(video_path)
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        data = {
+            "chat_id": str(chat_id),
+            "caption": caption,
+            "parse_mode": "HTML",
+            "supports_streaming": "true",
+        }
+        if reply_markup is not None:
+            data["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            with path.open("rb") as fh:
+                response = await client.post(
+                    f"{self.base_url}/sendVideo",
+                    data=data,
+                    files={"video": (path.name, fh, "video/mp4")},
+                )
+            response.raise_for_status()
+            payload = response.json()
+        if not payload.get("ok"):
+            raise TelegramAPIError(
+                f"Telegram API sendVideo failed: {payload.get('description', 'unknown error')}"
+            )
+        return payload.get("result")
+
     async def answer_callback_query(
         self,
         callback_query_id: str,
