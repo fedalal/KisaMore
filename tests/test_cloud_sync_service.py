@@ -4,6 +4,8 @@ import asyncio
 import sys
 import json
 import types
+
+import pytest
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -139,22 +141,35 @@ def test_curl_timeout_is_reported_as_timeout_error(monkeypatch):
         raise AssertionError("curl exit code 28 must be treated as a timeout")
 
 
-def test_mqtt_snapshot_is_published_in_small_chunks(monkeypatch):
+@pytest.mark.parametrize("failure", [None, "ack", "rc", "connect", "done", "deadline"])
+def test_mqtt_snapshot_is_published_in_small_chunks(monkeypatch, failure):
     published = []
     clients = []
+    clock = [0.0]
+    monkeypatch.setattr(sync_module.time, "monotonic", lambda: clock[0])
 
     class FakePublishInfo:
         rc = 0
 
         def wait_for_publish(self, timeout=None):
-            assert timeout is None or timeout > 0
+            assert 0 < timeout <= 10 + 1e-9
+            clock[0] += 0.4
 
         def is_published(self):
-            return True
+            return not (
+                failure == "ack" or
+                (failure == "done" and published[-1][0].endswith("/done"))
+            )
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
             self.username = None
+            self.messages = 0
+            self.disconnected = False
+            self.stopped = False
+            assert kwargs["reconnect_on_failure"] is False
+            if clients:
+                assert clients[-1].disconnected and clients[-1].stopped
             clients.append(self)
 
         def username_pw_set(self, username, password=None):
@@ -166,19 +181,28 @@ def test_mqtt_snapshot_is_published_in_small_chunks(monkeypatch):
         def connect(self, host, port, keepalive=60):
             assert (host, port) == ("mqtt.example.test", 1883)
             assert keepalive >= 15
+            assert 0 < self.connect_timeout <= 10
+            if failure == "connect":
+                raise OSError("connection refused")
 
         def loop_start(self):
             pass
 
         def publish(self, topic, payload, qos=0, retain=False):
+            self.messages += 1
+            assert self.messages == 1, "each message must use a new connection"
             published.append((topic, payload, qos, retain))
-            return FakePublishInfo()
+            info = FakePublishInfo()
+            if failure == "rc":
+                info.rc = 4
+            return info
 
         def loop_stop(self):
-            pass
+            assert self.disconnected
+            self.stopped = True
 
         def disconnect(self):
-            pass
+            self.disconnected = True
 
     fake_mqtt = types.ModuleType("paho.mqtt.client")
     fake_mqtt.CallbackAPIVersion = types.SimpleNamespace(VERSION2=object())
@@ -204,13 +228,31 @@ def test_mqtt_snapshot_is_published_in_small_chunks(monkeypatch):
         "software_version": "test",
         "racks_count": 1,
         "levels": {},
-        "plants": [{"plant_id": "x", "name": "y" * 3000}],
+        "plants": [{"plant_id": "x", "name": "я" * 10000}],
         "racks": [{"rack_id": 1, "slots": []}],
     }
 
-    service._send_snapshot_blocking(snapshot, timeout_seconds=10)
+    if failure:
+        expected = RuntimeError if failure in ("rc", "connect") else TimeoutError
+        label = "done" if failure == "done" else "chunk="
+        with pytest.raises(expected, match=label):
+            service._send_snapshot_blocking(
+                snapshot, timeout_seconds=1 if failure == "deadline" else None
+            )
+        assert all(client.disconnected for client in clients)
+        assert all(client.stopped for client in clients if failure != "connect")
+        if failure != "done":
+            assert not any(topic.endswith("/done") for topic, *_ in published)
+        return
 
-    assert clients[0].username == ("edge", "secret")
+    service._send_snapshot_blocking(snapshot)
+
+    # Total transfer exceeds the ordinary request timeout but fits the snapshot
+    # budget. Previously all messages shared both a connection and that timeout.
+    assert clock[0] > service._settings.request_timeout_seconds
+    assert len(clients) == len(published)
+    assert all(client.disconnected and client.stopped for client in clients)
+    assert all(client.username == ("edge", "secret") for client in clients)
     chunk_messages = [item for item in published if "/chunk/" in item[0]]
     done_messages = [item for item in published if item[0].endswith("/done")]
     assert len(chunk_messages) > 1
@@ -219,6 +261,7 @@ def test_mqtt_snapshot_is_published_in_small_chunks(monkeypatch):
     assert all(qos == 1 and retain is False for _, _, qos, retain in published)
     done = json.loads(done_messages[0][1])
     rebuilt = b"".join(payload for _, payload, _, _ in chunk_messages)
+    assert json.loads(rebuilt) == snapshot
     assert done["bytes"] == len(rebuilt)
     assert done["chunks"] == len(chunk_messages)
 

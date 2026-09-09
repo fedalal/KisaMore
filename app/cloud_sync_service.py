@@ -422,62 +422,95 @@ class CloudSyncService:
             f"{self._settings.mqtt_topic_prefix}/edge/"
             f"{self._settings.device_id}/snapshot/{message_id}"
         )
-        timeout = timeout_seconds or self._settings.request_timeout_seconds
+        # A snapshot may require many short connections. Keep a separate budget
+        # for the complete transfer and for each individual message.
+        timeout = timeout_seconds or self._settings.growing_sync_timeout_seconds
+        deadline = time.monotonic() + timeout
+        print(
+            f"[cloud-sync] MQTT snapshot: bytes={len(payload)}, chunks={len(chunks)}, "
+            f"connection=per-message, timeout={timeout:g}s"
+        )
 
+        def publish_message(topic: str, body: bytes, label: str) -> None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"MQTT snapshot timed out before {label}")
+            message_timeout = min(self._settings.request_timeout_seconds, remaining)
+            try:
+                self._publish_mqtt_message(mqtt, topic, body, message_timeout)
+            except TimeoutError as exc:
+                raise TimeoutError(
+                    f"MQTT publish timed out: {label}, bytes={len(body)}, "
+                    f"message_timeout={message_timeout:g}s"
+                ) from exc
+            except (OSError, RuntimeError) as exc:
+                raise RuntimeError(f"MQTT publish failed: {label}: {exc}") from exc
+
+        for index, chunk in enumerate(chunks):
+            publish_message(
+                f"{base_topic}/chunk/{index}/{len(chunks)}",
+                chunk,
+                f"chunk={index + 1}/{len(chunks)}",
+            )
+
+        done_payload = json.dumps(
+            {
+                "sha256": digest,
+                "bytes": len(payload),
+                "chunks": len(chunks),
+                "observed_at": snapshot.get("observed_at"),
+            },
+            separators=(",", ":"),
+        ).encode("ascii")
+        publish_message(f"{base_topic}/done", done_payload, "done")
+
+    def _publish_mqtt_message(
+        self, mqtt, topic: str, payload: bytes, timeout: float
+    ) -> None:
+        """Send one QoS 1 message over a fresh, short-lived TCP connection.
+
+        The receiver groups chunks by the snapshot ID in the topic, so it does
+        not require the publisher to keep one connection open for the snapshot.
+        """
+        assert self._settings is not None
         client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
             client_id=f"kisamore-edge-{self._settings.device_id}",
             protocol=mqtt.MQTTv311,
+            reconnect_on_failure=False,
         )
         if self._settings.mqtt_username:
             client.username_pw_set(
-                self._settings.mqtt_username,
-                self._settings.mqtt_password or None,
+                self._settings.mqtt_username, self._settings.mqtt_password or None
             )
         if self._settings.mqtt_tls:
             client.tls_set()
-
+        client.connect_timeout = timeout
         deadline = time.monotonic() + timeout
-        client.connect(
-            self._settings.mqtt_host,
-            self._settings.mqtt_port,
-            keepalive=max(15, int(timeout) + 5),
-        )
-        client.loop_start()
+        loop_started = False
         try:
-            for index, chunk in enumerate(chunks):
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError("MQTT publish timed out")
-                topic = f"{base_topic}/chunk/{index}/{len(chunks)}"
-                info = client.publish(topic, chunk, qos=1, retain=False)
-                info.wait_for_publish(timeout=remaining)
-                if not info.is_published():
-                    raise TimeoutError("MQTT publish timed out")
-                if info.rc != mqtt.MQTT_ERR_SUCCESS:
-                    raise RuntimeError(f"MQTT publish failed with code {info.rc}")
-
-            done_payload = json.dumps(
-                {
-                    "sha256": digest,
-                    "bytes": len(payload),
-                    "chunks": len(chunks),
-                    "observed_at": snapshot.get("observed_at"),
-                },
-                separators=(",", ":"),
-            ).encode("ascii")
+            client.connect(
+                self._settings.mqtt_host, self._settings.mqtt_port,
+                keepalive=max(15, int(timeout) + 5),
+            )
+            client.loop_start()
+            loop_started = True
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise TimeoutError("MQTT publish timed out")
-            info = client.publish(f"{base_topic}/done", done_payload, qos=1, retain=False)
-            info.wait_for_publish(timeout=remaining)
-            if not info.is_published():
-                raise TimeoutError("MQTT publish timed out")
+                raise TimeoutError("MQTT connection timed out")
+            info = client.publish(topic, payload, qos=1, retain=False)
             if info.rc != mqtt.MQTT_ERR_SUCCESS:
                 raise RuntimeError(f"MQTT publish failed with code {info.rc}")
+            info.wait_for_publish(timeout=remaining)
+            if not info.is_published():
+                raise TimeoutError("MQTT acknowledgement timed out")
         finally:
-            client.loop_stop()
-            client.disconnect()
+            # Disconnect before joining the thread, including on failed sends.
+            try:
+                client.disconnect()
+            finally:
+                if loop_started:
+                    client.loop_stop()
 
     async def _send_snapshot(
         self,
