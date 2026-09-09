@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>KisaMore Admin</title>
   <link rel="stylesheet" href="/static/admin.css?v=20260909-4">
-  <link rel="stylesheet" href="/static/admin_camera.css?v=20260909-1">
+  <link rel="stylesheet" href="/static/admin_camera.css?v=20260909-2">
 </head>
 <body>
   <div id="loginView" class="login-shell">
@@ -67,7 +67,7 @@
 
       <section id="section-cameras" class="section">
         <div class="panel">
-          <div class="panel-head"><div><h2>Камеры / Фото полок</h2><p>Последние кадры, автоматически полученные с Raspberry Pi.</p></div><button id="reloadRackPhotos">Обновить</button></div>
+          <div class="panel-head"><div><h2>Камеры / Фото полок</h2><p>Последние кадры, автоматически полученные с Raspberry Pi. Каждый кадр делится на шесть контейнеров автоматически.</p></div><button id="reloadRackPhotos">Обновить</button></div>
           <div id="rackPhotosGrid" class="camera-grid"><div class="muted">Нажмите «Обновить», чтобы получить последние фотографии.</div></div>
         </div>
       </section>
@@ -110,5 +110,6 @@
 
   <div id="toast" class="toast"></div>
   <script src="/static/admin.js?v=20260909-4" defer></script>
+  <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
 </body>
 </html>
