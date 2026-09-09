@@ -170,6 +170,8 @@ class TelegramRentalRequest(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("telegram_users.id"), index=True, nullable=False)
     slot_id: Mapped[int] = mapped_column(ForeignKey("rack_slots.id"), index=True, nullable=False)
     plant_id: Mapped[str] = mapped_column(ForeignKey("plants.id"), index=True, nullable=False)
+    price_kisa: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(24), default="requested", index=True, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
