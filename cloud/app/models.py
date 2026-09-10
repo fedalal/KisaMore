@@ -85,6 +85,11 @@ class Plant(Base):
     microgreen_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     grow_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
     rental_price_kisa: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    watering_schedule: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    watering_adjustment_limit_percent: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    watering_adjustment_step_percent: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    watering_min_interval_minutes: Mapped[int] = mapped_column(Integer, default=240, nullable=False)
+    extra_watering_options: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     edge_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -201,9 +206,31 @@ class Allocation(Base):
     slot_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     plant_id: Mapped[str | None] = mapped_column(ForeignKey("plants.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", index=True, nullable=False)
+    watering_adjustment_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class WateringTask(Base):
+    __tablename__ = "watering_tasks"
+    __table_args__ = (UniqueConstraint("planting_id", "task_type", "scheduled_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    planting_id: Mapped[str] = mapped_column(ForeignKey("plantings.id"), index=True, nullable=False)
+    allocation_id: Mapped[str | None] = mapped_column(ForeignKey("allocations.id"), index=True, nullable=True)
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"), index=True, nullable=False)
+    rack_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    slot_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    planned_ml: Mapped[int] = mapped_column(Integer, nullable=False)
+    actual_ml: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    task_type: Mapped[str] = mapped_column(String(16), default="scheduled", index=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_by_admin_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
 
 
 class Order(Base):
