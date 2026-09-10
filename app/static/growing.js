@@ -111,15 +111,27 @@
     card.innerHTML = `<span class="slot-number"></span><strong></strong><small></small><div class="slot-actions"></div>`;
     card.querySelector(".slot-number").textContent = `${t("slot")} ${slot.slot_number}`;
     const planting = slot.current_planting;
-    card.querySelector("strong").textContent = planting
-      ? (planting.plant_names?.[language] || planting.plant_names?.en || planting.plant_code)
-      : t(slot.status);
-    card.querySelector("small").textContent = planting
-      ? new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(new Date(planting.expected_harvest_at))
-      : t(slot.status);
+    const requestedPlant = slot.requested_plant_id
+      ? plants.find((plant) => plant.id === slot.requested_plant_id)
+      : null;
+    const requestedName = requestedPlant ? plantName(requestedPlant) : "";
+
+    if (planting) {
+      card.querySelector("strong").textContent = planting.plant_names?.[language] || planting.plant_names?.en || planting.plant_code;
+      card.querySelector("small").textContent = new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(new Date(planting.expected_harvest_at));
+    } else if (slot.status === "reserved" && requestedPlant) {
+      card.querySelector("strong").textContent = requestedName;
+      card.querySelector("small").textContent = `${t("reserved")} · ${t("plant")}: ${requestedName}`;
+    } else {
+      card.querySelector("strong").textContent = t(slot.status);
+      card.querySelector("small").textContent = t(slot.status);
+    }
+
     const actions = card.querySelector(".slot-actions");
-    if ((slot.status === "available" || slot.status === "reserved") && plants.some((plant) => plant.active)) {
+    if (slot.status === "available" && plants.some((plant) => plant.active)) {
       actions.append(actionButton(t("start"), () => openPlanting(slot)));
+    } else if (slot.status === "reserved" && requestedPlant) {
+      actions.append(actionButton(`${t("start")}: ${requestedName}`, () => openPlanting(slot)));
     } else if (planting?.status === "growing") {
       actions.append(actionButton(t("markReady"), () => updatePlanting(planting.id, { status: "ready" })));
     } else if (planting?.status === "ready") {
@@ -196,7 +208,7 @@
 
     const activePlants = plants.filter((plant) => plant.active);
     const requestedPlant = slot.requested_plant_id
-      ? activePlants.find((plant) => plant.id === slot.requested_plant_id)
+      ? plants.find((plant) => plant.id === slot.requested_plant_id)
       : null;
     const candidates = slot.status === "reserved" && requestedPlant ? [requestedPlant] : activePlants;
 
