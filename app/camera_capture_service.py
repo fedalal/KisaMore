@@ -9,7 +9,7 @@ from .db import SessionLocal
 from .models import RackState
 
 from . import runtime
-from .camera_manager import camera_manager
+from .camera_one_shot import capture_one_shot_jpeg
 from .google_drive_uploader import GoogleDriveUploader
 
 
@@ -134,6 +134,7 @@ class CameraCaptureService:
 
                 # Если интернет всё ещё недоступен, остальные файлы тоже, скорее всего, не загрузятся.
                 return
+
     def _archive_dir(self) -> Path:
         if runtime.cfg and runtime.cfg.camera_capture:
             archive_dir = runtime.cfg.camera_capture.local_archive_dir or "data/camera_archive"
@@ -207,7 +208,6 @@ class CameraCaptureService:
         if deleted:
             print(f"[camera-capture] cleanup archive: deleted {deleted} old files")
 
-
     async def _run(self):
         await asyncio.sleep(5)
 
@@ -252,6 +252,10 @@ class CameraCaptureService:
         frame_width = cfg.frame_width
         frame_height = cfg.frame_height
 
+        # Capture racks strictly one after another. Each high-resolution stream
+        # exists only long enough to obtain one stable frame, then the camera is
+        # released before the next rack is opened. This prevents four permanent
+        # 4K MJPG streams from saturating the Raspberry Pi USB controller.
         for rack_id_str, rack_cfg in runtime.cfg.racks.items():
             rack_id = int(rack_id_str)
             camera_cfg = runtime.cfg.cameras.get(rack_cfg.camera_id) if rack_cfg.camera_id else None
@@ -289,7 +293,8 @@ class CameraCaptureService:
                 print(f"[camera-capture] camera not found: rack={rack_id}, device={device}")
                 continue
 
-            jpeg = camera_manager.get_jpeg(
+            jpeg = await asyncio.to_thread(
+                capture_one_shot_jpeg,
                 device=device,
                 jpeg_quality=quality,
                 frame_width=frame_width,
@@ -305,7 +310,7 @@ class CameraCaptureService:
             )
 
             if not jpeg:
-                print(f"[camera-capture] no frame yet: rack={rack_id}, device={device}")
+                print(f"[camera-capture] no high-resolution frame: rack={rack_id}, device={device}")
                 continue
 
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -317,6 +322,11 @@ class CameraCaptureService:
             # Всегда сохраняем локальную копию для таймлапсов.
             # Она будет храниться local_archive_days дней и потом удалится автоматически.
             self._save_archive_file(jpeg, filename, rack_id)
+
+            print(
+                f"[camera-capture] high-resolution frame saved: rack={rack_id}, "
+                f"requested={frame_width}x{frame_height}, bytes={len(jpeg)}"
+            )
 
             if uploader is None:
                 continue
@@ -332,7 +342,6 @@ class CameraCaptureService:
             except Exception as e:
                 self._reset_uploader()
                 self._save_pending_file(jpeg, filename, f"upload failed: {e}")
-
 
 
 camera_capture_service = CameraCaptureService()
