@@ -65,7 +65,10 @@ async def show_garden(bot, chat_id: int, tg: dict) -> None:
     lang = core.language_for(tg)
     user, _ = await core.get_or_create_user(tg)
     followed = await core.list_followed_plantings(user.id, 6)
-    requests = await core.rental_requests(user.id, 6)
+    requests = [
+        row for row in await core.rental_requests(user.id, 20)
+        if row[0].status in ("requested", "approved")
+    ][:6]
     allocations = await core.linked_allocations(user, 6)
     parts = [core.t(lang, "garden")]
     buttons = []
