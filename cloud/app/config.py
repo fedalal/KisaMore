@@ -31,6 +31,7 @@ class Settings:
     mqtt_tls: bool
     mqtt_topic_prefix: str
     mqtt_message_ttl_seconds: int
+    farm_timezone: str = "Europe/Moscow"
     telegram_bot_token: str = ""
     telegram_bot_username: str = "KisaMoreBot"
     telegram_support_contact: str = ""
@@ -81,6 +82,7 @@ def get_settings() -> Settings:
         mqtt_message_ttl_seconds=max(
             30, int(os.getenv("KISAMORE_MQTT_MESSAGE_TTL_SECONDS", "300"))
         ),
+        farm_timezone=os.getenv("KISAMORE_FARM_TIMEZONE", "Europe/Moscow").strip() or "Europe/Moscow",
         telegram_bot_token=os.getenv("KISAMORE_TELEGRAM_BOT_TOKEN", "").strip(),
         telegram_bot_username=os.getenv("KISAMORE_TELEGRAM_BOT_USERNAME", "KisaMoreBot").strip(),
         telegram_support_contact=os.getenv("KISAMORE_TELEGRAM_SUPPORT_CONTACT", "").strip(),
