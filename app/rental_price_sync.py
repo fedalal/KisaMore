@@ -7,10 +7,10 @@ from .models import Plant
 
 
 def install_rental_price_sync(service) -> None:
-    """Enrich growing snapshots with the plant rental price.
+    """Enrich growing snapshots with cloud-facing plant configuration.
 
-    Kept separate from CloudSyncService so the pricing feature does not disturb
-    the already stable MQTT/delta transport code.
+    This wrapper keeps the stable transport code untouched while adding pricing
+    and individual watering recipes to catalog synchronization.
     """
     if getattr(service, "_rental_price_sync_installed", False):
         return
@@ -22,11 +22,48 @@ def install_rental_price_sync(service) -> None:
         if include_growing and snapshot.get("plants"):
             async with SessionLocal() as session:
                 plants = (
-                    await session.execute(select(Plant.id, Plant.rental_price_kisa))
+                    await session.execute(
+                        select(
+                            Plant.id,
+                            Plant.rental_price_kisa,
+                            Plant.watering_schedule,
+                            Plant.watering_adjustment_limit_percent,
+                            Plant.watering_adjustment_step_percent,
+                            Plant.watering_min_interval_minutes,
+                            Plant.extra_watering_options,
+                        )
+                    )
                 ).all()
-            prices = {plant_id: int(price) for plant_id, price in plants}
+            config = {
+                plant_id: {
+                    "rental_price_kisa": int(price),
+                    "watering_schedule": schedule or [],
+                    "watering_adjustment_limit_percent": int(limit_percent),
+                    "watering_adjustment_step_percent": int(step_percent),
+                    "watering_min_interval_minutes": int(min_interval),
+                    "extra_watering_options": extra_options or [],
+                }
+                for (
+                    plant_id,
+                    price,
+                    schedule,
+                    limit_percent,
+                    step_percent,
+                    min_interval,
+                    extra_options,
+                ) in plants
+            }
             for item in snapshot["plants"]:
-                item["rental_price_kisa"] = prices.get(item.get("plant_id"), 20)
+                values = config.get(item.get("plant_id"))
+                if values:
+                    item.update(values)
+                else:
+                    item.setdefault("rental_price_kisa", 20)
+                    item.setdefault("watering_schedule", [])
+                    item.setdefault("watering_adjustment_limit_percent", 20)
+                    item.setdefault("watering_adjustment_step_percent", 10)
+                    item.setdefault("watering_min_interval_minutes", 240)
+                    item.setdefault("extra_watering_options", [])
         return snapshot
 
     service.collect_snapshot = collect_snapshot
