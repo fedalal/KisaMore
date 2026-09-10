@@ -77,8 +77,8 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
                     RackSlot.device_id == device_id,
                     RackSlot.rack_id.in_(rack_ids),
                 )
-            ).scalars().all()
-        )
+            )
+        ).scalars().all()
         slots_by_key = {
             (slot.rack_id, slot.slot_number): slot
             for slot in slots
