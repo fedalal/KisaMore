@@ -102,7 +102,7 @@ services:
       context: .
       dockerfile: cloud/Dockerfile
     restart: unless-stopped
-    command: ["python", "-m", "cloud.app.telegram.worker_admin"]
+    command: ["python", "-m", "cloud.app.telegram.worker_daily_photos"]
     environment:
       KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       KISAMORE_CORS_ORIGINS: ${KISAMORE_CORS_ORIGINS}
