@@ -28,6 +28,7 @@
         <button class="nav-item active" data-section="overview">Обзор</button>
         <button class="nav-item" data-section="users">Пользователи</button>
         <button class="nav-item" data-section="rentals">Заявки на аренду</button>
+        <button class="nav-item" data-section="seeds">🌾 Семена</button>
         <button class="nav-item" data-section="watering">💧 Поливы</button>
         <button class="nav-item" data-section="cameras">Камеры / Фото полок</button>
         <button class="nav-item" data-section="plantings">Растения и фото</button>
@@ -64,6 +65,18 @@
         <div class="panel">
           <div class="panel-head"><div><h2>Заявки на аренду</h2><p>Подтверждение контейнера и выбранного растения.</p></div><button id="reloadRentals">Обновить</button></div>
           <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Растение</th><th>Контейнер</th><th>Дата</th><th>Статус</th><th></th></tr></thead><tbody id="rentalsBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="section-seeds" class="section">
+        <div id="seedSummary" class="stat-grid"></div>
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Остатки семян</h2><p>Учёт ведётся в граммах. Для аренды должно хватать минимум на один контейнер.</p></div>
+            <button id="reloadSeeds">Обновить</button>
+          </div>
+          <div class="watering-note">Сначала задайте для каждого растения норму семян на один контейнер, затем внесите фактический приход. Заявки на аренду резервируют нужное количество, а при нажатии «Посадить» семена автоматически списываются.</div>
+          <div class="table-wrap"><table><thead><tr><th>Растение</th><th>Статус</th><th>Остаток</th><th>Зарезервировано</th><th>Свободно</th><th>Норма</th><th>Можно посадить</th><th>Действия</th></tr></thead><tbody id="seedsBody"></tbody></table></div>
         </div>
       </section>
 
@@ -126,9 +139,39 @@
     </form>
   </dialog>
 
+  <dialog id="seedMovementDialog">
+    <form id="seedMovementForm" class="dialog-card">
+      <div class="dialog-head"><div><h3>Движение семян</h3><p id="seedMovementPlantName"></p></div><button type="button" class="icon-button" data-close-seed-dialog="seedMovementDialog">×</button></div>
+      <input id="seedMovementPlantId" type="hidden">
+      <label>Операция<select id="seedMovementType"><option value="receipt">Приход</option><option value="writeoff">Списание</option></select></label>
+      <label>Количество, г<input id="seedMovementAmount" type="number" min="0.001" max="1000000" step="0.001" required></label>
+      <label>Примечание<textarea id="seedMovementNote" rows="3" maxlength="300" placeholder="Поставка, партия, причина списания…"></textarea></label>
+      <div class="dialog-actions"><button type="button" data-close-seed-dialog="seedMovementDialog">Отмена</button><button type="submit" class="primary">Сохранить</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="seedRateDialog">
+    <form id="seedRateForm" class="dialog-card">
+      <div class="dialog-head"><div><h3>Норма посева</h3><p id="seedRatePlantName"></p></div><button type="button" class="icon-button" data-close-seed-dialog="seedRateDialog">×</button></div>
+      <input id="seedRatePlantId" type="hidden">
+      <label>Семян на один контейнер, г<input id="seedRateValue" type="number" min="0.001" max="5000" step="0.001" required></label>
+      <p class="muted">Без заданной нормы растение недоступно для новой аренды.</p>
+      <div class="dialog-actions"><button type="button" data-close-seed-dialog="seedRateDialog">Отмена</button><button type="submit" class="primary">Сохранить норму</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="seedHistoryDialog">
+    <div class="dialog-card">
+      <div class="dialog-head"><div><h3>История семян</h3><p id="seedHistoryPlantName"></p></div><button type="button" class="icon-button" data-close-seed-dialog="seedHistoryDialog">×</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Дата</th><th>Операция</th><th>Количество</th><th>Примечание</th></tr></thead><tbody id="seedHistoryBody"></tbody></table></div>
+      <div class="dialog-actions"><button type="button" data-close-seed-dialog="seedHistoryDialog">Закрыть</button></div>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast"></div>
   <script src="/static/admin.js?v=20260910-1" defer></script>
   <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
+  <script src="/static/admin_seeds.js?v=20260910-1" defer></script>
 </body>
 </html>
