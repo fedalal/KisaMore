@@ -16,6 +16,7 @@ from .models import (
     RackSlot,
     ReservationRequest,
 )
+from .seed_inventory import consume_seed_for_planting
 
 
 def aware_utc(value: datetime | None) -> datetime | None:
@@ -76,8 +77,8 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
                     RackSlot.device_id == device_id,
                     RackSlot.rack_id.in_(rack_ids),
                 )
-            )
-        ).scalars().all()
+            ).scalars().all()
+        )
         slots_by_key = {
             (slot.rack_id, slot.slot_number): slot
             for slot in slots
@@ -154,6 +155,15 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
         planting.status = incoming.status
         planting.cloud_allocation_id = incoming.cloud_allocation_id
         planting.observed_at = payload.observed_at
+
+        # Seed is physically consumed only when Raspberry reports that the
+        # planting has actually started. The unique planting reference makes
+        # repeated delta/full snapshots idempotent.
+        await consume_seed_for_planting(
+            session,
+            planting=planting,
+            plant=plants_by_id[incoming.plant_id],
+        )
 
     # Finishing the physical growing cycle is also the natural end of a slot
     # rental. This keeps Telegram's "My Garden" in sync with what the operator
