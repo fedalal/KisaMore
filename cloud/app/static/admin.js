@@ -188,8 +188,8 @@ async function submitGift(event) {
 }
 
 function rentalStatus(status) {
-  const labels = { requested: "Ожидает", approved: "Одобрено", rejected: "Отклонено" };
-  const cls = status === "approved" ? "green" : status === "rejected" ? "red" : "";
+  const labels = { requested: "Ожидает", approved: "Одобрено", rejected: "Отклонено", completed: "Завершено" };
+  const cls = status === "approved" || status === "completed" ? "green" : status === "rejected" ? "red" : "";
   return `<span class="badge ${cls}">${esc(labels[status] || status)}</span>`;
 }
 
@@ -198,11 +198,15 @@ async function loadRentals() {
   qs("#rentalsBody").innerHTML = rows.length ? rows.map((item) => {
     const fullName = [item.first_name, item.last_name].filter(Boolean).join(" ") || "Без имени";
     const username = item.username ? `@${item.username}` : `Telegram ${item.telegram_user_id}`;
-    const actions = item.status === "requested"
-      ? `<div class="table-actions"><button class="approve-rental primary" data-id="${item.id}">Одобрить</button><button class="reject-rental danger" data-id="${item.id}">Отклонить</button></div>`
-      : item.allocation_id
-        ? `<span class="username">Назначение: ${esc(item.allocation_id)}</span>`
-        : `<span class="muted">—</span>`;
+    const effectiveStatus = item.allocation_status === "completed" ? "completed" : item.status;
+    let actions = `<span class="muted">—</span>`;
+    if (item.status === "requested") {
+      actions = `<div class="table-actions"><button class="approve-rental primary" data-id="${item.id}">Одобрить</button><button class="reject-rental danger" data-id="${item.id}">Отклонить</button></div>`;
+    } else if (item.allocation_id && item.allocation_status === "active") {
+      actions = `<div class="table-actions"><button class="complete-rental danger" data-id="${item.id}">Завершить аренду</button></div><div class="username">Назначение: ${esc(item.allocation_id)}</div>`;
+    } else if (item.allocation_id) {
+      actions = `<div class="username">Назначение: ${esc(item.allocation_id)}</div>${item.allocation_ends_at ? `<div class="username">Завершено: ${esc(fmtDate(item.allocation_ends_at))}</div>` : ""}`;
+    }
     const note = item.note && item.status === "rejected" ? `<div class="username">${esc(item.note)}</div>` : "";
     const refund = item.refunded_at ? `<div class="username">Возвращено ${esc(kisa(item.price_kisa))}</div>` : "";
     return `<tr>
@@ -210,7 +214,7 @@ async function loadRentals() {
       <td><div class="user-name">${esc(item.plant_name)}</div><div class="username">Аренда: ${esc(kisa(item.price_kisa))}</div></td>
       <td>Полка ${esc(item.rack_id)} · контейнер ${esc(item.slot_number)}<div class="username">${esc(item.device_id)}</div></td>
       <td>${esc(fmtDate(item.created_at))}</td>
-      <td>${rentalStatus(item.status)}${note}${refund}</td>
+      <td>${rentalStatus(effectiveStatus)}${note}${refund}</td>
       <td>${actions}</td>
     </tr>`;
   }).join("") : `<tr><td colspan="6" class="muted">Заявок на аренду пока нет.</td></tr>`;
@@ -240,6 +244,20 @@ async function loadRentals() {
       });
       const refundText = result.refunded_kisa > 0 ? ` Возвращено ${kisa(result.refunded_kisa)}.` : "";
       toast(`Заявка отклонена.${refundText} Контейнер снова доступен.`);
+      await loadRentals();
+      await loadOverview();
+    } catch (error) {
+      button.disabled = false;
+      toast(`Ошибка: ${error.message}`);
+    }
+  }));
+
+  qsa(".complete-rental").forEach((button) => button.addEventListener("click", async () => {
+    if (!window.confirm("Завершить аренду? Оплата Kisa не возвращается. После синхронизации Raspberry снимет бронирование контейнера.")) return;
+    button.disabled = true;
+    try {
+      await api(`/api/v1/admin/rental-requests/${button.dataset.id}/complete`, { method: "POST" });
+      toast("Аренда завершена. Raspberry освободит контейнер после следующей синхронизации.");
       await loadRentals();
       await loadOverview();
     } catch (error) {
