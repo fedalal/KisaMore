@@ -23,6 +23,11 @@ _PLANT_COLUMNS = {
     "seed_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     "microgreen_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     "rental_price_kisa": "INTEGER NOT NULL DEFAULT 20",
+    "watering_schedule": "JSON NOT NULL DEFAULT '[]'",
+    "watering_adjustment_limit_percent": "INTEGER NOT NULL DEFAULT 20",
+    "watering_adjustment_step_percent": "INTEGER NOT NULL DEFAULT 10",
+    "watering_min_interval_minutes": "INTEGER NOT NULL DEFAULT 240",
+    "extra_watering_options": "JSON NOT NULL DEFAULT '[]'",
 }
 
 
@@ -40,6 +45,14 @@ def _ensure_columns(connection, table_name: str, columns: dict[str, str]) -> Non
 
 def _ensure_plant_columns(connection) -> None:
     _ensure_columns(connection, "plants", _PLANT_COLUMNS)
+
+
+def _ensure_marketplace_columns(connection) -> None:
+    _ensure_columns(
+        connection,
+        "allocations",
+        {"watering_adjustment_percent": "INTEGER NOT NULL DEFAULT 0"},
+    )
 
 
 def _ensure_telegram_columns(connection) -> None:
@@ -85,16 +98,11 @@ def _ensure_telegram_columns(connection) -> None:
 
     tables = inspect(connection).get_table_names()
     if "social_follows" in tables:
-        # Existing follows predate last_notified_at. Starting from created_at
-        # prevents an old subscription from being permanently excluded from
-        # the new-photo notification query.
         connection.exec_driver_sql(
             "UPDATE social_follows SET last_notified_at = created_at "
             "WHERE last_notified_at IS NULL"
         )
 
-    # Keep linking optional for now. The partial integration must not fail when
-    # older Telegram rows have no marketplace account.
     if "telegram_users" in tables:
         connection.exec_driver_sql(
             "CREATE INDEX IF NOT EXISTS ix_telegram_users_marketplace_user_id "
@@ -106,4 +114,5 @@ async def create_tables() -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
         await connection.run_sync(_ensure_plant_columns)
+        await connection.run_sync(_ensure_marketplace_columns)
         await connection.run_sync(_ensure_telegram_columns)
