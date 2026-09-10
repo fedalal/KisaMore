@@ -11,6 +11,16 @@ ResourceType = Literal["slot", "rack"]
 SUPPORTED_LANGUAGES = ("en", "ru", "zh", "de", "fr", "es", "it", "pt", "pl")
 
 
+class WateringScheduleSnapshotIn(BaseModel):
+    time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    ml: int = Field(ge=1, le=2000)
+
+
+class ExtraWateringOptionSnapshotIn(BaseModel):
+    ml: int = Field(ge=1, le=2000)
+    price_kisa: int = Field(ge=0, le=1_000_000)
+
+
 class PlantSnapshotIn(BaseModel):
     plant_id: str = Field(min_length=1, max_length=36)
     code: str = Field(min_length=1, max_length=80)
@@ -20,6 +30,11 @@ class PlantSnapshotIn(BaseModel):
     microgreen_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     grow_days: int = Field(ge=1, le=365)
     rental_price_kisa: int = Field(default=20, ge=0, le=1_000_000)
+    watering_schedule: list[WateringScheduleSnapshotIn] = Field(default_factory=list, max_length=12)
+    watering_adjustment_limit_percent: int = Field(default=20, ge=0, le=50)
+    watering_adjustment_step_percent: int = Field(default=10, ge=1, le=25)
+    watering_min_interval_minutes: int = Field(default=240, ge=30, le=1440)
+    extra_watering_options: list[ExtraWateringOptionSnapshotIn] = Field(default_factory=list, max_length=10)
     active: bool = True
     updated_at: datetime | None = None
 
@@ -137,6 +152,11 @@ class PlantPublicOut(BaseModel):
     microgreen_image_name: str
     grow_days: int
     rental_price_kisa: int = 20
+    watering_schedule: list[WateringScheduleSnapshotIn] = Field(default_factory=list)
+    watering_adjustment_limit_percent: int = 20
+    watering_adjustment_step_percent: int = 10
+    watering_min_interval_minutes: int = 240
+    extra_watering_options: list[ExtraWateringOptionSnapshotIn] = Field(default_factory=list)
 
 
 class PlantingPublicOut(BaseModel):
