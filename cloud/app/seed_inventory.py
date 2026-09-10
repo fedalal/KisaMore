@@ -19,6 +19,7 @@ class SeedInventorySetting(Base):
 
     plant_id: Mapped[str] = mapped_column(ForeignKey("plants.id"), primary_key=True)
     seed_rate_g: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -69,6 +70,14 @@ def _round_g(value: float) -> float:
 
 def _resource_seed_portions(resource_type: str | None) -> int:
     return 6 if resource_type == "rack" else 1
+
+
+def _aware_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 async def seed_rate_g(session: AsyncSession, plant_id: str) -> float:
@@ -212,6 +221,7 @@ async def set_seed_rate(
         setting = SeedInventorySetting(
             plant_id=plant_id,
             seed_rate_g=value,
+            created_at=now,
             updated_at=now,
         )
         session.add(setting)
@@ -271,12 +281,19 @@ async def consume_seed_for_planting(
     planting: Planting,
     plant: Plant,
 ) -> SeedInventoryTransaction | None:
-    """Write off one configured seed portion exactly once per real planting."""
+    """Write off one configured seed portion exactly once per new real planting."""
     if planting.status not in ("growing", "ready", "harvested"):
         return None
 
-    rate = await seed_rate_g(session, plant.id)
-    if rate <= 0:
+    setting = await session.get(SeedInventorySetting, plant.id)
+    if setting is None or setting.seed_rate_g <= 0:
+        return None
+
+    # Rollout safety: configuring seed accounting must not retroactively deduct
+    # old test/harvested plantings that happened before inventory tracking began.
+    planted_at = _aware_utc(planting.planted_at)
+    configured_at = _aware_utc(setting.created_at)
+    if planted_at is None or configured_at is None or planted_at < configured_at:
         return None
 
     existing = (
@@ -296,7 +313,7 @@ async def consume_seed_for_planting(
     movement = SeedInventoryTransaction(
         id=str(uuid4()),
         plant_id=plant.id,
-        amount_g=-rate,
+        amount_g=-_round_g(setting.seed_rate_g),
         movement_type="planting",
         note="Automatic write-off when planting started",
         reference_type="planting",
