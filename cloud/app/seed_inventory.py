@@ -57,13 +57,18 @@ class SeedAvailability:
 
 
 class SeedUnavailable(ValueError):
-    def __init__(self, availability: SeedAvailability):
+    def __init__(self, availability: SeedAvailability, required_plantings: int = 1):
         super().__init__("seed_unavailable")
         self.availability = availability
+        self.required_plantings = max(1, int(required_plantings))
 
 
 def _round_g(value: float) -> float:
     return round(float(value or 0.0), 3)
+
+
+def _resource_seed_portions(resource_type: str | None) -> int:
+    return 6 if resource_type == "rack" else 1
 
 
 async def seed_rate_g(session: AsyncSession, plant_id: str) -> float:
@@ -85,10 +90,10 @@ async def seed_balance_g(session: AsyncSession, plant_id: str) -> float:
 async def reserved_plantings(session: AsyncSession, plant_id: str) -> int:
     """Return seed portions promised but not yet physically planted.
 
-    Requested Telegram rentals and generic marketplace reservations reserve one
-    planting portion. Approved/direct purchases are represented by an active
-    Allocation; once Raspberry reports a Planting for that allocation the seed
-    is consumed automatically and no longer counted as reserved.
+    A Telegram container request reserves one portion. Generic marketplace rack
+    reservations reserve six. Active allocations reserve only their still
+    unplanted positions; as Raspberry reports each real planting, that portion
+    is automatically consumed from the physical stock ledger.
     """
     telegram_requested = int(
         (
@@ -102,44 +107,42 @@ async def reserved_plantings(session: AsyncSession, plant_id: str) -> int:
         or 0
     )
 
-    marketplace_reserved = int(
-        (
-            await session.execute(
-                select(func.count(ReservationRequest.id)).where(
-                    ReservationRequest.plant_id == plant_id,
-                    ReservationRequest.status.in_(("waiting", "offered")),
-                )
+    marketplace_rows = (
+        await session.execute(
+            select(ReservationRequest.resource_type).where(
+                ReservationRequest.plant_id == plant_id,
+                ReservationRequest.status.in_(("waiting", "offered")),
             )
-        ).scalar_one()
-        or 0
-    )
+        )
+    ).scalars().all()
+    marketplace_reserved = sum(_resource_seed_portions(value) for value in marketplace_rows)
 
-    active_allocations = list(
-        (
-            await session.execute(
-                select(Allocation.id).where(
-                    Allocation.plant_id == plant_id,
-                    Allocation.status == "active",
-                )
+    allocation_rows = (
+        await session.execute(
+            select(Allocation.id, Allocation.resource_type).where(
+                Allocation.plant_id == plant_id,
+                Allocation.status == "active",
             )
-        ).scalars().all()
-    )
-    unplanted_allocations = 0
-    if active_allocations:
-        planted_allocation_ids = set(
+        )
+    ).all()
+    allocation_reserved = 0
+    if allocation_rows:
+        allocation_ids = [row.id for row in allocation_rows]
+        planting_counts = dict(
             (
                 await session.execute(
-                    select(Planting.cloud_allocation_id).where(
-                        Planting.cloud_allocation_id.in_(active_allocations)
-                    )
+                    select(Planting.cloud_allocation_id, func.count(Planting.id))
+                    .where(Planting.cloud_allocation_id.in_(allocation_ids))
+                    .group_by(Planting.cloud_allocation_id)
                 )
-            ).scalars().all()
+            ).all()
         )
-        unplanted_allocations = sum(
-            1 for allocation_id in active_allocations if allocation_id not in planted_allocation_ids
-        )
+        for allocation_id, resource_type in allocation_rows:
+            required = _resource_seed_portions(resource_type)
+            planted = int(planting_counts.get(allocation_id, 0) or 0)
+            allocation_reserved += max(0, required - planted)
 
-    return telegram_requested + marketplace_reserved + unplanted_allocations
+    return telegram_requested + marketplace_reserved + allocation_reserved
 
 
 async def seed_availability(session: AsyncSession, plant_id: str) -> SeedAvailability:
@@ -163,10 +166,16 @@ async def seed_availability(session: AsyncSession, plant_id: str) -> SeedAvailab
     )
 
 
-async def require_seed_available(session: AsyncSession, plant_id: str) -> SeedAvailability:
+async def require_seed_available(
+    session: AsyncSession,
+    plant_id: str,
+    *,
+    required_plantings: int = 1,
+) -> SeedAvailability:
+    required = max(1, int(required_plantings))
     availability = await seed_availability(session, plant_id)
-    if not availability.in_stock:
-        raise SeedUnavailable(availability)
+    if availability.seed_rate_g <= 0 or availability.available_plantings < required:
+        raise SeedUnavailable(availability, required_plantings=required)
     return availability
 
 
@@ -282,8 +291,8 @@ async def consume_seed_for_planting(
     if existing is not None:
         return None
 
-    # Physical planting is the source of truth. If stock bookkeeping was wrong,
-    # allow the ledger to become negative instead of hiding the real consumption.
+    # Physical planting is the source of truth. If bookkeeping was wrong,
+    # preserve the real consumption even if that reveals a negative balance.
     movement = SeedInventoryTransaction(
         id=str(uuid4()),
         plant_id=plant.id,
