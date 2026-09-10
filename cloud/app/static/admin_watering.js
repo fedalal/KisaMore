@@ -1,6 +1,7 @@
 (() => {
   "use strict";
 
+  const adminView = document.querySelector("#adminView");
   const nav = document.querySelector('.nav-item[data-section="watering"]');
   const section = document.querySelector("#section-watering");
   const body = document.querySelector("#wateringBody");
@@ -8,10 +9,11 @@
   const dateInput = document.querySelector("#wateringDate");
   const pendingOnly = document.querySelector("#wateringPendingOnly");
   const reload = document.querySelector("#reloadWatering");
-  if (!nav || !section || !body || !summary || !dateInput || !pendingOnly || !reload) return;
+  if (!adminView || !nav || !section || !body || !summary || !dateInput || !pendingOnly || !reload) return;
 
   let previousOverdue = null;
   let lastData = null;
+  let loading = false;
 
   function openSection(event) {
     event.preventDefault();
@@ -52,6 +54,7 @@
       <div class="watering-stat"><div class="label">Выполнено</div><div class="value">${esc(s.done)}</div></div>
       <div class="watering-stat"><div class="label">Всего в списке</div><div class="value">${esc(s.total)}</div></div>`;
     nav.textContent = s.pending > 0 ? `💧 Поливы · ${s.pending}` : "💧 Поливы";
+    nav.classList.toggle("watering-nav-overdue", s.overdue > 0);
     qs("#wateringTimezone").textContent = `Время теплицы: ${data.timezone}`;
 
     if (s.overdue > 0 && (previousOverdue === null || s.overdue > previousOverdue)) {
@@ -140,7 +143,11 @@
   }
 
   async function loadWaterings() {
-    body.innerHTML = `<tr><td colspan="7" class="muted">Загрузка поливов…</td></tr>`;
+    if (loading || adminView.hidden) return;
+    loading = true;
+    if (section.classList.contains("active")) {
+      body.innerHTML = `<tr><td colspan="7" class="muted">Загрузка поливов…</td></tr>`;
+    }
     try {
       const query = dateInput.value ? `?day=${encodeURIComponent(dateInput.value)}` : "";
       const data = await api(`/api/v1/admin/watering${query}`);
@@ -149,7 +156,11 @@
       renderSummary(data);
       renderRows(data);
     } catch (error) {
-      body.innerHTML = `<tr><td colspan="7" class="error">Не удалось загрузить поливы: ${esc(error.message)}</td></tr>`;
+      if (section.classList.contains("active")) {
+        body.innerHTML = `<tr><td colspan="7" class="error">Не удалось загрузить поливы: ${esc(error.message)}</td></tr>`;
+      }
+    } finally {
+      loading = false;
     }
   }
 
@@ -159,7 +170,15 @@
   dateInput.addEventListener("change", loadWaterings);
   pendingOnly.addEventListener("change", () => { if (lastData) renderRows(lastData); });
 
+  const authObserver = new MutationObserver(() => {
+    if (!adminView.hidden) loadWaterings();
+  });
+  authObserver.observe(adminView, { attributes: true, attributeFilter: ["hidden"] });
+  if (!adminView.hidden) loadWaterings();
+
+  // Reminders remain active even while the administrator is looking at another
+  // section. This keeps the pending badge and overdue warning up to date.
   setInterval(() => {
-    if (section.classList.contains("active") && !document.hidden) loadWaterings();
+    if (!adminView.hidden && !document.hidden) loadWaterings();
   }, 60000);
 })();
