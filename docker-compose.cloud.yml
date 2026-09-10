@@ -28,6 +28,7 @@ services:
       KISAMORE_OFFER_HOURS: ${KISAMORE_OFFER_HOURS:-24}
       KISAMORE_PHOTO_DIR: ${KISAMORE_PHOTO_DIR:-/srv/kisamore/data/photos}
       KISAMORE_PHOTO_MAX_BYTES: ${KISAMORE_PHOTO_MAX_BYTES:-2097152}
+      KISAMORE_FARM_TIMEZONE: ${KISAMORE_FARM_TIMEZONE:-Europe/Moscow}
       KISAMORE_BOOTSTRAP_FARM_SLUG: ${KISAMORE_BOOTSTRAP_FARM_SLUG}
       KISAMORE_BOOTSTRAP_FARM_NAME: ${KISAMORE_BOOTSTRAP_FARM_NAME}
       KISAMORE_BOOTSTRAP_DEVICE_ID: ${KISAMORE_BOOTSTRAP_DEVICE_ID}
@@ -80,12 +81,28 @@ services:
     volumes:
       - kisamore-photos:/srv/kisamore/data/photos
 
+  watering-worker:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "cloud.app.watering_worker"]
+    environment:
+      KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KISAMORE_FARM_TIMEZONE: ${KISAMORE_FARM_TIMEZONE:-Europe/Moscow}
+      KISAMORE_WATERING_CHECK_SECONDS: ${KISAMORE_WATERING_CHECK_SECONDS:-300}
+      KISAMORE_WATERING_HORIZON_HOURS: ${KISAMORE_WATERING_HORIZON_HOURS:-48}
+      KISAMORE_WATERING_LOOKBACK_HOURS: ${KISAMORE_WATERING_LOOKBACK_HOURS:-24}
+    depends_on:
+      api:
+        condition: service_healthy
+
   telegram-bot:
     build:
       context: .
       dockerfile: cloud/Dockerfile
     restart: unless-stopped
-    command: ["python", "-m", "cloud.app.telegram.worker_slot_photos"]
+    command: ["python", "-m", "cloud.app.telegram.worker_watering"]
     environment:
       KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       KISAMORE_CORS_ORIGINS: ${KISAMORE_CORS_ORIGINS}
@@ -95,6 +112,7 @@ services:
       KISAMORE_OFFER_HOURS: ${KISAMORE_OFFER_HOURS:-24}
       KISAMORE_PHOTO_DIR: ${KISAMORE_PHOTO_DIR:-/srv/kisamore/data/photos}
       KISAMORE_PHOTO_MAX_BYTES: ${KISAMORE_PHOTO_MAX_BYTES:-2097152}
+      KISAMORE_FARM_TIMEZONE: ${KISAMORE_FARM_TIMEZONE:-Europe/Moscow}
       KISAMORE_BOOTSTRAP_FARM_SLUG: ${KISAMORE_BOOTSTRAP_FARM_SLUG}
       KISAMORE_BOOTSTRAP_FARM_NAME: ${KISAMORE_BOOTSTRAP_FARM_NAME}
       KISAMORE_BOOTSTRAP_DEVICE_ID: ${KISAMORE_BOOTSTRAP_DEVICE_ID}
@@ -107,6 +125,8 @@ services:
       api:
         condition: service_healthy
       timelapse-worker:
+        condition: service_started
+      watering-worker:
         condition: service_started
     volumes:
       - kisamore-photos:/srv/kisamore/data/photos:ro
