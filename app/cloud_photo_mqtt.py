@@ -20,7 +20,9 @@ def _photo_chunk_bytes() -> int:
 
 
 def _photo_timeout_seconds() -> float:
-    return max(10.0, float(os.getenv("KISAMORE_MQTT_PHOTO_TIMEOUT_SECONDS", "30")))
+    # Full-resolution 4K JPEGs are much larger than the previous 720p frames.
+    # Keep enough time for sequential QoS1 chunk delivery over Tailscale/VPN.
+    return max(10.0, float(os.getenv("KISAMORE_MQTT_PHOTO_TIMEOUT_SECONDS", "120")))
 
 
 def _message_id(data: bytes, rack_id: int) -> str:
