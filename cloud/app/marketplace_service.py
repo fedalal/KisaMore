@@ -58,6 +58,11 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
         plant.microgreen_image_name = incoming.microgreen_image_name
         plant.grow_days = incoming.grow_days
         plant.rental_price_kisa = incoming.rental_price_kisa
+        plant.watering_schedule = [item.model_dump() for item in incoming.watering_schedule]
+        plant.watering_adjustment_limit_percent = incoming.watering_adjustment_limit_percent
+        plant.watering_adjustment_step_percent = incoming.watering_adjustment_step_percent
+        plant.watering_min_interval_minutes = incoming.watering_min_interval_minutes
+        plant.extra_watering_options = [item.model_dump() for item in incoming.extra_watering_options]
         plant.active = incoming.active
         plant.edge_updated_at = incoming.updated_at
     await session.flush()
@@ -239,6 +244,7 @@ async def expire_offers(session: AsyncSession, now: datetime | None = None) -> N
                 created_at=now,
             )
         )
+
 
 async def process_waitlist(session: AsyncSession, device_id: str | None = None) -> None:
     """Create FIFO, time-limited offers for requests that can now be fulfilled."""
