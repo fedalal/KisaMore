@@ -8,6 +8,11 @@ _PLANT_COLUMNS = {
     "seed_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     "microgreen_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     "rental_price_kisa": "INTEGER NOT NULL DEFAULT 20",
+    "watering_schedule": "JSON NOT NULL DEFAULT '[]'",
+    "watering_adjustment_limit_percent": "INTEGER NOT NULL DEFAULT 20",
+    "watering_adjustment_step_percent": "INTEGER NOT NULL DEFAULT 10",
+    "watering_min_interval_minutes": "INTEGER NOT NULL DEFAULT 240",
+    "extra_watering_options": "JSON NOT NULL DEFAULT '[]'",
 }
 
 
@@ -20,17 +25,26 @@ def _ensure_plant_columns(connection) -> None:
         if name not in existing:
             connection.exec_driver_sql(f"ALTER TABLE plants ADD COLUMN {name} {definition}")
 
+
 async def ensure_db_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_plant_columns)
+
 
 async def ensure_db_racks(racks_count: int):
     async with SessionLocal() as s:
         for rack_id in range(1, racks_count + 1):
             st = (await s.execute(select(RackState).where(RackState.rack_id == rack_id))).scalar_one_or_none()
             if not st:
-                s.add(RackState(rack_id=rack_id))
+                st = RackState(rack_id=rack_id)
+                s.add(st)
+
+            # Whole-rack scheduled watering is intentionally disabled. The
+            # valves remain available in manual mode for service/maintenance,
+            # while real plant watering is now performed individually by hand.
+            st.water_mode = "manual"
+            st.water_on = False
 
             sch = (await s.execute(select(RackSchedule).where(RackSchedule.rack_id == rack_id))).scalar_one_or_none()
             if not sch:
