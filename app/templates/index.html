@@ -13,7 +13,7 @@
         <div class="dot"></div>
         <div>
           <div class="title">Система KisaMore</div>
-          <div class="subtitle">Стеллажи · свет и полив · расписание и ручной режим</div>
+          <div class="subtitle">Стеллажи · освещение · индивидуальный ручной полив</div>
         </div>
       </div>
       <div class="right">
@@ -37,7 +37,7 @@
     <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modal__head">
         <div>
-          <div id="modalTitle" class="modal__title">Расписание</div>
+          <div id="modalTitle" class="modal__title">Расписание света</div>
           <div class="modal__subtitle" id="modalSub">Стеллаж</div>
         </div>
         <button class="btn btn--ghost" id="modalX">✕</button>
@@ -45,12 +45,11 @@
 
       <div class="tabs">
         <button class="tab tab--active" data-tab="light">💡 Свет</button>
-        <button class="tab" data-tab="water">💧 Полив</button>
       </div>
 
       <div class="modal__body">
         <div class="legend">
-          <span class="muted">Интервалы в формате</span> <span class="code">HH:MM</span>
+          <span class="muted">Интервалы освещения в формате</span> <span class="code">HH:MM</span>
           <span class="muted">· один день может иметь несколько интервалов.</span>
         </div>
 
@@ -61,7 +60,7 @@
         </div>
 
         <div class="hint">
-          Совет: делай интервалы без перехода через полночь (например 08:00–20:00).
+          Полив растений теперь выполняется индивидуально вручную по заданиям из карточки растения.
         </div>
       </div>
     </div>
@@ -94,7 +93,7 @@
         </div>
 
         <div class="hint">
-          Примечание: изменения применяются сразу после сохранения.
+          Реле полива полок сохранены для сервисного обслуживания. Автоматический полив всей полки отключён.
         </div>
       </div>
     </div>
@@ -113,6 +112,7 @@
   </div>
 </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20260910-1"></script>
+  <script src="/static/manual_watering_ui.js?v=20260910-1"></script>
 </body>
 </html>
