@@ -155,6 +155,75 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
         planting.cloud_allocation_id = incoming.cloud_allocation_id
         planting.observed_at = payload.observed_at
 
+    # Finishing the physical growing cycle is also the natural end of a slot
+    # rental. This keeps Telegram's "My Garden" in sync with what the operator
+    # did on the Raspberry Pi and removes watering controls immediately after
+    # the harvested state reaches the cloud.
+    completed = await complete_harvested_allocations(session, device_id=device_id, now=now)
+    if completed:
+        await process_waitlist(session, device_id)
+
+
+async def complete_harvested_allocations(
+    session: AsyncSession,
+    *,
+    device_id: str | None = None,
+    now: datetime | None = None,
+) -> int:
+    """Complete active allocations whose linked planting has been harvested.
+
+    The allocation id stored on the planting is used deliberately. Matching by
+    rack/slot alone could accidentally close a newer rental after a container is
+    reused. Telegram rental requests are marked completed as part of the same
+    transaction, so the completed rental disappears from My Garden and its
+    watering button becomes unavailable.
+    """
+    from .telegram.models import TelegramRentalRequest
+
+    completed_at = aware_utc(now or datetime.now(timezone.utc)) or datetime.now(timezone.utc)
+    query = (
+        select(Allocation, Planting)
+        .join(Planting, Planting.cloud_allocation_id == Allocation.id)
+        .where(
+            Allocation.status == "active",
+            Planting.status == "harvested",
+        )
+        .order_by(Planting.observed_at)
+    )
+    if device_id:
+        query = query.where(Allocation.device_id == device_id)
+
+    rows = (await session.execute(query)).all()
+    count = 0
+    for allocation, planting in rows:
+        end_at = (
+            aware_utc(planting.actual_harvest_at)
+            or aware_utc(planting.observed_at)
+            or completed_at
+        )
+        allocation.status = "completed"
+        allocation.ends_at = end_at
+
+        requests = list(
+            (
+                await session.execute(
+                    select(TelegramRentalRequest).where(
+                        TelegramRentalRequest.note == f"allocation:{allocation.id}",
+                        TelegramRentalRequest.status == "approved",
+                    )
+                )
+            ).scalars().all()
+        )
+        for request in requests:
+            request.status = "completed"
+            request.updated_at = completed_at
+
+        count += 1
+
+    if count:
+        await session.flush()
+    return count
+
 
 async def active_inventory(session: AsyncSession, device_id: str):
     now = datetime.now(timezone.utc)
