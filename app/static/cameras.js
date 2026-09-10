@@ -57,6 +57,20 @@ function cameraIds(){
   return Object.keys(cfgState?.cameras || {}).sort();
 }
 
+function captureFrameSize(){
+  const width = Number(cfgState?.camera_capture?.frame_width || 1280);
+  const height = Number(cfgState?.camera_capture?.frame_height || 720);
+  return {
+    width: Math.max(2, width),
+    height: Math.max(2, height)
+  };
+}
+
+function scalePoint(value, sourceSize, targetSize){
+  if(sourceSize <= 1 || targetSize <= 1) return Number(value) || 0;
+  return (Number(value) || 0) * (targetSize - 1) / (sourceSize - 1);
+}
+
 function newCameraId(){
   let i = 1;
   while((cfgState.cameras || {})[`camera_${i}`]) i++;
@@ -245,15 +259,22 @@ function onRawPreviewClick(cameraId, event){
   const relativeX = event.clientX - rect.left;
   const relativeY = event.clientY - rect.top;
   if(relativeX < 0 || relativeY < 0 || relativeX > rect.width || relativeY > rect.height) return;
-  const x = Math.max(0, Math.min(
+
+  const previewX = Math.max(0, Math.min(
     img.naturalWidth - 1,
     Math.round(relativeX * img.naturalWidth / rect.width)
   ));
-  const y = Math.max(0, Math.min(
+  const previewY = Math.max(0, Math.min(
     img.naturalHeight - 1,
     Math.round(relativeY * img.naturalHeight / rect.height)
   ));
 
+  // Warp coordinates are stored in the full photo resolution (for example
+  // 3840x2160), while the ordinary preview is only 1280x720. Convert clicks
+  // back to capture coordinates so the same points can be applied to 4K photos.
+  const capture = captureFrameSize();
+  const x = Math.round(scalePoint(previewX, img.naturalWidth, capture.width));
+  const y = Math.round(scalePoint(previewY, img.naturalHeight, capture.height));
   picking.points.push(x, y);
 
   if(picking.points.length === 8){
@@ -278,17 +299,25 @@ function overlaySvg(cameraId){
 
   if(!Array.isArray(points) || points.length < 2) return "";
 
+  const image = document.getElementById(`cameraImg_raw_${cameraId}`);
+  const viewWidth = image?.naturalWidth || 1280;
+  const viewHeight = image?.naturalHeight || 720;
+  const capture = captureFrameSize();
+
+  // Stored points belong to the full-resolution photo. Draw a scaled copy on
+  // top of the smaller live preview without changing the values saved in YAML.
   const pairs = [];
-  for(let i=0;i<points.length;i+=2) pairs.push([points[i], points[i+1]]);
+  for(let i=0;i<points.length;i+=2){
+    pairs.push([
+      scalePoint(points[i], capture.width, viewWidth),
+      scalePoint(points[i + 1], capture.height, viewHeight)
+    ]);
+  }
   const poly = pairs.map(p => `${p[0]},${p[1]}`).join(" ");
   const circles = pairs.map((p, idx)=>`
     <circle cx="${p[0]}" cy="${p[1]}" r="8"></circle>
     <text x="${p[0] + 10}" y="${p[1] - 10}">${idx + 1}</text>
   `).join("");
-
-  const image = document.getElementById(`cameraImg_raw_${cameraId}`);
-  const viewWidth = image?.naturalWidth || cfgState?.camera_capture?.frame_width || 1280;
-  const viewHeight = image?.naturalHeight || cfgState?.camera_capture?.frame_height || 720;
 
   return `
     <svg class="cameraOverlay" viewBox="0 0 ${viewWidth} ${viewHeight}" preserveAspectRatio="none">
