@@ -16,6 +16,16 @@ from . import worker as existing
 
 
 core = existing.core
+# Keep Kisa as a large internal unit: roughly $1 of developer reward per Kisa.
+# The larger packs progressively reduce the Stars-per-Kisa rate. The 20 Kisa
+# pack is intentionally priced at 1,540 Stars (~$20.02 at $0.013/Star), which
+# matches the default 10-day container rental price of 20 Kisa.
+core.PACKAGES = {
+    85: 1,
+    410: 5,
+    800: 10,
+    1540: 20,
+}
 _original_get_plant_card = core.get_plant_card
 _original_handle_callback = core.handle_callback
 
