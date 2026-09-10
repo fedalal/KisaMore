@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from ..db import SessionLocal
 from ..models import Allocation, Offer, Plant, RackSlot
+from ..seed_inventory import SeedUnavailable, require_seed_available
 from .models import TelegramRentalRequest, WalletAccount, WalletTransaction
 
 
@@ -90,7 +91,7 @@ async def create_rental_request(
     slot_id: int,
     plant_id: str,
 ) -> TelegramRentalRequest:
-    """Atomically reserve the slot and charge the plant rental price in Kisa."""
+    """Atomically reserve the slot and one seed portion, then charge Kisa."""
     now = datetime.now(timezone.utc)
     async with SessionLocal() as session:
         slot = (
@@ -98,13 +99,18 @@ async def create_rental_request(
                 select(RackSlot).where(RackSlot.id == slot_id).with_for_update()
             )
         ).scalar_one_or_none()
-        plant = await session.get(Plant, plant_id)
+        plant = (
+            await session.execute(
+                select(Plant).where(Plant.id == plant_id).with_for_update()
+            )
+        ).scalar_one_or_none()
         if slot is None or not slot.enabled or slot.physical_status != "available":
             raise ValueError("slot_unavailable")
         if plant is None or not plant.active:
             raise ValueError("plant_unavailable")
 
-        # A repeated Telegram callback must be idempotent and never charge twice.
+        # A repeated Telegram callback must be idempotent and never charge twice
+        # or require a second seed portion.
         existing = (
             await session.execute(
                 select(TelegramRentalRequest)
@@ -163,6 +169,10 @@ async def create_rental_request(
         if any(_resource_blocks_slot(item, slot) for item in offers):
             raise ValueError("slot_unavailable")
 
+        # The Plant row is locked above, so concurrent rental requests for the
+        # same crop cannot both reserve the last available seed portion.
+        await require_seed_available(session, plant.id)
+
         wallet = (
             await session.execute(
                 select(WalletAccount).where(WalletAccount.user_id == user_id).with_for_update()
@@ -205,3 +215,12 @@ async def create_rental_request(
         await session.refresh(request)
         request._was_just_created = True
         return request
+
+
+__all__ = [
+    "ACTIVE_REQUEST_STATUSES",
+    "InsufficientRentalBalance",
+    "SeedUnavailable",
+    "create_rental_request",
+    "list_available_slots",
+]
