@@ -227,67 +227,6 @@ class CameraWorker:
         except Exception as e:
             print(f"[camera-manager] v4l2 ctrl exception for {self.device}: {ctrl}; {e}")
 
-    def _set_opencv_control(self, property_name: str, value: int) -> bool:
-        if self.cap is None:
-            return False
-        property_id = getattr(cv2, property_name, None)
-        if property_id is None:
-            return False
-        try:
-            return bool(self.cap.set(property_id, value))
-        except Exception as e:
-            print(
-                f"[camera-manager] OpenCV ctrl exception for {self.device}: "
-                f"{property_name}={value}; {e}"
-            )
-            return False
-
-    def _apply_opencv_controls(self):
-        """Reapply controls after VideoCapture opens, before the first read()."""
-        with self.lock:
-            autofocus_enabled = self.autofocus_enabled
-            focus_absolute = self.focus_absolute
-            white_balance_auto = self.white_balance_auto
-            white_balance_temperature = self.white_balance_temperature
-
-        self._set_opencv_control(
-            "CAP_PROP_AUTOFOCUS",
-            1 if autofocus_enabled else 0,
-        )
-        if not autofocus_enabled and focus_absolute is not None:
-            focus_control = self._find_control("focus_absolute")
-            focus_value = (
-                self._normalize_control_value(focus_control, int(focus_absolute))
-                if focus_control
-                else int(focus_absolute)
-            )
-            self._set_opencv_control("CAP_PROP_FOCUS", focus_value)
-
-        self._set_opencv_control(
-            "CAP_PROP_AUTO_WB",
-            1 if white_balance_auto else 0,
-        )
-        if not white_balance_auto and white_balance_temperature is not None:
-            temperature_control = self._find_control("white_balance_temperature")
-            temperature_value = (
-                self._normalize_control_value(
-                    temperature_control,
-                    int(white_balance_temperature),
-                )
-                if temperature_control
-                else int(white_balance_temperature)
-            )
-            self._set_opencv_control(
-                "CAP_PROP_WB_TEMPERATURE",
-                temperature_value,
-            )
-
-        print(
-            f"[camera-manager] controls applied for {self.device}: "
-            f"autofocus={autofocus_enabled}, focus={focus_absolute}, "
-            f"auto_wb={white_balance_auto}, wb_temperature={white_balance_temperature}"
-        )
-
     def _apply_camera_controls(self):
         with self.lock:
             autofocus_enabled = self.autofocus_enabled
@@ -295,8 +234,9 @@ class CameraWorker:
             white_balance_auto = self.white_balance_auto
             white_balance_temperature = self.white_balance_temperature
 
-        # Different UVC cameras expose different names for the same controls.
-        # Apply only controls that the selected device actually reports.
+        # Use the camera's native V4L2 controls. OpenCV's generic focus/WB
+        # properties do not map reliably to every UVC camera, especially when
+        # white_balance_temperature is a small vendor-specific 1..5 preset.
         autofocus_control = self._find_control(
             "focus_automatic_continuous",
             "focus_auto",
@@ -333,6 +273,12 @@ class CameraWorker:
                 int(white_balance_temperature),
             )
 
+        print(
+            f"[camera-manager] native controls applied for {self.device}: "
+            f"autofocus={autofocus_enabled}, focus={focus_absolute}, "
+            f"auto_wb={white_balance_auto}, wb_temperature={white_balance_temperature}"
+        )
+
     def _run(self):
         while not self.stop_event.is_set():
             try:
@@ -340,8 +286,10 @@ class CameraWorker:
                 # arriving afterwards remains set and causes another clean cycle.
                 self.reconfigure_event.clear()
 
-                # v4l2-ctl gets exclusive access before OpenCV opens the stream.
-                self._apply_camera_controls()
+                # Discover names/ranges before OpenCV owns the camera. We cache
+                # this information so applying controls below does not need a
+                # second --list-ctrls call while the device is open.
+                self._read_supported_controls()
 
                 self.cap = cv2.VideoCapture(self.device, cv2.CAP_V4L2)
 
@@ -354,18 +302,19 @@ class CameraWorker:
                     width = self.frame_width
                     height = self.frame_height
 
-                # Важно: у новой камеры высокие разрешения доступны именно в MJPG.
-                # Если не указать FOURCC, OpenCV может открыть камеру в YUYV
-                # и получить более низкое разрешение.
+                # High resolutions on these cameras are available in MJPG. Set
+                # the final stream format first because some UVC firmware resets
+                # focus/WB whenever the format or resolution changes.
                 self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                 self.cap.set(cv2.CAP_PROP_FPS, 15)
 
-                # Opening or changing the UVC format can reset automatic
-                # controls. Apply them again through the same capture handle,
-                # still before read(), so there is no concurrent USB ioctl.
-                self._apply_opencv_controls()
+                # Apply the real V4L2 controls AFTER format selection and BEFORE
+                # the first read(). This restores the old effective behaviour
+                # without reintroducing the former read/ioctl race that could
+                # freeze USB cameras.
+                self._apply_camera_controls()
 
                 actual_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 actual_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
