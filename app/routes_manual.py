@@ -7,14 +7,17 @@ from . import runtime
 
 router = APIRouter(prefix="/api", tags=["manual"])
 
+
 def _ensure_runtime():
     if not runtime.cfg or not runtime.driver:
         raise HTTPException(500, "runtime not initialized")
+
 
 def _ensure_rack(rack_id: int):
     _ensure_runtime()
     if rack_id < 1 or rack_id > runtime.cfg.racks_count:
         raise HTTPException(404, "rack not found")
+
 
 @router.post("/rack/{rack_id}/light/manual")
 async def manual_light(rack_id: int, payload: ManualSetIn):
@@ -31,8 +34,14 @@ async def manual_light(rack_id: int, payload: ManualSetIn):
     await runtime.driver.set_relay(relay_id, payload.on)
     return {"ok": True}
 
+
 @router.post("/rack/{rack_id}/water/manual")
 async def manual_water(rack_id: int, payload: ManualSetIn):
+    """Service-only whole-rack watering.
+
+    Plant watering is now performed individually by hand. The physical rack
+    valve remains available here for maintenance and flushing only.
+    """
     _ensure_rack(rack_id)
     async with SessionLocal() as s:
         st = (await s.execute(select(RackState).where(RackState.rack_id == rack_id))).scalar_one_or_none()
@@ -46,6 +55,7 @@ async def manual_water(rack_id: int, payload: ManualSetIn):
     await runtime.driver.set_relay(relay_id, payload.on)
     return {"ok": True}
 
+
 @router.post("/rack/{rack_id}/light/mode")
 async def set_light_mode(rack_id: int, payload: ModeSetIn):
     _ensure_rack(rack_id)
@@ -57,13 +67,19 @@ async def set_light_mode(rack_id: int, payload: ModeSetIn):
         await s.commit()
     return {"ok": True}
 
+
 @router.post("/rack/{rack_id}/water/mode")
 async def set_water_mode(rack_id: int, payload: ModeSetIn):
     _ensure_rack(rack_id)
+    if payload.mode != "manual":
+        raise HTTPException(
+            status_code=409,
+            detail="Автоматический полив всей полки отключён. Растения поливаются индивидуально вручную.",
+        )
     async with SessionLocal() as s:
         st = (await s.execute(select(RackState).where(RackState.rack_id == rack_id))).scalar_one_or_none()
         if not st:
             raise HTTPException(404, "rack not found")
-        st.water_mode = payload.mode
+        st.water_mode = "manual"
         await s.commit()
     return {"ok": True}
