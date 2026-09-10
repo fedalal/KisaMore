@@ -118,7 +118,7 @@
       ? new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(new Date(planting.expected_harvest_at))
       : t(slot.status);
     const actions = card.querySelector(".slot-actions");
-    if (slot.status === "available" && plants.some((plant) => plant.active)) {
+    if ((slot.status === "available" || slot.status === "reserved") && plants.some((plant) => plant.active)) {
       actions.append(actionButton(t("start"), () => openPlanting(slot)));
     } else if (planting?.status === "growing") {
       actions.append(actionButton(t("markReady"), () => updatePlanting(planting.id, { status: "ready" })));
@@ -193,12 +193,20 @@
     form.elements.rackId.value = slot.rack_id;
     form.elements.slotNumber.value = slot.slot_number;
     form.elements.plantedAt.value = localDateTime();
-    form.elements.plantId.replaceChildren(...plants.filter((plant) => plant.active).map((plant) => {
+
+    const activePlants = plants.filter((plant) => plant.active);
+    const requestedPlant = slot.requested_plant_id
+      ? activePlants.find((plant) => plant.id === slot.requested_plant_id)
+      : null;
+    const candidates = slot.status === "reserved" && requestedPlant ? [requestedPlant] : activePlants;
+
+    form.elements.plantId.replaceChildren(...candidates.map((plant) => {
       const option = document.createElement("option");
       option.value = plant.id;
       option.textContent = plantName(plant);
       return option;
     }));
+    form.elements.plantId.disabled = Boolean(slot.status === "reserved" && requestedPlant);
     $("#plantingDialog").showModal();
   }
 
@@ -281,6 +289,7 @@
     const payload = { rack_id: Number(form.elements.rackId.value), slot_number: Number(form.elements.slotNumber.value), plant_id: form.elements.plantId.value, planted_at: new Date(form.elements.plantedAt.value).toISOString(), notes: form.elements.notes.value.trim() };
     try { await api("/api/growing/plantings", { method: "POST", body: JSON.stringify(payload) }); $("#plantingDialog").close(); await load(); }
     catch (error) { console.error(error); showError(t("saveError")); }
+    finally { form.elements.plantId.disabled = false; }
   });
 
   applyLanguage();
