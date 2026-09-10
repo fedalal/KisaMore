@@ -157,16 +157,17 @@ async def _queue_planting_event(
     plant: Plant,
     slot: RackSlot,
     telegram_user: TelegramUser,
-    kind: str,
+    delivery_kind: str,
+    text_key: str,
     event_time: datetime,
     button_key: str,
     callback_data: str,
 ) -> bool:
-    key = f"{kind}:{planting.id}"
+    key = f"{delivery_kind}:{planting.id}"
     if await _already_exists(session, key):
         return False
     lang = user_language(telegram_user.language_code)
-    text = TEXTS[lang][kind].format(
+    text = TEXTS[lang][text_key].format(
         plant=plant_name(plant, lang),
         rack=slot.rack_id,
         slot=slot.slot_number,
@@ -176,7 +177,7 @@ async def _queue_planting_event(
         TelegramActivityDelivery(
             event_key=key,
             telegram_user_id=telegram_user.telegram_user_id,
-            kind=kind,
+            kind=delivery_kind,
             payload={
                 "text": text,
                 "button": TEXTS[lang][button_key],
@@ -218,7 +219,8 @@ async def discover_activity(session, now: datetime) -> int:
             plant=plant,
             slot=slot,
             telegram_user=telegram_user,
-            kind="started",
+            delivery_kind="planting_started",
+            text_key="started",
             event_time=aware_utc(planting.planted_at) or now,
             button_key="open",
             callback_data=f"plant:show:{planting.id}:0",
@@ -248,7 +250,8 @@ async def discover_activity(session, now: datetime) -> int:
             plant=plant,
             slot=slot,
             telegram_user=telegram_user,
-            kind="ready",
+            delivery_kind="planting_ready",
+            text_key="ready",
             event_time=aware_utc(planting.observed_at) or now,
             button_key="open",
             callback_data=f"plant:show:{planting.id}:0",
@@ -280,7 +283,8 @@ async def discover_activity(session, now: datetime) -> int:
             plant=plant,
             slot=slot,
             telegram_user=telegram_user,
-            kind="harvested",
+            delivery_kind="planting_harvested",
+            text_key="harvested",
             event_time=event_time,
             button_key="garden",
             callback_data="menu:garden",
