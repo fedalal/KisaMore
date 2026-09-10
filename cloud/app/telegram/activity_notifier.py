@@ -44,57 +44,84 @@ class TelegramActivityDelivery(Base):
 TEXTS = {
     "en": {
         "started": "🌱 <b>Your plant has been planted!</b>\n\n{plant}\nRack {rack} · Container {slot}\nStarted: {time}\n\nWe will also let you know when it is watered.",
+        "ready": "🌿 <b>Your plant is ready!</b>\n\n{plant}\nRack {rack} · Container {slot}\nReady: {time}\n\nThe growing stage is complete and scheduled watering has stopped. Your plant is ready for harvest.",
+        "harvested": "✅ <b>Growing cycle completed</b>\n\n{plant}\nRack {rack} · Container {slot}\nHarvested: {time}\n\nThank you for growing with KisaMore!",
         "watered": "💧 <b>Your plant has been watered</b>\n\n{plant}\nRack {rack} · Container {slot}\nWater: <b>{ml} ml</b>\n{kind}Completed: {time}",
         "extra": "Additional watering\n",
         "open": "🌱 Open my plant",
+        "garden": "🪴 Open My Garden",
     },
     "ru": {
         "started": "🌱 <b>Ваше растение посажено!</b>\n\n{plant}\nПолка {rack} · контейнер {slot}\nПосажено: {time}\n\nТеперь я буду сообщать вам и о каждом выполненном поливе.",
+        "ready": "🌿 <b>Ваше растение готово!</b>\n\n{plant}\nПолка {rack} · контейнер {slot}\nГотово: {time}\n\nЭтап выращивания завершён, плановые поливы остановлены. Растение готово к сбору.",
+        "harvested": "✅ <b>Выращивание завершено</b>\n\n{plant}\nПолка {rack} · контейнер {slot}\nУбрано: {time}\n\nВаш цикл выращивания завершён. Спасибо, что выращивали вместе с KisaMore!",
         "watered": "💧 <b>Ваше растение полито</b>\n\n{plant}\nПолка {rack} · контейнер {slot}\nОбъём воды: <b>{ml} мл</b>\n{kind}Выполнено: {time}",
         "extra": "Дополнительный полив\n",
         "open": "🌱 Открыть моё растение",
+        "garden": "🪴 Открыть мой сад",
     },
     "de": {
         "started": "🌱 <b>Deine Pflanze wurde gepflanzt!</b>\n\n{plant}\nRegal {rack} · Behälter {slot}\nGestartet: {time}\n\nWir informieren dich auch über jede Bewässerung.",
+        "ready": "🌿 <b>Deine Pflanze ist bereit!</b>\n\n{plant}\nRegal {rack} · Behälter {slot}\nBereit: {time}\n\nDie Wachstumsphase ist abgeschlossen und die planmäßige Bewässerung wurde beendet. Die Pflanze ist erntereif.",
+        "harvested": "✅ <b>Anbauzyklus abgeschlossen</b>\n\n{plant}\nRegal {rack} · Behälter {slot}\nGeerntet: {time}\n\nDanke, dass du mit KisaMore angebaut hast!",
         "watered": "💧 <b>Deine Pflanze wurde bewässert</b>\n\n{plant}\nRegal {rack} · Behälter {slot}\nWasser: <b>{ml} ml</b>\n{kind}Erledigt: {time}",
         "extra": "Zusätzliche Bewässerung\n",
         "open": "🌱 Meine Pflanze öffnen",
+        "garden": "🪴 Meinen Garten öffnen",
     },
     "fr": {
         "started": "🌱 <b>Votre plante a été mise en culture !</b>\n\n{plant}\nÉtagère {rack} · bac {slot}\nDébut : {time}\n\nNous vous informerons aussi de chaque arrosage.",
+        "ready": "🌿 <b>Votre plante est prête !</b>\n\n{plant}\nÉtagère {rack} · bac {slot}\nPrête : {time}\n\nLa phase de croissance est terminée et les arrosages programmés sont arrêtés. La plante est prête à être récoltée.",
+        "harvested": "✅ <b>Cycle de culture terminé</b>\n\n{plant}\nÉtagère {rack} · bac {slot}\nRécoltée : {time}\n\nMerci d’avoir cultivé avec KisaMore !",
         "watered": "💧 <b>Votre plante a été arrosée</b>\n\n{plant}\nÉtagère {rack} · bac {slot}\nEau : <b>{ml} ml</b>\n{kind}Terminé : {time}",
         "extra": "Arrosage supplémentaire\n",
         "open": "🌱 Ouvrir ma plante",
+        "garden": "🪴 Ouvrir mon jardin",
     },
     "es": {
         "started": "🌱 <b>¡Tu planta ha sido plantada!</b>\n\n{plant}\nEstante {rack} · contenedor {slot}\nInicio: {time}\n\nTambién te avisaremos de cada riego.",
+        "ready": "🌿 <b>¡Tu planta está lista!</b>\n\n{plant}\nEstante {rack} · contenedor {slot}\nLista: {time}\n\nLa etapa de crecimiento ha terminado y el riego programado se ha detenido. La planta está lista para cosechar.",
+        "harvested": "✅ <b>Ciclo de cultivo completado</b>\n\n{plant}\nEstante {rack} · contenedor {slot}\nCosechada: {time}\n\n¡Gracias por cultivar con KisaMore!",
         "watered": "💧 <b>Tu planta ha sido regada</b>\n\n{plant}\nEstante {rack} · contenedor {slot}\nAgua: <b>{ml} ml</b>\n{kind}Completado: {time}",
         "extra": "Riego adicional\n",
         "open": "🌱 Abrir mi planta",
+        "garden": "🪴 Abrir Mi Jardín",
     },
     "it": {
         "started": "🌱 <b>La tua pianta è stata piantata!</b>\n\n{plant}\nScaffale {rack} · contenitore {slot}\nInizio: {time}\n\nTi avviseremo anche per ogni irrigazione.",
+        "ready": "🌿 <b>La tua pianta è pronta!</b>\n\n{plant}\nScaffale {rack} · contenitore {slot}\nPronta: {time}\n\nLa fase di crescita è terminata e l'irrigazione programmata è stata interrotta. La pianta è pronta per la raccolta.",
+        "harvested": "✅ <b>Ciclo di coltivazione completato</b>\n\n{plant}\nScaffale {rack} · contenitore {slot}\nRaccolta: {time}\n\nGrazie per aver coltivato con KisaMore!",
         "watered": "💧 <b>La tua pianta è stata irrigata</b>\n\n{plant}\nScaffale {rack} · contenitore {slot}\nAcqua: <b>{ml} ml</b>\n{kind}Completato: {time}",
         "extra": "Irrigazione aggiuntiva\n",
         "open": "🌱 Apri la mia pianta",
+        "garden": "🪴 Apri il mio giardino",
     },
     "pt": {
         "started": "🌱 <b>Sua planta foi plantada!</b>\n\n{plant}\nPrateleira {rack} · recipiente {slot}\nInício: {time}\n\nTambém avisaremos sobre cada rega.",
+        "ready": "🌿 <b>Sua planta está pronta!</b>\n\n{plant}\nPrateleira {rack} · recipiente {slot}\nPronta: {time}\n\nA fase de crescimento terminou e a rega programada foi interrompida. A planta está pronta para a colheita.",
+        "harvested": "✅ <b>Ciclo de cultivo concluído</b>\n\n{plant}\nPrateleira {rack} · recipiente {slot}\nColhida: {time}\n\nObrigado por cultivar com KisaMore!",
         "watered": "💧 <b>Sua planta foi regada</b>\n\n{plant}\nPrateleira {rack} · recipiente {slot}\nÁgua: <b>{ml} ml</b>\n{kind}Concluído: {time}",
         "extra": "Rega adicional\n",
         "open": "🌱 Abrir minha planta",
+        "garden": "🪴 Abrir meu jardim",
     },
     "pl": {
         "started": "🌱 <b>Twoja roślina została posadzona!</b>\n\n{plant}\nPółka {rack} · pojemnik {slot}\nStart: {time}\n\nBędziemy też informować o każdym podlewaniu.",
+        "ready": "🌿 <b>Twoja roślina jest gotowa!</b>\n\n{plant}\nPółka {rack} · pojemnik {slot}\nGotowa: {time}\n\nEtap wzrostu został zakończony i zaplanowane podlewanie zostało zatrzymane. Roślina jest gotowa do zbioru.",
+        "harvested": "✅ <b>Cykl uprawy zakończony</b>\n\n{plant}\nPółka {rack} · pojemnik {slot}\nZebrano: {time}\n\nDziękujemy za uprawę z KisaMore!",
         "watered": "💧 <b>Twoja roślina została podlana</b>\n\n{plant}\nPółka {rack} · pojemnik {slot}\nWoda: <b>{ml} ml</b>\n{kind}Wykonano: {time}",
         "extra": "Dodatkowe podlewanie\n",
         "open": "🌱 Otwórz moją roślinę",
+        "garden": "🪴 Otwórz mój ogród",
     },
     "zh": {
         "started": "🌱 <b>您的植物已经种下！</b>\n\n{plant}\n架子 {rack} · 容器 {slot}\n开始时间：{time}\n\n之后每次浇水完成，我们也会通知您。",
+        "ready": "🌿 <b>您的植物已经成熟！</b>\n\n{plant}\n架子 {rack} · 容器 {slot}\n成熟时间：{time}\n\n生长阶段已经结束，计划浇水已停止。植物可以收获了。",
+        "harvested": "✅ <b>种植周期已完成</b>\n\n{plant}\n架子 {rack} · 容器 {slot}\n收获时间：{time}\n\n感谢您与 KisaMore 一起种植！",
         "watered": "💧 <b>您的植物已完成浇水</b>\n\n{plant}\n架子 {rack} · 容器 {slot}\n水量：<b>{ml} 毫升</b>\n{kind}完成时间：{time}",
         "extra": "额外浇水\n",
         "open": "🌱 打开我的植物",
+        "garden": "🪴 打开我的花园",
     },
 }
 
@@ -123,6 +150,47 @@ async def _already_exists(session, event_key: str) -> bool:
     return await session.get(TelegramActivityDelivery, event_key) is not None
 
 
+async def _queue_planting_event(
+    session,
+    *,
+    planting: Planting,
+    plant: Plant,
+    slot: RackSlot,
+    telegram_user: TelegramUser,
+    kind: str,
+    event_time: datetime,
+    button_key: str,
+    callback_data: str,
+) -> bool:
+    key = f"{kind}:{planting.id}"
+    if await _already_exists(session, key):
+        return False
+    lang = user_language(telegram_user.language_code)
+    text = TEXTS[lang][kind].format(
+        plant=plant_name(plant, lang),
+        rack=slot.rack_id,
+        slot=slot.slot_number,
+        time=local_time(event_time),
+    )
+    session.add(
+        TelegramActivityDelivery(
+            event_key=key,
+            telegram_user_id=telegram_user.telegram_user_id,
+            kind=kind,
+            payload={
+                "text": text,
+                "button": TEXTS[lang][button_key],
+                "callback_data": callback_data,
+                "planting_id": planting.id,
+            },
+            status="pending",
+            attempts=0,
+            created_at=aware_utc(event_time) or datetime.now(timezone.utc),
+        )
+    )
+    return True
+
+
 async def discover_activity(session, now: datetime) -> int:
     cutoff = now - timedelta(hours=RECENT_HOURS)
     created = 0
@@ -144,33 +212,80 @@ async def discover_activity(session, now: datetime) -> int:
     ).all()
 
     for planting, plant, slot, _allocation, telegram_user in planting_rows:
-        key = f"planting_started:{planting.id}"
-        if await _already_exists(session, key):
-            continue
-        lang = user_language(telegram_user.language_code)
-        text = TEXTS[lang]["started"].format(
-            plant=plant_name(plant, lang),
-            rack=slot.rack_id,
-            slot=slot.slot_number,
-            time=local_time(planting.planted_at),
-        )
-        session.add(
-            TelegramActivityDelivery(
-                event_key=key,
-                telegram_user_id=telegram_user.telegram_user_id,
-                kind="planting_started",
-                payload={
-                    "text": text,
-                    "button": TEXTS[lang]["open"],
-                    "callback_data": f"plant:show:{planting.id}:0",
-                    "planting_id": planting.id,
-                },
-                status="pending",
-                attempts=0,
-                created_at=aware_utc(planting.planted_at) or now,
+        if await _queue_planting_event(
+            session,
+            planting=planting,
+            plant=plant,
+            slot=slot,
+            telegram_user=telegram_user,
+            kind="started",
+            event_time=aware_utc(planting.planted_at) or now,
+            button_key="open",
+            callback_data=f"plant:show:{planting.id}:0",
+        ):
+            created += 1
+
+    ready_rows = (
+        await session.execute(
+            select(Planting, Plant, RackSlot, Allocation, TelegramUser)
+            .join(Plant, Plant.id == Planting.plant_id)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .join(Allocation, Allocation.id == Planting.cloud_allocation_id)
+            .join(TelegramUser, TelegramUser.marketplace_user_id == Allocation.user_id)
+            .where(
+                Planting.status == "ready",
+                Planting.observed_at >= cutoff,
+                TelegramUser.is_active.is_(True),
             )
+            .order_by(Planting.observed_at)
         )
-        created += 1
+    ).all()
+
+    for planting, plant, slot, _allocation, telegram_user in ready_rows:
+        if await _queue_planting_event(
+            session,
+            planting=planting,
+            plant=plant,
+            slot=slot,
+            telegram_user=telegram_user,
+            kind="ready",
+            event_time=aware_utc(planting.observed_at) or now,
+            button_key="open",
+            callback_data=f"plant:show:{planting.id}:0",
+        ):
+            created += 1
+
+    harvested_rows = (
+        await session.execute(
+            select(Planting, Plant, RackSlot, Allocation, TelegramUser)
+            .join(Plant, Plant.id == Planting.plant_id)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .join(Allocation, Allocation.id == Planting.cloud_allocation_id)
+            .join(TelegramUser, TelegramUser.marketplace_user_id == Allocation.user_id)
+            .where(
+                Planting.status == "harvested",
+                TelegramUser.is_active.is_(True),
+            )
+            .order_by(Planting.actual_harvest_at, Planting.observed_at)
+        )
+    ).all()
+
+    for planting, plant, slot, _allocation, telegram_user in harvested_rows:
+        event_time = aware_utc(planting.actual_harvest_at) or aware_utc(planting.observed_at) or now
+        if event_time < cutoff:
+            continue
+        if await _queue_planting_event(
+            session,
+            planting=planting,
+            plant=plant,
+            slot=slot,
+            telegram_user=telegram_user,
+            kind="harvested",
+            event_time=event_time,
+            button_key="garden",
+            callback_data="menu:garden",
+        ):
+            created += 1
 
     watering_rows = (
         await session.execute(
