@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .admin_models import AdminAuditLog
+from .marketplace_service import process_waitlist
 from .models import Allocation, Offer, Plant, RackSlot, User
 from .security import get_admin_user, get_session
 from .telegram.models import (
@@ -133,6 +134,15 @@ async def _allocation_for_request(
     telegram_user: TelegramUser,
     slot: RackSlot,
 ):
+    """Resolve the allocation created for this request, including completed rentals."""
+    note = (request.note or "").strip()
+    if note.startswith("allocation:"):
+        allocation_id = note.split(":", 1)[1].strip()
+        if allocation_id:
+            exact = await session.get(Allocation, allocation_id)
+            if exact is not None:
+                return exact
+
     if not telegram_user.marketplace_user_id:
         return None
     return (
@@ -144,7 +154,6 @@ async def _allocation_for_request(
                 Allocation.rack_id == slot.rack_id,
                 Allocation.slot_number == slot.slot_number,
                 Allocation.plant_id == request.plant_id,
-                Allocation.status == "active",
             )
             .order_by(Allocation.created_at.desc())
             .limit(1)
@@ -191,6 +200,8 @@ async def list_rental_requests(
                 "slot_number": slot.slot_number,
                 "physical_status": slot.physical_status,
                 "allocation_id": allocation.id if allocation else None,
+                "allocation_status": allocation.status if allocation else None,
+                "allocation_ends_at": _aware(allocation.ends_at) if allocation else None,
             }
         )
     return result
@@ -374,3 +385,78 @@ async def reject_rental_request(
     )
     await session.commit()
     return {"ok": True, "status": "rejected", "refunded_kisa": refunded}
+
+
+@router.post("/{request_id}/complete")
+async def complete_rental_request(
+    request_id: int,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """End an approved rental without refunding its already consumed rental fee."""
+    request = (
+        await session.execute(
+            select(TelegramRentalRequest)
+            .where(TelegramRentalRequest.id == request_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if request is None:
+        raise HTTPException(status_code=404, detail="Rental request not found")
+
+    telegram_user = await session.get(TelegramUser, request.user_id)
+    slot = (
+        await session.execute(
+            select(RackSlot).where(RackSlot.id == request.slot_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if telegram_user is None or slot is None:
+        raise HTTPException(status_code=409, detail="Rental request data is incomplete")
+
+    allocation = await _allocation_for_request(session, request, telegram_user, slot)
+    if allocation is None:
+        if request.status == "completed":
+            return {"ok": True, "status": "completed", "allocation_id": None, "ends_at": None}
+        raise HTTPException(status_code=409, detail="Rental allocation was not found")
+
+    if allocation.status not in ("active", "completed"):
+        raise HTTPException(status_code=409, detail=f"Allocation is already {allocation.status}")
+    if request.status not in ("approved", "completed"):
+        raise HTTPException(status_code=409, detail="Only an approved rental can be completed")
+
+    now = datetime.now(timezone.utc)
+    if allocation.status == "active":
+        allocation.status = "completed"
+        allocation.ends_at = now
+    elif allocation.ends_at is None:
+        allocation.ends_at = now
+
+    request.status = "completed"
+    request.note = f"allocation:{allocation.id}"
+    request.updated_at = now
+
+    await process_waitlist(session, allocation.device_id)
+    session.add(
+        AdminAuditLog(
+            admin_user_id=admin.id,
+            action="complete_rental",
+            target_type="telegram_rental_request",
+            target_id=str(request.id),
+            details={
+                "allocation_id": allocation.id,
+                "telegram_user_id": telegram_user.telegram_user_id,
+                "device_id": slot.device_id,
+                "rack_id": slot.rack_id,
+                "slot_number": slot.slot_number,
+                "plant_id": request.plant_id,
+                "price_kisa": int(request.price_kisa or 0),
+            },
+        )
+    )
+    await session.commit()
+    return {
+        "ok": True,
+        "status": "completed",
+        "allocation_id": allocation.id,
+        "ends_at": _aware(allocation.ends_at),
+    }
