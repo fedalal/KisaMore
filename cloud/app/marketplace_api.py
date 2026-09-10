@@ -52,6 +52,7 @@ from .schemas import (
 )
 from .security import authenticate_device, get_current_user, get_session
 from .config import get_settings
+from .seed_inventory import SeedUnavailable, require_seed_available, seed_availability
 
 
 router = APIRouter(prefix="/api/v1", tags=["marketplace"])
@@ -121,9 +122,16 @@ async def public_market(
     if device is None:
         raise HTTPException(status_code=404, detail="Farm device not found")
 
-    plants = (
-        await session.execute(select(Plant).where(Plant.active.is_(True)).order_by(Plant.code))
-    ).scalars().all()
+    all_plants = list(
+        (
+            await session.execute(select(Plant).where(Plant.active.is_(True)).order_by(Plant.code))
+        ).scalars().all()
+    )
+    plants = [
+        plant
+        for plant in all_plants
+        if (await seed_availability(session, plant.id)).in_stock
+    ]
     slots, allocations, offers = await active_inventory(session, device.id)
     rack_states = (
         await session.execute(
@@ -223,6 +231,12 @@ async def public_market(
                 seed_image_name=plant.seed_image_name,
                 microgreen_image_name=plant.microgreen_image_name,
                 grow_days=plant.grow_days,
+                rental_price_kisa=plant.rental_price_kisa,
+                watering_schedule=plant.watering_schedule or [],
+                watering_adjustment_limit_percent=plant.watering_adjustment_limit_percent,
+                watering_adjustment_step_percent=plant.watering_adjustment_step_percent,
+                watering_min_interval_minutes=plant.watering_min_interval_minutes,
+                extra_watering_options=plant.extra_watering_options or [],
             )
             for plant in plants
         ],
@@ -386,8 +400,17 @@ async def create_reservation(
     device = await session.get(Device, payload.device_id)
     if device is None or not device.is_active:
         raise HTTPException(status_code=404, detail="Device not found")
-    if payload.plant_id and await session.get(Plant, payload.plant_id) is None:
-        raise HTTPException(status_code=404, detail="Plant not found")
+
+    plant = None
+    if payload.plant_id:
+        plant = (
+            await session.execute(
+                select(Plant).where(Plant.id == payload.plant_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if plant is None or not plant.active:
+            raise HTTPException(status_code=404, detail="Active plant not found")
+
     duplicate = (
         await session.execute(
             select(ReservationRequest).where(
@@ -402,6 +425,18 @@ async def create_reservation(
     ).scalar_one_or_none()
     if duplicate:
         raise HTTPException(status_code=409, detail="Matching reservation already exists")
+
+    if plant is not None:
+        required = 6 if payload.resource_type == "rack" else 1
+        try:
+            await require_seed_available(
+                session,
+                plant.id,
+                required_plantings=required,
+            )
+        except SeedUnavailable as exc:
+            raise HTTPException(status_code=409, detail="Seeds are not available for this plant") from exc
+
     now = datetime.now(timezone.utc)
     reservation = ReservationRequest(
         id=str(uuid4()),
@@ -454,10 +489,6 @@ async def purchase(
     device = await session.get(Device, payload.device_id)
     if device is None or not device.is_active:
         raise HTTPException(status_code=404, detail="Device not found")
-    if payload.plant_id:
-        plant = await session.get(Plant, payload.plant_id)
-        if plant is None or not plant.active:
-            raise HTTPException(status_code=404, detail="Active plant not found")
 
     offer = None
     if payload.offer_id:
@@ -474,6 +505,31 @@ async def purchase(
             or offer.slot_number != payload.slot_number
         ):
             raise HTTPException(status_code=422, detail="Purchase does not match the offer")
+        if payload.plant_id and offer.plant_id and payload.plant_id != offer.plant_id:
+            raise HTTPException(status_code=422, detail="Purchase plant does not match the offer")
+
+    selected_plant_id = payload.plant_id or (offer.plant_id if offer else None)
+    plant = None
+    if selected_plant_id:
+        plant = (
+            await session.execute(
+                select(Plant).where(Plant.id == selected_plant_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if plant is None or not plant.active:
+            raise HTTPException(status_code=404, detail="Active plant not found")
+
+        seed_reserved_by_offer = bool(offer and offer.plant_id == selected_plant_id)
+        if not seed_reserved_by_offer:
+            required = 6 if payload.resource_type == "rack" else 1
+            try:
+                await require_seed_available(
+                    session,
+                    plant.id,
+                    required_plantings=required,
+                )
+            except SeedUnavailable as exc:
+                raise HTTPException(status_code=409, detail="Seeds are not available for this plant") from exc
 
     target_query = select(RackSlot).where(
         RackSlot.device_id == payload.device_id,
@@ -509,7 +565,7 @@ async def purchase(
         resource_type=payload.resource_type,
         rack_id=payload.rack_id,
         slot_number=payload.slot_number,
-        plant_id=payload.plant_id or (offer.plant_id if offer else None),
+        plant_id=selected_plant_id,
         status="active",
         starts_at=now,
         created_at=now,
