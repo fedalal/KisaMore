@@ -9,6 +9,7 @@ from sqlalchemy import select
 from ..db import SessionLocal
 from ..models import Plant, Planting, RackSlot
 from . import activity_notifier
+from . import rental_notifier
 from . import worker_slot_photos as media
 from .watering_service import (
     ExtraWateringInsufficientBalance,
@@ -79,7 +80,7 @@ async def show_garden(bot, chat_id: int, tg: dict) -> None:
     followed = await core.list_followed_plantings(user.id, 6)
     requests = [
         row for row in await core.rental_requests(user.id, 20)
-        if row[0].status in ("requested", "approved")
+        if row[0].status == "requested"
     ][:6]
     allocations = await core.linked_allocations(user, 6)
     parts = [core.t(lang, "garden")]
@@ -291,6 +292,11 @@ async def follow_notification_loop(bot) -> None:
                 now = datetime.now(timezone.utc)
                 async with SessionLocal() as session:
                     discovered = await activity_notifier.discover_activity(session, now)
+                    discovered += await rental_notifier.discover_rental_decisions(
+                        session,
+                        now,
+                        activity_notifier.RECENT_HOURS,
+                    )
                 sent, failed = await activity_notifier.send_pending(bot)
                 if discovered or sent or failed:
                     core.logger.info(
