@@ -6,6 +6,7 @@
   <title>KisaMore Admin</title>
   <link rel="stylesheet" href="/static/admin.css?v=20260909-4">
   <link rel="stylesheet" href="/static/admin_camera.css?v=20260909-2">
+  <link rel="stylesheet" href="/static/admin_watering.css?v=20260910-1">
 </head>
 <body>
   <div id="loginView" class="login-shell">
@@ -27,6 +28,7 @@
         <button class="nav-item active" data-section="overview">Обзор</button>
         <button class="nav-item" data-section="users">Пользователи</button>
         <button class="nav-item" data-section="rentals">Заявки на аренду</button>
+        <button class="nav-item" data-section="watering">💧 Поливы</button>
         <button class="nav-item" data-section="cameras">Камеры / Фото полок</button>
         <button class="nav-item" data-section="plantings">Растения и фото</button>
         <button class="nav-item" data-section="comments">Комментарии</button>
@@ -62,6 +64,22 @@
         <div class="panel">
           <div class="panel-head"><div><h2>Заявки на аренду</h2><p>Подтверждение контейнера и выбранного растения.</p></div><button id="reloadRentals">Обновить</button></div>
           <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Растение</th><th>Контейнер</th><th>Дата</th><th>Статус</th><th></th></tr></thead><tbody id="rentalsBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="section-watering" class="section">
+        <div id="wateringSummary" class="watering-summary"></div>
+        <div class="panel">
+          <div class="panel-head watering-head">
+            <div><h2>Индивидуальные поливы</h2><p id="wateringTimezone">Расписание теплицы</p></div>
+            <div class="watering-controls">
+              <input id="wateringDate" type="date" aria-label="Дата полива">
+              <label class="watering-filter"><input id="wateringPendingOnly" type="checkbox" checked> Только невыполненные</label>
+              <button id="reloadWatering">Обновить</button>
+            </div>
+          </div>
+          <div class="watering-note">Плановые задачи создаются автоматически на 48 часов вперёд. Дополнительный полив, купленный пользователем, появляется здесь сразу.</div>
+          <div class="table-wrap"><table class="watering-table"><thead><tr><th>Время</th><th>Место</th><th>Растение</th><th>Объём</th><th>Тип</th><th>Статус</th><th>Действие</th></tr></thead><tbody id="wateringBody"></tbody></table></div>
         </div>
       </section>
 
@@ -111,5 +129,6 @@
   <div id="toast" class="toast"></div>
   <script src="/static/admin.js?v=20260910-1" defer></script>
   <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
+  <script src="/static/admin_watering.js?v=20260910-1" defer></script>
 </body>
 </html>
