@@ -30,6 +30,10 @@ def capture_one_shot_jpeg(
     If this camera currently has a live-preview worker, pause only that worker,
     take the high-resolution frame, release the USB camera, then restore the
     previous live worker. Other cameras are not interrupted.
+
+    Important for the current UVC cameras: focus and white-balance controls are
+    applied only after MJPG/resolution selection. Their firmware can reset those
+    controls when the stream format changes.
     """
     access_lock = device_access_lock(device)
 
@@ -61,10 +65,10 @@ def capture_one_shot_jpeg(
         cap = None
 
         try:
-            # Apply UVC controls before opening the stream. This mirrors the
-            # normal CameraWorker startup sequence and avoids control ioctls
-            # racing with VideoCapture.read().
-            helper._apply_camera_controls()
+            # Read and cache supported V4L2 controls while the device is still
+            # closed. Later _apply_camera_controls() can then use the native
+            # control names without running --list-ctrls while OpenCV owns it.
+            helper._read_supported_controls()
 
             cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
             if not cap.isOpened():
@@ -76,14 +80,19 @@ def capture_one_shot_jpeg(
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(frame_width))
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(frame_height))
             # The 3840x2160 mode reported by the current cameras is a native
-            # MJPG 30 fps mode. We only read a handful of frames and close it.
+            # MJPG 30 fps mode. We only read a short warm-up sequence and close it.
             cap.set(cv2.CAP_PROP_FPS, 30)
             try:
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             except Exception:
                 pass
 
-            helper._apply_opencv_controls()
+            # Do not use CAP_PROP_FOCUS/CAP_PROP_WB_TEMPERATURE here. For these
+            # cameras OpenCV does not preserve the vendor-specific V4L2 mapping
+            # reliably (WB is exposed as a 1..5 preset). Apply the camera's real
+            # controls after the final stream format is selected and before the
+            # first read(), so there is no read/ioctl race.
+            helper._apply_camera_controls()
 
             actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -94,15 +103,20 @@ def capture_one_shot_jpeg(
             )
             print(
                 f"[camera-one-shot] {device} requested={frame_width}x{frame_height}, "
-                f"actual={actual_width}x{actual_height}, fourcc={actual_fourcc_text}"
+                f"actual={actual_width}x{actual_height}, fourcc={actual_fourcc_text}, "
+                f"autofocus={autofocus_enabled}, focus={focus_absolute}, "
+                f"auto_wb={white_balance_auto}, wb={white_balance_temperature}"
             )
 
             deadline = time.monotonic() + max(2.0, float(timeout_seconds))
             frame = None
             good_frames = 0
 
-            # Discard initial frames after switching the UVC mode. Some cameras
-            # produce one or two incomplete MJPG frames immediately after open.
+            # Manual controls settle quickly. Automatic focus/white balance need
+            # a longer warm-up after a fresh 4K stream is opened, otherwise the
+            # first saved frame can still reflect startup values.
+            required_good_frames = 30 if (autofocus_enabled or white_balance_auto) else 5
+
             while time.monotonic() < deadline:
                 ok, candidate = cap.read()
                 if not ok or candidate is None:
@@ -115,7 +129,7 @@ def capture_one_shot_jpeg(
 
                 frame = candidate
                 good_frames += 1
-                if good_frames >= 3:
+                if good_frames >= required_good_frames:
                     break
 
             if frame is None:
