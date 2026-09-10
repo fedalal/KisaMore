@@ -11,9 +11,8 @@ router = APIRouter(prefix="/api", tags=["camera"])
 
 
 # Ordinary live video is intentionally kept at 720p. Full-resolution frames for
-# the VPS/archive are captured separately as short one-shot streams. The camera
-# settings page is the only exception: it may temporarily preview one selected
-# camera at calibration resolution so warp points remain pixel-perfect.
+# the VPS/archive are captured separately as short one-shot streams, so four 4K
+# cameras are never held open continuously just to provide browser previews.
 LIVE_FRAME_WIDTH = 1280
 LIVE_FRAME_HEIGHT = 720
 
@@ -189,13 +188,12 @@ def camera_stream(
 ):
     cam = _get_camera_by_id(camera_id)
 
-    # Existing camera-settings JS adds a cache-busting `t` query parameter.
-    # That page displays only one selected camera at a time, so using the full
-    # calibration resolution there is safe and keeps point picking compatible
-    # with the 3840x2160 coordinates stored in config. Normal stream URLs have
-    # no `t` and stay at 1280x720.
-    calibration_preview = full_resolution or t is not None
-    if calibration_preview:
+    # `t` is only a browser cache-buster used by cameras.js. It intentionally
+    # does not affect resolution. Normal previews, including the camera settings
+    # page, stay at 720p. Full resolution can still be requested explicitly for
+    # diagnostics, but routine 4K acquisition is done by camera_one_shot.py.
+    _ = t
+    if full_resolution:
         frame_width, frame_height = _warp_reference_size()
     else:
         frame_width, frame_height = LIVE_FRAME_WIDTH, LIVE_FRAME_HEIGHT
