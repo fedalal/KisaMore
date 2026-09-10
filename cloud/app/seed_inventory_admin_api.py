@@ -89,10 +89,12 @@ async def list_seed_inventory(
     _: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_session),
 ):
-    plants = list(
-        (
-            await session.execute(select(Plant).order_by(Plant.active.desc(), Plant.code))
-        ).scalars().all()
+    plants = list((await session.execute(select(Plant))).scalars().all())
+    plants.sort(
+        key=lambda plant: (
+            _plant_name(plant).casefold(),
+            (plant.code or "").casefold(),
+        )
     )
     return [await _summary(session, plant) for plant in plants]
 
