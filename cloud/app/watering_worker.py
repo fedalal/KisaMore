@@ -5,6 +5,7 @@ import logging
 import os
 
 from .db import SessionLocal, create_tables, engine
+from .marketplace_service import complete_harvested_allocations, process_waitlist
 from .watering_service import refresh_watering_tasks
 
 
@@ -14,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 async def run_once() -> None:
     async with SessionLocal() as session:
+        completed_rentals = await complete_harvested_allocations(session)
+        if completed_rentals:
+            await process_waitlist(session)
         result = await refresh_watering_tasks(
             session,
             horizon_hours=max(24, int(os.getenv("KISAMORE_WATERING_HORIZON_HOURS", "48"))),
@@ -21,11 +25,12 @@ async def run_once() -> None:
         )
         await session.commit()
     logger.info(
-        "Watering pass complete: active_plantings=%s created=%s updated=%s skipped=%s",
+        "Watering pass complete: active_plantings=%s created=%s updated=%s skipped=%s completed_rentals=%s",
         result["active_plantings"],
         result["created"],
         result["updated"],
         result["skipped"],
+        completed_rentals,
     )
 
 
