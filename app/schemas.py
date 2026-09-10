@@ -1,12 +1,14 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, timezone
 from typing import List, Literal, Dict, Optional
 
 Mode = Literal["manual", "schedule"]
 
+
 class TimeRange(BaseModel):
     start: str
     end: str
+
 
 class ChannelSchedule(BaseModel):
     mon: List[TimeRange] = Field(default_factory=list)
@@ -17,9 +19,11 @@ class ChannelSchedule(BaseModel):
     sat: List[TimeRange] = Field(default_factory=list)
     sun: List[TimeRange] = Field(default_factory=list)
 
+
 class RackSchedulePayload(BaseModel):
     light: ChannelSchedule = Field(default_factory=ChannelSchedule)
     water: ChannelSchedule = Field(default_factory=ChannelSchedule)
+
 
 class RackStateOut(BaseModel):
     rack_id: int
@@ -28,9 +32,6 @@ class RackStateOut(BaseModel):
     light_mode: Mode
     water_mode: Mode
 
-    # Подсказки для UI по расписанию:
-    # - *_until: если устройство сейчас включено (и мы внутри интервала расписания) — до какого времени будет работать ("HH:MM")
-    # - *_next: если сейчас выключено — когда включится в следующий раз (например "Пн 08:00")
     light_until: Optional[str] = None
     light_next: Optional[str] = None
     water_until: Optional[str] = None
@@ -50,8 +51,10 @@ class RackStateOut(BaseModel):
 class ManualSetIn(BaseModel):
     on: bool
 
+
 class ModeSetIn(BaseModel):
     mode: Mode
+
 
 class RackHWOut(BaseModel):
     light_relay: int
@@ -59,12 +62,12 @@ class RackHWOut(BaseModel):
     sensor_slave_id: Optional[int] = None
     camera_id: Optional[str] = None
 
-    # Старые поля оставлены в ответе API для совместимости.
     camera_device: Optional[str] = None
     camera_flip_vertical: bool = False
     camera_flip_horizontal: bool = False
     camera_warp_enabled: bool = False
     camera_warp_points: Optional[List[float]] = None
+
 
 class CameraHWOut(BaseModel):
     name: str = ""
@@ -80,13 +83,23 @@ class CameraHWOut(BaseModel):
 
 
 class HWConfigOut(BaseModel):
-    racks_count: int 
+    racks_count: int
     racks: Dict[str, RackHWOut] = Field(default_factory=dict)
     cameras: Dict[str, CameraHWOut] = Field(default_factory=dict)
 
 
 PlantingStatus = Literal["planned", "growing", "ready", "harvested", "cancelled"]
 SlotStatus = Literal["available", "reserved", "growing", "ready", "maintenance", "disabled"]
+
+
+class WateringScheduleItem(BaseModel):
+    time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    ml: int = Field(ge=1, le=2000)
+
+
+class ExtraWateringOption(BaseModel):
+    ml: int = Field(ge=1, le=2000)
+    price_kisa: int = Field(ge=0, le=1_000_000)
 
 
 class PlantIn(BaseModel):
@@ -97,7 +110,34 @@ class PlantIn(BaseModel):
     microgreen_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     grow_days: int = Field(default=14, ge=1, le=365)
     rental_price_kisa: Optional[int] = Field(default=None, ge=0, le=1_000_000)
+    watering_schedule: List[WateringScheduleItem] = Field(default_factory=list, max_length=12)
+    watering_adjustment_limit_percent: int = Field(default=20, ge=0, le=50)
+    watering_adjustment_step_percent: int = Field(default=10, ge=1, le=25)
+    watering_min_interval_minutes: int = Field(default=240, ge=30, le=1440)
+    extra_watering_options: List[ExtraWateringOption] = Field(default_factory=list, max_length=10)
     active: bool = True
+
+    @field_validator("watering_schedule")
+    @classmethod
+    def watering_times_must_be_unique(cls, value):
+        times = [item.time for item in value]
+        if len(times) != len(set(times)):
+            raise ValueError("watering times must be unique")
+        return sorted(value, key=lambda item: item.time)
+
+    @field_validator("extra_watering_options")
+    @classmethod
+    def extra_watering_volumes_must_be_unique(cls, value):
+        volumes = [item.ml for item in value]
+        if len(volumes) != len(set(volumes)):
+            raise ValueError("extra watering volumes must be unique")
+        return sorted(value, key=lambda item: item.ml)
+
+    @model_validator(mode="after")
+    def watering_adjustment_is_consistent(self):
+        if self.watering_adjustment_limit_percent and self.watering_adjustment_step_percent > self.watering_adjustment_limit_percent:
+            raise ValueError("watering adjustment step cannot exceed the limit")
+        return self
 
 
 class PlantOut(PlantIn):
