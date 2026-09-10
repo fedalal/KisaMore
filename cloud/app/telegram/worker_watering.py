@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from html import escape
 
 from sqlalchemy import select
 
 from ..db import SessionLocal
 from ..models import Plant, Planting, RackSlot
+from . import activity_notifier
 from . import worker_slot_photos as media
 from .watering_service import (
     ExtraWateringInsufficientBalance,
@@ -20,6 +22,7 @@ from .watering_service import (
 
 core = media.core
 _original_handle_callback = core.handle_callback
+_original_follow_notification_loop = core.follow_notification_loop
 
 
 WATER_TEXT = {
@@ -279,8 +282,38 @@ async def handle_callback(bot, query: dict) -> None:
         return
 
 
+async def follow_notification_loop(bot) -> None:
+    """Run old photo-follow alerts and renter lifecycle alerts in one bot process."""
+
+    async def activity_loop() -> None:
+        while True:
+            try:
+                now = datetime.now(timezone.utc)
+                async with SessionLocal() as session:
+                    discovered = await activity_notifier.discover_activity(session, now)
+                sent, failed = await activity_notifier.send_pending(bot)
+                if discovered or sent or failed:
+                    core.logger.info(
+                        "Telegram activity pass: discovered=%s sent=%s failed=%s",
+                        discovered,
+                        sent,
+                        failed,
+                    )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                core.logger.exception("Telegram activity notification pass failed")
+            await asyncio.sleep(activity_notifier.CHECK_SECONDS)
+
+    await asyncio.gather(
+        _original_follow_notification_loop(bot),
+        activity_loop(),
+    )
+
+
 core.show_garden = show_garden
 core.handle_callback = handle_callback
+core.follow_notification_loop = follow_notification_loop
 
 
 if __name__ == "__main__":
