@@ -7,7 +7,7 @@ WORKDIR /srv/kisamore
 
 COPY cloud/requirements.txt /tmp/requirements.txt
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg tzdata \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -r /tmp/requirements.txt \
     && addgroup --system kisamore \
