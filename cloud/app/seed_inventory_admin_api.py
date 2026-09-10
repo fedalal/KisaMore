@@ -30,7 +30,7 @@ class SeedMovementIn(BaseModel):
 
 
 class SeedRateIn(BaseModel):
-    seed_rate_g: float = Field(ge=0, le=5000)
+    seed_rate_g: float = Field(gt=0, le=5000)
 
 
 def _plant_name(plant: Plant) -> str:
