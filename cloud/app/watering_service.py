@@ -11,7 +11,10 @@ from .config import get_settings
 from .models import Allocation, Plant, Planting, RackSlot, WateringTask
 
 
-ACTIVE_PLANTING_STATUSES = ("planned", "growing", "ready")
+# Watering is active only while the crop is actually growing. Once the
+# operator marks it ready, no new scheduled watering is created and any
+# remaining pending scheduled reminders are closed by refresh_watering_tasks().
+ACTIVE_PLANTING_STATUSES = ("planned", "growing")
 
 
 def aware_utc(value: datetime | None) -> datetime | None:
@@ -311,8 +314,8 @@ async def refresh_watering_tasks(
             task.note = "Schedule changed or planting is no longer active"
             skipped += 1
 
-    # Also close pending tasks left behind when a planting is harvested or
-    # cancelled. This keeps old reminders from polluting the queue.
+    # Also close pending scheduled tasks left behind when a planting is ready,
+    # harvested or cancelled. This keeps obsolete reminders out of the queue.
     stale = list(
         (
             await session.execute(
@@ -326,7 +329,7 @@ async def refresh_watering_tasks(
     for task in stale:
         if task.planting_id not in active_ids:
             task.status = "skipped"
-            task.note = "Planting is no longer active"
+            task.note = "Planting is ready or no longer active"
             skipped += 1
 
     await session.flush()
