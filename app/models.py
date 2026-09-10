@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 def _utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
+
 class Base(DeclarativeBase):
     pass
+
 
 class RackSensorHistory(Base):
     __tablename__ = "rack_sensor_history"
@@ -20,6 +22,7 @@ class RackSensorHistory(Base):
     soil_temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True, nullable=False)
 
+
 class RackState(Base):
     __tablename__ = "rack_state"
     rack_id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -28,7 +31,8 @@ class RackState(Base):
     water_on: Mapped[bool] = mapped_column(Boolean, default=False)
 
     light_mode: Mapped[str] = mapped_column(String, default="schedule")
-    water_mode: Mapped[str] = mapped_column(String, default="schedule")
+    water_mode: Mapped[str] = mapped_column(String, default="manual")
+
 
 class RackSchedule(Base):
     __tablename__ = "rack_schedule"
@@ -41,6 +45,8 @@ class Plant(Base):
 
     Translated names and descriptions are kept as JSON maps (``{"en": ...}``)
     so the edge controller stays independent from the set of website locales.
+    Individual watering is also stored on the plant because it is a cultivation
+    recipe, not a property of a rack.
     """
 
     __tablename__ = "plants"
@@ -53,6 +59,11 @@ class Plant(Base):
     microgreen_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     grow_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
     rental_price_kisa: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    watering_schedule: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    watering_adjustment_limit_percent: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    watering_adjustment_step_percent: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    watering_min_interval_minutes: Mapped[int] = mapped_column(Integer, default=240, nullable=False)
+    extra_watering_options: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow_naive, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
