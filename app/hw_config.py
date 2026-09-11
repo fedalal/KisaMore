@@ -211,6 +211,17 @@ def load_config() -> HWConfig:
 
     cfg = HWConfig.model_validate(data)
 
+    # Старая конфигурация могла явно хранить 3840x2160. Для текущих камер
+    # этот режим оказался нестабильным (серые/повреждённые области), поэтому
+    # один раз переводим сохранённый старый профиль на проверенный 2592x1944 MJPG.
+    if (
+        cfg.camera_capture.frame_width == 3840
+        and cfg.camera_capture.frame_height == 2160
+    ):
+        cfg.camera_capture.frame_width = 2592
+        cfg.camera_capture.frame_height = 1944
+        need_save = True
+
     # Миграция старой схемы: камера была внутри каждой полки.
     # Новая схема: камеры отдельно, полка хранит только camera_id.
     if not cfg.cameras:
