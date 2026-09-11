@@ -100,19 +100,23 @@
   </div>
 
   <div class="cameraWindow" id="cameraWindow" aria-hidden="true">
-  <div class="cameraWindow__head" id="cameraDragHandle">
-    <div>
-      <div class="cameraWindow__title" id="cameraTitle">Камера</div>
-      <div class="cameraWindow__sub" id="cameraSub"></div>
+    <div class="cameraWindow__head" id="cameraDragHandle">
+      <div>
+        <div class="cameraWindow__title" id="cameraTitle">Камера</div>
+        <div class="cameraWindow__sub" id="cameraSub"></div>
+      </div>
+      <div class="row">
+        <button class="btn btn--ghost" id="cameraRefresh">Обновить кадр</button>
+        <button class="btn btn--ghost cameraWindow__close" id="cameraClose">✕</button>
+      </div>
     </div>
-    <button class="btn btn--ghost cameraWindow__close" id="cameraClose">✕</button>
+    <div class="cameraWindow__body">
+      <img id="cameraImg" class="cameraWindow__img" alt="Кадр с камеры" />
+    </div>
   </div>
-  <div class="cameraWindow__body">
-    <img id="cameraImg" class="cameraWindow__img" alt="Видео с камеры" />
-  </div>
-</div>
 
-  <script src="/static/app.js?v=20260910-1"></script>
-  <script src="/static/manual_watering_ui.js?v=20260910-1"></script>
+  <script src="/static/app.js?v=20260911-1"></script>
+  <script src="/static/camera_frames.js?v=20260911-1"></script>
+  <script src="/static/manual_watering_ui.js?v=20260911-1"></script>
 </body>
 </html>
