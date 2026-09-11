@@ -1,20 +1,12 @@
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
+
 from . import runtime
-from .camera_access import device_access_lock
-from .camera_manager import camera_manager
+from .camera_one_shot import capture_one_shot_jpeg
 from .hw_config import CameraHW
 import os
-import time
 
 router = APIRouter(prefix="/api", tags=["camera"])
-
-
-# Ordinary live video is intentionally kept at 720p. Full-resolution frames for
-# the VPS/archive are captured separately as short one-shot streams, so four 4K
-# cameras are never held open continuously just to provide browser previews.
-LIVE_FRAME_WIDTH = 1280
-LIVE_FRAME_HEIGHT = 720
 
 
 def _camera_quality() -> int:
@@ -23,38 +15,13 @@ def _camera_quality() -> int:
     return 90
 
 
-def _warp_reference_size() -> tuple[int, int]:
+def _capture_size() -> tuple[int, int]:
     if runtime.cfg and runtime.cfg.camera_capture:
         return (
             int(runtime.cfg.camera_capture.frame_width),
             int(runtime.cfg.camera_capture.frame_height),
         )
-    return LIVE_FRAME_WIDTH, LIVE_FRAME_HEIGHT
-
-
-def _scale_warp_points(
-    points: list[float] | None,
-    *,
-    target_width: int,
-    target_height: int,
-) -> list[float] | None:
-    """Scale calibration coordinates from photo resolution to a target frame."""
-    if not points or len(points) != 8:
-        return points
-
-    source_width, source_height = _warp_reference_size()
-    if source_width <= 1 or source_height <= 1:
-        return points
-    if source_width == target_width and source_height == target_height:
-        return points
-
-    scale_x = (target_width - 1) / (source_width - 1)
-    scale_y = (target_height - 1) / (source_height - 1)
-    scaled: list[float] = []
-    for index in range(0, 8, 2):
-        scaled.append(float(points[index]) * scale_x)
-        scaled.append(float(points[index + 1]) * scale_y)
-    return scaled
+    return 2592, 1944
 
 
 def _validate_device(device: str):
@@ -85,7 +52,6 @@ def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
     if not rack_cfg:
         raise HTTPException(status_code=404, detail=f"Полка не найдена: {rack_id}")
 
-    # Новая схема: полка ссылается на камеру через camera_id.
     if rack_cfg.camera_id:
         cam = runtime.cfg.cameras.get(rack_cfg.camera_id)
         if not cam:
@@ -109,111 +75,90 @@ def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
     )
 
 
-def _mjpeg_for_camera(
-    cam: CameraHW,
-    corrected: bool,
-    *,
-    frame_width: int,
-    frame_height: int,
-):
-    while True:
-        warp_points = (
-            _scale_warp_points(
-                cam.warp_points,
-                target_width=frame_width,
-                target_height=frame_height,
-            )
-            if corrected
-            else None
+def _capture_camera_frame(cam: CameraHW, *, corrected: bool) -> bytes:
+    frame_width, frame_height = _capture_size()
+
+    jpeg = capture_one_shot_jpeg(
+        device=cam.device,
+        jpeg_quality=_camera_quality(),
+        frame_width=frame_width,
+        frame_height=frame_height,
+        flip_vertical=cam.flip_vertical,
+        flip_horizontal=cam.flip_horizontal,
+        warp_enabled=cam.warp_enabled if corrected else False,
+        warp_points=cam.warp_points if corrected else None,
+        autofocus_enabled=cam.autofocus_enabled,
+        focus_absolute=cam.focus_absolute,
+        white_balance_auto=cam.white_balance_auto,
+        white_balance_temperature=cam.white_balance_temperature,
+        brightness=cam.brightness,
+        contrast=cam.contrast,
+        saturation=cam.saturation,
+        sharpness=cam.sharpness,
+        focus_ramp=True,
+    )
+
+    if not jpeg:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Не удалось получить кадр с камеры {cam.device}",
         )
-
-        # High-resolution one-shot capture takes the same device lock. While a
-        # 4K photo is being taken this preview pauses briefly instead of opening
-        # a second hardware stream on the USB camera.
-        with device_access_lock(cam.device):
-            jpeg = camera_manager.get_jpeg(
-                device=cam.device,
-                jpeg_quality=_camera_quality(),
-                frame_width=frame_width,
-                frame_height=frame_height,
-
-                # Поворот должен применяться и к "До коррекции", и к "После коррекции".
-                # Иначе точки выбираются на одном изображении, а применяются к другому.
-                flip_vertical=cam.flip_vertical,
-                flip_horizontal=cam.flip_horizontal,
-
-                # Перспективу применяем только для правого изображения "После коррекции".
-                warp_enabled=cam.warp_enabled if corrected else False,
-                warp_points=warp_points,
-
-                autofocus_enabled=cam.autofocus_enabled,
-                focus_absolute=cam.focus_absolute,
-                white_balance_auto=cam.white_balance_auto,
-                white_balance_temperature=cam.white_balance_temperature,
-            )
-
-        if jpeg:
-            yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" +
-                jpeg +
-                b"\r\n"
-            )
-
-        time.sleep(0.08)
+    return jpeg
 
 
-@router.get("/rack/{rack_id}/camera/stream")
-def rack_camera_stream(rack_id: int):
+def _jpeg_response(jpeg: bytes) -> Response:
+    return Response(
+        content=jpeg,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
+
+
+@router.get("/rack/{rack_id}/camera/frame")
+def rack_camera_frame(
+    rack_id: int,
+    t: int | None = Query(default=None),
+):
+    _ = t  # cache-buster from the browser
     _, cam = _get_camera_by_rack(rack_id)
+    return _jpeg_response(_capture_camera_frame(cam, corrected=True))
 
-    return StreamingResponse(
-        _mjpeg_for_camera(
-            cam,
-            corrected=True,
-            frame_width=LIVE_FRAME_WIDTH,
-            frame_height=LIVE_FRAME_HEIGHT,
-        ),
-        media_type="multipart/x-mixed-replace; boundary=frame",
-        headers={"Cache-Control": "no-store"},
+
+@router.get("/camera/{camera_id}/frame")
+def camera_frame(
+    camera_id: str,
+    corrected: bool = Query(default=True),
+    t: int | None = Query(default=None),
+):
+    _ = t
+    cam = _get_camera_by_id(camera_id)
+    return _jpeg_response(_capture_camera_frame(cam, corrected=corrected))
+
+
+# Keep the old URLs only to fail explicitly for stale browser tabs/bookmarks.
+# No endpoint in KisaMore creates a permanent MJPEG stream anymore.
+@router.get("/rack/{rack_id}/camera/stream")
+def rack_camera_stream_disabled(rack_id: int):
+    _ = rack_id
+    raise HTTPException(
+        status_code=410,
+        detail="Прямой эфир отключён. Используйте /camera/frame для одиночного кадра.",
     )
 
 
 @router.get("/camera/{camera_id}/stream")
-def camera_stream(
-    camera_id: str,
-    corrected: bool = Query(default=True),
-    full_resolution: bool = Query(default=False),
-    t: int | None = Query(default=None),
-):
-    cam = _get_camera_by_id(camera_id)
-
-    # `t` is only a browser cache-buster used by cameras.js. It intentionally
-    # does not affect resolution. Normal previews, including the camera settings
-    # page, stay at 720p. Full resolution can still be requested explicitly for
-    # diagnostics, but routine 4K acquisition is done by camera_one_shot.py.
-    _ = t
-    if full_resolution:
-        frame_width, frame_height = _warp_reference_size()
-    else:
-        frame_width, frame_height = LIVE_FRAME_WIDTH, LIVE_FRAME_HEIGHT
-
-    return StreamingResponse(
-        _mjpeg_for_camera(
-            cam,
-            corrected=corrected,
-            frame_width=frame_width,
-            frame_height=frame_height,
-        ),
-        media_type="multipart/x-mixed-replace; boundary=frame",
-        headers={"Cache-Control": "no-store"},
+def camera_stream_disabled(camera_id: str):
+    _ = camera_id
+    raise HTTPException(
+        status_code=410,
+        detail="Прямой эфир отключён. Используйте /camera/{camera_id}/frame.",
     )
 
 
 @router.get("/rack/{rack_id}/camera/info")
 async def rack_camera_info(rack_id: int):
     camera_id, cam = _get_camera_by_rack(rack_id)
-    reference_width, reference_height = _warp_reference_size()
+    frame_width, frame_height = _capture_size()
 
     return {
         "rack_id": rack_id,
@@ -224,19 +169,17 @@ async def rack_camera_info(rack_id: int):
         "camera_flip_horizontal": cam.flip_horizontal,
         "camera_warp_enabled": cam.warp_enabled,
         "camera_warp_points": cam.warp_points,
-        "warp_reference_width": reference_width,
-        "warp_reference_height": reference_height,
-        "live_width": LIVE_FRAME_WIDTH,
-        "live_height": LIVE_FRAME_HEIGHT,
+        "frame_width": frame_width,
+        "frame_height": frame_height,
         "exists": True,
-        "last_error": camera_manager.get_error(cam.device),
+        "last_error": None,
     }
 
 
 @router.get("/camera/{camera_id}/info")
 async def camera_info(camera_id: str):
     cam = _get_camera_by_id(camera_id)
-    reference_width, reference_height = _warp_reference_size()
+    frame_width, frame_height = _capture_size()
 
     return {
         "camera_id": camera_id,
@@ -246,10 +189,8 @@ async def camera_info(camera_id: str):
         "camera_flip_horizontal": cam.flip_horizontal,
         "camera_warp_enabled": cam.warp_enabled,
         "camera_warp_points": cam.warp_points,
-        "warp_reference_width": reference_width,
-        "warp_reference_height": reference_height,
-        "live_width": LIVE_FRAME_WIDTH,
-        "live_height": LIVE_FRAME_HEIGHT,
+        "frame_width": frame_width,
+        "frame_height": frame_height,
         "exists": True,
-        "last_error": camera_manager.get_error(cam.device),
+        "last_error": None,
     }
