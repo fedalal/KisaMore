@@ -76,16 +76,29 @@ class CameraHWOut(BaseModel):
     flip_horizontal: bool = False
     warp_enabled: bool = False
     warp_points: Optional[List[float]] = None
-    autofocus_enabled: bool = True
-    focus_absolute: Optional[int] = None
-    white_balance_auto: bool = True
-    white_balance_temperature: Optional[int] = None
+
+    autofocus_enabled: bool = False
+    focus_absolute: Optional[int] = 120
+    brightness: Optional[int] = 1
+    contrast: Optional[int] = 8
+    saturation: Optional[int] = 10
+    sharpness: Optional[int] = 0
+
+    white_balance_auto: bool = False
+    white_balance_temperature: Optional[int] = 5
+
+
+class CameraCaptureOut(BaseModel):
+    frame_width: int = 2592
+    frame_height: int = 1944
+    jpeg_quality: int = 90
 
 
 class HWConfigOut(BaseModel):
     racks_count: int
     racks: Dict[str, RackHWOut] = Field(default_factory=dict)
     cameras: Dict[str, CameraHWOut] = Field(default_factory=dict)
+    camera_capture: CameraCaptureOut = Field(default_factory=CameraCaptureOut)
 
 
 PlantingStatus = Literal["planned", "growing", "ready", "harvested", "cancelled"]
