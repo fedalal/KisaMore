@@ -28,12 +28,16 @@ async def set_config(payload: HWConfig):
     if not payload.level_sensors and existing.level_sensors:
         payload = payload.model_copy(update={"level_sensors": existing.level_sensors})
 
-    if (
-        not payload.camera_capture.google_folder_id
-        or not payload.camera_capture.credentials_file
-        or not payload.camera_capture.token_file
-    ):
-        payload = payload.model_copy(update={"camera_capture": existing.camera_capture})
+    # camera_capture в UI камеры отдаётся частично: разрешение и JPEG quality.
+    # Обновляем только реально присланные поля, а остальные параметры (интервал,
+    # Google Drive, архив и т.д.) сохраняем из текущего YAML.
+    capture_fields = payload.camera_capture.model_fields_set
+    capture_updates = {
+        field: getattr(payload.camera_capture, field)
+        for field in capture_fields
+    }
+    merged_capture = existing.camera_capture.model_copy(update=capture_updates)
+    payload = payload.model_copy(update={"camera_capture": merged_capture})
 
     # Валидация: одно реле нельзя назначать разным устройствам
     # (Стеллаж N — Свет/Полив). Проверяем на сервере на случай обхода UI.
