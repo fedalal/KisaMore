@@ -9,6 +9,138 @@ from .camera_access import device_access_lock
 from .camera_manager import CameraWorker, camera_manager
 
 
+def _configured_camera_for_device(device: str):
+    """Return the current CameraHW for a device without introducing import cycles."""
+    try:
+        from . import runtime
+
+        if not runtime.cfg:
+            return None
+        wanted = str(device or "").strip()
+        for cam in runtime.cfg.cameras.values():
+            if str(cam.device or "").strip() == wanted:
+                return cam
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_control(device: str, name: str, value, fallback):
+    if value is not None:
+        return value
+    cam = _configured_camera_for_device(device)
+    if cam is not None:
+        configured = getattr(cam, name, None)
+        if configured is not None:
+            return configured
+    return fallback
+
+
+def _focus_ramp_values(target: int) -> list[int]:
+    """Approach manual focus from zero in several increasing steps.
+
+    The current UVC camera can report the requested focus value while the real
+    lens position is still slightly different after a reconnect/power cycle.
+    During testing, approaching 120 as 0→20→...→120 produced repeatably sharper
+    frames than jumping directly to 120.
+    """
+    target = max(0, int(target))
+    if target == 0:
+        return [0]
+
+    segments = 6
+    values = [round(target * i / segments) for i in range(segments + 1)]
+    result: list[int] = []
+    for value in values:
+        if not result or result[-1] != value:
+            result.append(value)
+    return result
+
+
+def _apply_one_shot_controls(
+    helper: CameraWorker,
+    *,
+    autofocus_enabled: bool,
+    focus_absolute: Optional[int],
+    focus_ramp: bool,
+    white_balance_auto: bool,
+    white_balance_temperature: Optional[int],
+    brightness: Optional[int],
+    contrast: Optional[int],
+    saturation: Optional[int],
+    sharpness: Optional[int],
+):
+    """Apply only the native controls that were validated on the real camera.
+
+    Exposure is deliberately not changed here. This camera returns to its usable
+    automatic exposure state after reset, while explicitly writing the reported
+    auto_exposure=0 state is rejected by its driver.
+    """
+    autofocus_control = helper._find_control(
+        "focus_automatic_continuous",
+        "focus_auto",
+    )
+    if autofocus_control:
+        helper._run_v4l2_ctrl(
+            autofocus_control,
+            1 if autofocus_enabled else 0,
+        )
+
+    focus_control = helper._find_control("focus_absolute")
+    if not autofocus_enabled and focus_absolute is not None and focus_control:
+        values = (
+            _focus_ramp_values(int(focus_absolute))
+            if focus_ramp
+            else [int(focus_absolute)]
+        )
+        for value in values:
+            helper._run_v4l2_ctrl(focus_control, value)
+            # Give the lens motor time to physically reach each intermediate
+            # position. Seven steps for focus=120 take about one second total.
+            time.sleep(0.12)
+
+    white_balance_auto_control = helper._find_control(
+        "white_balance_automatic",
+        "white_balance_temperature_auto",
+    )
+    if white_balance_auto_control:
+        helper._run_v4l2_ctrl(
+            white_balance_auto_control,
+            1 if white_balance_auto else 0,
+        )
+
+    temperature_control = helper._find_control("white_balance_temperature")
+    if (
+        not white_balance_auto
+        and white_balance_temperature is not None
+        and temperature_control
+    ):
+        helper._run_v4l2_ctrl(
+            temperature_control,
+            int(white_balance_temperature),
+        )
+
+    for name, value in (
+        ("brightness", brightness),
+        ("contrast", contrast),
+        ("saturation", saturation),
+        ("sharpness", sharpness),
+    ):
+        if value is None:
+            continue
+        control = helper._find_control(name)
+        if control:
+            helper._run_v4l2_ctrl(control, int(value))
+
+    print(
+        f"[camera-one-shot] controls applied for {helper.device}: "
+        f"autofocus={autofocus_enabled}, focus={focus_absolute}, "
+        f"focus_ramp={focus_ramp}, brightness={brightness}, contrast={contrast}, "
+        f"saturation={saturation}, sharpness={sharpness}, "
+        f"auto_wb={white_balance_auto}, wb={white_balance_temperature}"
+    )
+
+
 def capture_one_shot_jpeg(
     *,
     device: str,
@@ -19,26 +151,36 @@ def capture_one_shot_jpeg(
     flip_horizontal: bool = False,
     warp_enabled: bool = False,
     warp_points: Optional[list[float]] = None,
-    autofocus_enabled: bool = True,
-    focus_absolute: Optional[int] = None,
-    white_balance_auto: bool = True,
-    white_balance_temperature: Optional[int] = None,
+    autofocus_enabled: bool = False,
+    focus_absolute: Optional[int] = 120,
+    white_balance_auto: bool = False,
+    white_balance_temperature: Optional[int] = 5,
+    brightness: Optional[int] = None,
+    contrast: Optional[int] = None,
+    saturation: Optional[int] = None,
+    sharpness: Optional[int] = None,
+    focus_ramp: bool = True,
     timeout_seconds: float = 10.0,
 ) -> Optional[bytes]:
-    """Capture one full-resolution frame without keeping a 4K stream open.
+    """Open the camera, obtain one stable MJPG frame, then release the device.
 
-    If this camera currently has a live-preview worker, pause only that worker,
-    take the high-resolution frame, release the USB camera, then restore the
-    previous live worker. Other cameras are not interrupted.
+    No permanent camera stream is needed. This same path is used by scheduled
+    photos, the rack UI and camera-settings snapshots.
 
-    Some UVC cameras reset focus and white-balance not when the format is set,
-    but when VIDIOC_STREAMON happens. OpenCV normally starts the stream on the
-    first read(), so the native controls are deliberately applied only after one
+    Some UVC cameras reset controls when VIDIOC_STREAMON happens. OpenCV normally
+    starts the stream on the first read(), so controls are applied only after one
     valid priming frame has been received.
     """
+    brightness = _resolve_control(device, "brightness", brightness, 1)
+    contrast = _resolve_control(device, "contrast", contrast, 8)
+    saturation = _resolve_control(device, "saturation", saturation, 10)
+    sharpness = _resolve_control(device, "sharpness", sharpness, 0)
+
     access_lock = device_access_lock(device)
 
     with access_lock:
+        # Defensive compatibility with an old process state. New UI routes no
+        # longer create live CameraWorkers, but stop one if it somehow exists.
         previous_worker: CameraWorker | None = None
         with camera_manager.lock:
             previous_worker = camera_manager.workers.pop(device, None)
@@ -49,8 +191,8 @@ def capture_one_shot_jpeg(
                 with camera_manager.lock:
                     camera_manager.workers[device] = previous_worker
                 print(
-                    f"[camera-one-shot] cannot pause live worker for {device}; "
-                    "high-resolution capture skipped"
+                    f"[camera-one-shot] cannot stop old worker for {device}; "
+                    "one-shot capture skipped"
                 )
                 return None
 
@@ -94,10 +236,9 @@ def capture_one_shot_jpeg(
 
             deadline = time.monotonic() + max(2.0, float(timeout_seconds))
 
-            # Important: VideoCapture usually performs VIDIOC_STREAMON on the
-            # first read(). The current cameras may reset focus/WB at that exact
-            # moment. Therefore receive one valid frame first, then apply the
-            # native V4L2 controls while no read() call is in progress.
+            # VideoCapture usually performs VIDIOC_STREAMON on the first read().
+            # Receive one valid frame first, then apply native controls while no
+            # read() call is in progress.
             priming_frame = None
             while time.monotonic() < deadline:
                 ok, candidate = cap.read()
@@ -116,23 +257,30 @@ def capture_one_shot_jpeg(
                 print(f"[camera-one-shot] no priming frame received from {device}")
                 return None
 
-            helper._apply_camera_controls()
-            time.sleep(0.15)
+            _apply_one_shot_controls(
+                helper,
+                autofocus_enabled=autofocus_enabled,
+                focus_absolute=focus_absolute,
+                focus_ramp=focus_ramp,
+                white_balance_auto=white_balance_auto,
+                white_balance_temperature=white_balance_temperature,
+                brightness=brightness,
+                contrast=contrast,
+                saturation=saturation,
+                sharpness=sharpness,
+            )
 
             print(
                 f"[camera-one-shot] {device} requested={frame_width}x{frame_height}, "
                 f"actual={actual_width}x{actual_height}, fourcc={actual_fourcc_text}, "
-                f"autofocus={autofocus_enabled}, focus={focus_absolute}, "
-                f"auto_wb={white_balance_auto}, wb={white_balance_temperature}, "
                 "controls_after_streamon=yes"
             )
 
             frame = priming_frame
             good_frames = 0
 
-            # Give the lens motor / white-balance processing enough time to settle.
-            # Even manual controls can need several hundred milliseconds after a
-            # fresh 4K stream starts. Automatic modes get a little longer.
+            # Match the successful manual tests: discard enough frames after
+            # changing controls for focus and camera processing to settle.
             required_good_frames = 60 if (autofocus_enabled or white_balance_auto) else 30
 
             while time.monotonic() < deadline:
@@ -195,8 +343,9 @@ def capture_one_shot_jpeg(
                     pass
 
             if previous_worker is not None:
+                # This should only happen while upgrading from an old process
+                # state. Do not recreate permanent streaming workers in normal
+                # operation.
                 with camera_manager.lock:
-                    # Live requests are blocked by device_access_lock while this
-                    # function runs, so the old worker can be restored safely.
                     camera_manager.workers[device] = previous_worker
                 previous_worker.start()
