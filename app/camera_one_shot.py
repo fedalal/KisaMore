@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import threading
 import time
 from typing import Optional
 
@@ -7,6 +9,39 @@ import cv2
 
 from .camera_access import device_access_lock
 from .camera_manager import CameraWorker, camera_manager
+
+
+_focus_ready_lock = threading.Lock()
+# device -> (target focus, /dev node ctime). A reconnect recreates the device
+# node, so the next frame performs the focus approach again.
+_focus_ready: dict[str, tuple[int, int]] = {}
+
+
+def _device_signature(device: str) -> int:
+    try:
+        return int(os.stat(device).st_ctime_ns)
+    except Exception:
+        return 0
+
+
+def _focus_needs_ramp(device: str, target: Optional[int], enabled: bool) -> bool:
+    if not enabled or target is None:
+        return False
+    wanted = (int(target), _device_signature(device))
+    with _focus_ready_lock:
+        return _focus_ready.get(device) != wanted
+
+
+def _mark_focus_ready(device: str, target: Optional[int]):
+    if target is None:
+        return
+    with _focus_ready_lock:
+        _focus_ready[device] = (int(target), _device_signature(device))
+
+
+def _clear_focus_ready(device: str):
+    with _focus_ready_lock:
+        _focus_ready.pop(device, None)
 
 
 def _configured_camera_for_device(device: str):
@@ -95,9 +130,10 @@ def _apply_one_shot_controls(
         )
         for value in values:
             helper._run_v4l2_ctrl(focus_control, value)
-            # Give the lens motor time to physically reach each intermediate
-            # position. Seven steps for focus=120 take about one second total.
-            time.sleep(0.12)
+            if focus_ramp:
+                # Give the lens motor time to physically reach each intermediate
+                # position. For focus=120 the full homing pass is about 0.8 s.
+                time.sleep(0.12)
 
     white_balance_auto_control = helper._find_control(
         "white_balance_automatic",
@@ -176,6 +212,11 @@ def capture_one_shot_jpeg(
     saturation = _resolve_control(device, "saturation", saturation, 10)
     sharpness = _resolve_control(device, "sharpness", sharpness, 0)
 
+    ramp_this_capture = (
+        not autofocus_enabled
+        and _focus_needs_ramp(device, focus_absolute, focus_ramp)
+    )
+
     access_lock = device_access_lock(device)
 
     with access_lock:
@@ -213,6 +254,7 @@ def capture_one_shot_jpeg(
 
             cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
             if not cap.isOpened():
+                _clear_focus_ready(device)
                 print(f"[camera-one-shot] cannot open camera {device}")
                 return None
 
@@ -254,6 +296,7 @@ def capture_one_shot_jpeg(
                 break
 
             if priming_frame is None:
+                _clear_focus_ready(device)
                 print(f"[camera-one-shot] no priming frame received from {device}")
                 return None
 
@@ -261,7 +304,7 @@ def capture_one_shot_jpeg(
                 helper,
                 autofocus_enabled=autofocus_enabled,
                 focus_absolute=focus_absolute,
-                focus_ramp=focus_ramp,
+                focus_ramp=ramp_this_capture,
                 white_balance_auto=white_balance_auto,
                 white_balance_temperature=white_balance_temperature,
                 brightness=brightness,
@@ -299,6 +342,7 @@ def capture_one_shot_jpeg(
                     break
 
             if frame is None:
+                _clear_focus_ready(device)
                 print(f"[camera-one-shot] no frame received from {device}")
                 return None
 
@@ -319,15 +363,19 @@ def capture_one_shot_jpeg(
                 helper.frame.last_error = None
                 helper.frame.updated_at = time.time()
 
-            return helper.get_jpeg(
+            jpeg = helper.get_jpeg(
                 jpeg_quality=jpeg_quality,
                 flip_vertical=flip_vertical,
                 flip_horizontal=flip_horizontal,
                 warp_enabled=warp_enabled,
                 warp_points=warp_points,
             )
+            if jpeg and not autofocus_enabled:
+                _mark_focus_ready(device, focus_absolute)
+            return jpeg
 
         except Exception as exc:
+            _clear_focus_ready(device)
             print(
                 f"[camera-one-shot] capture failed for {device}: "
                 f"{type(exc).__name__}: {exc}"
