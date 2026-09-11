@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Камеры · KisaMore</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260901-2">
+  <link rel="stylesheet" href="/static/styles.css?v=20260911-1">
 </head>
 <body>
   <header class="top">
@@ -13,7 +13,7 @@
         <div class="dot"></div>
         <div>
           <div class="title">Камеры</div>
-          <div class="subtitle">Настройка изображения до и после коррекции</div>
+          <div class="subtitle">Одиночные кадры и настройка изображения</div>
         </div>
       </div>
       <div class="right">
@@ -27,12 +27,13 @@
 
   <main class="wrap camerasPage">
     <div class="hint camerasHint">
-      Для выравнивания нажми «Выбрать точки», затем кликни 4 угла на левом изображении: левый верхний, правый верхний, правый нижний, левый нижний.
-      Справа сразу видна картинка после коррекции.
+      Прямой эфир отключён: камера открывается только на время одного снимка. Для выравнивания нажми «Получить кадр», затем «Выбрать точки» и кликни 4 угла на левом изображении: левый верхний, правый верхний, правый нижний, левый нижний.
     </div>
+    <div id="cameraCaptureSettings"></div>
     <div id="camerasList"></div>
   </main>
 
-  <script src="/static/cameras.js?v=20260901-2"></script>
+  <script src="/static/cameras.js?v=20260911-1"></script>
+  <script src="/static/camera_frames_settings.js?v=20260911-1"></script>
 </body>
 </html>
