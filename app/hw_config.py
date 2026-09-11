@@ -16,9 +16,10 @@ class CameraCaptureConfig(BaseModel):
     # Качество JPEG
     jpeg_quality: int = Field(default=90, ge=30, le=100)
 
-    # Разрешение камеры
-    frame_width: int = Field(default=1280, ge=320, le=3840)
-    frame_height: int = Field(default=720, ge=240, le=2160)
+    # Разрешение одиночного снимка. 4K у текущих UVC-камер иногда даёт
+    # повреждённые/серые области, а 2592x1944 стабильно работает в MJPG.
+    frame_width: int = Field(default=2592, ge=320, le=3840)
+    frame_height: int = Field(default=1944, ge=240, le=2160)
 
     # Делать фото только если на полке включён свет
     only_when_light_on: bool = True
@@ -36,6 +37,7 @@ class CameraCaptureConfig(BaseModel):
     # Последний кадр каждой полки. Cloud sync отправляет только изменившийся JPEG на VPS.
     latest_dir: str = "data/camera_latest"
 
+
 class CameraHW(BaseModel):
     name: str = Field(default="", max_length=100)
     device: str = Field(default="/dev/video0", min_length=1, max_length=255)
@@ -46,13 +48,21 @@ class CameraHW(BaseModel):
     # [left_top_x, left_top_y, right_top_x, right_top_y, right_bottom_x, right_bottom_y, left_bottom_x, left_bottom_y]
     warp_points: Optional[list[float]] = Field(default=None, min_length=8, max_length=8)
 
-    # Фокус
-    autofocus_enabled: bool = True
-    focus_absolute: Optional[int] = Field(default=None, ge=0, le=1023)
+    # Профиль камеры, подобранный экспериментально для снимков полки.
+    # Экспозицию намеренно не трогаем: эта модель возвращается в нормальный
+    # автоматический режим экспозиции после перезагрузки, но не принимает
+    # auto_exposure=0 через v4l2-ctl.
+    autofocus_enabled: bool = False
+    focus_absolute: Optional[int] = Field(default=120, ge=0, le=1023)
+    brightness: Optional[int] = Field(default=1, ge=0, le=255)
+    contrast: Optional[int] = Field(default=8, ge=0, le=255)
+    saturation: Optional[int] = Field(default=10, ge=0, le=255)
+    sharpness: Optional[int] = Field(default=0, ge=0, le=255)
 
-    # Баланс белого
-    white_balance_auto: bool = True
-    white_balance_temperature: Optional[int] = Field(default=None, ge=1, le=10000)
+    # Баланс белого. У текущей камеры это vendor-specific шкала 1..5.
+    white_balance_auto: bool = False
+    white_balance_temperature: Optional[int] = Field(default=5, ge=1, le=10000)
+
 
 class RackHW(BaseModel):
     light_relay: int = Field(ge=1, le=16)
@@ -69,6 +79,7 @@ class RackHW(BaseModel):
     camera_flip_horizontal: bool = False
     camera_warp_enabled: bool = False
     camera_warp_points: Optional[list[float]] = Field(default=None, min_length=8, max_length=8)
+
 
 class RS485Settings(BaseModel):
     port: str = Field(min_length=1)                 # "/dev/ttyUSB0" или "COM3"
@@ -182,7 +193,9 @@ def load_config() -> HWConfig:
                 interval_seconds=30,
                 google_folder_id=None,
                 credentials_file=None,
-                jpeg_quality=85,
+                jpeg_quality=90,
+                frame_width=2592,
+                frame_height=1944,
             ),
         )
         save_config(cfg)
@@ -217,7 +230,6 @@ def load_config() -> HWConfig:
             rack.camera_id = camera_id
             need_save = True
 
-
     for i in range(1, cfg.racks_count + 1):
         k = str(i)
         if k not in cfg.racks:
@@ -246,6 +258,7 @@ def load_config() -> HWConfig:
         save_config(cfg)
 
     return cfg
+
 
 def save_config(cfg: HWConfig) -> None:
     path = config_path()
