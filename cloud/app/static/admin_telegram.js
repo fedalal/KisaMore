@@ -44,8 +44,11 @@
 
     const dialog = document.createElement("dialog");
     dialog.id = "telegramMessageHistoryDialog";
+    dialog.style.width = "min(1120px, calc(100vw - 48px))";
+    dialog.style.maxWidth = "1120px";
+    dialog.style.overflow = "hidden";
     dialog.innerHTML = `
-      <div class="dialog-card" style="width:min(900px,92vw);max-height:82vh;overflow:auto">
+      <div class="dialog-card" style="width:100%;max-height:86vh;overflow:auto">
         <div class="dialog-head">
           <div>
             <h3>Сообщения пользователю</h3>
@@ -104,14 +107,19 @@
       }
 
       body.innerHTML = `<div style="display:grid;gap:10px">${messages.map((item) => {
-        const media = item.media_name ? `<div class="username">📎 ${esc(item.media_name)}</div>` : "";
+        let media = "";
+        if (item.media_name) {
+          media = item.media_url
+            ? `<div class="username" style="margin-top:9px"><a href="${esc(item.media_url)}" download style="display:inline-flex;align-items:center;gap:6px;color:#27724f;font-weight:700;text-decoration:none">⬇ Скачать ${esc(item.media_name)}</a></div>`
+            : `<div class="username" style="margin-top:9px">📎 ${esc(item.media_name)} <span class="muted">(файл недоступен на сервере)</span></div>`;
+        }
         const text = item.text ? esc(item.text) : `<span class="muted">Без текста</span>`;
-        return `<article style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff">
+        return `<article style="border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff;min-width:0">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:7px">
             <strong>${esc(fmtDate(item.sent_at))}</strong>
             <span class="badge green">${esc(messageTypeLabel(item.message_type))}</span>
           </div>
-          <div style="white-space:pre-wrap;line-height:1.45">${text}</div>
+          <div style="white-space:pre-wrap;line-height:1.45;overflow-wrap:anywhere;word-break:break-word">${text}</div>
           ${media}
         </article>`;
       }).join("")}</div>`;
