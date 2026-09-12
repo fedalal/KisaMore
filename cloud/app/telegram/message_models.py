@@ -27,6 +27,7 @@ class TelegramOutboundMessage(Base):
     message_type: Mapped[str] = mapped_column(String(24), index=True, nullable=False)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     media_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    media_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     telegram_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, index=True, nullable=False
