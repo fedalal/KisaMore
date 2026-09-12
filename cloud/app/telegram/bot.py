@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import httpx
 
+from .message_models import TelegramOutboundMessage
 from .profile_locales import BOT_PROFILE_LOCALIZATIONS, DEFAULT_LANGUAGE
 
+
+logger = logging.getLogger(__name__)
 
 HELP_COMMAND_DESCRIPTIONS = {
     "en": "Help",
@@ -31,6 +35,51 @@ def _commands_for(language_code: str, locale: dict) -> list[dict]:
             }
         )
     return commands
+
+
+async def _record_outbound_message(
+    chat_id: int,
+    *,
+    message_type: str,
+    text: str = "",
+    media_name: str | None = None,
+    telegram_result: dict | None = None,
+) -> None:
+    """Persist a successfully sent Telegram message without affecting delivery.
+
+    Logging is deliberately best-effort: if PostgreSQL is temporarily
+    unavailable after Telegram has accepted a message, the user must not receive
+    a duplicate just because storing the audit copy failed.
+    """
+    try:
+        from ..db import SessionLocal
+
+        message_id = None
+        if isinstance(telegram_result, dict):
+            raw_id = telegram_result.get("message_id")
+            if raw_id is not None:
+                try:
+                    message_id = int(raw_id)
+                except (TypeError, ValueError):
+                    message_id = None
+
+        async with SessionLocal() as session:
+            session.add(
+                TelegramOutboundMessage(
+                    telegram_user_id=int(chat_id),
+                    message_type=str(message_type)[:24],
+                    text=str(text or "") or None,
+                    media_name=(str(media_name)[:255] if media_name else None),
+                    telegram_message_id=message_id,
+                )
+            )
+            await session.commit()
+    except Exception:
+        logger.exception(
+            "Could not persist outbound Telegram %s for chat %s",
+            message_type,
+            chat_id,
+        )
 
 
 class TelegramAPIError(RuntimeError):
@@ -102,7 +151,14 @@ class TelegramBotAPI:
         }
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
-        return await self.call("sendMessage", payload)
+        result = await self.call("sendMessage", payload)
+        await _record_outbound_message(
+            chat_id,
+            message_type="text",
+            text=text,
+            telegram_result=result if isinstance(result, dict) else None,
+        )
+        return result
 
     async def send_photo(
         self,
@@ -138,7 +194,15 @@ class TelegramBotAPI:
             raise TelegramAPIError(
                 f"Telegram API sendPhoto failed: {payload.get('description', 'unknown error')}"
             )
-        return payload.get("result")
+        result = payload.get("result")
+        await _record_outbound_message(
+            chat_id,
+            message_type="photo",
+            text=caption,
+            media_name=path.name,
+            telegram_result=result if isinstance(result, dict) else None,
+        )
+        return result
 
     async def send_video(
         self,
@@ -174,7 +238,15 @@ class TelegramBotAPI:
             raise TelegramAPIError(
                 f"Telegram API sendVideo failed: {payload.get('description', 'unknown error')}"
             )
-        return payload.get("result")
+        result = payload.get("result")
+        await _record_outbound_message(
+            chat_id,
+            message_type="video",
+            text=caption,
+            media_name=path.name,
+            telegram_result=result if isinstance(result, dict) else None,
+        )
+        return result
 
     async def answer_callback_query(
         self,
@@ -197,7 +269,7 @@ class TelegramBotAPI:
         payload: str,
         stars: int,
     ):
-        return await self.call(
+        result = await self.call(
             "sendInvoice",
             {
                 "chat_id": chat_id,
@@ -209,6 +281,13 @@ class TelegramBotAPI:
                 "prices": [{"label": title[:32], "amount": stars}],
             },
         )
+        await _record_outbound_message(
+            chat_id,
+            message_type="invoice",
+            text=f"{title}\n{description}\n⭐ {stars}",
+            telegram_result=result if isinstance(result, dict) else None,
+        )
+        return result
 
     async def answer_pre_checkout_query(
         self,
