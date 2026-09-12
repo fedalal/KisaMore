@@ -37,6 +37,24 @@ def _commands_for(language_code: str, locale: dict) -> list[dict]:
     return commands
 
 
+def _result_from_response(method: str, response: httpx.Response):
+    """Return Telegram result or raise an error that never exposes the bot token."""
+    try:
+        data = response.json()
+    except ValueError:
+        data = {}
+
+    if response.status_code >= 400 or not data.get("ok"):
+        description = data.get("description") or f"HTTP {response.status_code}"
+        parameters = data.get("parameters") or {}
+        retry_after = parameters.get("retry_after")
+        retry_hint = f"; retry_after={retry_after}s" if retry_after is not None else ""
+        raise TelegramAPIError(
+            f"Telegram API {method} failed: {description}{retry_hint}"
+        )
+    return data.get("result")
+
+
 async def _record_outbound_message(
     chat_id: int,
     *,
@@ -98,24 +116,7 @@ class TelegramBotAPI:
             raise TelegramAPIError("Telegram bot token is not configured")
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(f"{self.base_url}/{method}", json=payload or {})
-
-        # Do not use response.raise_for_status() here. Its exception message
-        # contains the full request URL, and Telegram embeds the bot token in
-        # that URL. Parse the Telegram response and raise a sanitized error.
-        try:
-            data = response.json()
-        except ValueError:
-            data = {}
-
-        if response.status_code >= 400 or not data.get("ok"):
-            description = data.get("description") or f"HTTP {response.status_code}"
-            parameters = data.get("parameters") or {}
-            retry_after = parameters.get("retry_after")
-            retry_hint = f"; retry_after={retry_after}s" if retry_after is not None else ""
-            raise TelegramAPIError(
-                f"Telegram API {method} failed: {description}{retry_hint}"
-            )
-        return data.get("result")
+        return _result_from_response(method, response)
 
     async def configure_localized_profile(self) -> None:
         fallback = BOT_PROFILE_LOCALIZATIONS[DEFAULT_LANGUAGE]
@@ -212,13 +213,7 @@ class TelegramBotAPI:
                     data=data,
                     files={"photo": (path.name, fh, mime)},
                 )
-            response.raise_for_status()
-            payload = response.json()
-        if not payload.get("ok"):
-            raise TelegramAPIError(
-                f"Telegram API sendPhoto failed: {payload.get('description', 'unknown error')}"
-            )
-        result = payload.get("result")
+        result = _result_from_response("sendPhoto", response)
         await _record_outbound_message(
             chat_id,
             message_type="photo",
@@ -257,13 +252,7 @@ class TelegramBotAPI:
                     data=data,
                     files={"video": (path.name, fh, "video/mp4")},
                 )
-            response.raise_for_status()
-            payload = response.json()
-        if not payload.get("ok"):
-            raise TelegramAPIError(
-                f"Telegram API sendVideo failed: {payload.get('description', 'unknown error')}"
-            )
-        result = payload.get("result")
+        result = _result_from_response("sendVideo", response)
         await _record_outbound_message(
             chat_id,
             message_type="video",
