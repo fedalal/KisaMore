@@ -7,7 +7,7 @@ import subprocess
 import threading
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 import cv2
 import uvicorn
@@ -15,12 +15,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
+from app.camera_manager import CameraWorker
 from app.camera_profiles import (
     camera_profile_path,
     load_camera_profile,
     profile_controls,
     profile_format,
+    profile_frame_area,
     save_camera_profile,
+    shell_command_for_profile,
 )
 
 
@@ -155,7 +158,6 @@ class CameraStream:
         self.height = int(height)
         self.pixel_format = str(pixel_format)
         self.fps = int(fps)
-
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.thread: threading.Thread | None = None
@@ -175,7 +177,6 @@ class CameraStream:
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=3)
         self.thread = None
-
         with self.lock:
             if self.cap is not None:
                 try:
@@ -183,10 +184,6 @@ class CameraStream:
                 except Exception:
                     pass
                 self.cap = None
-
-    def restart(self):
-        self.stop()
-        self.start()
 
     def wait_for_frame(self, timeout: float = 5.0) -> bool:
         deadline = time.monotonic() + timeout
@@ -221,7 +218,6 @@ class CameraStream:
                 self.last_error = None
 
             while not self.stop_event.is_set():
-                # Never run v4l2-ctl concurrently with VideoCapture.read().
                 with self.lock:
                     ok, frame = cap.read()
                 if not ok or frame is None:
@@ -229,7 +225,6 @@ class CameraStream:
                     continue
                 with self.lock:
                     self.frame = frame
-
         except Exception as exc:
             with self.lock:
                 self.last_error = str(exc)
@@ -255,11 +250,24 @@ class CameraStream:
                 timeout=4,
             )
 
-    def jpeg(self, *, max_width: int, quality: int) -> bytes | None:
+    def jpeg(
+        self,
+        *,
+        max_width: int,
+        quality: int,
+        frame_area_enabled: bool = False,
+        frame_area_points: Optional[list[float]] = None,
+    ) -> bytes | None:
         with self.lock:
             if self.frame is None:
                 return None
             frame = self.frame.copy()
+
+        frame = CameraWorker._apply_perspective_warp(
+            frame,
+            bool(frame_area_enabled),
+            frame_area_points,
+        )
 
         height, width = frame.shape[:2]
         if max_width > 0 and width > max_width:
@@ -290,6 +298,11 @@ class FormatUpdate(BaseModel):
     fps: int = 30
 
 
+class FrameAreaUpdate(BaseModel):
+    enabled: bool = False
+    points: Optional[list[float]] = None
+
+
 def apply_saved_controls(stream: CameraStream, controls: dict[str, int]):
     if not controls:
         return
@@ -305,14 +318,8 @@ def apply_saved_controls(stream: CameraStream, controls: dict[str, int]):
     names = [name for name in priority if name in controls]
     names.extend(name for name in controls if name not in names)
 
-    auto_focus = controls.get(
-        "focus_automatic_continuous",
-        controls.get("focus_auto"),
-    )
-    auto_wb = controls.get(
-        "white_balance_automatic",
-        controls.get("white_balance_temperature_auto"),
-    )
+    auto_focus = controls.get("focus_automatic_continuous", controls.get("focus_auto"))
+    auto_wb = controls.get("white_balance_automatic", controls.get("white_balance_temperature_auto"))
     auto_exposure = controls.get("auto_exposure")
 
     for name in names:
@@ -332,77 +339,26 @@ def apply_saved_controls(stream: CameraStream, controls: dict[str, int]):
 
 
 HTML = r"""
-<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Camera Tuner</title>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Camera Tuner</title>
 <style>
-:root{font-family:Inter,system-ui,Arial,sans-serif;color:#152033;background:#eef2f7}*{box-sizing:border-box}body{margin:0}
-header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #d9e0ea;padding:12px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-header h1{font-size:20px;margin:0 12px 0 0}button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 13px;font-weight:700;cursor:pointer}.primary{background:#2563eb;color:#fff;border-color:#2563eb}.danger{color:#b91c1c}.status{font-size:13px;color:#526175}
-main{display:grid;grid-template-columns:minmax(480px,1.35fr) minmax(420px,1fr);gap:14px;padding:14px}.card{background:#fff;border:1px solid #d9e0ea;border-radius:14px;padding:14px;box-shadow:0 4px 16px rgba(20,35,60,.05)}.previewWrap{position:sticky;top:78px}.preview{width:100%;display:block;border-radius:10px;background:#111;min-height:280px;object-fit:contain}
-.row{display:grid;grid-template-columns:190px 1fr 90px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid #edf0f4}.name{font-size:13px;font-weight:700}.meta,.small{font-size:11px;color:#718096;font-weight:500}input[type=range]{width:100%}input[type=number],select,input[type=text]{width:100%;padding:7px 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}.checkboxCell{display:flex;align-items:center}.sectionTitle{font-weight:800;margin:6px 0 10px}.formatGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:10px;max-height:260px;overflow:auto;font-size:12px}.disabled{opacity:.45}@media(max-width:1000px){main{grid-template-columns:1fr}.previewWrap{position:static}}
-</style>
-</head>
-<body>
-<header>
-  <h1>Camera Tuner · <span id="cameraName">…</span></h1>
-  <button class="primary" onclick="saveProfile()">Сохранить параметры</button>
-  <button onclick="downloadSnapshot()">Полный кадр</button>
-  <button onclick="refreshState()">Обновить</button>
-  <button class="danger" onclick="resetDefaults()">По умолчанию</button>
-  <span id="status" class="status">загрузка…</span>
-</header>
-<main>
-  <div>
-    <div class="card previewWrap">
-      <div class="sectionTitle">Изображение с камеры</div>
-      <img id="preview" class="preview" src="/stream">
-      <div class="small" id="cameraInfo" style="margin-top:9px"></div>
-      <div class="small" id="profileInfo" style="margin-top:5px"></div>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <div class="sectionTitle">Формат камеры</div>
-      <div class="formatGrid">
-        <label><div class="small">Ширина</div><input id="width" type="number"></label>
-        <label><div class="small">Высота</div><input id="height" type="number"></label>
-        <label><div class="small">Формат</div><input id="pixelformat" type="text"></label>
-        <label><div class="small">FPS</div><input id="fps" type="number"></label>
-      </div>
-      <button style="margin-top:10px" onclick="applyFormat()">Применить формат</button>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <div class="sectionTitle">Команда текущего профиля</div>
-      <pre id="shellCommand">—</pre>
-    </div>
-  </div>
-  <div class="card">
-    <div class="sectionTitle">Все V4L2-параметры</div>
-    <div class="small" style="margin-bottom:8px">Изменения применяются непосредственно к Linux V4L2 driver.</div>
-    <div id="controls"></div>
-  </div>
-</main>
+:root{font-family:Inter,system-ui,Arial,sans-serif;color:#152033;background:#eef2f7}*{box-sizing:border-box}body{margin:0}header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #d9e0ea;padding:12px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}header h1{font-size:20px;margin:0 12px 0 0}button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 13px;font-weight:700;cursor:pointer}.primary{background:#2563eb;color:#fff;border-color:#2563eb}.danger{color:#b91c1c}.status{font-size:13px;color:#526175}main{display:grid;grid-template-columns:minmax(480px,1.35fr) minmax(420px,1fr);gap:14px;padding:14px}.card{background:#fff;border:1px solid #d9e0ea;border-radius:14px;padding:14px;box-shadow:0 4px 16px rgba(20,35,60,.05)}.previewWrap{position:sticky;top:78px}.previewStage{position:relative;width:100%;line-height:0;background:#111;border-radius:10px;overflow:hidden}.preview{width:100%;height:auto;display:block;background:#111}.areaOverlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.areaOverlay polyline{fill:rgba(37,99,235,.08);stroke:#22c55e;stroke-width:4}.areaOverlay circle{fill:#fff;stroke:#16a34a;stroke-width:3}.areaOverlay text{fill:#fff;stroke:#111;stroke-width:3;paint-order:stroke;font:700 28px system-ui}.previewStage.picking{cursor:crosshair}.row{display:grid;grid-template-columns:190px 1fr 90px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid #edf0f4}.name{font-size:13px;font-weight:700}.meta,.small{font-size:11px;color:#718096;font-weight:500}input[type=range]{width:100%}input[type=number],select,input[type=text]{width:100%;padding:7px 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}.checkboxCell{display:flex;align-items:center}.sectionTitle{font-weight:800;margin:6px 0 10px}.formatGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.areaActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}.areaCoords{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-top:8px;word-break:break-word}pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:10px;max-height:260px;overflow:auto;font-size:12px}.disabled{opacity:.45}@media(max-width:1000px){main{grid-template-columns:1fr}.previewWrap{position:static}}
+</style></head><body>
+<header><h1>Camera Tuner · <span id="cameraName">…</span></h1><button class="primary" onclick="saveProfile()">Сохранить параметры</button><button onclick="downloadSnapshot(false)">Полный кадр</button><button onclick="downloadSnapshot(true)">Результат области</button><button onclick="refreshState()">Обновить</button><button class="danger" onclick="resetDefaults()">По умолчанию</button><span id="status" class="status">загрузка…</span></header>
+<main><div><div class="card previewWrap"><div class="sectionTitle">Изображение с камеры</div><div id="previewStage" class="previewStage" onclick="previewClick(event)"><img id="preview" class="preview" src="/stream"><svg id="areaOverlay" class="areaOverlay"></svg></div><div class="small" id="cameraInfo" style="margin-top:9px"></div><div class="small" id="profileInfo" style="margin-top:5px"></div><div class="areaActions"><label><input id="areaEnabled" type="checkbox" onchange="toggleAreaEnabled(this.checked)"> Использовать выбранную область</label><button id="pickAreaBtn" onclick="startAreaPick();event.stopPropagation()">Выбрать 4 точки</button><button onclick="resetArea();event.stopPropagation()">Сбросить область</button></div><div class="small" style="margin-top:7px">Порядок: левый верхний → правый верхний → правый нижний → левый нижний.</div><div id="areaCoords" class="areaCoords">Область не задана</div></div>
+<div class="card" style="margin-top:14px"><div class="sectionTitle">Формат камеры</div><div class="formatGrid"><label><div class="small">Ширина</div><input id="width" type="number"></label><label><div class="small">Высота</div><input id="height" type="number"></label><label><div class="small">Формат</div><input id="pixelformat" type="text"></label><label><div class="small">FPS</div><input id="fps" type="number"></label></div><button style="margin-top:10px" onclick="applyFormat()">Применить формат</button></div>
+<div class="card" style="margin-top:14px"><div class="sectionTitle">Команда текущего профиля</div><div class="small" style="margin-bottom:7px">Область кадра хранится в JSON-профиле и не входит в v4l2-ctl команду.</div><pre id="shellCommand">—</pre></div></div>
+<div class="card"><div class="sectionTitle">Все V4L2-параметры</div><div class="small" style="margin-bottom:8px">Изменения применяются непосредственно к Linux V4L2 driver.</div><div id="controls"></div></div></main>
 <script>
-let state=null;let pending=new Map();
-function esc(s){return String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function setStatus(s){document.getElementById("status").textContent=s;}
-async function api(path,opts={}){const r=await fetch(path,opts);if(!r.ok)throw new Error(await r.text());return await r.json();}
+let state=null;let pending=new Map();let picking=false;let draftPoints=[];
+function esc(s){return String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}function setStatus(s){document.getElementById("status").textContent=s;}async function api(path,opts={}){const r=await fetch(path,opts);if(!r.ok)throw new Error(await r.text());return await r.json();}
 function buildControl(c){const disabled=c.readonly||c.inactive;const id="ctrl_"+c.name;let widget="";if(c.type==="bool"){widget=`<div class="checkboxCell"><input id="${id}" type="checkbox" ${c.value?"checked":""} ${disabled?"disabled":""} onchange="setControl('${esc(c.name)}',this.checked?1:0)"></div><div></div>`;}else if(c.type==="menu"){const opts=(c.menu||[]).map(m=>`<option value="${m.value}" ${m.value===c.value?"selected":""}>${m.value}: ${esc(m.label)}</option>`).join("");widget=`<select id="${id}" ${disabled?"disabled":""} onchange="setControl('${esc(c.name)}',Number(this.value))">${opts}</select><div></div>`;}else if(Number.isFinite(c.min)&&Number.isFinite(c.max)){const step=c.step||1;widget=`<input id="${id}_range" type="range" min="${c.min}" max="${c.max}" step="${step}" value="${c.value}" ${disabled?"disabled":""} oninput="document.getElementById('${id}_num').value=this.value;queueControl('${esc(c.name)}',Number(this.value))"><input id="${id}_num" type="number" min="${c.min}" max="${c.max}" step="${step}" value="${c.value}" ${disabled?"disabled":""} onchange="syncNumber('${esc(c.name)}',this.value,${c.min},${c.max})">`;}else{widget=`<input id="${id}_num" type="number" value="${c.value??0}" ${disabled?"disabled":""} onchange="setControl('${esc(c.name)}',Number(this.value))"><div></div>`;}return `<div class="row ${disabled?"disabled":""}"><div class="name">${esc(c.name)}<div class="meta">${esc(c.type)} · default=${c.default??"?"}${c.inactive?" · inactive":""}</div></div>${widget}</div>`;}
-function render(){document.getElementById("cameraName").textContent=state.camera_name;document.getElementById("controls").innerHTML=state.controls.map(buildControl).join("");document.getElementById("width").value=state.format.width||"";document.getElementById("height").value=state.format.height||"";document.getElementById("pixelformat").value=state.format.pixelformat||"MJPG";document.getElementById("fps").value=state.format.fps||30;document.getElementById("cameraInfo").textContent=`${state.device} · ${state.format.width}×${state.format.height} · ${state.format.pixelformat} · ${state.format.fps??"?"} fps`;document.getElementById("profileInfo").textContent=`Профиль: ${state.profile_path}${state.profile_loaded?" · загружен при запуске":" · ещё не сохранён"}`;document.getElementById("shellCommand").textContent=state.shell_command||"—";}
-async function refreshState(){try{setStatus("чтение параметров…");state=await api("/api/state");render();setStatus("готово");}catch(e){setStatus("ошибка: "+e.message);}}
-function queueControl(name,value){clearTimeout(pending.get(name));pending.set(name,setTimeout(()=>setControl(name,value),120));}
-function syncNumber(name,value,min,max){let v=Number(value);v=Math.max(min,Math.min(max,v));const r=document.getElementById("ctrl_"+name+"_range");if(r)r.value=v;setControl(name,v);}
-async function setControl(name,value){try{setStatus(`${name}=${value}…`);const result=await api("/api/control",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,value})});setStatus(`${name}=${result.value}`);setTimeout(refreshState,120);}catch(e){setStatus("ошибка: "+e.message);}}
-async function applyFormat(){try{setStatus("перезапуск камеры…");await api("/api/format",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({width:Number(document.getElementById("width").value),height:Number(document.getElementById("height").value),pixelformat:document.getElementById("pixelformat").value.trim(),fps:Number(document.getElementById("fps").value)})});document.getElementById("preview").src="/stream?t="+Date.now();setTimeout(refreshState,800);}catch(e){setStatus("ошибка: "+e.message);}}
-async function saveProfile(){try{setStatus("сохранение…");const result=await api("/api/save",{method:"POST"});document.getElementById("shellCommand").textContent=result.shell_command;document.getElementById("profileInfo").textContent=`Профиль: ${result.path} · сохранён`;setStatus("сохранено");}catch(e){setStatus("ошибка: "+e.message);}}
-async function resetDefaults(){if(!confirm("Вернуть доступные controls к default?"))return;try{setStatus("сброс…");await api("/api/reset-defaults",{method:"POST"});setTimeout(refreshState,400);}catch(e){setStatus("ошибка: "+e.message);}}
-function downloadSnapshot(){window.open("/snapshot?t="+Date.now(),"_blank");}
-refreshState();
-</script>
-</body>
-</html>
+function activePoints(){return picking?draftPoints:(state?.frame_area?.points||[]);}function renderArea(){if(!state)return;document.getElementById("areaEnabled").checked=Boolean(state.frame_area?.enabled);const points=activePoints();const coords=document.getElementById("areaCoords");if(Array.isArray(points)&&points.length){const pairs=[];for(let i=0;i<points.length;i+=2)pairs.push(`${Math.round(points[i])},${Math.round(points[i+1])}`);coords.textContent=pairs.join("  ");}else coords.textContent="Область не задана";const width=Number(state.format.width||1),height=Number(state.format.height||1),svg=document.getElementById("areaOverlay");svg.setAttribute("viewBox",`0 0 ${width} ${height}`);svg.setAttribute("preserveAspectRatio","none");const pairs=[];for(let i=0;i+1<points.length;i+=2)pairs.push([Number(points[i]),Number(points[i+1])]);const poly=pairs.map(p=>`${p[0]},${p[1]}`).join(" ");const closed=pairs.length===4?`${poly} ${pairs[0][0]},${pairs[0][1]}`:poly;const circles=pairs.map((p,idx)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${Math.max(8,width/220)}"></circle><text x="${p[0]+width/100}" y="${p[1]-height/80}">${idx+1}</text>`).join("");svg.innerHTML=(pairs.length>=2?`<polyline points="${closed}"></polyline>`:"")+circles;document.getElementById("previewStage").classList.toggle("picking",picking);document.getElementById("pickAreaBtn").textContent=picking?`Точка ${Math.floor(draftPoints.length/2)+1} из 4`:"Выбрать 4 точки";}
+function render(){document.getElementById("cameraName").textContent=state.camera_name;document.getElementById("controls").innerHTML=state.controls.map(buildControl).join("");document.getElementById("width").value=state.format.width||"";document.getElementById("height").value=state.format.height||"";document.getElementById("pixelformat").value=state.format.pixelformat||"MJPG";document.getElementById("fps").value=state.format.fps||30;document.getElementById("cameraInfo").textContent=`${state.device} · ${state.format.width}×${state.format.height} · ${state.format.pixelformat} · ${state.format.fps??"?"} fps`;document.getElementById("profileInfo").textContent=`Профиль: ${state.profile_path}${state.profile_loaded?" · загружен при запуске":" · ещё не сохранён"}`;document.getElementById("shellCommand").textContent=state.shell_command||"—";renderArea();}
+async function refreshState(){try{setStatus("чтение параметров…");state=await api("/api/state");render();setStatus("готово");}catch(e){setStatus("ошибка: "+e.message);}}function queueControl(name,value){clearTimeout(pending.get(name));pending.set(name,setTimeout(()=>setControl(name,value),120));}function syncNumber(name,value,min,max){let v=Number(value);v=Math.max(min,Math.min(max,v));const r=document.getElementById("ctrl_"+name+"_range");if(r)r.value=v;setControl(name,v);}async function setControl(name,value){try{setStatus(`${name}=${value}…`);const result=await api("/api/control",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,value})});setStatus(`${name}=${result.value}`);setTimeout(refreshState,120);}catch(e){setStatus("ошибка: "+e.message);}}
+function startAreaPick(){picking=true;draftPoints=[];renderArea();setStatus("выберите 4 точки на изображении");}function previewClick(event){if(!picking||!state)return;const img=document.getElementById("preview"),rect=img.getBoundingClientRect();if(rect.width<=0||rect.height<=0)return;const xCss=event.clientX-rect.left,yCss=event.clientY-rect.top;if(xCss<0||yCss<0||xCss>rect.width||yCss>rect.height)return;const x=Math.round(xCss/rect.width*Number(state.format.width)),y=Math.round(yCss/rect.height*Number(state.format.height));draftPoints.push(Math.max(0,Math.min(Number(state.format.width)-1,x)),Math.max(0,Math.min(Number(state.format.height)-1,y)));if(draftPoints.length===8){picking=false;setFrameArea(true,draftPoints.slice());return;}renderArea();}
+async function setFrameArea(enabled,points){try{const result=await api("/api/frame-area",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled,points})});state.frame_area=result.frame_area;draftPoints=[];picking=false;renderArea();setStatus(enabled?"область задана":"область отключена");}catch(e){setStatus("ошибка: "+e.message);}}async function toggleAreaEnabled(enabled){const points=state?.frame_area?.points||null;if(enabled&&(!Array.isArray(points)||points.length!==8)){document.getElementById("areaEnabled").checked=false;startAreaPick();return;}await setFrameArea(enabled,points);}async function resetArea(){await setFrameArea(false,null);}
+async function applyFormat(){try{setStatus("перезапуск камеры…");const result=await api("/api/format",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({width:Number(document.getElementById("width").value),height:Number(document.getElementById("height").value),pixelformat:document.getElementById("pixelformat").value.trim(),fps:Number(document.getElementById("fps").value)})});if(result.frame_area)state.frame_area=result.frame_area;document.getElementById("preview").src="/stream?t="+Date.now();setTimeout(refreshState,800);}catch(e){setStatus("ошибка: "+e.message);}}async function saveProfile(){try{setStatus("сохранение…");const result=await api("/api/save",{method:"POST"});document.getElementById("shellCommand").textContent=result.shell_command;document.getElementById("profileInfo").textContent=`Профиль: ${result.path} · сохранён`;state.frame_area=result.profile.frame_area;renderArea();setStatus("сохранено");}catch(e){setStatus("ошибка: "+e.message);}}async function resetDefaults(){if(!confirm("Вернуть доступные controls к default?"))return;try{setStatus("сброс…");await api("/api/reset-defaults",{method:"POST"});setTimeout(refreshState,400);}catch(e){setStatus("ошибка: "+e.message);}}function downloadSnapshot(corrected){window.open(`/snapshot?corrected=${corrected?"true":"false"}&t=${Date.now()}`,"_blank");}window.addEventListener("resize",()=>renderArea());refreshState();
+</script></body></html>
 """
 
 
@@ -431,6 +387,8 @@ def make_app(args):
         except Exception:
             width, height, pixel_format, fps = args.width, args.height, args.pixelformat, args.fps
 
+    area_enabled, area_points = profile_frame_area(saved_profile)
+    area_state: dict[str, Any] = {"enabled": area_enabled, "points": area_points}
     stream = CameraStream(args.device, width, height, pixel_format, fps)
     app = FastAPI(title=f"Camera Tuner · {args.camera_name}")
 
@@ -455,24 +413,16 @@ def make_app(args):
     def state():
         controls = get_controls(args.device)
         fmt = current_format(args.device)
-        control_map = {
-            item["name"]: item.get("value")
-            for item in controls
-            if item.get("value") is not None
-        }
-        from app.camera_profiles import shell_command_for_profile
+        control_map = {item["name"]: item.get("value") for item in controls if item.get("value") is not None}
         return {
             "camera_name": args.camera_name,
             "device": args.device,
             "controls": controls,
             "format": fmt,
+            "frame_area": {"enabled": bool(area_state["enabled"]), "points": area_state["points"]},
             "profile_path": str(camera_profile_path(args.camera_name)),
             "profile_loaded": saved_profile is not None,
-            "shell_command": shell_command_for_profile(
-                device=args.device,
-                fmt=fmt,
-                controls=control_map,
-            ),
+            "shell_command": shell_command_for_profile(device=args.device, fmt=fmt, controls=control_map),
         }
 
     @app.post("/api/control")
@@ -483,17 +433,32 @@ def make_app(args):
             raise HTTPException(404, f"Unknown control: {update.name}")
         if meta.get("readonly") or meta.get("inactive"):
             raise HTTPException(400, f"Control is not writable: {update.name}")
-
         try:
             stream.set_control(update.name, update.value)
         except Exception as exc:
             raise HTTPException(500, str(exc))
+        return {"ok": True, "name": update.name, "value": control_value(args.device, update.name)}
 
-        return {
-            "ok": True,
-            "name": update.name,
-            "value": control_value(args.device, update.name),
-        }
+    @app.post("/api/frame-area")
+    def update_frame_area(update: FrameAreaUpdate):
+        points: Optional[list[float]] = None
+        if update.points is not None:
+            if len(update.points) != 8:
+                raise HTTPException(400, "Frame area requires exactly 4 x,y points")
+            points = [float(value) for value in update.points]
+            fmt = current_format(args.device)
+            width_now = int(fmt.get("width") or stream.width)
+            height_now = int(fmt.get("height") or stream.height)
+            for index in range(0, 8, 2):
+                if points[index] < 0 or points[index] >= width_now:
+                    raise HTTPException(400, f"x coordinate outside frame: {points[index]}")
+                if points[index + 1] < 0 or points[index + 1] >= height_now:
+                    raise HTTPException(400, f"y coordinate outside frame: {points[index + 1]}")
+        if update.enabled and points is None:
+            raise HTTPException(400, "Select 4 points before enabling the frame area")
+        area_state["enabled"] = bool(update.enabled and points is not None)
+        area_state["points"] = points
+        return {"ok": True, "frame_area": {"enabled": area_state["enabled"], "points": area_state["points"]}}
 
     @app.post("/api/format")
     def update_format(update: FormatUpdate):
@@ -503,16 +468,12 @@ def make_app(args):
             raise HTTPException(400, "Pixel format must be a fourcc such as MJPG")
         if update.fps < 1 or update.fps > 120:
             raise HTTPException(400, "Invalid FPS")
-
+        old_fmt = current_format(args.device)
+        old_width = int(old_fmt.get("width") or stream.width)
+        old_height = int(old_fmt.get("height") or stream.height)
         try:
             stream.stop()
-            set_format(
-                args.device,
-                update.width,
-                update.height,
-                update.pixelformat,
-                update.fps,
-            )
+            set_format(args.device, update.width, update.height, update.pixelformat, update.fps)
             stream.width = update.width
             stream.height = update.height
             stream.pixel_format = update.pixelformat
@@ -522,8 +483,11 @@ def make_app(args):
         except Exception as exc:
             stream.start()
             raise HTTPException(500, str(exc))
-
-        return {"ok": True}
+        if isinstance(area_state.get("points"), list) and len(area_state["points"]) == 8 and old_width > 0 and old_height > 0:
+            sx = update.width / old_width
+            sy = update.height / old_height
+            area_state["points"] = [float(value) * (sx if index % 2 == 0 else sy) for index, value in enumerate(area_state["points"])]
+        return {"ok": True, "frame_area": {"enabled": area_state["enabled"], "points": area_state["points"]}}
 
     @app.post("/api/reset-defaults")
     def reset_defaults():
@@ -545,7 +509,6 @@ def make_app(args):
             value = control_value(args.device, item["name"])
             if value is not None:
                 values[item["name"]] = value
-
         fmt = current_format(args.device)
         json_path, shell_path, profile, command = save_camera_profile(
             camera_name=args.camera_name,
@@ -553,25 +516,17 @@ def make_app(args):
             fmt=fmt,
             controls=values,
             saved_at=datetime.now().isoformat(timespec="seconds"),
+            frame_area_enabled=bool(area_state["enabled"]),
+            frame_area_points=area_state["points"],
         )
-        return {
-            "ok": True,
-            "path": str(json_path),
-            "shell_path": str(shell_path),
-            "profile": profile,
-            "shell_command": command,
-        }
+        return {"ok": True, "path": str(json_path), "shell_path": str(shell_path), "profile": profile, "shell_command": command}
 
     @app.get("/snapshot")
-    def snapshot():
-        jpeg = stream.jpeg(max_width=0, quality=95)
+    def snapshot(corrected: bool = False):
+        jpeg = stream.jpeg(max_width=0, quality=95, frame_area_enabled=bool(area_state["enabled"]) if corrected else False, frame_area_points=area_state["points"] if corrected else None)
         if not jpeg:
             raise HTTPException(503, "No camera frame")
-        return Response(
-            content=jpeg,
-            media_type="image/jpeg",
-            headers={"Cache-Control": "no-store"},
-        )
+        return Response(content=jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
     @app.get("/stream")
     def mjpeg():
@@ -579,32 +534,16 @@ def make_app(args):
             while True:
                 jpeg = stream.jpeg(max_width=args.preview_width, quality=88)
                 if jpeg:
-                    yield (
-                        b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\n"
-                        b"Cache-Control: no-store\r\n\r\n"
-                        + jpeg
-                        + b"\r\n"
-                    )
+                    yield b"--frame\r\nContent-Type: image/jpeg\r\nCache-Control: no-store\r\n\r\n" + jpeg + b"\r\n"
                 time.sleep(0.10)
-
-        return StreamingResponse(
-            generate(),
-            media_type="multipart/x-mixed-replace; boundary=frame",
-        )
+        return StreamingResponse(generate(), media_type="multipart/x-mixed-replace; boundary=frame")
 
     return app
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Headless Linux V4L2 camera tuner shared with KisaMore"
-    )
-    parser.add_argument(
-        "--camera-name",
-        required=True,
-        help="Stable KisaMore camera id, for example camera_1",
-    )
+    parser = argparse.ArgumentParser(description="Headless Linux V4L2 camera tuner shared with KisaMore")
+    parser.add_argument("--camera-name", required=True, help="Stable KisaMore camera id, for example camera_1")
     parser.add_argument("--device", default="/dev/video0")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8090)
@@ -618,9 +557,4 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    uvicorn.run(
-        make_app(args),
-        host=args.host,
-        port=args.port,
-        log_level="info",
-    )
+    uvicorn.run(make_app(args), host=args.host, port=args.port, log_level="info")
