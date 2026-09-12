@@ -8,7 +8,7 @@ from sqlalchemy import select
 from .hw_config import HWConfig, load_config
 from .rs485_driver import RS485RelayDriver, RS485Config
 from .inputs_driver import InputsDriver
-from .camera_profiles import load_runtime_camera_profiles
+from .camera_profiles import load_runtime_camera_profiles, profile_frame_area
 
 from .db import SessionLocal
 from .models import RackState, RackSchedule
@@ -68,6 +68,26 @@ async def init_runtime(active_low: bool = True) -> None:
     # writes them and KisaMore consumes the exact same files on startup.
     camera_profiles = load_runtime_camera_profiles(cfg.cameras)
 
+    # The selected frame area belongs to the same per-camera profile. Overlay it
+    # onto the in-memory camera config so every KisaMore capture path (scheduled
+    # photos, rack frame and camera-settings frame) uses exactly the area chosen
+    # in camera_tuner. Old profiles without frame_area keep YAML values.
+    for camera_id, camera_cfg in cfg.cameras.items():
+        profile = camera_profiles.get(camera_id)
+        if profile is None:
+            continue
+        area_enabled, area_points = profile_frame_area(
+            profile,
+            default_enabled=camera_cfg.warp_enabled,
+            default_points=camera_cfg.warp_points,
+        )
+        camera_cfg.warp_enabled = area_enabled
+        camera_cfg.warp_points = area_points
+        print(
+            f"[camera-profile] {camera_id}: effective frame area "
+            f"{'enabled' if area_enabled else 'disabled'}"
+        )
+
     if not cfg.rs485:
         raise RuntimeError("RS485 config missing: add rs485 section to config/kisamore.yaml")
 
@@ -84,7 +104,7 @@ async def init_runtime(active_low: bool = True) -> None:
     ))
     print(f"[KisaMore] RS485 driver enabled on {r.port}, slave_id={r.slave_id}, coil_base={r.coil_base}")
 
-    # NEW: входы (датчики уровня)
+    # NEW: входы (датчики уровня/входы)
     inputs = InputsDriver(cfg.level_sensors)
     print(f"[KisaMore] Inputs enabled: {cfg.level_sensors}")
 
