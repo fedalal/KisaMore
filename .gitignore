@@ -64,5 +64,8 @@ token.json
 data/camera_archive/
 data/camera_pending/
 
+# ---- VPS-managed plant catalog images ----
+data/plant-images/
+
 # ---- Cloud service local data ----
 cloud-data/
