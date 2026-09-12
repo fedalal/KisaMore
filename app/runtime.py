@@ -8,6 +8,7 @@ from sqlalchemy import select
 from .hw_config import HWConfig, load_config
 from .rs485_driver import RS485RelayDriver, RS485Config
 from .inputs_driver import InputsDriver
+from .camera_profiles import load_runtime_camera_profiles
 
 from .db import SessionLocal
 from .models import RackState, RackSchedule
@@ -49,14 +50,23 @@ def _in_any_range(now: datetime, ranges: list[dict]) -> bool:
             return True
     return False
 
+
 cfg: Optional[HWConfig] = None
 driver: Optional[Any] = None
 inputs: Optional[InputsDriver] = None
+# camera_id -> profile loaded from data/camera_profiles/<camera_id>.json.
+# Loaded once during service startup so the tuner and KisaMore share one source
+# of truth without storing camera image controls in two different places.
+camera_profiles: dict[str, dict[str, Any]] = {}
 
 
 async def init_runtime(active_low: bool = True) -> None:
-    global cfg, driver,inputs
+    global cfg, driver, inputs, camera_profiles
     cfg = load_config()
+
+    # Camera profiles are intentionally separate from kisamore.yaml. The tuner
+    # writes them and KisaMore consumes the exact same files on startup.
+    camera_profiles = load_runtime_camera_profiles(cfg.cameras)
 
     if not cfg.rs485:
         raise RuntimeError("RS485 config missing: add rs485 section to config/kisamore.yaml")
@@ -77,6 +87,7 @@ async def init_runtime(active_low: bool = True) -> None:
     # NEW: входы (датчики уровня)
     inputs = InputsDriver(cfg.level_sensors)
     print(f"[KisaMore] Inputs enabled: {cfg.level_sensors}")
+
 
 async def safety_reset_and_sync_relays() -> None:
     """
