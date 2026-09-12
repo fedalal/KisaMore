@@ -26,6 +26,7 @@ from .rental_admin_api import router as rental_admin_router
 from .rental_progress_admin_api import router as rental_progress_admin_router
 from .seed_inventory_admin_api import router as seed_inventory_admin_router
 from .telegram_admin_api import router as telegram_admin_router
+from .telegram_message_admin_api import router as telegram_message_admin_router
 from .timelapse_api import router as timelapse_router
 from .watering_admin_api import router as watering_admin_router
 
@@ -81,7 +82,7 @@ async def dashboard() -> HTMLResponse:
 async def admin_dashboard() -> HTMLResponse:
     content = ADMIN_TEMPLATE.read_text(encoding="utf-8").replace(
         "/static/admin_telegram.js?v=20260910-1",
-        "/static/admin_telegram.js?v=20260912-2",
+        "/static/admin_telegram.js?v=20260912-3",
     )
     return HTMLResponse(
         content,
@@ -102,3 +103,4 @@ app.include_router(rental_progress_admin_router)
 app.include_router(watering_admin_router)
 app.include_router(seed_inventory_admin_router)
 app.include_router(telegram_admin_router)
+app.include_router(telegram_message_admin_router)
