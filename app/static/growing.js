@@ -2,9 +2,36 @@
   "use strict";
 
   const messages = {
-    en: { dashboard: "Dashboard", operator: "Operator workspace", title: "Plants and containers", subtitle: "Manage the plant catalog and six container positions on every rack.", newPlant: "Add plant", syncPlants: "Sync growing data with VPS", syncingPlants: "Synchronizing…", syncPlantsSuccess: "Plant catalog and rack placement synchronized with VPS.", syncPlantsError: "Could not synchronize growing data with VPS.", catalog: "Plant catalog", showArchived: "Show archived", archive: "Archive", archived: "Archived", restore: "Restore", archiveConfirm: "Move this plant to the archive? Existing planting history will be preserved.", noActivePlants: "There are no active plants. Turn on “Show archived” to restore one.", racks: "Racks", sixSlots: "Six containers per rack", plantEditor: "Plant", code: "Code", nameEnglish: "Name (English)", nameRussian: "Name (Russian)", nameGerman: "Name (German)", nameFrench: "Name (French)", nameSpanish: "Name (Spanish)", nameItalian: "Name (Italian)", namePortuguese: "Name (Portuguese)", namePolish: "Name (Polish)", nameChinese: "Name (Chinese)", seedImageName: "Seed image filename", microgreenImageName: "Microgreen image filename", growDays: "Growing days", active: "Available for selection", cancel: "Cancel", save: "Save", startPlanting: "Start planting", plant: "Plant", plantedAt: "Planted at", notes: "Notes", start: "Start", rack: "Rack", slot: "Container", available: "Available", reserved: "Reserved", growing: "Growing", ready: "Ready", maintenance: "Cleaning", disabled: "Disabled", harvested: "Harvested", markReady: "Mark ready", finish: "Harvest", makeAvailable: "Cleaning complete", noPlants: "Add a plant to start growing.", edit: "Edit", loadError: "Could not load growing data.", saveError: "Could not save changes." },
-    ru: { dashboard: "Панель", operator: "Рабочее место оператора", title: "Растения и контейнеры", subtitle: "Управление справочником растений и шестью местами на каждой полке.", newPlant: "Добавить растение", syncPlants: "Синхронизировать выращивание с VPS", syncingPlants: "Синхронизация…", syncPlantsSuccess: "Справочник растений и размещение на полках синхронизированы с VPS.", syncPlantsError: "Не удалось синхронизировать данные выращивания с VPS.", catalog: "Справочник растений", showArchived: "Показывать архивные", archive: "В архив", archived: "Архив", restore: "Восстановить", archiveConfirm: "Перенести это растение в архив? История посадок сохранится.", noActivePlants: "Активных растений нет. Включите «Показывать архивные», чтобы восстановить растение.", racks: "Полки", sixSlots: "Шесть контейнеров на полке", plantEditor: "Растение", code: "Код", nameEnglish: "Название (английский)", nameRussian: "Название (русский)", nameGerman: "Название (немецкий)", nameFrench: "Название (французский)", nameSpanish: "Название (испанский)", nameItalian: "Название (итальянский)", namePortuguese: "Название (португальский)", namePolish: "Название (польский)", nameChinese: "Название (китайский)", seedImageName: "Имя изображения семян", microgreenImageName: "Имя изображения микрозелени", growDays: "Дней выращивания", active: "Доступно для выбора", cancel: "Отмена", save: "Сохранить", startPlanting: "Начать выращивание", plant: "Растение", plantedAt: "Дата посадки", notes: "Комментарий", start: "Посадить", rack: "Полка", slot: "Контейнер", available: "Свободен", reserved: "Забронирован", growing: "Растёт", ready: "Готов", maintenance: "Очистка", disabled: "Отключён", harvested: "Убран", markReady: "Отметить готовым", finish: "Убрать", makeAvailable: "Очистка завершена", noPlants: "Добавьте растение, чтобы начать выращивание.", edit: "Изменить", loadError: "Не удалось загрузить данные выращивания.", saveError: "Не удалось сохранить изменения." },
-    zh: { dashboard: "控制面板", operator: "操作员工作区", title: "植物和容器", subtitle: "管理植物目录和每个架子的六个容器位置。", newPlant: "添加植物", syncPlants: "与 VPS 同步种植数据", syncingPlants: "正在同步…", syncPlantsSuccess: "植物目录和种植架位置已与 VPS 同步。", syncPlantsError: "无法与 VPS 同步种植数据。", catalog: "植物目录", showArchived: "显示已归档", archive: "归档", archived: "已归档", restore: "恢复", archiveConfirm: "将此植物移至归档？现有种植历史将保留。", noActivePlants: "没有可用植物。请启用“显示已归档”以恢复植物。", racks: "种植架", sixSlots: "每架六个容器", plantEditor: "植物", code: "代码", nameEnglish: "英文名称", nameRussian: "俄文名称", nameGerman: "德文名称", nameFrench: "法文名称", nameSpanish: "西班牙文名称", nameItalian: "意大利文名称", namePortuguese: "葡萄牙文名称", namePolish: "波兰文名称", nameChinese: "中文名称", seedImageName: "种子图片文件名", microgreenImageName: "微型蔬菜图片文件名", growDays: "生长天数", active: "可供选择", cancel: "取消", save: "保存", startPlanting: "开始种植", plant: "植物", plantedAt: "种植时间", notes: "备注", start: "开始", rack: "架子", slot: "容器", available: "空闲", reserved: "已预订", growing: "生长中", ready: "可收获", maintenance: "清洁中", disabled: "已停用", harvested: "已收获", markReady: "标记可收获", finish: "收获", makeAvailable: "完成清洁", noPlants: "请先添加植物。", edit: "编辑", loadError: "无法加载种植数据。", saveError: "无法保存更改。" },
+    en: {
+      dashboard: "Dashboard", operator: "Operator workspace", title: "Plants and containers", subtitle: "Manage the plant catalog and six container positions on every rack.",
+      newPlant: "Add plant", syncPlants: "Sync growing data with VPS", syncingPlants: "Synchronizing…", syncPlantsSuccess: "Plant catalog and rack placement synchronized with VPS.", syncPlantsError: "Could not synchronize growing data with VPS.",
+      catalog: "Plant catalog", showArchived: "Show archived", archive: "Archive", archived: "Archived", restore: "Restore", archiveConfirm: "Move this plant to the archive? Existing planting history will be preserved.", noActivePlants: "There are no active plants. Turn on “Show archived” to restore one.",
+      racks: "Racks", sixSlots: "Six containers per rack", plantEditor: "Plant", code: "Code",
+      nameEnglish: "Name (English)", nameRussian: "Name (Russian)", nameGerman: "Name (German)", nameFrench: "Name (French)", nameSpanish: "Name (Spanish)", nameItalian: "Name (Italian)", namePortuguese: "Name (Portuguese)", namePolish: "Name (Polish)", nameChinese: "Name (Chinese)",
+      descriptionsTitle: "Descriptions",
+      descriptionEnglish: "Description (English)", descriptionRussian: "Description (Russian)", descriptionGerman: "Description (German)", descriptionFrench: "Description (French)", descriptionSpanish: "Description (Spanish)", descriptionItalian: "Description (Italian)", descriptionPortuguese: "Description (Portuguese)", descriptionPolish: "Description (Polish)", descriptionChinese: "Description (Chinese)",
+      seedImageName: "Seed image filename", microgreenImageName: "Microgreen image filename", growDays: "Growing days", active: "Available for selection", cancel: "Cancel", save: "Save", startPlanting: "Start planting", plant: "Plant", plantedAt: "Planted at", notes: "Notes", start: "Start", rack: "Rack", slot: "Container", available: "Available", reserved: "Reserved", growing: "Growing", ready: "Ready", maintenance: "Cleaning", disabled: "Disabled", harvested: "Harvested", markReady: "Mark ready", finish: "Harvest", makeAvailable: "Cleaning complete", noPlants: "Add a plant to start growing.", edit: "Edit", loadError: "Could not load growing data.", saveError: "Could not save changes."
+    },
+    ru: {
+      dashboard: "Панель", operator: "Рабочее место оператора", title: "Растения и контейнеры", subtitle: "Управление справочником растений и шестью местами на каждой полке.",
+      newPlant: "Добавить растение", syncPlants: "Синхронизировать выращивание с VPS", syncingPlants: "Синхронизация…", syncPlantsSuccess: "Справочник растений и размещение на полках синхронизированы с VPS.", syncPlantsError: "Не удалось синхронизировать данные выращивания с VPS.",
+      catalog: "Справочник растений", showArchived: "Показывать архивные", archive: "В архив", archived: "Архив", restore: "Восстановить", archiveConfirm: "Перенести это растение в архив? История посадок сохранится.", noActivePlants: "Активных растений нет. Включите «Показывать архивные», чтобы восстановить растение.",
+      racks: "Полки", sixSlots: "Шесть контейнеров на полке", plantEditor: "Растение", code: "Код",
+      nameEnglish: "Название (английский)", nameRussian: "Название (русский)", nameGerman: "Название (немецкий)", nameFrench: "Название (французский)", nameSpanish: "Название (испанский)", nameItalian: "Название (итальянский)", namePortuguese: "Название (португальский)", namePolish: "Название (польский)", nameChinese: "Название (китайский)",
+      descriptionsTitle: "Описание растения",
+      descriptionEnglish: "Описание (английский)", descriptionRussian: "Описание (русский)", descriptionGerman: "Описание (немецкий)", descriptionFrench: "Описание (французский)", descriptionSpanish: "Описание (испанский)", descriptionItalian: "Описание (итальянский)", descriptionPortuguese: "Описание (португальский)", descriptionPolish: "Описание (польский)", descriptionChinese: "Описание (китайский)",
+      seedImageName: "Имя изображения семян", microgreenImageName: "Имя изображения микрозелени", growDays: "Дней выращивания", active: "Доступно для выбора", cancel: "Отмена", save: "Сохранить", startPlanting: "Начать выращивание", plant: "Растение", plantedAt: "Дата посадки", notes: "Комментарий", start: "Посадить", rack: "Полка", slot: "Контейнер", available: "Свободен", reserved: "Забронирован", growing: "Растёт", ready: "Готов", maintenance: "Очистка", disabled: "Отключён", harvested: "Убран", markReady: "Отметить готовым", finish: "Убрать", makeAvailable: "Очистка завершена", noPlants: "Добавьте растение, чтобы начать выращивание.", edit: "Изменить", loadError: "Не удалось загрузить данные выращивания.", saveError: "Не удалось сохранить изменения."
+    },
+    zh: {
+      dashboard: "控制面板", operator: "操作员工作区", title: "植物和容器", subtitle: "管理植物目录和每个架子的六个容器位置。",
+      newPlant: "添加植物", syncPlants: "与 VPS 同步种植数据", syncingPlants: "正在同步…", syncPlantsSuccess: "植物目录和种植架位置已与 VPS 同步。", syncPlantsError: "无法与 VPS 同步种植数据。",
+      catalog: "植物目录", showArchived: "显示已归档", archive: "归档", archived: "已归档", restore: "恢复", archiveConfirm: "将此植物移至归档？现有种植历史将保留。", noActivePlants: "没有可用植物。请启用“显示已归档”以恢复植物。",
+      racks: "种植架", sixSlots: "每架六个容器", plantEditor: "植物", code: "代码",
+      nameEnglish: "英文名称", nameRussian: "俄文名称", nameGerman: "德文名称", nameFrench: "法文名称", nameSpanish: "西班牙文名称", nameItalian: "意大利文名称", namePortuguese: "葡萄牙文名称", namePolish: "波兰文名称", nameChinese: "中文名称",
+      descriptionsTitle: "植物介绍",
+      descriptionEnglish: "英文介绍", descriptionRussian: "俄文介绍", descriptionGerman: "德文介绍", descriptionFrench: "法文介绍", descriptionSpanish: "西班牙文介绍", descriptionItalian: "意大利文介绍", descriptionPortuguese: "葡萄牙文介绍", descriptionPolish: "波兰文介绍", descriptionChinese: "中文介绍",
+      seedImageName: "种子图片文件名", microgreenImageName: "微型蔬菜图片文件名", growDays: "生长天数", active: "可供选择", cancel: "取消", save: "保存", startPlanting: "开始种植", plant: "植物", plantedAt: "种植时间", notes: "备注", start: "开始", rack: "架子", slot: "容器", available: "空闲", reserved: "已预订", growing: "生长中", ready: "可收获", maintenance: "清洁中", disabled: "已停用", harvested: "已收获", markReady: "标记可收获", finish: "收获", makeAvailable: "完成清洁", noPlants: "请先添加植物。", edit: "编辑", loadError: "无法加载种植数据。", saveError: "无法保存更改。"
+    },
   };
 
   const plantNameFields = [
@@ -17,6 +44,18 @@
     ["pt", "namePt"],
     ["pl", "namePl"],
     ["zh", "nameZh"],
+  ];
+
+  const plantDescriptionFields = [
+    ["en", "descriptionEn"],
+    ["ru", "descriptionRu"],
+    ["de", "descriptionDe"],
+    ["fr", "descriptionFr"],
+    ["es", "descriptionEs"],
+    ["it", "descriptionIt"],
+    ["pt", "descriptionPt"],
+    ["pl", "descriptionPl"],
+    ["zh", "descriptionZh"],
   ];
 
   let language = localStorage.getItem("kisamore-language") || "en";
@@ -192,6 +231,9 @@
     for (const [locale, field] of plantNameFields) {
       form.elements[field].value = plant?.names?.[locale] || "";
     }
+    for (const [locale, field] of plantDescriptionFields) {
+      form.elements[field].value = plant?.descriptions?.[locale] || "";
+    }
     form.elements.seedImageName.value = plant?.seed_image_name || "";
     form.elements.microgreenImageName.value = plant?.microgreen_image_name || "";
     form.elements.growDays.value = plant?.grow_days || 14;
@@ -279,11 +321,16 @@
       const value = form.elements[field].value.trim();
       if (value) names[locale] = value;
     }
+    const descriptions = {};
+    for (const [locale, field] of plantDescriptionFields) {
+      const value = form.elements[field].value.trim();
+      if (value) descriptions[locale] = value;
+    }
     const code = form.elements.code.value.trim() || createPlantCode(names.en);
     const payload = {
       code,
       names,
-      descriptions: {},
+      descriptions,
       seed_image_name: form.elements.seedImageName.value.trim(),
       microgreen_image_name: form.elements.microgreenImageName.value.trim(),
       grow_days: Number(form.elements.growDays.value),
