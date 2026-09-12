@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from html import escape
 from pathlib import Path
 
@@ -15,6 +16,9 @@ from . import worker_watering as existing
 
 core = existing.core
 _original_handle_callback = core.handle_callback
+PLANT_IMAGE_DIR = Path(
+    os.getenv("KISAMORE_PLANT_IMAGE_DIR", "/srv/kisamore/data/plant-images")
+)
 
 SEED_TEXT = {
     "en": "🌾 There are currently no plants with enough seeds for a new container.",
@@ -38,8 +42,10 @@ RENTAL_INFO_TEXT = {
         "price": "Rental price",
         "description": "About this plant",
         "description_empty": "No additional description is available yet.",
+        "catalog_microgreen": "The image above shows this plant as microgreens.",
+        "catalog_seed": "The image above shows the seeds for this plant.",
         "real_photo": "A recent real greenhouse photo of this plant is shown above.",
-        "no_photo": "A real greenhouse photo is not available yet.",
+        "no_photo": "A photo of this plant is not available yet.",
         "choose": "✅ Choose this plant",
         "back": "⬅️ Back to plants",
     },
@@ -52,8 +58,10 @@ RENTAL_INFO_TEXT = {
         "price": "Стоимость аренды",
         "description": "Описание",
         "description_empty": "Дополнительное описание пока не заполнено.",
+        "catalog_microgreen": "Выше показано, как выглядит готовая микрозелень этого растения.",
+        "catalog_seed": "Выше показаны семена этого растения.",
         "real_photo": "Выше показана свежая реальная фотография этого растения из теплицы.",
-        "no_photo": "Реальной фотографии этого растения из теплицы пока нет.",
+        "no_photo": "Фотография этого растения пока не загружена.",
         "choose": "✅ Выбрать это растение",
         "back": "⬅️ К списку растений",
     },
@@ -66,8 +74,10 @@ RENTAL_INFO_TEXT = {
         "price": "Mietpreis",
         "description": "Beschreibung",
         "description_empty": "Noch keine zusätzliche Beschreibung verfügbar.",
+        "catalog_microgreen": "Das Bild oben zeigt diese Pflanze als Microgreens.",
+        "catalog_seed": "Das Bild oben zeigt das Saatgut dieser Pflanze.",
         "real_photo": "Oben sehen Sie ein aktuelles echtes Foto dieser Pflanze aus dem Gewächshaus.",
-        "no_photo": "Noch kein echtes Gewächshausfoto dieser Pflanze verfügbar.",
+        "no_photo": "Für diese Pflanze ist noch kein Foto verfügbar.",
         "choose": "✅ Diese Pflanze wählen",
         "back": "⬅️ Zur Pflanzenliste",
     },
@@ -80,8 +90,10 @@ RENTAL_INFO_TEXT = {
         "price": "Prix de location",
         "description": "Description",
         "description_empty": "Aucune description supplémentaire pour le moment.",
+        "catalog_microgreen": "L’image ci-dessus montre cette plante sous forme de micropousses.",
+        "catalog_seed": "L’image ci-dessus montre les graines de cette plante.",
         "real_photo": "Une photo récente et réelle de cette plante dans la serre est affichée ci-dessus.",
-        "no_photo": "Aucune photo réelle de cette plante dans la serre pour le moment.",
+        "no_photo": "Aucune photo de cette plante n’est encore disponible.",
         "choose": "✅ Choisir cette plante",
         "back": "⬅️ Retour aux plantes",
     },
@@ -94,8 +106,10 @@ RENTAL_INFO_TEXT = {
         "price": "Precio del alquiler",
         "description": "Descripción",
         "description_empty": "Todavía no hay una descripción adicional.",
+        "catalog_microgreen": "La imagen de arriba muestra esta planta como microbrotes.",
+        "catalog_seed": "La imagen de arriba muestra las semillas de esta planta.",
         "real_photo": "Arriba se muestra una foto real y reciente de esta planta en el invernadero.",
-        "no_photo": "Todavía no hay una foto real de esta planta en el invernadero.",
+        "no_photo": "Todavía no hay una foto disponible de esta planta.",
         "choose": "✅ Elegir esta planta",
         "back": "⬅️ Volver a las plantas",
     },
@@ -108,8 +122,10 @@ RENTAL_INFO_TEXT = {
         "price": "Prezzo del noleggio",
         "description": "Descrizione",
         "description_empty": "Non è ancora disponibile una descrizione aggiuntiva.",
+        "catalog_microgreen": "L’immagine sopra mostra questa pianta come microgreens.",
+        "catalog_seed": "L’immagine sopra mostra i semi di questa pianta.",
         "real_photo": "Sopra è mostrata una foto reale e recente di questa pianta nella serra.",
-        "no_photo": "Non è ancora disponibile una foto reale di questa pianta nella serra.",
+        "no_photo": "Non è ancora disponibile una foto di questa pianta.",
         "choose": "✅ Scegli questa pianta",
         "back": "⬅️ Torna alle piante",
     },
@@ -122,8 +138,10 @@ RENTAL_INFO_TEXT = {
         "price": "Preço do aluguel",
         "description": "Descrição",
         "description_empty": "Ainda não há uma descrição adicional.",
+        "catalog_microgreen": "A imagem acima mostra esta planta como microverdes.",
+        "catalog_seed": "A imagem acima mostra as sementes desta planta.",
         "real_photo": "Acima está uma foto real e recente desta planta na estufa.",
-        "no_photo": "Ainda não há uma foto real desta planta na estufa.",
+        "no_photo": "Ainda não há uma foto disponível desta planta.",
         "choose": "✅ Escolher esta planta",
         "back": "⬅️ Voltar às plantas",
     },
@@ -136,8 +154,10 @@ RENTAL_INFO_TEXT = {
         "price": "Cena wynajmu",
         "description": "Opis",
         "description_empty": "Dodatkowy opis nie jest jeszcze dostępny.",
+        "catalog_microgreen": "Powyżej pokazano tę roślinę jako mikrozieleninę.",
+        "catalog_seed": "Powyżej pokazano nasiona tej rośliny.",
         "real_photo": "Powyżej pokazano aktualne, prawdziwe zdjęcie tej rośliny ze szklarni.",
-        "no_photo": "Nie ma jeszcze prawdziwego zdjęcia tej rośliny ze szklarni.",
+        "no_photo": "Zdjęcie tej rośliny nie jest jeszcze dostępne.",
         "choose": "✅ Wybierz tę roślinę",
         "back": "⬅️ Wróć do roślin",
     },
@@ -150,8 +170,10 @@ RENTAL_INFO_TEXT = {
         "price": "租用价格",
         "description": "介绍",
         "description_empty": "暂时没有更多介绍。",
+        "catalog_microgreen": "上图显示的是这种植物长成微型蔬菜后的样子。",
+        "catalog_seed": "上图显示的是这种植物的种子。",
         "real_photo": "上方显示的是这株植物在温室中的近期实拍照片。",
-        "no_photo": "暂时没有这株植物的温室实拍照片。",
+        "no_photo": "暂时没有这种植物的照片。",
         "choose": "✅ 选择这种植物",
         "back": "⬅️ 返回植物列表",
     },
@@ -173,6 +195,27 @@ def plant_description(plant: Plant, lang: str) -> str:
         lang,
         "",
     )
+
+
+def _catalog_photo(plant: Plant) -> tuple[str | None, str | None]:
+    """Resolve catalog image filenames against the VPS-managed image folder.
+
+    The filename values come from the plant catalog synchronized from Raspberry
+    Pi. Only the basename is used so a catalog value can never escape the
+    dedicated image directory.
+    """
+    candidates = (
+        (getattr(plant, "microgreen_image_name", ""), "catalog_microgreen"),
+        (getattr(plant, "seed_image_name", ""), "catalog_seed"),
+    )
+    for raw_name, note_key in candidates:
+        name = Path(str(raw_name or "")).name.strip()
+        if not name:
+            continue
+        path = PLANT_IMAGE_DIR / name
+        if path.is_file():
+            return str(path), note_key
+    return None, None
 
 
 async def _rental_slot(slot_id: int):
@@ -284,7 +327,16 @@ async def show_rental_plant_info(
     description = plant_description(plant, lang).strip()
     days = max(1, int(plant.grow_days or 1))
     price = int(plant.rental_price_kisa or 0)
-    photo_path = await _latest_real_photo(plant.id)
+
+    catalog_photo, catalog_note_key = _catalog_photo(plant)
+    real_photo = None if catalog_photo else await _latest_real_photo(plant.id)
+    photo_path = catalog_photo or real_photo
+    if catalog_photo and catalog_note_key:
+        photo_note = info_text(lang, catalog_note_key)
+    elif real_photo:
+        photo_note = info_text(lang, "real_photo")
+    else:
+        photo_note = info_text(lang, "no_photo")
 
     caption = (
         f"🌱 <b>{escape(name)}</b>\n\n"
@@ -292,7 +344,7 @@ async def show_rental_plant_info(
         f"🪙 <b>{escape(info_text(lang, 'price'))}:</b> Ⓚ {price}\n\n"
         f"<b>{escape(info_text(lang, 'description'))}</b>\n"
         f"{escape(description or info_text(lang, 'description_empty'))}\n\n"
-        f"<i>{escape(info_text(lang, 'real_photo') if photo_path else info_text(lang, 'no_photo'))}</i>"
+        f"<i>{escape(photo_note)}</i>"
     )
     keyboard = {
         "inline_keyboard": [
