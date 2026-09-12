@@ -95,6 +95,13 @@ def _ensure_telegram_columns(connection) -> None:
             "refunded_at": f"{timestamp_type} NULL",
         },
     )
+    _ensure_columns(
+        connection,
+        "telegram_outbound_messages",
+        {
+            "media_path": "TEXT NULL",
+        },
+    )
 
     tables = inspect(connection).get_table_names()
     if "social_follows" in tables:
