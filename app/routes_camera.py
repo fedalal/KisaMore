@@ -3,6 +3,7 @@ from fastapi.responses import Response
 
 from . import runtime
 from .camera_one_shot import capture_one_shot_jpeg
+from .camera_profiles import profile_controls, profile_format
 from .hw_config import CameraHW
 import os
 
@@ -15,13 +16,26 @@ def _camera_quality() -> int:
     return 90
 
 
-def _capture_size() -> tuple[int, int]:
+def _default_capture_size() -> tuple[int, int]:
     if runtime.cfg and runtime.cfg.camera_capture:
         return (
             int(runtime.cfg.camera_capture.frame_width),
             int(runtime.cfg.camera_capture.frame_height),
         )
     return 2592, 1944
+
+
+def _capture_settings(camera_id: str) -> tuple[int, int, str, int, dict[str, int]]:
+    default_width, default_height = _default_capture_size()
+    profile = runtime.camera_profiles.get(camera_id) if runtime.camera_profiles else None
+    width, height, pixelformat, fps = profile_format(
+        profile,
+        default_width=default_width,
+        default_height=default_height,
+        default_pixelformat="MJPG",
+        default_fps=30,
+    )
+    return width, height, pixelformat, fps, profile_controls(profile)
 
 
 def _validate_device(device: str):
@@ -75,14 +89,16 @@ def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
     )
 
 
-def _capture_camera_frame(cam: CameraHW, *, corrected: bool) -> bytes:
-    frame_width, frame_height = _capture_size()
+def _capture_camera_frame(camera_id: str, cam: CameraHW, *, corrected: bool) -> bytes:
+    frame_width, frame_height, pixel_format, fps, saved_controls = _capture_settings(camera_id)
 
     jpeg = capture_one_shot_jpeg(
         device=cam.device,
         jpeg_quality=_camera_quality(),
         frame_width=frame_width,
         frame_height=frame_height,
+        pixel_format=pixel_format,
+        fps=fps,
         flip_vertical=cam.flip_vertical,
         flip_horizontal=cam.flip_horizontal,
         warp_enabled=cam.warp_enabled if corrected else False,
@@ -95,7 +111,8 @@ def _capture_camera_frame(cam: CameraHW, *, corrected: bool) -> bytes:
         contrast=cam.contrast,
         saturation=cam.saturation,
         sharpness=cam.sharpness,
-        focus_ramp=True,
+        profile_controls=saved_controls or None,
+        focus_ramp=False,
     )
 
     if not jpeg:
@@ -119,9 +136,9 @@ def rack_camera_frame(
     rack_id: int,
     t: int | None = Query(default=None),
 ):
-    _ = t  # cache-buster from the browser
-    _, cam = _get_camera_by_rack(rack_id)
-    return _jpeg_response(_capture_camera_frame(cam, corrected=True))
+    _ = t
+    camera_id, cam = _get_camera_by_rack(rack_id)
+    return _jpeg_response(_capture_camera_frame(camera_id, cam, corrected=True))
 
 
 @router.get("/camera/{camera_id}/frame")
@@ -132,11 +149,9 @@ def camera_frame(
 ):
     _ = t
     cam = _get_camera_by_id(camera_id)
-    return _jpeg_response(_capture_camera_frame(cam, corrected=corrected))
+    return _jpeg_response(_capture_camera_frame(camera_id, cam, corrected=corrected))
 
 
-# Keep the old URLs only to fail explicitly for stale browser tabs/bookmarks.
-# No endpoint in KisaMore creates a permanent MJPEG stream anymore.
 @router.get("/rack/{rack_id}/camera/stream")
 def rack_camera_stream_disabled(rack_id: int):
     _ = rack_id
@@ -158,7 +173,7 @@ def camera_stream_disabled(camera_id: str):
 @router.get("/rack/{rack_id}/camera/info")
 async def rack_camera_info(rack_id: int):
     camera_id, cam = _get_camera_by_rack(rack_id)
-    frame_width, frame_height = _capture_size()
+    frame_width, frame_height, pixel_format, fps, saved_controls = _capture_settings(camera_id)
 
     return {
         "rack_id": rack_id,
@@ -171,6 +186,9 @@ async def rack_camera_info(rack_id: int):
         "camera_warp_points": cam.warp_points,
         "frame_width": frame_width,
         "frame_height": frame_height,
+        "pixel_format": pixel_format,
+        "fps": fps,
+        "profile_loaded": bool(saved_controls),
         "exists": True,
         "last_error": None,
     }
@@ -179,7 +197,7 @@ async def rack_camera_info(rack_id: int):
 @router.get("/camera/{camera_id}/info")
 async def camera_info(camera_id: str):
     cam = _get_camera_by_id(camera_id)
-    frame_width, frame_height = _capture_size()
+    frame_width, frame_height, pixel_format, fps, saved_controls = _capture_settings(camera_id)
 
     return {
         "camera_id": camera_id,
@@ -191,6 +209,9 @@ async def camera_info(camera_id: str):
         "camera_warp_points": cam.warp_points,
         "frame_width": frame_width,
         "frame_height": frame_height,
+        "pixel_format": pixel_format,
+        "fps": fps,
+        "profile_loaded": bool(saved_controls),
         "exists": True,
         "last_error": None,
     }
