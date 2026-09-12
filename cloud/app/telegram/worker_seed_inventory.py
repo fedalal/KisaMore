@@ -35,144 +35,126 @@ SEED_TEXT = {
 RENTAL_INFO_TEXT = {
     "en": {
         "days_short": "d",
-        "more": "ℹ️ Details",
-        "title": "Plant details",
         "grow_days": "Growing time",
         "days": "days",
         "price": "Rental price",
         "description": "About this plant",
         "description_empty": "No additional description is available yet.",
-        "catalog_microgreen": "The image above shows this plant as microgreens.",
-        "catalog_seed": "The image above shows the seeds for this plant.",
-        "real_photo": "A recent real greenhouse photo of this plant is shown above.",
+        "seed_photo": "Seeds",
+        "microgreen_photo": "Ready microgreens",
+        "real_photo": "Recent greenhouse photo",
         "no_photo": "A photo of this plant is not available yet.",
         "choose": "✅ Choose this plant",
         "back": "⬅️ Back to plants",
     },
     "ru": {
         "days_short": "дн",
-        "more": "ℹ️ Подробнее",
-        "title": "О растении",
         "grow_days": "Срок выращивания",
         "days": "дней",
         "price": "Стоимость аренды",
         "description": "Описание",
         "description_empty": "Дополнительное описание пока не заполнено.",
-        "catalog_microgreen": "Выше показано, как выглядит готовая микрозелень этого растения.",
-        "catalog_seed": "Выше показаны семена этого растения.",
-        "real_photo": "Выше показана свежая реальная фотография этого растения из теплицы.",
+        "seed_photo": "Семена",
+        "microgreen_photo": "Готовая микрозелень",
+        "real_photo": "Свежее фото из теплицы",
         "no_photo": "Фотография этого растения пока не загружена.",
         "choose": "✅ Выбрать это растение",
         "back": "⬅️ К списку растений",
     },
     "de": {
         "days_short": "T",
-        "more": "ℹ️ Details",
-        "title": "Pflanzeninfo",
         "grow_days": "Anbauzeit",
         "days": "Tage",
         "price": "Mietpreis",
         "description": "Beschreibung",
         "description_empty": "Noch keine zusätzliche Beschreibung verfügbar.",
-        "catalog_microgreen": "Das Bild oben zeigt diese Pflanze als Microgreens.",
-        "catalog_seed": "Das Bild oben zeigt das Saatgut dieser Pflanze.",
-        "real_photo": "Oben sehen Sie ein aktuelles echtes Foto dieser Pflanze aus dem Gewächshaus.",
+        "seed_photo": "Saatgut",
+        "microgreen_photo": "Fertige Microgreens",
+        "real_photo": "Aktuelles Gewächshausfoto",
         "no_photo": "Für diese Pflanze ist noch kein Foto verfügbar.",
         "choose": "✅ Diese Pflanze wählen",
         "back": "⬅️ Zur Pflanzenliste",
     },
     "fr": {
         "days_short": "j",
-        "more": "ℹ️ Détails",
-        "title": "Détails de la plante",
         "grow_days": "Durée de culture",
         "days": "jours",
         "price": "Prix de location",
         "description": "Description",
         "description_empty": "Aucune description supplémentaire pour le moment.",
-        "catalog_microgreen": "L’image ci-dessus montre cette plante sous forme de micropousses.",
-        "catalog_seed": "L’image ci-dessus montre les graines de cette plante.",
-        "real_photo": "Une photo récente et réelle de cette plante dans la serre est affichée ci-dessus.",
+        "seed_photo": "Graines",
+        "microgreen_photo": "Micropousses prêtes",
+        "real_photo": "Photo récente de la serre",
         "no_photo": "Aucune photo de cette plante n’est encore disponible.",
         "choose": "✅ Choisir cette plante",
         "back": "⬅️ Retour aux plantes",
     },
     "es": {
         "days_short": "d",
-        "more": "ℹ️ Detalles",
-        "title": "Detalles de la planta",
         "grow_days": "Tiempo de cultivo",
         "days": "días",
         "price": "Precio del alquiler",
         "description": "Descripción",
         "description_empty": "Todavía no hay una descripción adicional.",
-        "catalog_microgreen": "La imagen de arriba muestra esta planta como microbrotes.",
-        "catalog_seed": "La imagen de arriba muestra las semillas de esta planta.",
-        "real_photo": "Arriba se muestra una foto real y reciente de esta planta en el invernadero.",
+        "seed_photo": "Semillas",
+        "microgreen_photo": "Microbrotes listos",
+        "real_photo": "Foto reciente del invernadero",
         "no_photo": "Todavía no hay una foto disponible de esta planta.",
         "choose": "✅ Elegir esta planta",
         "back": "⬅️ Volver a las plantas",
     },
     "it": {
         "days_short": "g",
-        "more": "ℹ️ Dettagli",
-        "title": "Dettagli della pianta",
         "grow_days": "Tempo di coltivazione",
         "days": "giorni",
         "price": "Prezzo del noleggio",
         "description": "Descrizione",
         "description_empty": "Non è ancora disponibile una descrizione aggiuntiva.",
-        "catalog_microgreen": "L’immagine sopra mostra questa pianta come microgreens.",
-        "catalog_seed": "L’immagine sopra mostra i semi di questa pianta.",
-        "real_photo": "Sopra è mostrata una foto reale e recente di questa pianta nella serra.",
+        "seed_photo": "Semi",
+        "microgreen_photo": "Microgreens pronti",
+        "real_photo": "Foto recente della serra",
         "no_photo": "Non è ancora disponibile una foto di questa pianta.",
         "choose": "✅ Scegli questa pianta",
         "back": "⬅️ Torna alle piante",
     },
     "pt": {
         "days_short": "d",
-        "more": "ℹ️ Detalhes",
-        "title": "Detalhes da planta",
         "grow_days": "Tempo de cultivo",
         "days": "dias",
         "price": "Preço do aluguel",
         "description": "Descrição",
         "description_empty": "Ainda não há uma descrição adicional.",
-        "catalog_microgreen": "A imagem acima mostra esta planta como microverdes.",
-        "catalog_seed": "A imagem acima mostra as sementes desta planta.",
-        "real_photo": "Acima está uma foto real e recente desta planta na estufa.",
+        "seed_photo": "Sementes",
+        "microgreen_photo": "Microverdes prontos",
+        "real_photo": "Foto recente da estufa",
         "no_photo": "Ainda não há uma foto disponível desta planta.",
         "choose": "✅ Escolher esta planta",
         "back": "⬅️ Voltar às plantas",
     },
     "pl": {
         "days_short": "d",
-        "more": "ℹ️ Szczegóły",
-        "title": "Informacje o roślinie",
         "grow_days": "Czas uprawy",
         "days": "dni",
         "price": "Cena wynajmu",
         "description": "Opis",
         "description_empty": "Dodatkowy opis nie jest jeszcze dostępny.",
-        "catalog_microgreen": "Powyżej pokazano tę roślinę jako mikrozieleninę.",
-        "catalog_seed": "Powyżej pokazano nasiona tej rośliny.",
-        "real_photo": "Powyżej pokazano aktualne, prawdziwe zdjęcie tej rośliny ze szklarni.",
+        "seed_photo": "Nasiona",
+        "microgreen_photo": "Gotowa mikrozielenina",
+        "real_photo": "Najnowsze zdjęcie ze szklarni",
         "no_photo": "Zdjęcie tej rośliny nie jest jeszcze dostępne.",
         "choose": "✅ Wybierz tę roślinę",
         "back": "⬅️ Wróć do roślin",
     },
     "zh": {
         "days_short": "天",
-        "more": "ℹ️ 详情",
-        "title": "植物详情",
         "grow_days": "生长周期",
         "days": "天",
         "price": "租用价格",
         "description": "介绍",
         "description_empty": "暂时没有更多介绍。",
-        "catalog_microgreen": "上图显示的是这种植物长成微型蔬菜后的样子。",
-        "catalog_seed": "上图显示的是这种植物的种子。",
-        "real_photo": "上方显示的是这株植物在温室中的近期实拍照片。",
+        "seed_photo": "种子",
+        "microgreen_photo": "成熟微型蔬菜",
+        "real_photo": "温室近期实拍",
         "no_photo": "暂时没有这种植物的照片。",
         "choose": "✅ 选择这种植物",
         "back": "⬅️ 返回植物列表",
@@ -197,25 +179,20 @@ def plant_description(plant: Plant, lang: str) -> str:
     )
 
 
-def _catalog_photo(plant: Plant) -> tuple[str | None, str | None]:
-    """Resolve catalog image filenames against the VPS-managed image folder.
+def _catalog_image(raw_name: str | None) -> str | None:
+    """Resolve one catalog filename inside the VPS-managed plant image folder."""
+    name = Path(str(raw_name or "")).name.strip()
+    if not name:
+        return None
+    path = PLANT_IMAGE_DIR / name
+    return str(path) if path.is_file() else None
 
-    The filename values come from the plant catalog synchronized from Raspberry
-    Pi. Only the basename is used so a catalog value can never escape the
-    dedicated image directory.
-    """
-    candidates = (
-        (getattr(plant, "microgreen_image_name", ""), "catalog_microgreen"),
-        (getattr(plant, "seed_image_name", ""), "catalog_seed"),
-    )
-    for raw_name, note_key in candidates:
-        name = Path(str(raw_name or "")).name.strip()
-        if not name:
-            continue
-        path = PLANT_IMAGE_DIR / name
-        if path.is_file():
-            return str(path), note_key
-    return None, None
+
+def _catalog_photos(plant: Plant) -> tuple[str | None, str | None]:
+    """Return seed and microgreen images independently when both are available."""
+    seed_photo = _catalog_image(getattr(plant, "seed_image_name", ""))
+    microgreen_photo = _catalog_image(getattr(plant, "microgreen_image_name", ""))
+    return seed_photo, microgreen_photo
 
 
 async def _rental_slot(slot_id: int):
@@ -250,7 +227,7 @@ async def _latest_real_photo(plant_id: str) -> str | None:
 
 
 async def show_rental_plants(bot, chat_id: int, tg: dict, slot_id: int) -> None:
-    """Offer rentable plants with growing time, price and a separate details action."""
+    """Offer one clean full-width button per plant; details precede final selection."""
     lang = core.language_for(tg)
     slot = await _rental_slot(slot_id)
     if slot is None:
@@ -281,16 +258,10 @@ async def show_rental_plants(bot, chat_id: int, tg: dict, slot_id: int) -> None:
         name = core.plant_name(plant, lang)
         days = max(1, int(plant.grow_days or 1))
         price = int(plant.rental_price_kisa or 0)
-        rows.append([
-            {
-                "text": f"🌱 {name} · {days}{info_text(lang, 'days_short')} · Ⓚ{price}"[:54],
-                "callback_data": f"rent:plant:{slot_id}:{plant.id}",
-            },
-            {
-                "text": "ℹ️",
-                "callback_data": f"rent:info:{slot_id}:{plant.id}",
-            },
-        ])
+        rows.append([{
+            "text": f"🌱 {name} · {days}{info_text(lang, 'days_short')} · Ⓚ{price} · ℹ️"[:60],
+            "callback_data": f"rent:info:{slot_id}:{plant.id}",
+        }])
     rows.append([{"text": core.st(lang, "cancel"), "callback_data": "menu:garden"}])
     await bot.send_message(
         chat_id,
@@ -328,23 +299,17 @@ async def show_rental_plant_info(
     days = max(1, int(plant.grow_days or 1))
     price = int(plant.rental_price_kisa or 0)
 
-    catalog_photo, catalog_note_key = _catalog_photo(plant)
-    real_photo = None if catalog_photo else await _latest_real_photo(plant.id)
-    photo_path = catalog_photo or real_photo
-    if catalog_photo and catalog_note_key:
-        photo_note = info_text(lang, catalog_note_key)
-    elif real_photo:
-        photo_note = info_text(lang, "real_photo")
-    else:
-        photo_note = info_text(lang, "no_photo")
+    seed_photo, microgreen_photo = _catalog_photos(plant)
+    real_photo = None
+    if not seed_photo and not microgreen_photo:
+        real_photo = await _latest_real_photo(plant.id)
 
     caption = (
         f"🌱 <b>{escape(name)}</b>\n\n"
         f"⏱ <b>{escape(info_text(lang, 'grow_days'))}:</b> {days} {escape(info_text(lang, 'days'))}\n"
         f"🪙 <b>{escape(info_text(lang, 'price'))}:</b> Ⓚ {price}\n\n"
         f"<b>{escape(info_text(lang, 'description'))}</b>\n"
-        f"{escape(description or info_text(lang, 'description_empty'))}\n\n"
-        f"<i>{escape(photo_note)}</i>"
+        f"{escape(description or info_text(lang, 'description_empty'))}"
     )
     keyboard = {
         "inline_keyboard": [
@@ -359,14 +324,62 @@ async def show_rental_plant_info(
         ]
     }
 
-    if photo_path:
+    # If both catalog photos exist, show the seed photo first and the finished
+    # microgreen photo second. The second message carries the full card/actions.
+    if seed_photo and microgreen_photo:
         try:
-            await bot.send_photo(chat_id, photo_path, caption=caption[:1024], reply_markup=keyboard)
+            await bot.send_photo(
+                chat_id,
+                seed_photo,
+                caption=(
+                    f"🌾 <b>{escape(info_text(lang, 'seed_photo'))}</b>\n"
+                    f"{escape(name)}"
+                ),
+            )
+        except Exception:
+            core.logger.exception("Could not send rental seed photo %s", seed_photo)
+
+        try:
+            await bot.send_photo(
+                chat_id,
+                microgreen_photo,
+                caption=(
+                    caption
+                    + f"\n\n📷 <i>{escape(info_text(lang, 'microgreen_photo'))}</i>"
+                )[:1024],
+                reply_markup=keyboard,
+            )
             return
         except Exception:
-            core.logger.exception("Could not send rental plant detail photo %s", photo_path)
+            core.logger.exception(
+                "Could not send rental microgreen photo %s", microgreen_photo
+            )
 
-    await bot.send_message(chat_id, caption, reply_markup=keyboard)
+    # If only one catalog photo exists, attach the complete card to that photo.
+    single_photo = microgreen_photo or seed_photo or real_photo
+    if single_photo:
+        if microgreen_photo:
+            photo_label = info_text(lang, "microgreen_photo")
+        elif seed_photo:
+            photo_label = info_text(lang, "seed_photo")
+        else:
+            photo_label = info_text(lang, "real_photo")
+        try:
+            await bot.send_photo(
+                chat_id,
+                single_photo,
+                caption=(caption + f"\n\n📷 <i>{escape(photo_label)}</i>")[:1024],
+                reply_markup=keyboard,
+            )
+            return
+        except Exception:
+            core.logger.exception("Could not send rental plant detail photo %s", single_photo)
+
+    await bot.send_message(
+        chat_id,
+        caption + f"\n\n<i>{escape(info_text(lang, 'no_photo'))}</i>",
+        reply_markup=keyboard,
+    )
 
 
 async def show_rental_slots(bot, chat_id: int, tg: dict) -> None:
