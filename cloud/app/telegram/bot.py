@@ -43,6 +43,7 @@ async def _record_outbound_message(
     message_type: str,
     text: str = "",
     media_name: str | None = None,
+    media_path: str | None = None,
     telegram_result: dict | None = None,
 ) -> None:
     """Persist a successfully sent Telegram message without affecting delivery.
@@ -70,6 +71,7 @@ async def _record_outbound_message(
                     message_type=str(message_type)[:24],
                     text=str(text or "") or None,
                     media_name=(str(media_name)[:255] if media_name else None),
+                    media_path=(str(media_path) if media_path else None),
                     telegram_message_id=message_id,
                 )
             )
@@ -200,6 +202,7 @@ class TelegramBotAPI:
             message_type="photo",
             text=caption,
             media_name=path.name,
+            media_path=str(path),
             telegram_result=result if isinstance(result, dict) else None,
         )
         return result
@@ -244,6 +247,7 @@ class TelegramBotAPI:
             message_type="video",
             text=caption,
             media_name=path.name,
+            media_path=str(path),
             telegram_result=result if isinstance(result, dict) else None,
         )
         return result
