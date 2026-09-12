@@ -6,7 +6,7 @@
   <title>KisaMore — Growing</title>
   <link rel="stylesheet" href="/static/growing.css?v=4">
   <link rel="stylesheet" href="/static/growing_watering.css?v=20260910-1">
-  <script src="/static/growing.js?v=7" defer></script>
+  <script src="/static/growing.js?v=8" defer></script>
   <script src="/static/growing_rental_price.js?v=2" defer></script>
   <script src="/static/growing_watering.js?v=20260910-1" defer></script>
 </head>
@@ -66,6 +66,7 @@
       </header>
       <input type="hidden" name="plantId">
       <input type="hidden" name="code">
+
       <div class="plant-name-grid">
         <label><span data-i18n="nameEnglish">Name (English)</span><input name="nameEn" required></label>
         <label><span data-i18n="nameRussian">Name (Russian)</span><input name="nameRu"></label>
@@ -77,6 +78,20 @@
         <label><span data-i18n="namePolish">Name (Polish)</span><input name="namePl"></label>
         <label><span data-i18n="nameChinese">Name (Chinese)</span><input name="nameZh"></label>
       </div>
+
+      <h3 data-i18n="descriptionsTitle">Descriptions</h3>
+      <div class="plant-name-grid">
+        <label><span data-i18n="descriptionEnglish">Description (English)</span><textarea name="descriptionEn" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionRussian">Description (Russian)</span><textarea name="descriptionRu" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionGerman">Description (German)</span><textarea name="descriptionDe" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionFrench">Description (French)</span><textarea name="descriptionFr" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionSpanish">Description (Spanish)</span><textarea name="descriptionEs" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionItalian">Description (Italian)</span><textarea name="descriptionIt" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionPortuguese">Description (Portuguese)</span><textarea name="descriptionPt" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionPolish">Description (Polish)</span><textarea name="descriptionPl" rows="3"></textarea></label>
+        <label><span data-i18n="descriptionChinese">Description (Chinese)</span><textarea name="descriptionZh" rows="3"></textarea></label>
+      </div>
+
       <div class="plant-name-grid">
         <label><span data-i18n="seedImageName">Seed image filename</span><input name="seedImageName" maxlength="255" placeholder="rapini_seeds.jpg"></label>
         <label><span data-i18n="microgreenImageName">Microgreen image filename</span><input name="microgreenImageName" maxlength="255" placeholder="rapini_microgreens.jpg"></label>
