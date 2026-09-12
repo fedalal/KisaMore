@@ -10,6 +10,7 @@ from .models import RackState
 
 from . import runtime
 from .camera_one_shot import capture_one_shot_jpeg
+from .camera_profiles import profile_controls, profile_format
 from .google_drive_uploader import GoogleDriveUploader
 
 
@@ -18,7 +19,7 @@ class CameraCaptureService:
         self.task: asyncio.Task | None = None
         self.stop_event = asyncio.Event()
         self.uploader: GoogleDriveUploader | None = None
-        self.uploader_key: tuple[str, str] | None = None
+        self.uploader_key: tuple[str, str, str] | None = None
 
     async def _get_light_states(self) -> dict[int, bool]:
         async with SessionLocal() as s:
@@ -69,7 +70,6 @@ class CameraCaptureService:
         return self.uploader
 
     def _reset_uploader(self):
-        # После сетевой ошибки лучше пересоздать Google Drive service при следующей попытке.
         if self.uploader:
             self.uploader.service = None
 
@@ -86,17 +86,12 @@ class CameraCaptureService:
         pending_dir.mkdir(parents=True, exist_ok=True)
 
         path = pending_dir / filename
-
-        # На всякий случай, если имя уже есть, добавим микросекунды.
         if path.exists():
             stem = path.stem
             suffix = path.suffix or ".jpg"
             path = pending_dir / f"{stem}_{datetime.now().strftime('%f')}{suffix}"
 
         tmp_path = path.with_suffix(path.suffix + ".tmp")
-
-        # Сначала пишем во временный файл, потом атомарно переименовываем.
-        # Так в очереди не появятся битые .jpg, если питание пропадёт во время записи.
         tmp_path.write_bytes(jpeg)
         tmp_path.replace(path)
 
@@ -113,7 +108,6 @@ class CameraCaptureService:
 
         print(f"[camera-capture] pending files: {len(files)}")
 
-        # Чтобы при большом накоплении не блокировать обычные снимки слишком надолго.
         for path in files[:50]:
             if self.stop_event.is_set():
                 return
@@ -131,8 +125,6 @@ class CameraCaptureService:
             except Exception as e:
                 self._reset_uploader()
                 print(f"[camera-capture] cannot upload pending {path.name}: {e}")
-
-                # Если интернет всё ещё недоступен, остальные файлы тоже, скорее всего, не загрузятся.
                 return
 
     def _archive_dir(self) -> Path:
@@ -147,13 +139,11 @@ class CameraCaptureService:
         if not runtime.cfg or not runtime.cfg.camera_capture.local_archive_enabled:
             return
 
-        # Храним по папкам: data/camera_archive/rack_1/2026-07-03/file.jpg
         day = datetime.now().strftime("%Y-%m-%d")
         archive_dir = self._archive_dir() / f"rack_{rack_id}" / day
         archive_dir.mkdir(parents=True, exist_ok=True)
 
         path = archive_dir / filename
-
         if path.exists():
             stem = path.stem
             suffix = path.suffix or ".jpg"
@@ -197,7 +187,6 @@ class CameraCaptureService:
             except Exception as e:
                 print(f"[camera-capture] cannot cleanup archive file {path}: {e}")
 
-        # Удаляем пустые папки после удаления старых фото.
         for folder in sorted(archive_dir.rglob("*"), reverse=True):
             if folder.is_dir():
                 try:
@@ -236,28 +225,24 @@ class CameraCaptureService:
 
         uploader = self._get_uploader()
 
-        # В начале каждого цикла сначала пытаемся отправить накопленные локальные фото.
-        # Если интернета нет, файлы останутся в локальной очереди до следующей попытки.
         if uploader is not None:
             await self._upload_pending_files(uploader)
         else:
             print("[camera-capture] Google Drive не настроен: credentials_file, token_file или google_folder_id пустые")
 
-        # Каждый цикл чистим локальный архив: оставляем только последние local_archive_days дней.
         await self._cleanup_archive_files()
 
         light_states = await self._get_light_states()
 
         quality = cfg.jpeg_quality
-        frame_width = cfg.frame_width
-        frame_height = cfg.frame_height
+        default_width = cfg.frame_width
+        default_height = cfg.frame_height
 
-        # Capture racks strictly one after another. Each high-resolution stream
-        # exists only long enough to obtain one stable frame, then the camera is
-        # released before the next rack is opened. This prevents four permanent
-        # 4K MJPG streams from saturating the Raspberry Pi USB controller.
+        # Cameras are opened strictly one after another. The saved profile for a
+        # camera controls its own format and all V4L2 image settings.
         for rack_id_str, rack_cfg in runtime.cfg.racks.items():
             rack_id = int(rack_id_str)
+            camera_id = rack_cfg.camera_id or f"rack_{rack_id}_legacy"
             camera_cfg = runtime.cfg.cameras.get(rack_cfg.camera_id) if rack_cfg.camera_id else None
 
             if camera_cfg:
@@ -270,8 +255,11 @@ class CameraCaptureService:
                 focus_absolute = camera_cfg.focus_absolute
                 white_balance_auto = camera_cfg.white_balance_auto
                 white_balance_temperature = camera_cfg.white_balance_temperature
+                brightness = camera_cfg.brightness
+                contrast = camera_cfg.contrast
+                saturation = camera_cfg.saturation
+                sharpness = camera_cfg.sharpness
             else:
-                # Совместимость со старым config/kisamore.yaml.
                 device = (rack_cfg.camera_device or "").strip()
                 flip_vertical = rack_cfg.camera_flip_vertical
                 flip_horizontal = rack_cfg.camera_flip_horizontal
@@ -281,6 +269,10 @@ class CameraCaptureService:
                 focus_absolute = None
                 white_balance_auto = True
                 white_balance_temperature = None
+                brightness = None
+                contrast = None
+                saturation = None
+                sharpness = None
 
             if not device:
                 continue
@@ -293,12 +285,24 @@ class CameraCaptureService:
                 print(f"[camera-capture] camera not found: rack={rack_id}, device={device}")
                 continue
 
+            saved_profile = runtime.camera_profiles.get(camera_id) if runtime.camera_profiles else None
+            frame_width, frame_height, pixel_format, fps = profile_format(
+                saved_profile,
+                default_width=default_width,
+                default_height=default_height,
+                default_pixelformat="MJPG",
+                default_fps=30,
+            )
+            saved_controls = profile_controls(saved_profile)
+
             jpeg = await asyncio.to_thread(
                 capture_one_shot_jpeg,
                 device=device,
                 jpeg_quality=quality,
                 frame_width=frame_width,
                 frame_height=frame_height,
+                pixel_format=pixel_format,
+                fps=fps,
                 flip_vertical=flip_vertical,
                 flip_horizontal=flip_horizontal,
                 warp_enabled=warp_enabled,
@@ -307,6 +311,12 @@ class CameraCaptureService:
                 focus_absolute=focus_absolute,
                 white_balance_auto=white_balance_auto,
                 white_balance_temperature=white_balance_temperature,
+                brightness=brightness,
+                contrast=contrast,
+                saturation=saturation,
+                sharpness=sharpness,
+                profile_controls=saved_controls or None,
+                focus_ramp=False,
             )
 
             if not jpeg:
@@ -316,16 +326,13 @@ class CameraCaptureService:
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"rack_{rack_id}_{now}.jpg"
 
-            # Атомарно обновляем кадр, который отправляется на VPS вместе с телеметрией.
             self._save_latest_file(jpeg, rack_id)
-
-            # Всегда сохраняем локальную копию для таймлапсов.
-            # Она будет храниться local_archive_days дней и потом удалится автоматически.
             self._save_archive_file(jpeg, filename, rack_id)
 
             print(
-                f"[camera-capture] high-resolution frame saved: rack={rack_id}, "
-                f"requested={frame_width}x{frame_height}, bytes={len(jpeg)}"
+                f"[camera-capture] frame saved: rack={rack_id}, camera={camera_id}, "
+                f"profile={'saved' if saved_profile else 'yaml-fallback'}, "
+                f"requested={frame_width}x{frame_height} {pixel_format}@{fps}, bytes={len(jpeg)}"
             )
 
             if uploader is None:
