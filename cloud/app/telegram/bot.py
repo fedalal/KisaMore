@@ -98,11 +98,22 @@ class TelegramBotAPI:
             raise TelegramAPIError("Telegram bot token is not configured")
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(f"{self.base_url}/{method}", json=payload or {})
-            response.raise_for_status()
+
+        # Do not use response.raise_for_status() here. Its exception message
+        # contains the full request URL, and Telegram embeds the bot token in
+        # that URL. Parse the Telegram response and raise a sanitized error.
+        try:
             data = response.json()
-        if not data.get("ok"):
+        except ValueError:
+            data = {}
+
+        if response.status_code >= 400 or not data.get("ok"):
+            description = data.get("description") or f"HTTP {response.status_code}"
+            parameters = data.get("parameters") or {}
+            retry_after = parameters.get("retry_after")
+            retry_hint = f"; retry_after={retry_after}s" if retry_after is not None else ""
             raise TelegramAPIError(
-                f"Telegram API {method} failed: {data.get('description', 'unknown error')}"
+                f"Telegram API {method} failed: {description}{retry_hint}"
             )
         return data.get("result")
 
@@ -133,7 +144,18 @@ class TelegramBotAPI:
 
     async def prepare_long_polling(self) -> None:
         await self.call("deleteWebhook", {"drop_pending_updates": False})
-        await self.configure_localized_profile()
+
+        # Profile localization is cosmetic and must never prevent the bot from
+        # receiving messages. Telegram may rate-limit setMy* calls (HTTP 429),
+        # especially after several container restarts/deployments.
+        try:
+            await self.configure_localized_profile()
+        except Exception as exc:
+            logger.warning(
+                "Could not update Telegram bot profile during startup; "
+                "continuing with long polling: %s",
+                exc,
+            )
 
     async def get_updates(self, *, offset: int | None, timeout_seconds: int = 30) -> list[dict]:
         payload = {
