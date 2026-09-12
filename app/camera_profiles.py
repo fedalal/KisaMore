@@ -4,7 +4,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 
 PROFILE_DIR_ENV = "KISAMORE_CAMERA_PROFILE_DIR"
@@ -20,8 +20,6 @@ def _safe_name(name: str) -> str:
     if not value:
         raise ValueError("camera name is empty")
 
-    # Camera ids such as camera_1 stay unchanged. Keep unicode letters too,
-    # while replacing path separators and punctuation that are unsafe in names.
     value = value.replace("/", "_").replace("\\", "_")
     value = re.sub(r"[^\w.\-]+", "_", value, flags=re.UNICODE).strip("._")
     if not value:
@@ -105,11 +103,12 @@ def load_runtime_camera_profiles(cameras: Mapping[str, Any]) -> dict[str, dict[s
         loaded[camera_id] = profile
         fmt = profile.get("format") if isinstance(profile.get("format"), dict) else {}
         controls = profile.get("controls") if isinstance(profile.get("controls"), dict) else {}
+        area = profile.get("frame_area") if isinstance(profile.get("frame_area"), dict) else {}
         print(
             f"[camera-profile] {camera_id}: loaded "
             f"{fmt.get('width', '?')}x{fmt.get('height', '?')} "
             f"{fmt.get('pixelformat', '?')} @{fmt.get('fps', '?')}fps, "
-            f"controls={len(controls)}"
+            f"controls={len(controls)}, frame_area={'on' if area.get('enabled') else 'off'}"
         )
 
     return loaded
@@ -151,6 +150,36 @@ def profile_controls(profile: dict[str, Any] | None) -> dict[str, int]:
     return result
 
 
+def profile_frame_area(
+    profile: dict[str, Any] | None,
+    *,
+    default_enabled: bool = False,
+    default_points: Optional[list[float]] = None,
+) -> tuple[bool, Optional[list[float]]]:
+    """Return the perspective/crop area stored by camera_tuner.
+
+    Old profiles do not contain frame_area. In that case the values from
+    kisamore.yaml remain active, preserving backwards compatibility.
+    """
+    raw = profile.get("frame_area") if profile and isinstance(profile.get("frame_area"), dict) else None
+    if raw is None:
+        return bool(default_enabled), list(default_points) if default_points else None
+
+    enabled = bool(raw.get("enabled", False))
+    points_raw = raw.get("points")
+    points: Optional[list[float]] = None
+    if isinstance(points_raw, list) and len(points_raw) == 8:
+        try:
+            points = [float(value) for value in points_raw]
+        except Exception:
+            points = None
+
+    if enabled and points is None:
+        enabled = False
+
+    return enabled, points
+
+
 def shell_command_for_profile(
     *,
     device: str,
@@ -180,9 +209,20 @@ def save_camera_profile(
     fmt: dict[str, Any],
     controls: Mapping[str, int],
     saved_at: str,
+    frame_area_enabled: bool = False,
+    frame_area_points: Optional[list[float]] = None,
 ) -> tuple[Path, Path, dict[str, Any], str]:
     folder = camera_profile_dir()
     folder.mkdir(parents=True, exist_ok=True)
+
+    normalized_points: Optional[list[float]] = None
+    if isinstance(frame_area_points, list) and len(frame_area_points) == 8:
+        try:
+            normalized_points = [float(value) for value in frame_area_points]
+        except Exception:
+            normalized_points = None
+
+    area_enabled = bool(frame_area_enabled and normalized_points is not None)
 
     profile = {
         "camera_name": str(camera_name).strip(),
@@ -196,6 +236,10 @@ def save_camera_profile(
             "fps": float(fmt.get("fps") or 30),
         },
         "controls": {str(k): int(v) for k, v in controls.items()},
+        "frame_area": {
+            "enabled": area_enabled,
+            "points": normalized_points,
+        },
     }
 
     json_path = camera_profile_path(camera_name)
