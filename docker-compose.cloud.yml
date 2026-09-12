@@ -52,6 +52,7 @@ services:
       - "127.0.0.1:8080:8000"
     volumes:
       - kisamore-photos:/srv/kisamore/data/photos
+      - ./data/plant-images:/srv/kisamore/data/plant-images:ro
     healthcheck:
       test:
         - CMD
@@ -130,6 +131,7 @@ services:
         condition: service_started
     volumes:
       - kisamore-photos:/srv/kisamore/data/photos:ro
+      - ./data/plant-images:/srv/kisamore/data/plant-images:ro
 
 volumes:
   kisamore-postgres:
