@@ -104,11 +104,18 @@ def load_runtime_camera_profiles(cameras: Mapping[str, Any]) -> dict[str, dict[s
         fmt = profile.get("format") if isinstance(profile.get("format"), dict) else {}
         controls = profile.get("controls") if isinstance(profile.get("controls"), dict) else {}
         area = profile.get("frame_area") if isinstance(profile.get("frame_area"), dict) else {}
+        transform = (
+            profile.get("frame_transform")
+            if isinstance(profile.get("frame_transform"), dict)
+            else {}
+        )
         print(
             f"[camera-profile] {camera_id}: loaded "
             f"{fmt.get('width', '?')}x{fmt.get('height', '?')} "
             f"{fmt.get('pixelformat', '?')} @{fmt.get('fps', '?')}fps, "
-            f"controls={len(controls)}, frame_area={'on' if area.get('enabled') else 'off'}"
+            f"controls={len(controls)}, frame_area={'on' if area.get('enabled') else 'off'}, "
+            f"flip_v={'on' if transform.get('flip_vertical') else 'off'}, "
+            f"flip_h={'on' if transform.get('flip_horizontal') else 'off'}"
         )
 
     return loaded
@@ -180,6 +187,32 @@ def profile_frame_area(
     return enabled, points
 
 
+def profile_frame_transform(
+    profile: dict[str, Any] | None,
+    *,
+    default_flip_vertical: bool = False,
+    default_flip_horizontal: bool = False,
+) -> tuple[bool, bool]:
+    """Return vertical/horizontal frame flips stored by camera_tuner.
+
+    The transform is applied before perspective correction, exactly like the old
+    KisaMore camera settings. Old profiles without frame_transform keep the
+    values from kisamore.yaml.
+    """
+    raw = (
+        profile.get("frame_transform")
+        if profile and isinstance(profile.get("frame_transform"), dict)
+        else None
+    )
+    if raw is None:
+        return bool(default_flip_vertical), bool(default_flip_horizontal)
+
+    return (
+        bool(raw.get("flip_vertical", False)),
+        bool(raw.get("flip_horizontal", False)),
+    )
+
+
 def shell_command_for_profile(
     *,
     device: str,
@@ -211,6 +244,8 @@ def save_camera_profile(
     saved_at: str,
     frame_area_enabled: bool = False,
     frame_area_points: Optional[list[float]] = None,
+    flip_vertical: bool = False,
+    flip_horizontal: bool = False,
 ) -> tuple[Path, Path, dict[str, Any], str]:
     folder = camera_profile_dir()
     folder.mkdir(parents=True, exist_ok=True)
@@ -236,6 +271,10 @@ def save_camera_profile(
             "fps": float(fmt.get("fps") or 30),
         },
         "controls": {str(k): int(v) for k, v in controls.items()},
+        "frame_transform": {
+            "flip_vertical": bool(flip_vertical),
+            "flip_horizontal": bool(flip_horizontal),
+        },
         "frame_area": {
             "enabled": area_enabled,
             "points": normalized_points,
