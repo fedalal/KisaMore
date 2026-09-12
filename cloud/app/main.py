@@ -82,7 +82,7 @@ async def dashboard() -> HTMLResponse:
 async def admin_dashboard() -> HTMLResponse:
     content = ADMIN_TEMPLATE.read_text(encoding="utf-8").replace(
         "/static/admin_telegram.js?v=20260910-1",
-        "/static/admin_telegram.js?v=20260912-3",
+        "/static/admin_telegram.js?v=20260912-4",
     )
     return HTMLResponse(
         content,
