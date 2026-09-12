@@ -8,7 +8,11 @@ from sqlalchemy import select
 from .hw_config import HWConfig, load_config
 from .rs485_driver import RS485RelayDriver, RS485Config
 from .inputs_driver import InputsDriver
-from .camera_profiles import load_runtime_camera_profiles, profile_frame_area
+from .camera_profiles import (
+    load_runtime_camera_profiles,
+    profile_frame_area,
+    profile_frame_transform,
+)
 
 from .db import SessionLocal
 from .models import RackState, RackSchedule
@@ -68,14 +72,23 @@ async def init_runtime(active_low: bool = True) -> None:
     # writes them and KisaMore consumes the exact same files on startup.
     camera_profiles = load_runtime_camera_profiles(cfg.cameras)
 
-    # The selected frame area belongs to the same per-camera profile. Overlay it
-    # onto the in-memory camera config so every KisaMore capture path (scheduled
-    # photos, rack frame and camera-settings frame) uses exactly the area chosen
-    # in camera_tuner. Old profiles without frame_area keep YAML values.
+    # Frame transform and selected frame area belong to the same per-camera
+    # profile. Overlay them onto the in-memory camera config so every KisaMore
+    # capture path uses exactly what was selected in camera_tuner. For old
+    # profiles without these sections, keep the values from kisamore.yaml.
     for camera_id, camera_cfg in cfg.cameras.items():
         profile = camera_profiles.get(camera_id)
         if profile is None:
             continue
+
+        flip_vertical, flip_horizontal = profile_frame_transform(
+            profile,
+            default_flip_vertical=camera_cfg.flip_vertical,
+            default_flip_horizontal=camera_cfg.flip_horizontal,
+        )
+        camera_cfg.flip_vertical = flip_vertical
+        camera_cfg.flip_horizontal = flip_horizontal
+
         area_enabled, area_points = profile_frame_area(
             profile,
             default_enabled=camera_cfg.warp_enabled,
@@ -83,9 +96,12 @@ async def init_runtime(active_low: bool = True) -> None:
         )
         camera_cfg.warp_enabled = area_enabled
         camera_cfg.warp_points = area_points
+
         print(
-            f"[camera-profile] {camera_id}: effective frame area "
-            f"{'enabled' if area_enabled else 'disabled'}"
+            f"[camera-profile] {camera_id}: effective transform "
+            f"flip_v={'on' if flip_vertical else 'off'}, "
+            f"flip_h={'on' if flip_horizontal else 'off'}, "
+            f"frame_area={'enabled' if area_enabled else 'disabled'}"
         )
 
     if not cfg.rs485:
