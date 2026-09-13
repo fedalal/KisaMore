@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 from . import runtime
 from .bootstrap import ensure_db_tables, ensure_db_racks
 from .plant_descriptions import ensure_plant_descriptions
+from .plant_facts import ensure_plant_facts
 from .scheduler import Scheduler
 
 from .routes_state import router as state_router
@@ -55,9 +56,10 @@ async def on_startup():
     # 2) база
     await ensure_db_tables()
     await ensure_db_racks(runtime.cfg.racks_count if runtime.cfg else 4)
-    # Fill only missing localized descriptions. Existing operator-written text
-    # is preserved, while every plant receives all supported languages.
+    # Fill only missing localized descriptions/facts. Existing operator-written
+    # content is preserved, while every plant gets all supported languages.
     await ensure_plant_descriptions()
+    await ensure_plant_facts()
 
     # 2.5) FAIL-SAFE + восстановление состояния
     # Сначала выключаем всё (на случай залипаний), затем сразу же включаем то,
