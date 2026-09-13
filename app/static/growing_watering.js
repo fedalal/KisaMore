@@ -4,7 +4,8 @@
   const dialog = document.querySelector("#plantDialog");
   const form = document.querySelector("#plantForm");
   const languageSelect = document.querySelector("#languageSelect");
-  if (!dialog || !form) return;
+  const host = document.querySelector("#wateringEditorHost");
+  if (!dialog || !form || !host) return;
 
   const previousFetch = window.fetch.bind(window);
   const text = {
@@ -86,9 +87,7 @@
       <div id="extraWateringRows" class="watering-rows"></div>
     </div>`;
 
-  const activeLabel = form.querySelector("label.checkbox");
-  if (activeLabel) form.insertBefore(editor, activeLabel);
-  else form.append(editor);
+  host.replaceChildren(editor);
 
   const scheduleRows = editor.querySelector("#wateringScheduleRows");
   const scheduleEmpty = editor.querySelector("#wateringScheduleEmpty");
