@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import gzip
 import hashlib
 import json
 import threading
@@ -172,6 +173,14 @@ class MqttSnapshotConsumer:
         if done.get("bytes") is not None and int(done["bytes"]) != len(payload_bytes):
             raise ValueError("MQTT snapshot byte count mismatch")
 
+        wire_size = len(payload_bytes)
+        compressed = payload_bytes.startswith(b"\x1f\x8b")
+        if compressed:
+            try:
+                payload_bytes = gzip.decompress(payload_bytes)
+            except OSError as exc:
+                raise ValueError("invalid gzip MQTT snapshot") from exc
+
         try:
             payload = EdgeSnapshotIn.model_validate_json(payload_bytes)
         except ValidationError:
@@ -183,8 +192,8 @@ class MqttSnapshotConsumer:
         has_growing_data = await process_edge_snapshot(device_id, payload, now)
         print(
             f"[cloud-mqtt] snapshot accepted: device={device_id}, "
-            f"message={message_id}, bytes={len(payload_bytes)}, "
-            f"chunks={done.get('chunks')}, growing={has_growing_data}"
+            f"message={message_id}, bytes={wire_size}, decoded={len(payload_bytes)}, "
+            f"gzip={compressed}, chunks={done.get('chunks')}, growing={has_growing_data}"
         )
 
     @staticmethod
