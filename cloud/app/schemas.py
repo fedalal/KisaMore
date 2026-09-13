@@ -26,6 +26,7 @@ class PlantSnapshotIn(BaseModel):
     code: str = Field(min_length=1, max_length=80)
     names: dict[str, str] = Field(min_length=1)
     descriptions: dict[str, str] = Field(default_factory=dict)
+    facts: dict[str, list[str]] = Field(default_factory=dict)
     seed_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     microgreen_image_name: str = Field(default="", max_length=255, pattern=r"^[^/\\]*$")
     grow_days: int = Field(ge=1, le=365)
@@ -37,6 +38,24 @@ class PlantSnapshotIn(BaseModel):
     extra_watering_options: list[ExtraWateringOptionSnapshotIn] = Field(default_factory=list, max_length=10)
     active: bool = True
     updated_at: datetime | None = None
+
+    @field_validator("facts")
+    @classmethod
+    def facts_are_reasonable(cls, value):
+        normalized = {}
+        for language, items in (value or {}).items():
+            if len(items) > 40:
+                raise ValueError("at most 40 facts are allowed per language")
+            cleaned = []
+            for item in items:
+                text = str(item).strip()
+                if not text:
+                    continue
+                if len(text) > 600:
+                    raise ValueError("plant fact is too long")
+                cleaned.append(text)
+            normalized[str(language)[:10]] = cleaned
+        return normalized
 
 
 class PlantingSnapshotIn(BaseModel):
