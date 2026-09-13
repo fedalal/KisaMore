@@ -7,6 +7,7 @@
       newPlant: "Add plant", syncPlants: "Sync growing data with VPS", syncingPlants: "Synchronizing…", syncPlantsSuccess: "Plant catalog and rack placement synchronized with VPS.", syncPlantsError: "Could not synchronize growing data with VPS.",
       catalog: "Plant catalog", showArchived: "Show archived", archive: "Archive", archived: "Archived", restore: "Restore", archiveConfirm: "Move this plant to the archive? Existing planting history will be preserved.", noActivePlants: "There are no active plants. Turn on “Show archived” to restore one.",
       racks: "Racks", sixSlots: "Six containers per rack", plantEditor: "Plant", code: "Code",
+      tabMain: "Main", tabNames: "Names", tabDescriptions: "Descriptions", tabWatering: "Watering",
       nameEnglish: "Name (English)", nameRussian: "Name (Russian)", nameGerman: "Name (German)", nameFrench: "Name (French)", nameSpanish: "Name (Spanish)", nameItalian: "Name (Italian)", namePortuguese: "Name (Portuguese)", namePolish: "Name (Polish)", nameChinese: "Name (Chinese)",
       descriptionsTitle: "Descriptions",
       descriptionEnglish: "Description (English)", descriptionRussian: "Description (Russian)", descriptionGerman: "Description (German)", descriptionFrench: "Description (French)", descriptionSpanish: "Description (Spanish)", descriptionItalian: "Description (Italian)", descriptionPortuguese: "Description (Portuguese)", descriptionPolish: "Description (Polish)", descriptionChinese: "Description (Chinese)",
@@ -17,6 +18,7 @@
       newPlant: "Добавить растение", syncPlants: "Синхронизировать выращивание с VPS", syncingPlants: "Синхронизация…", syncPlantsSuccess: "Справочник растений и размещение на полках синхронизированы с VPS.", syncPlantsError: "Не удалось синхронизировать данные выращивания с VPS.",
       catalog: "Справочник растений", showArchived: "Показывать архивные", archive: "В архив", archived: "Архив", restore: "Восстановить", archiveConfirm: "Перенести это растение в архив? История посадок сохранится.", noActivePlants: "Активных растений нет. Включите «Показывать архивные», чтобы восстановить растение.",
       racks: "Полки", sixSlots: "Шесть контейнеров на полке", plantEditor: "Растение", code: "Код",
+      tabMain: "Основное", tabNames: "Названия", tabDescriptions: "Описание", tabWatering: "Полив",
       nameEnglish: "Название (английский)", nameRussian: "Название (русский)", nameGerman: "Название (немецкий)", nameFrench: "Название (французский)", nameSpanish: "Название (испанский)", nameItalian: "Название (итальянский)", namePortuguese: "Название (португальский)", namePolish: "Название (польский)", nameChinese: "Название (китайский)",
       descriptionsTitle: "Описание растения",
       descriptionEnglish: "Описание (английский)", descriptionRussian: "Описание (русский)", descriptionGerman: "Описание (немецкий)", descriptionFrench: "Описание (французский)", descriptionSpanish: "Описание (испанский)", descriptionItalian: "Описание (итальянский)", descriptionPortuguese: "Описание (португальский)", descriptionPolish: "Описание (польский)", descriptionChinese: "Описание (китайский)",
@@ -27,6 +29,7 @@
       newPlant: "添加植物", syncPlants: "与 VPS 同步种植数据", syncingPlants: "正在同步…", syncPlantsSuccess: "植物目录和种植架位置已与 VPS 同步。", syncPlantsError: "无法与 VPS 同步种植数据。",
       catalog: "植物目录", showArchived: "显示已归档", archive: "归档", archived: "已归档", restore: "恢复", archiveConfirm: "将此植物移至归档？现有种植历史将保留。", noActivePlants: "没有可用植物。请启用“显示已归档”以恢复植物。",
       racks: "种植架", sixSlots: "每架六个容器", plantEditor: "植物", code: "代码",
+      tabMain: "主要", tabNames: "名称", tabDescriptions: "介绍", tabWatering: "浇水",
       nameEnglish: "英文名称", nameRussian: "俄文名称", nameGerman: "德文名称", nameFrench: "法文名称", nameSpanish: "西班牙文名称", nameItalian: "意大利文名称", namePortuguese: "葡萄牙文名称", namePolish: "波兰文名称", nameChinese: "中文名称",
       descriptionsTitle: "植物介绍",
       descriptionEnglish: "英文介绍", descriptionRussian: "俄文介绍", descriptionGerman: "德文介绍", descriptionFrench: "法文介绍", descriptionSpanish: "西班牙文介绍", descriptionItalian: "意大利文介绍", descriptionPortuguese: "葡萄牙文介绍", descriptionPolish: "波兰文介绍", descriptionChinese: "中文介绍",
@@ -63,16 +66,46 @@
   let showArchived = false;
   let plants = [];
   let slots = [];
+  let editingPlant = null;
 
   const t = (key) => messages[language][key] || messages.en[key] || key;
   const plantName = (plant) => plant.names?.[language] || plant.names?.en || plant.names?.ru || plant.code;
   const $ = (selector) => document.querySelector(selector);
   const notice = $("#notice");
 
+  function updateArchiveButton(plant = editingPlant) {
+    const button = $("#plantArchiveButton");
+    if (!button) return;
+    if (!plant) {
+      button.classList.add("hidden");
+      return;
+    }
+    button.classList.remove("hidden", "danger", "restore-action");
+    if (plant.active) {
+      button.classList.add("danger");
+      button.textContent = t("archive");
+    } else {
+      button.classList.add("restore-action");
+      button.textContent = t("restore");
+    }
+  }
+
+  function activatePlantTab(tabName) {
+    document.querySelectorAll("[data-plant-tab]").forEach((button) => {
+      const active = button.dataset.plantTab === tabName;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.querySelectorAll("[data-plant-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.plantPanel !== tabName;
+    });
+  }
+
   function applyLanguage() {
     document.documentElement.lang = language;
     $("#languageSelect").value = language;
     document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
+    updateArchiveButton();
     render();
   }
 
@@ -131,15 +164,13 @@
       }
       const edit = document.createElement("button");
       edit.type = "button";
-      edit.textContent = t("edit");
+      edit.className = "plant-edit-icon";
+      edit.setAttribute("aria-label", t("edit"));
+      edit.title = t("edit");
+      edit.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.5V20h3.5L18.3 9.2l-3.5-3.5L4 16.5Zm16.7-10.1a.94.94 0 0 0 0-1.3l-1.8-1.8a.94.94 0 0 0-1.3 0l-1.4 1.4 3.5 3.5 1-1.8Z"/></svg>`;
       edit.addEventListener("click", () => openPlantEditor(plant));
-      const archive = document.createElement("button");
-      archive.type = "button";
-      archive.className = plant.active ? "archive-action" : "restore-action";
-      archive.textContent = t(plant.active ? "archive" : "restore");
-      archive.addEventListener("click", () => setPlantActive(plant, !plant.active));
       chip.prepend(name, days);
-      chip.append(edit, archive);
+      chip.append(edit);
       return chip;
     }));
   }
@@ -224,10 +255,12 @@
   }
 
   function openPlantEditor(plant = null) {
+    editingPlant = plant;
     const form = $("#plantForm");
     form.reset();
     form.elements.plantId.value = plant?.id || "";
     form.elements.code.value = plant?.code || "";
+    form.elements.active.value = String(plant?.active ?? true);
     for (const [locale, field] of plantNameFields) {
       form.elements[field].value = plant?.names?.[locale] || "";
     }
@@ -237,7 +270,8 @@
     form.elements.seedImageName.value = plant?.seed_image_name || "";
     form.elements.microgreenImageName.value = plant?.microgreen_image_name || "";
     form.elements.growDays.value = plant?.grow_days || 14;
-    form.elements.active.checked = plant?.active ?? true;
+    updateArchiveButton(plant);
+    activatePlantTab(plant ? "main" : "names");
     $("#plantDialog").showModal();
   }
 
@@ -275,7 +309,7 @@
   }
 
   async function setPlantActive(plant, active) {
-    if (!active && !window.confirm(t("archiveConfirm"))) return;
+    if (!active && !window.confirm(t("archiveConfirm"))) return false;
     const payload = {
       code: plant.code,
       names: plant.names || {},
@@ -283,12 +317,23 @@
       seed_image_name: plant.seed_image_name || "",
       microgreen_image_name: plant.microgreen_image_name || "",
       grow_days: plant.grow_days,
+      rental_price_kisa: plant.rental_price_kisa ?? 20,
+      watering_schedule: plant.watering_schedule || [],
+      watering_adjustment_limit_percent: plant.watering_adjustment_limit_percent ?? 20,
+      watering_adjustment_step_percent: plant.watering_adjustment_step_percent ?? 10,
+      watering_min_interval_minutes: plant.watering_min_interval_minutes ?? 240,
+      extra_watering_options: plant.extra_watering_options || [],
       active,
     };
     try {
       await api(`/api/growing/plants/${plant.id}`, { method: "PUT", body: JSON.stringify(payload) });
       await load();
-    } catch (error) { console.error(error); showError(t("saveError")); }
+      return true;
+    } catch (error) {
+      console.error(error);
+      showError(t("saveError"));
+      return false;
+    }
   }
 
   $("#languageSelect").addEventListener("change", (event) => { language = event.target.value; localStorage.setItem("kisamore-language", language); applyLanguage(); });
@@ -309,8 +354,26 @@
       button.textContent = t("syncPlants");
     }
   });
+
   $("#newPlantButton").addEventListener("click", () => openPlantEditor());
   document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
+  document.querySelectorAll("[data-plant-tab]").forEach((button) => button.addEventListener("click", () => activatePlantTab(button.dataset.plantTab)));
+
+  $("#plantArchiveButton").addEventListener("click", async () => {
+    const id = $("#plantForm").elements.plantId.value;
+    const plant = plants.find((item) => item.id === id);
+    if (!plant) return;
+    const changed = await setPlantActive(plant, !plant.active);
+    if (changed) {
+      editingPlant = null;
+      $("#plantDialog").close();
+    }
+  });
+
+  $("#plantForm").addEventListener("invalid", (event) => {
+    const panel = event.target.closest("[data-plant-panel]");
+    if (panel?.hidden) activatePlantTab(panel.dataset.plantPanel);
+  }, true);
 
   $("#plantForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -334,11 +397,13 @@
       seed_image_name: form.elements.seedImageName.value.trim(),
       microgreen_image_name: form.elements.microgreenImageName.value.trim(),
       grow_days: Number(form.elements.growDays.value),
-      active: form.elements.active.checked,
+      active: form.elements.active.value !== "false",
     };
     try {
       await api(id ? `/api/growing/plants/${id}` : "/api/growing/plants", { method: id ? "PUT" : "POST", body: JSON.stringify(payload) });
-      $("#plantDialog").close(); await load();
+      editingPlant = null;
+      $("#plantDialog").close();
+      await load();
     } catch (error) { console.error(error); showError(t("saveError")); }
   });
 
