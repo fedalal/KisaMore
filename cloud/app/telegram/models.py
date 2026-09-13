@@ -93,6 +93,41 @@ class StarPayment(Base):
     paid_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
+class TelegramStarAccount(Base):
+    """Last balance reported by Telegram for the KisaMore bot.
+
+    The API container intentionally does not receive the bot token. The Telegram
+    worker refreshes this row, while the web admin reads it from PostgreSQL.
+    """
+
+    __tablename__ = "telegram_star_account"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    balance_stars: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    balance_nanostars: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class TelegramStarTransaction(Base):
+    """Official Telegram-side Star ledger entry mirrored by the bot worker."""
+
+    __tablename__ = "telegram_star_transactions"
+
+    identity_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    transaction_id: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    amount_stars: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    nanostar_amount: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    direction: Mapped[str] = mapped_column(String(12), index=True, nullable=False)
+    partner_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    transaction_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, index=True, nullable=True)
+    invoice_payload: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    raw: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
 class SocialReaction(Base):
     __tablename__ = "social_reactions"
     __table_args__ = (
