@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+from html import escape
+
+from sqlalchemy import func, select
+
+from ..db import SessionLocal
+from .models import SocialFollow
+
+
+async def _follower_count(planting_id: str) -> int:
+    async with SessionLocal() as session:
+        value = (
+            await session.execute(
+                select(func.count(SocialFollow.id)).where(
+                    SocialFollow.target_type == "planting",
+                    SocialFollow.target_id == planting_id,
+                )
+            )
+        ).scalar_one()
+    return int(value or 0)
+
+
+def build_plant_caption(core, lang: str, card) -> str:
+    """Build a plant caption with temperature and social counters.
+
+    Soil moisture is intentionally omitted from the public Telegram card. The
+    fourth social counter shows how many users are subscribed to this planting.
+    """
+    sensor = ""
+    if card.rack and card.rack.soil_temperature is not None:
+        sensor = f"\n\n🌡 {card.rack.soil_temperature:.1f}°C"
+
+    caption = core.st(
+        lang,
+        "plant_card",
+        name=escape(core.plant_name(card.plant, lang)),
+        day=core.day_number(card.planting.planted_at),
+        rack=card.slot.rack_id,
+        slot=card.slot.slot_number,
+        status=escape(core.status_text(lang, card.planting.status)),
+        likes=card.likes,
+        dislikes=card.dislikes,
+        comments=card.comments,
+        gifts=card.gifts,
+        gift_kisa=card.gift_kisa,
+        sensor=sensor,
+    )
+
+    followers = int(getattr(card, "followers", 0) or 0)
+    stats = f"❤️ {card.likes}   👎 {card.dislikes}   💬 {card.comments}"
+    stats_with_followers = f"{stats}   🔔 {followers}"
+    if stats in caption:
+        caption = caption.replace(stats, stats_with_followers, 1)
+    return caption
+
+
+def install(core) -> None:
+    previous_get_plant_card = core.get_plant_card
+
+    async def get_plant_card(planting_id: str, user_id: int):
+        card = await previous_get_plant_card(planting_id, user_id)
+        if card is not None:
+            card.followers = await _follower_count(planting_id)
+        return card
+
+    async def show_plant_card(
+        bot,
+        chat_id: int,
+        tg: dict,
+        planting_id: str,
+        *,
+        index: int = 0,
+        total: int | None = None,
+        user_id: int | None = None,
+    ) -> None:
+        lang = core.language_for(tg)
+        if user_id is None:
+            user, _ = await core.get_or_create_user(tg)
+            user_id = user.id
+
+        card = await get_plant_card(planting_id, user_id)
+        if card is None:
+            await core.show_plant_at(bot, chat_id, tg, 0)
+            return
+
+        if total is None:
+            total = max(1, len(await core.list_plantings(limit=20)))
+
+        caption = build_plant_caption(core, lang, card)
+        keyboard = core.plant_keyboard(lang, card, index, total)
+        photo_path = core.resolve_photo_path(card.photo)
+        if photo_path:
+            try:
+                await bot.send_photo(
+                    chat_id,
+                    photo_path,
+                    caption=caption,
+                    reply_markup=keyboard,
+                )
+                return
+            except Exception:
+                core.logger.exception("Could not send rack photo %s", photo_path)
+
+        await bot.send_message(
+            chat_id,
+            caption + f"\n\n<i>{escape(core.st(lang, 'photo_unavailable'))}</i>",
+            reply_markup=keyboard,
+        )
+
+    core.get_plant_card = get_plant_card
+    core.show_plant_card = show_plant_card
+    core.build_plant_caption = lambda lang, card: build_plant_caption(core, lang, card)
