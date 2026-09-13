@@ -3,19 +3,19 @@ from __future__ import annotations
 from .i18n import language_for
 from .reaction_refresh import FOLLOW_UI
 from .service import get_or_create_user, send_gift
-from .social_i18n import st
+from .social_i18n import TEXT as SOCIAL_TEXT, st
 
 
 GIFT_SUCCESS = {
-    "en": "🎁 <b>Gift sent successfully!</b>\n\n🪙 Your balance is: <b>{balance} Kisa</b>",
-    "ru": "🎁 <b>Подарок успешно отправлен!</b>\n\n🪙 Ваш баланс составляет: <b>{balance} Kisa</b>",
-    "de": "🎁 <b>Geschenk erfolgreich gesendet!</b>\n\n🪙 Dein Guthaben beträgt: <b>{balance} Kisa</b>",
-    "fr": "🎁 <b>Cadeau envoyé avec succès !</b>\n\n🪙 Votre solde est de : <b>{balance} Kisa</b>",
-    "es": "🎁 <b>¡Regalo enviado correctamente!</b>\n\n🪙 Tu saldo es: <b>{balance} Kisa</b>",
-    "it": "🎁 <b>Regalo inviato con successo!</b>\n\n🪙 Il tuo saldo è: <b>{balance} Kisa</b>",
-    "pt": "🎁 <b>Presente enviado com sucesso!</b>\n\n🪙 O seu saldo é: <b>{balance} Kisa</b>",
-    "pl": "🎁 <b>Prezent został wysłany!</b>\n\n🪙 Twoje saldo wynosi: <b>{balance} Kisa</b>",
-    "zh": "🎁 <b>礼物已成功送出！</b>\n\n🪙 您的余额为：<b>{balance} Kisa</b>",
+    "en": "🎁 <b>Gift sent successfully!</b>\n\n🪙 Your balance is: <b>{balance} Ⓚ</b>",
+    "ru": "🎁 <b>Подарок успешно отправлен!</b>\n\n🪙 Ваш баланс составляет: <b>{balance} Ⓚ</b>",
+    "de": "🎁 <b>Geschenk erfolgreich gesendet!</b>\n\n🪙 Dein Guthaben beträgt: <b>{balance} Ⓚ</b>",
+    "fr": "🎁 <b>Cadeau envoyé avec succès !</b>\n\n🪙 Votre solde est de : <b>{balance} Ⓚ</b>",
+    "es": "🎁 <b>¡Regalo enviado correctamente!</b>\n\n🪙 Tu saldo es: <b>{balance} Ⓚ</b>",
+    "it": "🎁 <b>Regalo inviato con successo!</b>\n\n🪙 Il tuo saldo è: <b>{balance} Ⓚ</b>",
+    "pt": "🎁 <b>Presente enviado com sucesso!</b>\n\n🪙 O seu saldo é: <b>{balance} Ⓚ</b>",
+    "pl": "🎁 <b>Prezent został wysłany!</b>\n\n🪙 Twoje saldo wynosi: <b>{balance} Ⓚ</b>",
+    "zh": "🎁 <b>礼物已成功送出！</b>\n\n🪙 您的余额为：<b>{balance} Ⓚ</b>",
 }
 
 
@@ -35,8 +35,17 @@ def _install_follow_icons() -> None:
             values["unsubscribe"] = f"🔕 {unsubscribe}"
 
 
+def _install_kisa_symbol() -> None:
+    """Use the compact Ⓚ currency symbol in the gift flow copy."""
+    for values in SOCIAL_TEXT.values():
+        gift_title = values.get("gift_title")
+        if gift_title:
+            values["gift_title"] = str(gift_title).replace("Kisa", "Ⓚ")
+
+
 def install(core) -> None:
     _install_follow_icons()
+    _install_kisa_symbol()
     previous_handle_callback = core.handle_callback
 
     async def handle_callback(bot, query: dict) -> None:
