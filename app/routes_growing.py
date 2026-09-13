@@ -10,6 +10,8 @@ from . import runtime
 from .cloud_sync_service import cloud_sync_service
 from .db import SessionLocal
 from .models import Plant, Planting, RackSlot
+from .plant_descriptions import LANGS
+from .plant_facts import facts_for_plant
 from .schemas import (
     PlantIn,
     PlantOut,
@@ -134,6 +136,8 @@ async def create_plant(payload: PlantIn):
         if values.get("rental_price_kisa") is None:
             values["rental_price_kisa"] = 20
         plant = Plant(id=str(uuid4()), **values)
+        if "facts" not in payload.model_fields_set or not plant.facts:
+            plant.facts = {lang: facts_for_plant(plant, lang) for lang in LANGS}
         session.add(plant)
         await session.commit()
         await session.refresh(plant)
@@ -155,6 +159,8 @@ async def update_plant(plant_id: str, payload: PlantIn):
             raise HTTPException(status_code=409, detail="Plant code already exists")
         for key, value in payload.model_dump().items():
             if key == "rental_price_kisa" and value is None:
+                continue
+            if key == "facts" and key not in payload.model_fields_set:
                 continue
             setattr(plant, key, value)
         plant.updated_at = _now_naive()
