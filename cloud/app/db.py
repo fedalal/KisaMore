@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from .config import get_settings
 from .models import Base
+from .plant_fact_models import PlantFactPool  # noqa: F401 - register table in Base metadata
 
 
 settings = get_settings()
