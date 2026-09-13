@@ -111,3 +111,10 @@ def install(core) -> None:
     core.get_plant_card = get_plant_card
     core.show_plant_card = show_plant_card
     core.build_plant_caption = lambda lang, card: build_plant_caption(core, lang, card)
+
+    # reaction_refresh edits an already displayed Telegram message after likes,
+    # dislikes and subscription toggles. Make it use the exact same caption
+    # builder so the follower counter and hidden moisture stay in sync there too.
+    from . import reaction_refresh
+
+    reaction_refresh._plant_caption = build_plant_caption
