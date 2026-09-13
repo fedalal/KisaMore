@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KisaMore — Growing</title>
-  <link rel="stylesheet" href="/static/growing.css?v=4">
+  <link rel="stylesheet" href="/static/growing.css?v=5">
   <link rel="stylesheet" href="/static/growing_watering.css?v=20260910-1">
-  <script src="/static/growing.js?v=8" defer></script>
+  <script src="/static/growing.js?v=9" defer></script>
   <script src="/static/growing_rental_price.js?v=2" defer></script>
   <script src="/static/growing_watering.js?v=20260910-1" defer></script>
 </head>
@@ -66,44 +66,61 @@
       </header>
       <input type="hidden" name="plantId">
       <input type="hidden" name="code">
+      <input type="hidden" name="active" value="true">
 
-      <div class="plant-name-grid">
-        <label><span data-i18n="nameEnglish">Name (English)</span><input name="nameEn" required></label>
-        <label><span data-i18n="nameRussian">Name (Russian)</span><input name="nameRu"></label>
-        <label><span data-i18n="nameGerman">Name (German)</span><input name="nameDe"></label>
-        <label><span data-i18n="nameFrench">Name (French)</span><input name="nameFr"></label>
-        <label><span data-i18n="nameSpanish">Name (Spanish)</span><input name="nameEs"></label>
-        <label><span data-i18n="nameItalian">Name (Italian)</span><input name="nameIt"></label>
-        <label><span data-i18n="namePortuguese">Name (Portuguese)</span><input name="namePt"></label>
-        <label><span data-i18n="namePolish">Name (Polish)</span><input name="namePl"></label>
-        <label><span data-i18n="nameChinese">Name (Chinese)</span><input name="nameZh"></label>
-      </div>
+      <nav class="plant-tabs" role="tablist" aria-label="Plant editor sections">
+        <button type="button" class="plant-tab active" data-plant-tab="main" role="tab" aria-selected="true" data-i18n="tabMain">Main</button>
+        <button type="button" class="plant-tab" data-plant-tab="names" role="tab" aria-selected="false" data-i18n="tabNames">Names</button>
+        <button type="button" class="plant-tab" data-plant-tab="descriptions" role="tab" aria-selected="false" data-i18n="tabDescriptions">Descriptions</button>
+      </nav>
 
-      <h3 data-i18n="descriptionsTitle">Descriptions</h3>
-      <div class="plant-name-grid">
-        <label><span data-i18n="descriptionEnglish">Description (English)</span><textarea name="descriptionEn" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionRussian">Description (Russian)</span><textarea name="descriptionRu" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionGerman">Description (German)</span><textarea name="descriptionDe" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionFrench">Description (French)</span><textarea name="descriptionFr" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionSpanish">Description (Spanish)</span><textarea name="descriptionEs" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionItalian">Description (Italian)</span><textarea name="descriptionIt" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionPortuguese">Description (Portuguese)</span><textarea name="descriptionPt" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionPolish">Description (Polish)</span><textarea name="descriptionPl" rows="3"></textarea></label>
-        <label><span data-i18n="descriptionChinese">Description (Chinese)</span><textarea name="descriptionZh" rows="3"></textarea></label>
-      </div>
+      <section class="plant-tab-panel" data-plant-panel="main" role="tabpanel">
+        <div class="plant-name-grid">
+          <label><span id="rentalPriceLabel">Rental price (Ⓚ)</span><input name="rentalPriceKisa" type="number" min="0" max="1000000" value="20" required></label>
+          <label><span data-i18n="growDays">Growing days</span><input name="growDays" type="number" min="1" max="365" value="14" required></label>
+        </div>
+        <div class="plant-name-grid">
+          <label><span data-i18n="seedImageName">Seed image filename</span><input name="seedImageName" maxlength="255" placeholder="rapini_seeds.jpg"></label>
+          <label><span data-i18n="microgreenImageName">Microgreen image filename</span><input name="microgreenImageName" maxlength="255" placeholder="rapini_microgreens.jpg"></label>
+        </div>
+      </section>
 
-      <div class="plant-name-grid">
-        <label><span data-i18n="seedImageName">Seed image filename</span><input name="seedImageName" maxlength="255" placeholder="rapini_seeds.jpg"></label>
-        <label><span data-i18n="microgreenImageName">Microgreen image filename</span><input name="microgreenImageName" maxlength="255" placeholder="rapini_microgreens.jpg"></label>
-      </div>
-      <div class="plant-name-grid">
-        <label><span id="rentalPriceLabel">Rental price (Ⓚ)</span><input name="rentalPriceKisa" type="number" min="0" max="1000000" value="20" required></label>
-        <label><span data-i18n="growDays">Growing days</span><input name="growDays" type="number" min="1" max="365" value="14" required></label>
-      </div>
-      <label class="checkbox"><input name="active" type="checkbox" checked><span data-i18n="active">Available for selection</span></label>
-      <footer>
-        <button type="button" class="secondary" data-close-dialog data-i18n="cancel">Cancel</button>
-        <button type="submit" data-i18n="save">Save</button>
+      <section class="plant-tab-panel" data-plant-panel="names" role="tabpanel" hidden>
+        <div class="plant-name-grid">
+          <label><span data-i18n="nameEnglish">Name (English)</span><input name="nameEn" required></label>
+          <label><span data-i18n="nameRussian">Name (Russian)</span><input name="nameRu"></label>
+          <label><span data-i18n="nameGerman">Name (German)</span><input name="nameDe"></label>
+          <label><span data-i18n="nameFrench">Name (French)</span><input name="nameFr"></label>
+          <label><span data-i18n="nameSpanish">Name (Spanish)</span><input name="nameEs"></label>
+          <label><span data-i18n="nameItalian">Name (Italian)</span><input name="nameIt"></label>
+          <label><span data-i18n="namePortuguese">Name (Portuguese)</span><input name="namePt"></label>
+          <label><span data-i18n="namePolish">Name (Polish)</span><input name="namePl"></label>
+          <label><span data-i18n="nameChinese">Name (Chinese)</span><input name="nameZh"></label>
+        </div>
+      </section>
+
+      <section class="plant-tab-panel" data-plant-panel="descriptions" role="tabpanel" hidden>
+        <div class="plant-name-grid">
+          <label><span data-i18n="descriptionEnglish">Description (English)</span><textarea name="descriptionEn" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionRussian">Description (Russian)</span><textarea name="descriptionRu" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionGerman">Description (German)</span><textarea name="descriptionDe" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionFrench">Description (French)</span><textarea name="descriptionFr" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionSpanish">Description (Spanish)</span><textarea name="descriptionEs" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionItalian">Description (Italian)</span><textarea name="descriptionIt" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionPortuguese">Description (Portuguese)</span><textarea name="descriptionPt" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionPolish">Description (Polish)</span><textarea name="descriptionPl" rows="3"></textarea></label>
+          <label><span data-i18n="descriptionChinese">Description (Chinese)</span><textarea name="descriptionZh" rows="3"></textarea></label>
+        </div>
+      </section>
+
+      <footer class="plant-editor-footer">
+        <div class="plant-editor-footer-status">
+          <button id="plantArchiveButton" type="button" class="danger hidden" data-i18n="archive">Archive</button>
+        </div>
+        <div class="plant-editor-footer-actions">
+          <button type="button" class="secondary" data-close-dialog data-i18n="cancel">Cancel</button>
+          <button type="submit" data-i18n="save">Save</button>
+        </div>
       </footer>
     </form>
   </dialog>
