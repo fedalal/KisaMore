@@ -43,8 +43,8 @@ class RackSchedule(Base):
 class Plant(Base):
     """Plant catalog managed by the greenhouse operator.
 
-    Translated names and descriptions are kept as JSON maps (``{"en": ...}``)
-    so the edge controller stays independent from the set of website locales.
+    Translated names, descriptions and watering facts are kept as JSON maps so
+    the edge controller stays independent from the set of website locales.
     Individual watering is also stored on the plant because it is a cultivation
     recipe, not a property of a rack.
     """
@@ -55,6 +55,7 @@ class Plant(Base):
     code: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
     names: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     descriptions: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    facts: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     seed_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     microgreen_image_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     grow_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
