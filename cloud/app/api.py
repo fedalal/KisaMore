@@ -14,6 +14,7 @@ from .models import Device, Farm, RackCurrent, TelemetrySample, InventorySyncRec
 from .schemas import EdgeSnapshotIn, FarmLiveOut, RackLiveOut
 from .security import authenticate_device, get_session
 from .marketplace_service import process_waitlist, sync_edge_inventory
+from .plant_fact_sync import sync_plant_fact_pools
 
 
 router = APIRouter(prefix="/api/v1")
@@ -56,6 +57,7 @@ async def _sync_queued_inventory(
                 ):
                     raise RuntimeError("inventory baseline mismatch; full sync required")
                 await sync_edge_inventory(session, device_id, payload, received_at)
+                await sync_plant_fact_pools(session, payload)
                 await process_waitlist(session, device_id)
                 if receipt is None:
                     receipt = InventorySyncReceipt(device_id=device_id)
@@ -89,6 +91,7 @@ async def _sync_queued_inventory(
                         queued_payload,
                         queued_at,
                     )
+                    await sync_plant_fact_pools(session, queued_payload)
                     await process_waitlist(session, device_id)
                     await session.commit()
                 print(
