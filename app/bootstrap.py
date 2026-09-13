@@ -5,6 +5,7 @@ from .models import Base, RackSlot, RackState, RackSchedule
 _EMPTY = {"mon": [], "tue": [], "wed": [], "thu": [], "fri": [], "sat": [], "sun": []}
 
 _PLANT_COLUMNS = {
+    "facts": "JSON NOT NULL DEFAULT '{}'",
     "seed_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     "microgreen_image_name": "VARCHAR(255) NOT NULL DEFAULT ''",
     "rental_price_kisa": "INTEGER NOT NULL DEFAULT 20",
