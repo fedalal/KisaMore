@@ -10,6 +10,7 @@
   <script src="/static/growing_sort.js?v=1" defer></script>
   <script src="/static/growing_rental_price.js?v=2" defer></script>
   <script src="/static/growing_watering.js?v=20260913-1" defer></script>
+  <script src="/static/growing_facts.js?v=20260913-1" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -73,6 +74,7 @@
         <button type="button" class="plant-tab active" data-plant-tab="main" role="tab" aria-selected="true" data-i18n="tabMain">Main</button>
         <button type="button" class="plant-tab" data-plant-tab="names" role="tab" aria-selected="false" data-i18n="tabNames">Names</button>
         <button type="button" class="plant-tab" data-plant-tab="descriptions" role="tab" aria-selected="false" data-i18n="tabDescriptions">Descriptions</button>
+        <button type="button" class="plant-tab" data-plant-tab="facts" role="tab" aria-selected="false">Interesting facts</button>
         <button type="button" class="plant-tab" data-plant-tab="watering" role="tab" aria-selected="false" data-i18n="tabWatering">Watering</button>
       </nav>
 
@@ -113,6 +115,10 @@
           <label><span data-i18n="descriptionPolish">Description (Polish)</span><textarea name="descriptionPl" rows="3"></textarea></label>
           <label><span data-i18n="descriptionChinese">Description (Chinese)</span><textarea name="descriptionZh" rows="3"></textarea></label>
         </div>
+      </section>
+
+      <section class="plant-tab-panel" data-plant-panel="facts" role="tabpanel" hidden>
+        <div id="factsEditorHost"></div>
       </section>
 
       <section class="plant-tab-panel" data-plant-panel="watering" role="tabpanel" hidden>
