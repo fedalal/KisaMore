@@ -10,6 +10,7 @@ from .plant_card_ui import install as install_plant_card_ui
 from .reaction_refresh import install as install_reaction_refresh
 from .rental_picker_ui import install as install_rental_picker_ui
 from .rental_progress_notifier import install as install_rental_progress
+from .stars_monitor import telegram_stars_sync_loop
 from .watering_facts import install as install_watering_facts
 
 
@@ -23,5 +24,20 @@ install_gift_feedback(core)
 install_watering_facts(activity_notifier)
 
 
+async def run() -> None:
+    stars_task = asyncio.create_task(
+        telegram_stars_sync_loop(),
+        name="telegram-stars-monitor",
+    )
+    try:
+        await core.run()
+    finally:
+        stars_task.cancel()
+        try:
+            await stars_task
+        except asyncio.CancelledError:
+            pass
+
+
 if __name__ == "__main__":
-    asyncio.run(core.run())
+    asyncio.run(run())
