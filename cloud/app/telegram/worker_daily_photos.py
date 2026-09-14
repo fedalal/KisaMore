@@ -7,6 +7,7 @@ from . import worker_admin as existing
 from .broadcast_service import install as install_broadcasts
 from .daily_photo_notifications import install
 from .gift_feedback import install as install_gift_feedback
+from .neighbor_notifier import install as install_neighbor_notifications
 from .plant_card_ui import install as install_plant_card_ui
 from .reaction_refresh import install as install_reaction_refresh
 from .rental_picker_ui import install as install_rental_picker_ui
@@ -24,6 +25,7 @@ install_reaction_refresh(core)
 install_gift_feedback(core)
 install_watering_facts(activity_notifier)
 install_broadcasts(core)
+install_neighbor_notifications(core)
 
 
 async def run() -> None:
