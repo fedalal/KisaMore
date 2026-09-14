@@ -9,6 +9,7 @@ from .daily_photo_notifications import install
 from .gift_feedback import install as install_gift_feedback
 from .neighbor_notifier import install as install_neighbor_notifications
 from .plant_card_ui import install as install_plant_card_ui
+from .planting_photo_notifications import install as install_planting_photo_notifications
 from .reaction_refresh import install as install_reaction_refresh
 from .rental_picker_ui import install as install_rental_picker_ui
 from .rental_progress_notifier import install as install_rental_progress
@@ -24,6 +25,7 @@ install_plant_card_ui(core)
 install_reaction_refresh(core)
 install_gift_feedback(core)
 install_watering_facts(activity_notifier)
+install_planting_photo_notifications(activity_notifier)
 install_broadcasts(core)
 install_neighbor_notifications(core)
 
