@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from html import escape
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, func, select
 from sqlalchemy.orm import Mapped, mapped_column
@@ -47,38 +48,47 @@ class TelegramWalletGiftDelivery(Base):
 TEXTS = {
     "en": {
         "message": "🎁 <b>A gift from KisaMore!</b>\n\nYour wallet has received <b>Ⓚ {amount}</b>.\nNew balance: <b>Ⓚ {balance}</b>",
+        "note": "Message from KisaMore",
         "button": "💰 Open wallet",
     },
     "ru": {
         "message": "🎁 <b>Подарок от KisaMore!</b>\n\nНа ваш кошелёк начислено <b>Ⓚ {amount}</b>.\nНовый баланс: <b>Ⓚ {balance}</b>",
+        "note": "Сообщение от KisaMore",
         "button": "💰 Открыть кошелёк",
     },
     "de": {
         "message": "🎁 <b>Ein Geschenk von KisaMore!</b>\n\nDeinem Wallet wurden <b>Ⓚ {amount}</b> gutgeschrieben.\nNeuer Kontostand: <b>Ⓚ {balance}</b>",
+        "note": "Nachricht von KisaMore",
         "button": "💰 Wallet öffnen",
     },
     "fr": {
         "message": "🎁 <b>Un cadeau de KisaMore !</b>\n\nVotre portefeuille a reçu <b>Ⓚ {amount}</b>.\nNouveau solde : <b>Ⓚ {balance}</b>",
+        "note": "Message de KisaMore",
         "button": "💰 Ouvrir le portefeuille",
     },
     "es": {
         "message": "🎁 <b>¡Un regalo de KisaMore!</b>\n\nSe han añadido <b>Ⓚ {amount}</b> a tu monedero.\nNuevo saldo: <b>Ⓚ {balance}</b>",
+        "note": "Mensaje de KisaMore",
         "button": "💰 Abrir monedero",
     },
     "it": {
         "message": "🎁 <b>Un regalo da KisaMore!</b>\n\nSono stati aggiunti <b>Ⓚ {amount}</b> al tuo portafoglio.\nNuovo saldo: <b>Ⓚ {balance}</b>",
+        "note": "Messaggio da KisaMore",
         "button": "💰 Apri portafoglio",
     },
     "pt": {
         "message": "🎁 <b>Um presente da KisaMore!</b>\n\nForam adicionados <b>Ⓚ {amount}</b> à sua carteira.\nNovo saldo: <b>Ⓚ {balance}</b>",
+        "note": "Mensagem da KisaMore",
         "button": "💰 Abrir carteira",
     },
     "pl": {
         "message": "🎁 <b>Prezent od KisaMore!</b>\n\nDo Twojego portfela dodano <b>Ⓚ {amount}</b>.\nNowe saldo: <b>Ⓚ {balance}</b>",
+        "note": "Wiadomość od KisaMore",
         "button": "💰 Otwórz portfel",
     },
     "zh": {
         "message": "🎁 <b>来自 KisaMore 的礼物！</b>\n\n您的钱包已收到 <b>Ⓚ {amount}</b>。\n新余额：<b>Ⓚ {balance}</b>",
+        "note": "来自 KisaMore 的消息",
         "button": "💰 打开钱包",
     },
 }
@@ -191,6 +201,9 @@ async def send_pending(bot) -> tuple[int, int]:
                     amount=int(transaction.amount),
                     balance=int(balance or 0),
                 )
+                reason = str((transaction.details or {}).get("reason") or "").strip()
+                if reason:
+                    text += f"\n\n💬 <b>{locale['note']}:</b>\n{escape(reason)}"
                 await bot.send_message(
                     int(user.telegram_user_id),
                     text,
