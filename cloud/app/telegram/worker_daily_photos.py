@@ -9,8 +9,8 @@ from .daily_photo_notifications import install
 from .gift_feedback import install as install_gift_feedback
 from .neighbor_notifier import install as install_neighbor_notifications
 from .plant_card_ui import install as install_plant_card_ui
-from .planting_photo_notifications import install as install_planting_photo_notifications
 from .reaction_refresh import install as install_reaction_refresh
+from .rentable_catalog import install as install_rentable_catalog
 from .rental_picker_ui import install as install_rental_picker_ui
 from .rental_progress_notifier import install as install_rental_progress
 from .stars_monitor import telegram_stars_sync_loop
@@ -18,6 +18,7 @@ from .watering_facts import install as install_watering_facts
 
 
 core = existing.core
+install_rentable_catalog(core)
 install(core)
 install_rental_progress(core)
 install_rental_picker_ui()
@@ -25,7 +26,6 @@ install_plant_card_ui(core)
 install_reaction_refresh(core)
 install_gift_feedback(core)
 install_watering_facts(activity_notifier)
-install_planting_photo_notifications(activity_notifier)
 install_broadcasts(core)
 install_neighbor_notifications(core)
 
