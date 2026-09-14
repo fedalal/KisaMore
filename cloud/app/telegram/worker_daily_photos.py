@@ -14,6 +14,7 @@ from .rentable_catalog import install as install_rentable_catalog
 from .rental_picker_ui import install as install_rental_picker_ui
 from .rental_progress_notifier import install as install_rental_progress
 from .stars_monitor import telegram_stars_sync_loop
+from .wallet_gift_notifier import install as install_wallet_gift_notifications
 from .watering_facts import install as install_watering_facts
 
 
@@ -28,6 +29,7 @@ install_gift_feedback(core)
 install_watering_facts(activity_notifier)
 install_broadcasts(core)
 install_neighbor_notifications(core)
+install_wallet_gift_notifications(core)
 
 
 async def run() -> None:
