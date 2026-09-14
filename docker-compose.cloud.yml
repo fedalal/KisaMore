@@ -130,7 +130,7 @@ services:
       watering-worker:
         condition: service_started
     volumes:
-      - kisamore-photos:/srv/kisamore/data/photos:ro
+      - kisamore-photos:/srv/kisamore/data/photos
       - ./data/plant-images:/srv/kisamore/data/plant-images:ro
 
 volumes:
