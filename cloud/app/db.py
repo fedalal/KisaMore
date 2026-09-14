@@ -8,6 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from .config import get_settings
 from .models import Base
 from .plant_fact_models import PlantFactPool  # noqa: F401 - register table in Base metadata
+from .telegram.broadcast_models import (  # noqa: F401 - register tables in Base metadata
+    TelegramBroadcast,
+    TelegramBroadcastAnswer,
+    TelegramBroadcastDelivery,
+    TelegramBroadcastOption,
+)
 
 
 settings = get_settings()
