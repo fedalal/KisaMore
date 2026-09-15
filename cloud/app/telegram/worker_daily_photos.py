@@ -7,6 +7,7 @@ from . import worker_admin as existing
 from .broadcast_service import install as install_broadcasts
 from .daily_photo_notifications import install
 from .gift_feedback import install as install_gift_feedback
+from .language_preferences import install as install_language_preferences
 from .neighbor_notifier import install as install_neighbor_notifications
 from .plant_card_ui import install as install_plant_card_ui
 from .reaction_refresh import install as install_reaction_refresh
@@ -30,6 +31,7 @@ install_watering_facts(activity_notifier)
 install_broadcasts(core)
 install_neighbor_notifications(core)
 install_wallet_gift_notifications(core)
+install_language_preferences(core)
 
 
 async def run() -> None:
