@@ -9,6 +9,7 @@ from .daily_photo_notifications import install
 from .find_plant_game import install as install_find_plant_game
 from .gamification import install as install_gamification
 from .gamification_profile import install as install_gamification_profile
+from .gamification_resilience import install as install_gamification_resilience
 from .gift_feedback import install as install_gift_feedback
 from .language_preferences import install as install_language_preferences
 from .neighbor_notifier import install as install_neighbor_notifications
@@ -38,6 +39,7 @@ install_language_preferences(core)
 install_gamification(core)
 install_gamification_profile(core)
 install_find_plant_game(core)
+install_gamification_resilience(core)
 
 
 async def run() -> None:
