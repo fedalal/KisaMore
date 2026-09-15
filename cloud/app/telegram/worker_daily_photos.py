@@ -4,6 +4,7 @@ import asyncio
 
 from . import activity_notifier
 from . import worker_admin as existing
+from .broadcast_poll_selection import install as install_broadcast_poll_selection
 from .broadcast_service import install as install_broadcasts
 from .daily_photo_notifications import install
 from .find_plant_game import install as install_find_plant_game
@@ -40,6 +41,7 @@ install_gamification(core)
 install_gamification_profile(core)
 install_find_plant_game(core)
 install_gamification_resilience(core)
+install_broadcast_poll_selection(core)
 
 
 async def run() -> None:
