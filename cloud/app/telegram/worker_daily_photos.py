@@ -6,6 +6,7 @@ from . import activity_notifier
 from . import worker_admin as existing
 from .broadcast_service import install as install_broadcasts
 from .daily_photo_notifications import install
+from .find_plant_game import install as install_find_plant_game
 from .gamification import install as install_gamification
 from .gamification_profile import install as install_gamification_profile
 from .gift_feedback import install as install_gift_feedback
@@ -36,6 +37,7 @@ install_wallet_gift_notifications(core)
 install_language_preferences(core)
 install_gamification(core)
 install_gamification_profile(core)
+install_find_plant_game(core)
 
 
 async def run() -> None:
