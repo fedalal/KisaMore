@@ -557,7 +557,7 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
         ).first()
         telegram_user = await session.get(TelegramUser, delivery.user_id)
         if row is None or telegram_user is None or not telegram_user.is_active:
-            delivery.status = "ready_skipped"
+            delivery.status = "skipped"
             delivery.last_error = "Planting or active Telegram user is no longer available"
             await session.commit()
             return False
@@ -576,7 +576,7 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
             rack_id=slot.rack_id,
         )
         if not own_slots:
-            delivery.status = "ready_skipped"
+            delivery.status = "skipped"
             delivery.last_error = "Recipient no longer has an active plant on this rack"
             await session.commit()
             return False
@@ -633,7 +633,7 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
 
             delivery.annotated_photo_path = str(target)
             delivery.photo_sent_at = _now()
-            delivery.status = "ready_sending"
+            delivery.status = "sending"
             delivery.last_error = None
             await session.commit()
 
@@ -708,7 +708,7 @@ async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
         ).first()
         telegram_user = await session.get(TelegramUser, delivery.user_id)
         if row is None or telegram_user is None or not telegram_user.is_active:
-            delivery.status = "skipped"
+            delivery.status = "ready_skipped"
             delivery.last_error = "Planting or active Telegram user is no longer available"
             await session.commit()
             return False
@@ -727,7 +727,7 @@ async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
             rack_id=slot.rack_id,
         )
         if not own_slots:
-            delivery.status = "skipped"
+            delivery.status = "ready_skipped"
             delivery.last_error = "Recipient no longer has an active plant on this rack"
             await session.commit()
             return False
@@ -784,7 +784,7 @@ async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
 
             delivery.annotated_photo_path = str(target)
             delivery.photo_sent_at = _now()
-            delivery.status = "sending"
+            delivery.status = "ready_sending"
             delivery.last_error = None
             await session.commit()
 
