@@ -245,7 +245,7 @@ class TelegramBotAPI:
         }
         if reply_markup is not None:
             data["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
             with path.open("rb") as fh:
                 response = await client.post(
                     f"{self.base_url}/sendVideo",
@@ -256,6 +256,41 @@ class TelegramBotAPI:
         await _record_outbound_message(
             chat_id,
             message_type="video",
+            text=caption,
+            media_name=path.name,
+            media_path=str(path),
+            telegram_result=result if isinstance(result, dict) else None,
+        )
+        return result
+
+    async def send_animation(
+        self,
+        chat_id: int,
+        animation_path: str | Path,
+        *,
+        caption: str = "",
+        reply_markup: dict | None = None,
+    ):
+        if not self.token:
+            raise TelegramAPIError("Telegram bot token is not configured")
+        path = Path(animation_path)
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        data = {"chat_id": str(chat_id), "caption": caption, "parse_mode": "HTML"}
+        if reply_markup is not None:
+            data["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
+        mime = "image/gif" if path.suffix.lower() == ".gif" else "video/mp4"
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            with path.open("rb") as fh:
+                response = await client.post(
+                    f"{self.base_url}/sendAnimation",
+                    data=data,
+                    files={"animation": (path.name, fh, mime)},
+                )
+        result = _result_from_response("sendAnimation", response)
+        await _record_outbound_message(
+            chat_id,
+            message_type="animation",
             text=caption,
             media_name=path.name,
             media_path=str(path),
