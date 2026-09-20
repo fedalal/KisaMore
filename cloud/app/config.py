@@ -24,6 +24,7 @@ class Settings:
     offer_hours: int
     photo_dir: str
     photo_max_bytes: int
+    broadcast_media_max_bytes: int
     mqtt_host: str
     mqtt_port: int
     mqtt_username: str
@@ -68,6 +69,10 @@ def get_settings() -> Settings:
         photo_dir=os.getenv("KISAMORE_PHOTO_DIR", "/srv/kisamore/data/photos").strip(),
         photo_max_bytes=max(
             100_000, int(os.getenv("KISAMORE_PHOTO_MAX_BYTES", "2097152"))
+        ),
+        broadcast_media_max_bytes=max(
+            1_000_000,
+            int(os.getenv("KISAMORE_BROADCAST_MEDIA_MAX_BYTES", "104857600")),
         ),
         mqtt_host=os.getenv("KISAMORE_MQTT_HOST", "").strip(),
         mqtt_port=int(os.getenv("KISAMORE_MQTT_PORT", "1883")),
