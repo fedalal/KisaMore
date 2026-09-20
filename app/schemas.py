@@ -92,6 +92,10 @@ class CameraCaptureOut(BaseModel):
     frame_width: int = 2592
     frame_height: int = 1944
     jpeg_quality: int = 90
+    night_capture_enabled: bool = True
+    night_capture_interval_seconds: int = 900
+    night_capture_light_warmup_seconds: float = 3.0
+    night_capture_light_after_seconds: float = 1.0
 
 
 class HWConfigOut(BaseModel):
