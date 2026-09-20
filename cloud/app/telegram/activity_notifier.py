@@ -5,12 +5,15 @@ from datetime import datetime, timedelta, timezone
 from html import escape
 import logging
 import os
+from pathlib import Path
 
 from sqlalchemy import BigInteger, DateTime, Integer, JSON, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ..config import get_settings
 from ..db import SessionLocal, create_tables, engine
 from ..models import Allocation, Base, Plant, Planting, RackSlot, WateringTask
+from ..timelapse_service import slot_timelapse_path
 from ..watering_service import aware_utc, farm_zone
 from .bot import TelegramBotAPI
 from .models import TelegramUser
@@ -23,6 +26,19 @@ CHECK_SECONDS = max(5, int(os.getenv("KISAMORE_TELEGRAM_ACTIVITY_CHECK_SECONDS",
 RECENT_HOURS = max(1, int(os.getenv("KISAMORE_TELEGRAM_ACTIVITY_RECENT_HOURS", "24")))
 MAX_ATTEMPTS = max(1, int(os.getenv("KISAMORE_TELEGRAM_ACTIVITY_MAX_ATTEMPTS", "5")))
 ACTIVE_PLANTING_STATUSES = ("planned", "growing", "ready")
+TIMELAPSE_WAIT_HOURS = max(1, int(os.getenv("KISAMORE_TELEGRAM_TIMELAPSE_WAIT_HOURS", "6")))
+
+WATERING_TIMELAPSE_CAPTION = {
+    "en": "🎞 <b>Growth over the last 24 hours</b>\n{plant} · Rack {rack} · Container {slot}",
+    "ru": "🎞 <b>Рост за последние 24 часа</b>\n{plant} · Полка {rack} · контейнер {slot}",
+    "de": "🎞 <b>Wachstum der letzten 24 Stunden</b>\n{plant} · Regal {rack} · Behälter {slot}",
+    "fr": "🎞 <b>Croissance des dernières 24 heures</b>\n{plant} · Étagère {rack} · bac {slot}",
+    "es": "🎞 <b>Crecimiento de las últimas 24 horas</b>\n{plant} · Estante {rack} · contenedor {slot}",
+    "it": "🎞 <b>Crescita nelle ultime 24 ore</b>\n{plant} · Scaffale {rack} · contenitore {slot}",
+    "pt": "🎞 <b>Crescimento nas últimas 24 horas</b>\n{plant} · Prateleira {rack} · recipiente {slot}",
+    "pl": "🎞 <b>Wzrost z ostatnich 24 godzin</b>\n{plant} · Półka {rack} · pojemnik {slot}",
+    "zh": "🎞 <b>最近 24 小时的生长</b>\n{plant} · 架子 {rack} · 容器 {slot}",
+}
 
 
 class TelegramActivityDelivery(Base):
@@ -346,6 +362,53 @@ async def discover_activity(session, now: datetime) -> int:
     return created
 
 
+async def _watering_timelapse(session, delivery: TelegramActivityDelivery):
+    payload = dict(delivery.payload or {})
+    planting_id = str(payload.get("planting_id") or "").strip()
+    if not planting_id:
+        return None
+
+    row = (
+        await session.execute(
+            select(Planting, Plant, RackSlot)
+            .join(Plant, Plant.id == Planting.plant_id)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .where(Planting.id == planting_id)
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        return None
+
+    planting, plant, slot = row
+    path = slot_timelapse_path(
+        get_settings().photo_dir,
+        slot.device_id,
+        slot.rack_id,
+        slot.slot_number,
+        "24h",
+    )
+    if not Path(path).is_file():
+        return None
+
+    user = (
+        await session.execute(
+            select(TelegramUser).where(
+                TelegramUser.telegram_user_id == delivery.telegram_user_id
+            )
+        )
+    ).scalar_one_or_none()
+    lang = user_language(user.language_code if user else None)
+    caption = WATERING_TIMELAPSE_CAPTION.get(
+        lang, WATERING_TIMELAPSE_CAPTION["en"]
+    ).format(
+        plant=plant_name(plant, lang),
+        rack=slot.rack_id,
+        slot=slot.slot_number,
+    )
+    return path, caption
+
+
 async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
     sent = 0
     failed = 0
@@ -365,7 +428,7 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
         )
 
         for delivery in deliveries:
-            payload = delivery.payload or {}
+            payload = dict(delivery.payload or {})
             markup = None
             if payload.get("callback_data"):
                 markup = {
@@ -377,15 +440,58 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
                     ]]
                 }
             try:
-                await bot.send_message(
-                    delivery.telegram_user_id,
-                    str(payload.get("text") or "KisaMore"),
-                    reply_markup=markup,
-                )
-                delivery.status = "sent"
-                delivery.sent_at = datetime.now(timezone.utc)
-                delivery.last_error = None
-                sent += 1
+                if delivery.kind == "watering_done":
+                    # Deliver the watering text immediately, then keep the
+                    # outbox row pending until the rolling 24h timelapse is
+                    # available. Persisting text_sent_at prevents duplicate
+                    # watering messages while the video is being prepared.
+                    if not payload.get("text_sent_at"):
+                        await bot.send_message(
+                            delivery.telegram_user_id,
+                            str(payload.get("text") or "KisaMore"),
+                            reply_markup=markup,
+                        )
+                        payload["text_sent_at"] = datetime.now(timezone.utc).isoformat()
+                        delivery.payload = payload
+                        delivery.last_error = None
+                        await session.commit()
+
+                    if not payload.get("timelapse_sent_at"):
+                        media = await _watering_timelapse(session, delivery)
+                        if media is None:
+                            created = aware_utc(delivery.created_at) or datetime.now(timezone.utc)
+                            waited = datetime.now(timezone.utc) - created
+                            if waited < timedelta(hours=TIMELAPSE_WAIT_HOURS):
+                                # The timelapse worker refreshes independently.
+                                # Try again on the next activity pass without
+                                # consuming a delivery attempt.
+                                continue
+                            payload["timelapse_skipped"] = "not_ready_timeout"
+                        else:
+                            path, caption = media
+                            await bot.send_video(
+                                delivery.telegram_user_id,
+                                path,
+                                caption=caption,
+                                reply_markup=markup,
+                            )
+                            payload["timelapse_sent_at"] = datetime.now(timezone.utc).isoformat()
+
+                    delivery.payload = payload
+                    delivery.status = "sent"
+                    delivery.sent_at = datetime.now(timezone.utc)
+                    delivery.last_error = None
+                    sent += 1
+                else:
+                    await bot.send_message(
+                        delivery.telegram_user_id,
+                        str(payload.get("text") or "KisaMore"),
+                        reply_markup=markup,
+                    )
+                    delivery.status = "sent"
+                    delivery.sent_at = datetime.now(timezone.utc)
+                    delivery.last_error = None
+                    sent += 1
             except Exception as exc:
                 delivery.attempts += 1
                 delivery.last_error = f"{type(exc).__name__}: {exc}"[:2000]
@@ -399,7 +505,6 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
                 )
             await session.commit()
     return sent, failed
-
 
 async def run() -> None:
     token = os.getenv("KISAMORE_TELEGRAM_BOT_TOKEN", "").strip()
