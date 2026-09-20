@@ -154,7 +154,7 @@ def _tr(lang: str) -> dict:
 
 CARD_BUTTONS = {
     "en": {"comments": "💬 Comments", "follow": "🔔 Follow", "following": "✅🔔 Following", "support": "🎁 Support", "video": "🎞 Video"},
-    "ru": {"comments": "💬 Комментарии", "follow": "🔔 Следить", "following": "✅🔔 Слежу", "support": "🎁 Поддержать", "video": "🎞 Видео"},
+    "ru": {"comments": "💬 Чат", "follow": "🔔 Следить", "following": "✅🔔 Слежу", "support": "🎁 Подарок", "video": "🎞 Видео", "like": "❤️ Нравится", "dislike": "👎 Плохо"},
     "de": {"comments": "💬 Kommentare", "follow": "🔔 Folgen", "following": "✅🔔 Folge ich", "support": "🎁 Unterstützen", "video": "🎞 Video"},
     "fr": {"comments": "💬 Commentaires", "follow": "🔔 Suivre", "following": "✅🔔 Suivi", "support": "🎁 Soutenir", "video": "🎞 Vidéo"},
     "es": {"comments": "💬 Comentarios", "follow": "🔔 Seguir", "following": "✅🔔 Siguiendo", "support": "🎁 Apoyar", "video": "🎞 Vídeo"},
@@ -346,8 +346,8 @@ def install(core) -> None:
         # Counts already appear in the plant caption, so button labels stay
         # descriptive but do not repeat the same numbers.
         labels = _card_buttons(lang)
-        like_text = core.st(lang, "like")
-        dislike_text = core.st(lang, "dislike")
+        like_text = labels.get("like") or core.st(lang, "like")
+        dislike_text = labels.get("dislike") or core.st(lang, "dislike")
         if card.my_vote == "like":
             like_text = f"✅ {like_text}"
         if card.my_vote == "dislike":
