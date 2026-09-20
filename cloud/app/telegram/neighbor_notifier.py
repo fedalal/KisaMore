@@ -13,7 +13,7 @@ from ..db import SessionLocal
 from ..models import Allocation, Plant, Planting, RackPhoto, RackSlot
 from .activity_notifier import TelegramActivityDelivery
 from .models import TelegramUser
-from .neighbor_models import TelegramNeighborDelivery, TelegramNeighborNotifierState, TelegramNeighborReadyDelivery
+from .neighbor_models import TelegramNeighborDelivery, TelegramNeighborNotifierState
 from .service import language_base, localized_value, resolve_photo_path
 
 
@@ -361,49 +361,8 @@ async def _ensure_ready_activation(session) -> TelegramNeighborNotifierState | N
     if state is not None:
         return state
 
-    now = _now()
-    state = TelegramNeighborNotifierState(id=2, activated_at=now)
+    state = TelegramNeighborNotifierState(id=2, activated_at=_now())
     session.add(state)
-    await session.flush()
-
-    # Do not surprise users with notifications for crops that were already
-    # ready before this feature was deployed. Create skipped markers for the
-    # current ready set; future transitions will create normal pending rows.
-    rows = (
-        await session.execute(
-            select(Planting, RackSlot, Allocation)
-            .join(RackSlot, RackSlot.id == Planting.slot_id)
-            .join(Allocation, Allocation.id == Planting.cloud_allocation_id)
-            .where(
-                Planting.status == "ready",
-                Allocation.status == "active",
-            )
-        )
-    ).all()
-    for planting, slot, owner_allocation in rows:
-        for recipient in await _ready_recipients(session, slot, owner_allocation):
-            exists = (
-                await session.execute(
-                    select(TelegramNeighborReadyDelivery.id)
-                    .where(
-                        TelegramNeighborReadyDelivery.planting_id == planting.id,
-                        TelegramNeighborReadyDelivery.user_id == recipient.id,
-                    )
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            if exists is None:
-                session.add(
-                    TelegramNeighborReadyDelivery(
-                        planting_id=planting.id,
-                        user_id=recipient.id,
-                        status="skipped",
-                        attempts=0,
-                        last_error="Planting was already ready when ready-neighbor notifications were activated",
-                        created_at=now,
-                    )
-                )
-
     await session.commit()
     logger.info(
         "Telegram ready-neighbor notifications activated at %s; existing ready plantings are ignored",
@@ -413,7 +372,14 @@ async def _ensure_ready_activation(session) -> TelegramNeighborNotifierState | N
 
 
 async def discover_ready_neighbor_deliveries() -> int:
-    created = 0
+    """Reuse the existing neighbor delivery row for the later ready event.
+
+    The table has a unique (planting_id, user_id) key from the original
+    new-neighbor feature. Instead of creating another table, a successfully
+    completed planting notification is advanced to a ready_* state when the
+    same planting becomes ready. This preserves the existing schema on VPS.
+    """
+    changed = 0
     async with SessionLocal() as session:
         state = await _ensure_ready_activation(session)
         if state is None:
@@ -439,13 +405,13 @@ async def discover_ready_neighbor_deliveries() -> int:
                 f"planting_ready:{planting.id}",
             )
             if ready_event is None:
-                # The lifecycle notifier has not observed this transition yet.
-                # Retry on the next pass so the stable ready-event timestamp is
-                # used instead of Planting.observed_at, which changes on every
-                # edge snapshot.
+                # The lifecycle notifier has not recorded the stable ready
+                # transition yet. Retry on the next pass.
                 continue
+
             event_at = _aware(ready_event.created_at) or _now()
-            if event_at < _aware(state.activated_at):
+            activated_at = _aware(state.activated_at) or event_at
+            if event_at < activated_at:
                 continue
 
             recipients = await _ready_recipients(
@@ -455,33 +421,48 @@ async def discover_ready_neighbor_deliveries() -> int:
                 event_at=event_at,
             )
             for recipient in recipients:
-                exists = (
+                delivery = (
                     await session.execute(
-                        select(TelegramNeighborReadyDelivery.id)
+                        select(TelegramNeighborDelivery)
                         .where(
-                            TelegramNeighborReadyDelivery.planting_id == planting.id,
-                            TelegramNeighborReadyDelivery.user_id == recipient.id,
+                            TelegramNeighborDelivery.planting_id == planting.id,
+                            TelegramNeighborDelivery.user_id == recipient.id,
                         )
                         .limit(1)
                     )
                 ).scalar_one_or_none()
-                if exists is not None:
+
+                if delivery is not None and str(delivery.status).startswith("ready_"):
                     continue
 
-                session.add(
-                    TelegramNeighborReadyDelivery(
+                # If the original new-neighbor message is still being sent,
+                # let it finish first. A later pass will promote this same row.
+                if delivery is not None and delivery.status in ("pending", "sending"):
+                    continue
+
+                if delivery is None:
+                    delivery = TelegramNeighborDelivery(
                         planting_id=planting.id,
                         user_id=recipient.id,
-                        status="pending",
+                        status="ready_pending",
                         attempts=0,
                         created_at=event_at,
                     )
-                )
-                created += 1
+                    session.add(delivery)
+                else:
+                    delivery.status = "ready_pending"
+                    delivery.attempts = 0
+                    delivery.last_error = None
+                    delivery.annotated_photo_path = None
+                    delivery.photo_sent_at = None
+                    delivery.card_sent_at = None
+                    delivery.created_at = event_at
+                    delivery.sent_at = None
+                changed += 1
 
-        if created:
+        if changed:
             await session.commit()
-    return created
+    return changed
 
 
 async def _recipient_slots(
@@ -576,7 +557,7 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
         ).first()
         telegram_user = await session.get(TelegramUser, delivery.user_id)
         if row is None or telegram_user is None or not telegram_user.is_active:
-            delivery.status = "skipped"
+            delivery.status = "ready_skipped"
             delivery.last_error = "Planting or active Telegram user is no longer available"
             await session.commit()
             return False
@@ -595,7 +576,7 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
             rack_id=slot.rack_id,
         )
         if not own_slots:
-            delivery.status = "skipped"
+            delivery.status = "ready_skipped"
             delivery.last_error = "Recipient no longer has an active plant on this rack"
             await session.commit()
             return False
@@ -652,7 +633,7 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
 
             delivery.annotated_photo_path = str(target)
             delivery.photo_sent_at = _now()
-            delivery.status = "sending"
+            delivery.status = "ready_sending"
             delivery.last_error = None
             await session.commit()
 
@@ -702,18 +683,18 @@ def _ready_target_path(planting_id: str, telegram_user_id: int) -> Path:
     )
 
 
-async def _mark_ready_error(session, delivery: TelegramNeighborReadyDelivery, exc: Exception) -> None:
+async def _mark_ready_error(session, delivery: TelegramNeighborDelivery, exc: Exception) -> None:
     delivery.attempts += 1
     delivery.last_error = f"{type(exc).__name__}: {exc}"[:2000]
     if delivery.attempts >= MAX_ATTEMPTS:
-        delivery.status = "failed"
+        delivery.status = "ready_failed"
     await session.commit()
 
 
 async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
     async with SessionLocal() as session:
-        delivery = await session.get(TelegramNeighborReadyDelivery, delivery_id)
-        if delivery is None or delivery.status not in ("pending", "sending"):
+        delivery = await session.get(TelegramNeighborDelivery, delivery_id)
+        if delivery is None or delivery.status not in ("ready_pending", "ready_sending"):
             return False
 
         row = (
@@ -734,7 +715,7 @@ async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
 
         planting, plant, slot = row
         if planting.status != "ready":
-            delivery.status = "skipped"
+            delivery.status = "ready_skipped"
             delivery.last_error = "Planting is no longer in ready state"
             await session.commit()
             return False
@@ -753,7 +734,7 @@ async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
 
         card = await core.get_plant_card(planting.id, telegram_user.id)
         if card is None:
-            delivery.status = "skipped"
+            delivery.status = "ready_skipped"
             delivery.last_error = "Ready plant card is no longer available"
             await session.commit()
             return False
@@ -767,7 +748,7 @@ async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
             if source is None:
                 created_at = _aware(delivery.created_at) or _now()
                 if _now() - created_at >= timedelta(hours=PHOTO_WAIT_HOURS):
-                    delivery.status = "skipped"
+                    delivery.status = "ready_skipped"
                     delivery.last_error = "No fresh rack photo arrived within 24 hours of ready event"
                     await session.commit()
                 return False
@@ -836,7 +817,7 @@ async def _send_ready_delivery(bot, core, delivery_id: int) -> bool:
 
             delivery.card_sent_at = _now()
 
-        delivery.status = "sent"
+        delivery.status = "ready_sent"
         delivery.sent_at = _now()
         delivery.last_error = None
         await session.commit()
@@ -865,12 +846,12 @@ async def neighbor_notification_loop(bot, core) -> None:
                 ready_delivery_ids = list(
                     (
                         await session.execute(
-                            select(TelegramNeighborReadyDelivery.id)
+                            select(TelegramNeighborDelivery.id)
                             .where(
-                                TelegramNeighborReadyDelivery.status.in_(("pending", "sending")),
-                                TelegramNeighborReadyDelivery.attempts < MAX_ATTEMPTS,
+                                TelegramNeighborDelivery.status.in_(("ready_pending", "ready_sending")),
+                                TelegramNeighborDelivery.attempts < MAX_ATTEMPTS,
                             )
-                            .order_by(TelegramNeighborReadyDelivery.created_at)
+                            .order_by(TelegramNeighborDelivery.created_at)
                             .limit(20)
                         )
                     ).scalars().all()
