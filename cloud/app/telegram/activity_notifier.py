@@ -13,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..config import get_settings
 from ..db import SessionLocal, create_tables, engine
 from ..models import Allocation, Base, Plant, Planting, RackSlot, WateringTask
-from ..timelapse_service import slot_timelapse_path
+from ..timelapse_service import generate_slot_timelapse, planting_timelapse_path, slot_timelapse_path
 from ..watering_service import aware_utc, farm_zone
 from .bot import TelegramBotAPI
 from .models import TelegramUser
@@ -27,6 +27,7 @@ RECENT_HOURS = max(1, int(os.getenv("KISAMORE_TELEGRAM_ACTIVITY_RECENT_HOURS", "
 MAX_ATTEMPTS = max(1, int(os.getenv("KISAMORE_TELEGRAM_ACTIVITY_MAX_ATTEMPTS", "5")))
 ACTIVE_PLANTING_STATUSES = ("planned", "growing", "ready")
 TIMELAPSE_WAIT_HOURS = max(1, int(os.getenv("KISAMORE_TELEGRAM_TIMELAPSE_WAIT_HOURS", "6")))
+READY_TIMELAPSE_WAIT_HOURS = max(1, int(os.getenv("KISAMORE_TELEGRAM_READY_TIMELAPSE_WAIT_HOURS", "6")))
 
 WATERING_TIMELAPSE_CAPTION = {
     "en": "🎞 <b>Growth over the last 24 hours</b>\n{plant} · Rack {rack} · Container {slot}",
@@ -38,6 +39,18 @@ WATERING_TIMELAPSE_CAPTION = {
     "pt": "🎞 <b>Crescimento nas últimas 24 horas</b>\n{plant} · Prateleira {rack} · recipiente {slot}",
     "pl": "🎞 <b>Wzrost z ostatnich 24 godzin</b>\n{plant} · Półka {rack} · pojemnik {slot}",
     "zh": "🎞 <b>最近 24 小时的生长</b>\n{plant} · 架子 {rack} · 容器 {slot}",
+}
+
+READY_TIMELAPSE_CAPTION = {
+    "en": "🎞 <b>Your plant's full growth</b>\n{plant} · Rack {rack} · Container {slot}\nFrom planting to ready for harvest.",
+    "ru": "🎞 <b>Весь рост вашего растения</b>\n{plant} · Полка {rack} · контейнер {slot}\nОт посадки до готовности к сбору.",
+    "de": "🎞 <b>Das gesamte Wachstum deiner Pflanze</b>\n{plant} · Regal {rack} · Behälter {slot}\nVon der Pflanzung bis zur Erntebereitschaft.",
+    "fr": "🎞 <b>Toute la croissance de votre plante</b>\n{plant} · Étagère {rack} · bac {slot}\nDe la plantation jusqu’à la récolte.",
+    "es": "🎞 <b>Todo el crecimiento de tu planta</b>\n{plant} · Estante {rack} · contenedor {slot}\nDesde la siembra hasta estar lista para cosechar.",
+    "it": "🎞 <b>Tutta la crescita della tua pianta</b>\n{plant} · Scaffale {rack} · contenitore {slot}\nDalla semina fino alla raccolta.",
+    "pt": "🎞 <b>Todo o crescimento da sua planta</b>\n{plant} · Prateleira {rack} · recipiente {slot}\nDo plantio até ficar pronta para a colheita.",
+    "pl": "🎞 <b>Cały wzrost Twojej rośliny</b>\n{plant} · Półka {rack} · pojemnik {slot}\nOd posadzenia do gotowości do zbioru.",
+    "zh": "🎞 <b>您的植物完整生长过程</b>\n{plant} · 架子 {rack} · 容器 {slot}\n从种植到可以收获。",
 }
 
 
@@ -409,6 +422,68 @@ async def _watering_timelapse(session, delivery: TelegramActivityDelivery):
     return path, caption
 
 
+async def _ready_timelapse(session, delivery: TelegramActivityDelivery):
+    payload = dict(delivery.payload or {})
+    planting_id = str(payload.get("planting_id") or "").strip()
+    if not planting_id:
+        return None
+
+    row = (
+        await session.execute(
+            select(Planting, Plant, RackSlot)
+            .join(Plant, Plant.id == Planting.plant_id)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .where(Planting.id == planting_id)
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        return None
+
+    planting, plant, slot = row
+    start_at = aware_utc(planting.planted_at)
+    end_at = aware_utc(delivery.created_at)
+    if start_at is None or end_at is None or end_at < start_at:
+        return None
+
+    target = planting_timelapse_path(
+        get_settings().photo_dir,
+        planting.id,
+    ).with_name("ready.mp4")
+
+    path = await asyncio.to_thread(
+        generate_slot_timelapse,
+        photo_dir=get_settings().photo_dir,
+        device_id=slot.device_id,
+        rack_id=slot.rack_id,
+        slot_number=slot.slot_number,
+        period="full",
+        start_at=start_at,
+        end_at=end_at,
+        target=target,
+        final=True,
+    )
+    if path is None:
+        return None
+
+    user = (
+        await session.execute(
+            select(TelegramUser).where(
+                TelegramUser.telegram_user_id == delivery.telegram_user_id
+            )
+        )
+    ).scalar_one_or_none()
+    lang = user_language(user.language_code if user else None)
+    caption = READY_TIMELAPSE_CAPTION.get(
+        lang, READY_TIMELAPSE_CAPTION["en"]
+    ).format(
+        plant=plant_name(plant, lang),
+        rack=slot.rack_id,
+        slot=slot.slot_number,
+    )
+    return path, caption
+
+
 async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
     sent = 0
     failed = 0
@@ -440,11 +515,10 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
                     ]]
                 }
             try:
-                if delivery.kind == "watering_done":
-                    # Deliver the watering text immediately, then keep the
-                    # outbox row pending until the rolling 24h timelapse is
-                    # available. Persisting text_sent_at prevents duplicate
-                    # watering messages while the video is being prepared.
+                if delivery.kind in ("watering_done", "planting_ready"):
+                    # Send the lifecycle text first, then attach the relevant
+                    # timelapse without ever duplicating the text while media
+                    # is generated/prepared.
                     if not payload.get("text_sent_at"):
                         await bot.send_message(
                             delivery.telegram_user_id,
@@ -457,12 +531,17 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
                         await session.commit()
 
                     if not payload.get("timelapse_sent_at"):
-                        media = await _watering_timelapse(session, delivery)
+                        if delivery.kind == "watering_done":
+                            media = await _watering_timelapse(session, delivery)
+                            wait_hours = TIMELAPSE_WAIT_HOURS
+                        else:
+                            media = await _ready_timelapse(session, delivery)
+                            wait_hours = READY_TIMELAPSE_WAIT_HOURS
+
                         if media is None:
                             created = aware_utc(delivery.created_at) or datetime.now(timezone.utc)
                             waited = datetime.now(timezone.utc) - created
-                            if waited < timedelta(hours=TIMELAPSE_WAIT_HOURS):
-                                # The timelapse worker refreshes independently.
+                            if waited < timedelta(hours=wait_hours):
                                 # Try again on the next activity pass without
                                 # consuming a delivery attempt.
                                 continue
