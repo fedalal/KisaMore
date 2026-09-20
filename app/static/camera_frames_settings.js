@@ -7,12 +7,30 @@ function changeCaptureNumber(field, value){
   cfgState.camera_capture = cfgState.camera_capture || {
     frame_width: 2592,
     frame_height: 1944,
-    jpeg_quality: 90
+    jpeg_quality: 90,
+    night_capture_enabled: true,
+    night_capture_interval_seconds: 900,
+    night_capture_light_warmup_seconds: 3,
+    night_capture_light_after_seconds: 1
   };
 
   const n = Number(value);
   if(!Number.isFinite(n)) return;
   cfgState.camera_capture[field] = n;
+}
+
+function changeCaptureBoolean(field, checked){
+  if(!cfgState) return;
+  cfgState.camera_capture = cfgState.camera_capture || {};
+  cfgState.camera_capture[field] = Boolean(checked);
+}
+
+function changeNightCaptureMinutes(value){
+  if(!cfgState) return;
+  const minutes = Number(value);
+  if(!Number.isFinite(minutes)) return;
+  cfgState.camera_capture = cfgState.camera_capture || {};
+  cfgState.camera_capture.night_capture_interval_seconds = Math.round(minutes * 60);
 }
 
 function renderCaptureSettings(){
@@ -23,6 +41,10 @@ function renderCaptureSettings(){
   if(capture.frame_width == null) capture.frame_width = 2592;
   if(capture.frame_height == null) capture.frame_height = 1944;
   if(capture.jpeg_quality == null) capture.jpeg_quality = 90;
+  if(capture.night_capture_enabled == null) capture.night_capture_enabled = true;
+  if(capture.night_capture_interval_seconds == null) capture.night_capture_interval_seconds = 900;
+  if(capture.night_capture_light_warmup_seconds == null) capture.night_capture_light_warmup_seconds = 3;
+  if(capture.night_capture_light_after_seconds == null) capture.night_capture_light_after_seconds = 1;
   cfgState.camera_capture = capture;
 
   wrap.innerHTML = `
@@ -56,8 +78,33 @@ function renderCaptureSettings(){
           <span>Формат камеры</span>
           <input class="cfgInput" value="MJPG" disabled>
         </label>
+        <label class="cfgCheck cameraCheckInline">
+          <input type="checkbox"
+                 ${capture.night_capture_enabled ? "checked" : ""}
+                 onchange="changeCaptureBoolean('night_capture_enabled', this.checked)">
+          <span>Ночная съёмка с кратким включением света</span>
+        </label>
+        <label>
+          <span>Интервал ночью, минут</span>
+          <input class="cfgInput" type="number" min="1" max="1440" step="1"
+                 value="${Math.round(Number(capture.night_capture_interval_seconds) / 60)}"
+                 onchange="changeNightCaptureMinutes(this.value)">
+        </label>
+        <label>
+          <span>Пауза после включения света, сек</span>
+          <input class="cfgInput" type="number" min="0" max="30" step="0.5"
+                 value="${Number(capture.night_capture_light_warmup_seconds)}"
+                 onchange="changeCaptureNumber('night_capture_light_warmup_seconds', this.value)">
+        </label>
+        <label>
+          <span>Пауза после кадра, сек</span>
+          <input class="cfgInput" type="number" min="0" max="30" step="0.5"
+                 value="${Number(capture.night_capture_light_after_seconds)}"
+                 onchange="changeCaptureNumber('night_capture_light_after_seconds', this.value)">
+        </label>
       </div>
       <div class="hint">Для наших камер используем 2592×1944 MJPG. Режим 3840×2160 оказался нестабильным и давал серые участки кадра.</div>
+      <div class="hint">Ночная съёмка работает только когда свет полки в режиме «По расписанию» и расписание сейчас требует выключенный свет. В ручном режиме лампа камерой не включается.</div>
     </section>
   `;
 }
