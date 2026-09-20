@@ -15,6 +15,7 @@ from .config import get_settings
 from .models import Plant, Planting, RackPhoto, RackSlot, User
 from .security import get_admin_user, get_session
 from .telegram.models import SocialComment, TelegramRentalRequest, TelegramUser, WalletAccount, WalletTransaction
+from .telegram.plant_sos import TelegramPlantSosReport
 
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -69,12 +70,14 @@ async def overview(
     active_plantings = int((await session.execute(select(func.count(Planting.id)).where(Planting.status.in_(ACTIVE_PLANTING_STATUSES)))).scalar_one() or 0)
     comments = int((await session.execute(select(func.count(SocialComment.id)).where(SocialComment.status == "published"))).scalar_one() or 0)
     rental_requests = int((await session.execute(select(func.count(TelegramRentalRequest.id)).where(TelegramRentalRequest.status == "requested"))).scalar_one() or 0)
+    sos_open = int((await session.execute(select(func.count(TelegramPlantSosReport.id)).where(TelegramPlantSosReport.status.in_(("new", "open"))))).scalar_one() or 0)
     return {
         "telegram_users": telegram_users,
         "total_kisa": total_kisa,
         "active_plantings": active_plantings,
         "published_comments": comments,
         "rental_requests": rental_requests,
+        "sos_open": sos_open,
     }
 
 
