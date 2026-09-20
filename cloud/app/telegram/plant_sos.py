@@ -152,6 +152,23 @@ def _tr(lang: str) -> dict:
     return SOS_TEXT.get(lang) or SOS_TEXT["en"]
 
 
+CARD_BUTTONS = {
+    "en": {"comments": "💬 Comments", "follow": "🔔 Follow", "following": "✅🔔 Following", "support": "🎁 Support", "video": "🎞 Video"},
+    "ru": {"comments": "💬 Комментарии", "follow": "🔔 Следить", "following": "✅🔔 Слежу", "support": "🎁 Поддержать", "video": "🎞 Видео"},
+    "de": {"comments": "💬 Kommentare", "follow": "🔔 Folgen", "following": "✅🔔 Folge ich", "support": "🎁 Unterstützen", "video": "🎞 Video"},
+    "fr": {"comments": "💬 Commentaires", "follow": "🔔 Suivre", "following": "✅🔔 Suivi", "support": "🎁 Soutenir", "video": "🎞 Vidéo"},
+    "es": {"comments": "💬 Comentarios", "follow": "🔔 Seguir", "following": "✅🔔 Siguiendo", "support": "🎁 Apoyar", "video": "🎞 Vídeo"},
+    "it": {"comments": "💬 Commenti", "follow": "🔔 Segui", "following": "✅🔔 Seguita", "support": "🎁 Sostieni", "video": "🎞 Video"},
+    "pt": {"comments": "💬 Comentários", "follow": "🔔 Seguir", "following": "✅🔔 Seguindo", "support": "🎁 Apoiar", "video": "🎞 Vídeo"},
+    "pl": {"comments": "💬 Komentarze", "follow": "🔔 Obserwuj", "following": "✅🔔 Obserwuję", "support": "🎁 Wesprzyj", "video": "🎞 Wideo"},
+    "zh": {"comments": "💬 评论", "follow": "🔔 关注", "following": "✅🔔 已关注", "support": "🎁 支持", "video": "🎞 视频"},
+}
+
+
+def _card_buttons(lang: str) -> dict:
+    return CARD_BUTTONS.get(lang) or CARD_BUTTONS["en"]
+
+
 async def _owns_planting(user_id: int, planting_id: str) -> bool:
     async with SessionLocal() as session:
         telegram_user = await session.get(TelegramUser, user_id)
@@ -326,11 +343,15 @@ def install(core) -> None:
     previous_follow_notification_loop = core.follow_notification_loop
 
     def plant_keyboard(lang: str, card, index: int, total: int) -> dict:
-        # Keep the card compact: social counters/actions in two rows and
-        # navigation in one row. Writing a comment remains available after
-        # opening the comments list.
-        like_text = f"{'✅' if card.my_vote == 'like' else ''}❤️ {card.likes}"
-        dislike_text = f"{'✅' if card.my_vote == 'dislike' else ''}👎 {card.dislikes}"
+        # Counts already appear in the plant caption, so button labels stay
+        # descriptive but do not repeat the same numbers.
+        labels = _card_buttons(lang)
+        like_text = core.st(lang, "like")
+        dislike_text = core.st(lang, "dislike")
+        if card.my_vote == "like":
+            like_text = f"✅ {like_text}"
+        if card.my_vote == "dislike":
+            dislike_text = f"✅ {dislike_text}"
 
         rows = [
             [
@@ -343,36 +364,34 @@ def install(core) -> None:
                     "callback_data": f"vote:dislike:{card.planting.id}:{index}",
                 },
                 {
-                    "text": f"💬 {card.comments}",
+                    "text": labels["comments"],
                     "callback_data": f"comment:list:{card.planting.id}:{index}",
                 },
-            ]
+            ],
+            [
+                {
+                    "text": labels["following"] if card.following else labels["follow"],
+                    "callback_data": f"follow:{card.planting.id}:{index}",
+                },
+                {
+                    "text": labels["support"],
+                    "callback_data": f"gift:menu:{card.planting.id}:{index}",
+                },
+                {
+                    "text": labels["video"],
+                    "callback_data": f"timelapse:{card.planting.id}",
+                },
+            ],
         ]
 
-        actions = [
-            {
-                "text": "✅🔔" if card.following else "🔔",
-                "callback_data": f"follow:{card.planting.id}:{index}",
-            },
-            {
-                "text": "🎁",
-                "callback_data": f"gift:menu:{card.planting.id}:{index}",
-            },
-            {
-                "text": "🎞",
-                "callback_data": f"timelapse:{card.planting.id}",
-            },
-        ]
+        nav = []
         if bool(getattr(card, "is_owner", False)):
-            actions.append(
+            nav.append(
                 {
                     "text": _tr(lang)["button"],
                     "callback_data": f"sos:start:{card.planting.id}:{index}",
                 }
             )
-        rows.append(actions)
-
-        nav = []
         if index > 0:
             nav.append({"text": "⬅️", "callback_data": f"feed:{index - 1}"})
         nav.append({"text": "🏠", "callback_data": "menu:home"})
