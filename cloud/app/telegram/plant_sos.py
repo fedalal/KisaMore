@@ -11,6 +11,7 @@ from ..db import SessionLocal
 from ..models import Allocation, Base, Plant, Planting, RackSlot
 from .admin_models import TelegramAdmin
 from .models import TelegramUser
+from .plant_sos_chat_models import TelegramPlantSosMessage, TelegramPlantSosMessageAlert
 
 
 MAX_ATTEMPTS = 5
@@ -169,6 +170,23 @@ def _card_buttons(lang: str) -> dict:
     return CARD_BUTTONS.get(lang) or CARD_BUTTONS["en"]
 
 
+SOS_CHAT_TEXT = {
+    "en": {"title": "🚨 <b>SOS chat</b>", "empty": "No SOS messages yet.", "write": "✍️ Write", "you": "You", "admin": "Administrator", "resolved": "✅ Resolved", "active": "🟠 Open", "reply": "💬 <b>Administrator replied to your SOS</b>"},
+    "ru": {"title": "🚨 <b>Чат SOS</b>", "empty": "Сообщений SOS пока нет.", "write": "✍️ Написать", "you": "Вы", "admin": "Администратор", "resolved": "✅ Закрыто", "active": "🟠 Открыто", "reply": "💬 <b>Ответ администратора по SOS</b>"},
+    "de": {"title": "🚨 <b>SOS-Chat</b>", "empty": "Noch keine SOS-Nachrichten.", "write": "✍️ Schreiben", "you": "Du", "admin": "Administrator", "resolved": "✅ Erledigt", "active": "🟠 Offen", "reply": "💬 <b>Antwort des Administrators auf dein SOS</b>"},
+    "fr": {"title": "🚨 <b>Chat SOS</b>", "empty": "Aucun message SOS pour le moment.", "write": "✍️ Écrire", "you": "Vous", "admin": "Administrateur", "resolved": "✅ Résolu", "active": "🟠 Ouvert", "reply": "💬 <b>Réponse de l’administrateur à votre SOS</b>"},
+    "es": {"title": "🚨 <b>Chat SOS</b>", "empty": "Aún no hay mensajes SOS.", "write": "✍️ Escribir", "you": "Tú", "admin": "Administrador", "resolved": "✅ Resuelto", "active": "🟠 Abierto", "reply": "💬 <b>Respuesta del administrador a tu SOS</b>"},
+    "it": {"title": "🚨 <b>Chat SOS</b>", "empty": "Nessun messaggio SOS.", "write": "✍️ Scrivi", "you": "Tu", "admin": "Amministratore", "resolved": "✅ Risolto", "active": "🟠 Aperto", "reply": "💬 <b>Risposta dell’amministratore al tuo SOS</b>"},
+    "pt": {"title": "🚨 <b>Chat SOS</b>", "empty": "Ainda não há mensagens SOS.", "write": "✍️ Escrever", "you": "Você", "admin": "Administrador", "resolved": "✅ Resolvido", "active": "🟠 Aberto", "reply": "💬 <b>Resposta do administrador ao seu SOS</b>"},
+    "pl": {"title": "🚨 <b>Czat SOS</b>", "empty": "Brak wiadomości SOS.", "write": "✍️ Napisz", "you": "Ty", "admin": "Administrator", "resolved": "✅ Zamknięte", "active": "🟠 Otwarte", "reply": "💬 <b>Odpowiedź administratora na SOS</b>"},
+    "zh": {"title": "🚨 <b>SOS 聊天</b>", "empty": "暂无 SOS 消息。", "write": "✍️ 写消息", "you": "您", "admin": "管理员", "resolved": "✅ 已解决", "active": "🟠 处理中", "reply": "💬 <b>管理员回复了您的 SOS</b>"},
+}
+
+
+def _chat_text(lang: str) -> dict:
+    return SOS_CHAT_TEXT.get(lang) or SOS_CHAT_TEXT["en"]
+
+
 async def _owns_planting(user_id: int, planting_id: str) -> bool:
     async with SessionLocal() as session:
         telegram_user = await session.get(TelegramUser, user_id)
@@ -188,23 +206,53 @@ async def _owns_planting(user_id: int, planting_id: str) -> bool:
         )
 
 
-async def _create_report(user_id: int, planting_id: str, message: str) -> int | None:
+async def _active_report(session, user_id: int, planting_id: str):
+    return (
+        await session.execute(
+            select(TelegramPlantSosReport)
+            .where(
+                TelegramPlantSosReport.user_id == user_id,
+                TelegramPlantSosReport.planting_id == planting_id,
+                TelegramPlantSosReport.status.in_(("new", "open")),
+            )
+            .order_by(TelegramPlantSosReport.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def _append_user_message(user_id: int, planting_id: str, message: str) -> int | None:
     if not await _owns_planting(user_id, planting_id):
         return None
+
     now = datetime.now(timezone.utc)
     async with SessionLocal() as session:
         planting = await session.get(Planting, planting_id)
         if planting is None:
             return None
 
-        report = TelegramPlantSosReport(
-            user_id=user_id,
-            planting_id=planting_id,
-            message=message,
-            status="new",
+        report = await _active_report(session, user_id, planting_id)
+        if report is None:
+            report = TelegramPlantSosReport(
+                user_id=user_id,
+                planting_id=planting_id,
+                message=message,
+                status="new",
+                created_at=now,
+            )
+            session.add(report)
+            await session.flush()
+
+        chat_message = TelegramPlantSosMessage(
+            report_id=report.id,
+            sender_type="user",
+            telegram_user_id=user_id,
+            body=message,
+            delivery_status="not_required",
+            attempts=0,
             created_at=now,
         )
-        session.add(report)
+        session.add(chat_message)
         await session.flush()
 
         admin_ids = list(
@@ -221,16 +269,120 @@ async def _create_report(user_id: int, planting_id: str, message: str) -> int | 
         )
         for admin_user_id in admin_ids:
             session.add(
-                TelegramPlantSosAlert(
-                    report_id=report.id,
+                TelegramPlantSosMessageAlert(
+                    message_id=chat_message.id,
                     admin_user_id=int(admin_user_id),
                     status="pending",
                     attempts=0,
                     created_at=now,
                 )
             )
+
         await session.commit()
         return int(report.id)
+
+
+async def _user_thread(user_id: int, planting_id: str):
+    async with SessionLocal() as session:
+        reports = list(
+            (
+                await session.execute(
+                    select(TelegramPlantSosReport)
+                    .where(
+                        TelegramPlantSosReport.user_id == user_id,
+                        TelegramPlantSosReport.planting_id == planting_id,
+                    )
+                    .order_by(TelegramPlantSosReport.created_at)
+                )
+            ).scalars().all()
+        )
+        if not reports:
+            return None, []
+
+        report_ids = [item.id for item in reports]
+        messages = list(
+            (
+                await session.execute(
+                    select(TelegramPlantSosMessage)
+                    .where(TelegramPlantSosMessage.report_id.in_(report_ids))
+                    .order_by(TelegramPlantSosMessage.created_at, TelegramPlantSosMessage.id)
+                )
+            ).scalars().all()
+        )
+
+        # Reports created by the first SOS implementation have no chat-message
+        # rows. Preserve that history instead of hiding it.
+        report_ids_with_messages = {item.report_id for item in messages}
+        legacy = [
+            (
+                report.created_at,
+                "user",
+                report.message,
+            )
+            for report in reports
+            if report.id not in report_ids_with_messages and report.message
+        ]
+        combined = [
+            (item.created_at, item.sender_type, item.body)
+            for item in messages
+        ] + legacy
+        combined.sort(key=lambda item: item[0])
+        return reports[-1], combined
+
+
+async def _plant_context(planting_id: str):
+    async with SessionLocal() as session:
+        return (
+            await session.execute(
+                select(Planting, Plant, RackSlot)
+                .join(Plant, Plant.id == Planting.plant_id)
+                .join(RackSlot, RackSlot.id == Planting.slot_id)
+                .where(Planting.id == planting_id)
+                .limit(1)
+            )
+        ).first()
+
+
+async def _show_user_thread(core, bot, chat_id: int, tg: dict, user_id: int, planting_id: str, index: int) -> None:
+    lang = core.language_for(tg)
+    tr = _chat_text(lang)
+    context = await _plant_context(planting_id)
+    if context is None:
+        return
+    _planting, plant, slot = context
+    report, messages = await _user_thread(user_id, planting_id)
+    status = tr["resolved"] if report is not None and report.status == "resolved" else tr["active"]
+
+    header = (
+        f"{tr['title']}\n"
+        f"🌱 <b>{escape(core.plant_name(plant, lang))}</b> · "
+        f"{slot.rack_id}/{slot.slot_number}\n"
+        f"{status}"
+    )
+    if not messages:
+        text = f"{header}\n\n{tr['empty']}"
+    else:
+        parts = [header, ""]
+        # Telegram has a 4096 character limit. Keep the most recent messages
+        # and trim individual bodies so the thread always fits comfortably.
+        for _created_at, sender_type, body in messages[-10:]:
+            label = tr["admin"] if sender_type == "admin" else tr["you"]
+            icon = "🛡" if sender_type == "admin" else "👤"
+            value = str(body or "").strip()
+            if len(value) > 650:
+                value = value[:647] + "..."
+            parts.append(f"<b>{icon} {escape(label)}:</b>\n{escape(value)}")
+        text = "\n\n".join(parts)
+        if len(text) > 3800:
+            text = text[-3800:]
+
+    markup = {
+        "inline_keyboard": [
+            [{"text": tr["write"], "callback_data": f"sos:write:{planting_id}:{index}"}],
+            [{"text": _tr(lang)["back"], "callback_data": f"plant:show:{planting_id}:{index}"}],
+        ]
+    }
+    await bot.send_message(chat_id, text, reply_markup=markup)
 
 
 async def _admin_alert_text(session, report: TelegramPlantSosReport) -> tuple[str, dict] | None:
@@ -280,9 +432,51 @@ async def _admin_alert_text(session, report: TelegramPlantSosReport) -> tuple[st
     return text, markup
 
 
+async def _message_admin_alert_text(session, message: TelegramPlantSosMessage):
+    report = await session.get(TelegramPlantSosReport, message.report_id)
+    if report is None:
+        return None
+    author = await session.get(TelegramUser, report.user_id)
+    row = (
+        await session.execute(
+            select(Planting, Plant, RackSlot)
+            .join(Plant, Plant.id == Planting.plant_id)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .where(Planting.id == report.planting_id)
+            .limit(1)
+        )
+    ).first()
+    if author is None or row is None:
+        return None
+
+    _planting, plant, slot = row
+    names = plant.names or {}
+    plant_name = names.get("ru") or names.get("en") or next(
+        (str(value) for value in names.values() if value),
+        plant.code,
+    )
+    full_name = " ".join(value for value in (author.first_name, author.last_name) if value).strip()
+    if not full_name:
+        full_name = author.username or f"Telegram {author.telegram_user_id}"
+    username = f"@{escape(author.username)}" if author.username else "—"
+
+    text = (
+        "🚨 <b>Новое сообщение SOS</b>\n\n"
+        f"Растение: <b>{escape(str(plant_name))}</b>\n"
+        f"Полка {slot.rack_id} · контейнер {slot.slot_number}\n"
+        f"Пользователь: <b>{escape(full_name)}</b>\n"
+        f"Username: {username}\n\n"
+        f"<b>Сообщение:</b>\n{escape(message.body)}\n\n"
+        "Ответить можно в разделе <b>/admin → SOS</b>."
+    )
+    return text
+
+
 async def _send_pending_alerts(bot) -> None:
     async with SessionLocal() as session:
-        alerts = list(
+        # Legacy first-generation alerts are kept so already queued SOS reports
+        # are not lost during deployment.
+        legacy_alerts = list(
             (
                 await session.execute(
                     select(TelegramPlantSosAlert)
@@ -295,8 +489,7 @@ async def _send_pending_alerts(bot) -> None:
                 )
             ).scalars().all()
         )
-
-        for alert in alerts:
+        for alert in legacy_alerts:
             admin_user = await session.get(TelegramUser, alert.admin_user_id)
             admin = await session.get(TelegramAdmin, alert.admin_user_id)
             report = await session.get(TelegramPlantSosReport, alert.report_id)
@@ -309,18 +502,13 @@ async def _send_pending_alerts(bot) -> None:
             ):
                 alert.status = "skipped"
                 continue
-
             prepared = await _admin_alert_text(session, report)
             if prepared is None:
                 alert.status = "skipped"
                 continue
             text, markup = prepared
             try:
-                await bot.send_message(
-                    int(admin_user.telegram_user_id),
-                    text,
-                    reply_markup=markup,
-                )
+                await bot.send_message(int(admin_user.telegram_user_id), text, reply_markup=markup)
                 alert.status = "sent"
                 alert.sent_at = datetime.now(timezone.utc)
                 alert.last_error = None
@@ -330,7 +518,101 @@ async def _send_pending_alerts(bot) -> None:
                 if alert.attempts >= MAX_ATTEMPTS:
                     alert.status = "failed"
 
-        if alerts:
+        message_alerts = list(
+            (
+                await session.execute(
+                    select(TelegramPlantSosMessageAlert)
+                    .where(
+                        TelegramPlantSosMessageAlert.status == "pending",
+                        TelegramPlantSosMessageAlert.attempts < MAX_ATTEMPTS,
+                    )
+                    .order_by(TelegramPlantSosMessageAlert.id)
+                    .limit(50)
+                )
+            ).scalars().all()
+        )
+        for alert in message_alerts:
+            admin_user = await session.get(TelegramUser, alert.admin_user_id)
+            admin = await session.get(TelegramAdmin, alert.admin_user_id)
+            message = await session.get(TelegramPlantSosMessage, alert.message_id)
+            if (
+                admin_user is None
+                or admin is None
+                or not admin.enabled
+                or not admin_user.is_active
+                or message is None
+            ):
+                alert.status = "skipped"
+                continue
+            text = await _message_admin_alert_text(session, message)
+            if text is None:
+                alert.status = "skipped"
+                continue
+            try:
+                await bot.send_message(int(admin_user.telegram_user_id), text)
+                alert.status = "sent"
+                alert.sent_at = datetime.now(timezone.utc)
+                alert.last_error = None
+            except Exception as exc:
+                alert.attempts += 1
+                alert.last_error = f"{type(exc).__name__}: {exc}"[:2000]
+                if alert.attempts >= MAX_ATTEMPTS:
+                    alert.status = "failed"
+
+        replies = list(
+            (
+                await session.execute(
+                    select(TelegramPlantSosMessage)
+                    .where(
+                        TelegramPlantSosMessage.sender_type == "admin",
+                        TelegramPlantSosMessage.delivery_status == "pending",
+                        TelegramPlantSosMessage.attempts < MAX_ATTEMPTS,
+                    )
+                    .order_by(TelegramPlantSosMessage.id)
+                    .limit(50)
+                )
+            ).scalars().all()
+        )
+        for message in replies:
+            report = await session.get(TelegramPlantSosReport, message.report_id)
+            user = await session.get(TelegramUser, report.user_id) if report else None
+            if report is None or user is None or not user.is_active:
+                message.delivery_status = "skipped"
+                continue
+            context = await _plant_context(report.planting_id)
+            if context is None:
+                message.delivery_status = "skipped"
+                continue
+            _planting, plant, slot = context
+            lang = (user.language_code or "en").lower().replace("_", "-").split("-", 1)[0]
+            tr = _chat_text(lang)
+            names = plant.names or {}
+            plant_name = names.get(lang) or names.get("en") or names.get("ru") or plant.code
+            text = (
+                f"{tr['reply']}\n\n"
+                f"🌱 <b>{escape(str(plant_name))}</b> · {slot.rack_id}/{slot.slot_number}\n\n"
+                f"{escape(message.body)}"
+            )
+            markup = {
+                "inline_keyboard": [[
+                    {
+                        "text": tr["title"].replace("<b>", "").replace("</b>", ""),
+                        "callback_data": f"sos:start:{report.planting_id}:0",
+                    }
+                ]]
+            }
+            try:
+                await bot.send_message(int(user.telegram_user_id), text, reply_markup=markup)
+                message.delivery_status = "sent"
+                message.delivered_at = datetime.now(timezone.utc)
+                message.last_error = None
+            except Exception as exc:
+                message.attempts += 1
+                message.last_error = f"{type(exc).__name__}: {exc}"[:2000]
+                if message.attempts >= MAX_ATTEMPTS:
+                    message.delivery_status = "failed"
+
+        if legacy_alerts or message_alerts or replies:
             await session.commit()
 
 
@@ -403,7 +685,7 @@ def install(core) -> None:
 
     async def handle_callback(bot, query: dict) -> None:
         data = str(query.get("data") or "")
-        if not data.startswith("sos:start:"):
+        if not data.startswith("sos:"):
             await previous_handle_callback(bot, query)
             return
 
@@ -414,7 +696,7 @@ def install(core) -> None:
             return
 
         parts = data.split(":", 3)
-        if len(parts) != 4:
+        if len(parts) != 4 or parts[1] not in ("start", "write"):
             await bot.answer_callback_query(qid)
             return
         planting_id = parts[2]
@@ -432,6 +714,12 @@ def install(core) -> None:
                 show_alert=True,
             )
             return
+
+        await bot.answer_callback_query(qid)
+        if parts[1] == "start":
+            await _show_user_thread(core, bot, chat_id, tg, user.id, planting_id, index)
+            return
+
         await core.set_state(
             user.id,
             "plant_sos",
@@ -439,7 +727,6 @@ def install(core) -> None:
             target_id=planting_id,
             payload={"index": index},
         )
-        await bot.answer_callback_query(qid)
         await bot.send_message(chat_id, _tr(lang)["prompt"])
 
     async def handle_message(bot, message: dict) -> None:
@@ -480,7 +767,7 @@ def install(core) -> None:
 
         planting_id = state.target_id
         index = int((state.payload or {}).get("index") or 0)
-        report_id = await _create_report(user.id, planting_id, text)
+        report_id = await _append_user_message(user.id, planting_id, text)
         if report_id is None:
             await core.clear_state(user.id)
             await previous_handle_message(bot, message)
@@ -491,12 +778,16 @@ def install(core) -> None:
             chat_id,
             tr["saved"],
             reply_markup={
-                "inline_keyboard": [[
-                    {
+                "inline_keyboard": [
+                    [{
+                        "text": _chat_text(lang)["title"].replace("<b>", "").replace("</b>", ""),
+                        "callback_data": f"sos:start:{planting_id}:{index}",
+                    }],
+                    [{
                         "text": tr["back"],
                         "callback_data": f"plant:show:{planting_id}:{index}",
-                    }
-                ]]
+                    }],
+                ]
             },
         )
 
