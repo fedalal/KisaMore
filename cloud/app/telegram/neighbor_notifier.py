@@ -491,9 +491,9 @@ async def discover_ready_neighbor_deliveries() -> int:
                 event_at=event_at,
             )
             for recipient in recipients:
-                exists = (
+                delivery = (
                     await session.execute(
-                        select(TelegramNeighborDelivery.id)
+                        select(TelegramNeighborDelivery)
                         .where(
                             TelegramNeighborDelivery.planting_id == planting.id,
                             TelegramNeighborDelivery.user_id == recipient.id,
@@ -502,7 +502,20 @@ async def discover_ready_neighbor_deliveries() -> int:
                         .limit(1)
                     )
                 ).scalar_one_or_none()
-                if exists is not None:
+                if delivery is not None:
+                    # Early versions incorrectly required the planting to still
+                    # be in status=ready at send time. A ready event is durable:
+                    # once the owner was notified, neighbors should still get
+                    # that event even if the crop has already advanced.
+                    if (
+                        delivery.status == "skipped"
+                        and delivery.last_error == "Planting is no longer in ready state"
+                    ):
+                        delivery.status = "pending"
+                        delivery.attempts = 0
+                        delivery.last_error = None
+                        delivery.sent_at = None
+                        created += 1
                     continue
 
                 session.add(
@@ -628,8 +641,11 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
         event_type = str(delivery.event_type or "planted")
 
         if event_type == "ready":
-            event_valid = planting.status == "ready"
-            invalid_reason = "Planting is no longer in ready state"
+            # The persisted planting_ready activity row is the event record.
+            # Do not require the planting to remain in status=ready while this
+            # delivery waits for a fresh rack photo.
+            event_valid = True
+            invalid_reason = ""
             freshness_at = _aware(delivery.created_at) or _now()
             captions = READY_TEXTS
             log_label = "ready-neighbor"
@@ -659,7 +675,7 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
             return False
 
         card = await core.get_plant_card(planting.id, telegram_user.id)
-        if card is None:
+        if card is None and event_type != "ready":
             delivery.status = "skipped"
             delivery.last_error = "Plant card is no longer available"
             await session.commit()
@@ -723,33 +739,36 @@ async def _send_delivery(bot, core, delivery_id: int) -> bool:
             await session.commit()
 
         if delivery.card_sent_at is None:
-            tg = {
-                "id": telegram_user.telegram_user_id,
-                "username": telegram_user.username,
-                "first_name": telegram_user.first_name,
-                "last_name": telegram_user.last_name,
-                "language_code": telegram_user.language_code,
-            }
-            try:
-                await core.show_plant_card(
-                    bot,
-                    telegram_user.telegram_user_id,
-                    tg,
-                    planting.id,
-                    index=0,
-                    total=1,
-                    user_id=telegram_user.id,
-                )
-            except Exception as exc:
-                logger.exception(
-                    "Could not send %s plant card for planting %s to Telegram user %s",
-                    log_label,
-                    planting.id,
-                    telegram_user.telegram_user_id,
-                )
-                await _mark_error(session, delivery, exc)
-                return False
+            if card is not None:
+                tg = {
+                    "id": telegram_user.telegram_user_id,
+                    "username": telegram_user.username,
+                    "first_name": telegram_user.first_name,
+                    "last_name": telegram_user.last_name,
+                    "language_code": telegram_user.language_code,
+                }
+                try:
+                    await core.show_plant_card(
+                        bot,
+                        telegram_user.telegram_user_id,
+                        tg,
+                        planting.id,
+                        index=0,
+                        total=1,
+                        user_id=telegram_user.id,
+                    )
+                except Exception as exc:
+                    logger.exception(
+                        "Could not send %s plant card for planting %s to Telegram user %s",
+                        log_label,
+                        planting.id,
+                        telegram_user.telegram_user_id,
+                    )
+                    await _mark_error(session, delivery, exc)
+                    return False
 
+            # For a ready event the photo/text is still useful if the plant
+            # card has already disappeared after harvest or cleanup.
             delivery.card_sent_at = _now()
 
         delivery.status = "sent"
