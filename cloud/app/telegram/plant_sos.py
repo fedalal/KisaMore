@@ -362,19 +362,23 @@ async def _show_user_thread(core, bot, chat_id: int, tg: dict, user_id: int, pla
     if not messages:
         text = f"{header}\n\n{tr['empty']}"
     else:
-        parts = [header, ""]
-        # Telegram has a 4096 character limit. Keep the most recent messages
-        # and trim individual bodies so the thread always fits comfortably.
-        for _created_at, sender_type, body in messages[-10:]:
+        # Telegram has a 4096 character limit. Add the newest messages first
+        # until the transcript reaches a safe size, then restore chronology.
+        rendered = []
+        used = len(header) + 4
+        for _created_at, sender_type, body in reversed(messages[-12:]):
             label = tr["admin"] if sender_type == "admin" else tr["you"]
             icon = "🛡" if sender_type == "admin" else "👤"
             value = str(body or "").strip()
             if len(value) > 650:
                 value = value[:647] + "..."
-            parts.append(f"<b>{icon} {escape(label)}:</b>\n{escape(value)}")
-        text = "\n\n".join(parts)
-        if len(text) > 3800:
-            text = text[-3800:]
+            block = f"<b>{icon} {escape(label)}:</b>\n{escape(value)}"
+            if rendered and used + len(block) + 2 > 3500:
+                break
+            rendered.append(block)
+            used += len(block) + 2
+        rendered.reverse()
+        text = header + "\n\n" + "\n\n".join(rendered)
 
     markup = {
         "inline_keyboard": [
