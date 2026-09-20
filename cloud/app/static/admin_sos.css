@@ -1,0 +1,24 @@
+.sos-layout{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:16px;min-height:620px}
+.sos-thread-list{border:1px solid #e3ebe7;border-radius:16px;overflow:auto;max-height:68vh;background:#f8faf9}
+.sos-thread-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e7eeeb;border-radius:0;padding:14px;background:transparent}
+.sos-thread-item:last-child{border-bottom:0}
+.sos-thread-item:hover,.sos-thread-item.active{background:#edf7f1}
+.sos-thread-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.sos-thread-title{font-weight:750}
+.sos-thread-meta{font-size:12px;color:#778881;margin-top:4px}
+.sos-thread-preview{font-size:13px;color:#4d625a;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sos-unread{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#c93535;color:#fff;font-size:12px;font-weight:800}
+.sos-chat{border:1px solid #e3ebe7;border-radius:16px;display:flex;flex-direction:column;min-height:620px;overflow:hidden;background:#fff}
+.sos-chat-head{padding:15px 18px;border-bottom:1px solid #e7eeeb;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.sos-chat-head h3{margin:0 0 4px;font-size:17px}
+.sos-chat-messages{flex:1;overflow:auto;padding:18px;background:#f7faf8;display:flex;flex-direction:column;gap:10px}
+.sos-message{max-width:min(76%,720px);padding:10px 13px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 2px rgba(20,53,43,.05)}
+.sos-message.user{align-self:flex-start;background:#fff;border:1px solid #dfe9e4}
+.sos-message.admin{align-self:flex-end;background:#dff3e7;border:1px solid #c9e8d5}
+.sos-message-author{font-size:12px;font-weight:750;color:#496159;margin-bottom:4px}
+.sos-message-time{font-size:11px;color:#82928c;margin-top:6px}
+.sos-reply{padding:14px;border-top:1px solid #e7eeeb;background:#fff}
+.sos-reply textarea{min-height:88px;resize:vertical}
+.sos-reply-actions{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.sos-empty{display:grid;place-items:center;min-height:300px;color:#84948e;text-align:center;padding:30px}
+@media(max-width:900px){.sos-layout{grid-template-columns:1fr}.sos-thread-list{max-height:280px}.sos-chat{min-height:540px}}
