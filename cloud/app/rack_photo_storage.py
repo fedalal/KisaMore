@@ -86,6 +86,45 @@ def _slot_box(width: int, height: int, slot_number: int) -> tuple[int, int, int,
     return left, top, right, bottom
 
 
+def ensure_slot_latest_from_rack(
+    *,
+    rack_photo_path: str | Path,
+    photo_dir: str | Path,
+    device_id: str,
+    rack_id: int,
+    slot_number: int,
+) -> Path:
+    """Create/refresh the latest JPEG crop for one 2x3 rack slot.
+
+    This is intentionally usable at notification-send time too, so legacy
+    rack photos uploaded before slot crops existed can never make followers
+    receive the whole rack.
+    """
+    from PIL import Image, ImageOps
+
+    source = Path(rack_photo_path)
+    if not source.is_file():
+        raise FileNotFoundError(source)
+
+    target = slot_latest_path(photo_dir, device_id, rack_id, slot_number)
+    try:
+        if target.is_file() and target.stat().st_mtime >= source.stat().st_mtime:
+            return target
+    except OSError:
+        pass
+
+    with Image.open(source) as raw:
+        raw.load()
+        image = ImageOps.exif_transpose(raw).convert("RGB")
+        width, height = image.size
+        if width < 2 or height < 3:
+            raise ValueError("rack photo is too small to split into six slots")
+        crop = image.crop(_slot_box(width, height, slot_number))
+        _atomic_save_jpeg(crop, target)
+
+    return target
+
+
 def store_rack_photo(
     *,
     photo_dir: str | Path,
