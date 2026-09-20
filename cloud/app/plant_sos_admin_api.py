@@ -176,8 +176,10 @@ async def sos_thread(
         }
         for item in messages
     ]
-    if not items and report.message:
-        items.append(
+    has_user_message = any(item.sender_type == "user" for item in messages)
+    if not has_user_message and report.message:
+        items.insert(
+            0,
             {
                 "id": f"legacy:{report.id}",
                 "sender": "user",
@@ -185,7 +187,7 @@ async def sos_thread(
                 "created_at": _aware(report.created_at),
                 "delivery_status": "not_required",
                 "delivered_at": None,
-            }
+            },
         )
 
     return {
