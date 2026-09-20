@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/admin.css?v=20260909-4">
   <link rel="stylesheet" href="/static/admin_camera.css?v=20260909-2">
   <link rel="stylesheet" href="/static/admin_watering.css?v=20260910-1">
+  <link rel="stylesheet" href="/static/admin_sos.css?v=20260920-1">
 </head>
 <body>
   <div id="loginView" class="login-shell">
@@ -32,6 +33,7 @@
         <button class="nav-item" data-section="watering">💧 Поливы</button>
         <button class="nav-item" data-section="cameras">Камеры / Фото полок</button>
         <button class="nav-item" data-section="plantings">Растения и фото</button>
+        <button class="nav-item" data-section="sos">🚨 SOS</button>
         <button class="nav-item" data-section="comments">Комментарии</button>
       </nav>
       <button id="logoutButton" class="logout">Выйти</button>
@@ -110,6 +112,45 @@
         </div>
       </section>
 
+      <section id="section-sos" class="section">
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>SOS пользователей</h2><p>Диалоги по проблемам с растениями. Ответ администратора отправляется пользователю в Telegram.</p></div>
+            <button id="reloadSos">Обновить</button>
+          </div>
+          <div class="sos-layout">
+            <div id="sosThreadList" class="sos-thread-list">
+              <div class="sos-empty">Загрузка…</div>
+            </div>
+            <div class="sos-chat">
+              <div id="sosChatEmpty" class="sos-empty">Выберите SOS-обращение слева.</div>
+              <div id="sosChatActive" hidden style="display:flex;flex-direction:column;min-height:620px;height:100%">
+                <div class="sos-chat-head">
+                  <div>
+                    <h3 id="sosChatTitle">SOS</h3>
+                    <div id="sosChatUser" class="username"></div>
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+                    <span id="sosChatStatus" class="badge"></span>
+                    <button id="sosStatusButton" type="button">Закрыть обращение</button>
+                  </div>
+                </div>
+                <div id="sosChatMessages" class="sos-chat-messages"></div>
+                <form id="sosReplyForm" class="sos-reply">
+                  <label style="margin:0">Ответ пользователю
+                    <textarea id="sosReplyText" maxlength="1500" placeholder="Напишите ответ администатора…" required></textarea>
+                  </label>
+                  <div class="sos-reply-actions">
+                    <span class="muted">Ответ появится в Telegram и сохранится в истории SOS.</span>
+                    <button type="submit" class="primary">Отправить</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="section-comments" class="section">
         <div class="panel">
           <div class="panel-head"><div><h2>Комментарии</h2><p>Модерация сообщений сообщества.</p></div><button id="reloadComments">Обновить</button></div>
@@ -174,5 +215,6 @@
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
   <script src="/static/admin_seeds.js?v=20260910-1" defer></script>
   <script src="/static/admin_telegram.js?v=20260910-1" defer></script>
+  <script src="/static/admin_sos.js?v=20260920-1" defer></script>
 </body>
 </html>
