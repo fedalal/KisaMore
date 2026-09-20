@@ -556,11 +556,13 @@ class CameraCaptureService:
         # independent night interval is due.
         for rack_id_str, rack_cfg in runtime.cfg.racks.items():
             rack_id = int(rack_id_str)
-            context = light_contexts.get(rack_id) or {
-                "light_on": False,
-                "light_mode": "schedule",
-                "schedule_on": False,
-            }
+            context = light_contexts.get(rack_id)
+            if context is None:
+                print(
+                    f"[camera-capture] skip rack={rack_id}: "
+                    "light state is missing"
+                )
+                continue
 
             night_capture = False
             if cfg.only_when_light_on and not context["light_on"]:
