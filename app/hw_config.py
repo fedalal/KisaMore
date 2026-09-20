@@ -21,8 +21,17 @@ class CameraCaptureConfig(BaseModel):
     frame_width: int = Field(default=2592, ge=320, le=3840)
     frame_height: int = Field(default=1944, ge=240, le=2160)
 
-    # Делать фото только если на полке включён свет
+    # Делать обычные фото только если на полке включён свет.
     only_when_light_on: bool = True
+
+    # Ночная съёмка для таймлапса. Если свет работает по расписанию и сейчас
+    # расписание требует OFF, камера кратковременно включает лампу, ждёт
+    # стабилизации изображения, делает один кадр и возвращает свет в OFF.
+    # В ручном режиме свет никогда автоматически не включается.
+    night_capture_enabled: bool = True
+    night_capture_interval_seconds: int = Field(default=900, ge=60, le=86400)
+    night_capture_light_warmup_seconds: float = Field(default=3.0, ge=0.0, le=30.0)
+    night_capture_light_after_seconds: float = Field(default=1.0, ge=0.0, le=30.0)
 
     # Локальная очередь фото, которые не удалось загрузить в Google Drive.
     # После успешной загрузки файл из этой папки удаляется.
@@ -208,6 +217,17 @@ def load_config() -> HWConfig:
 
     if "camera_capture" not in data:
         need_save = True
+    else:
+        capture_data = data.get("camera_capture") or {}
+        for field in (
+            "night_capture_enabled",
+            "night_capture_interval_seconds",
+            "night_capture_light_warmup_seconds",
+            "night_capture_light_after_seconds",
+        ):
+            if field not in capture_data:
+                need_save = True
+                break
 
     cfg = HWConfig.model_validate(data)
 
