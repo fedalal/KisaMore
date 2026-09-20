@@ -52,6 +52,7 @@ from .schemas import (
 )
 from .security import authenticate_device, get_current_user, get_session
 from .config import get_settings
+from .rack_photo_storage import store_rack_photo
 from .seed_inventory import SeedUnavailable, require_seed_available, seed_availability
 
 
@@ -267,13 +268,14 @@ async def upload_rack_photo(
     if captured_at is None:
         raise HTTPException(status_code=422, detail="captured_at is required")
 
-    device_dir = hashlib.sha256(device.id.encode("utf-8")).hexdigest()[:20]
-    target_dir = Path(settings.photo_dir) / device_dir
-    await asyncio.to_thread(target_dir.mkdir, parents=True, exist_ok=True)
-    target = target_dir / f"rack_{rack_id}.jpg"
-    temporary = target.with_suffix(".jpg.tmp")
-    await asyncio.to_thread(temporary.write_bytes, content)
-    await asyncio.to_thread(temporary.replace, target)
+    stored = await asyncio.to_thread(
+        store_rack_photo,
+        photo_dir=settings.photo_dir,
+        device_id=device.id,
+        rack_id=rack_id,
+        captured_at=captured_at,
+        content=content,
+    )
 
     now = datetime.now(timezone.utc)
     record = (
@@ -288,14 +290,14 @@ async def upload_rack_photo(
         record = RackPhoto(
             device_id=device.id,
             rack_id=rack_id,
-            file_path=str(target),
+            file_path=str(stored.latest_path),
             size_bytes=len(content),
             captured_at=captured_at,
             updated_at=now,
         )
         session.add(record)
     else:
-        record.file_path = str(target)
+        record.file_path = str(stored.latest_path)
         record.content_type = "image/jpeg"
         record.size_bytes = len(content)
         record.captured_at = captured_at
