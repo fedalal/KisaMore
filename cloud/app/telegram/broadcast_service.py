@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy import delete, func, select, update
 
 from ..db import SessionLocal
+from .broadcast_media import prepare_media_for_telegram
 from .broadcast_models import (
     TelegramBroadcast,
     TelegramBroadcastAnswer,
@@ -206,15 +207,38 @@ async def _send_delivery(bot, delivery_id: int) -> float:
         try:
             result = None
             if row.photo_path and Path(row.photo_path).is_file():
-                if len(text) <= 900:
-                    result = await bot.send_photo(
+                media_kind, media_path = await asyncio.to_thread(
+                    prepare_media_for_telegram,
+                    row.photo_path,
+                    row.photo_name,
+                )
+
+                async def send_media(*, caption: str, reply_markup=None):
+                    if media_kind == "photo":
+                        return await bot.send_photo(
+                            user.telegram_user_id,
+                            media_path,
+                            caption=caption,
+                            reply_markup=reply_markup,
+                        )
+                    if media_kind == "animation":
+                        return await bot.send_animation(
+                            user.telegram_user_id,
+                            media_path,
+                            caption=caption,
+                            reply_markup=reply_markup,
+                        )
+                    return await bot.send_video(
                         user.telegram_user_id,
-                        row.photo_path,
-                        caption=text,
-                        reply_markup=markup,
+                        media_path,
+                        caption=caption,
+                        reply_markup=reply_markup,
                     )
+
+                if len(text) <= 900:
+                    result = await send_media(caption=text, reply_markup=markup)
                 else:
-                    await bot.send_photo(user.telegram_user_id, row.photo_path, caption="")
+                    await send_media(caption="")
                     if text:
                         result = await bot.send_message(
                             user.telegram_user_id,
@@ -228,7 +252,7 @@ async def _send_delivery(bot, delivery_id: int) -> float:
                     reply_markup=markup,
                 )
             else:
-                raise RuntimeError("Broadcast has neither readable photo nor text")
+                raise RuntimeError("Broadcast has neither readable media nor text")
 
             delivery.status = "sent"
             delivery.sent_at = _now()
