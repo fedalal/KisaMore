@@ -32,8 +32,7 @@ async def ensure_neighbor_schema() -> None:
     Existing VPS installations already have telegram_neighbor_deliveries with
     UNIQUE (planting_id, user_id). PostgreSQL create_all() does not alter that
     table, so add event_type and widen the unique key once before the notifier
-    starts. Fresh databases already have the final schema and pass through
-    these statements unchanged.
+    starts. Fresh databases already have the final schema.
     """
     global _schema_ready
     if _schema_ready:
@@ -48,52 +47,54 @@ async def ensure_neighbor_schema() -> None:
                     "NOT NULL DEFAULT 'planted'"
                 )
             )
-            await connection.execute(
-                text(
-                    """
-                    DO $
-                    DECLARE old_constraint text;
-                    BEGIN
-                      SELECT con.conname
-                        INTO old_constraint
-                        FROM pg_constraint con
-                        JOIN pg_class rel ON rel.oid = con.conrelid
-                       WHERE rel.relname = 'telegram_neighbor_deliveries'
-                         AND con.contype = 'u'
-                         AND pg_get_constraintdef(con.oid) =
-                             'UNIQUE (planting_id, user_id)'
-                       LIMIT 1;
 
-                      IF old_constraint IS NOT NULL THEN
-                        EXECUTE format(
-                          'ALTER TABLE telegram_neighbor_deliveries DROP CONSTRAINT %I',
-                          old_constraint
-                        );
-                      END IF;
-                    END $;
-                    """
+            old_constraint = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT con.conname
+                          FROM pg_constraint con
+                          JOIN pg_class rel ON rel.oid = con.conrelid
+                         WHERE rel.relname = 'telegram_neighbor_deliveries'
+                           AND con.contype = 'u'
+                           AND pg_get_constraintdef(con.oid) =
+                               'UNIQUE (planting_id, user_id)'
+                         LIMIT 1
+                        """
+                    )
                 )
-            )
-            await connection.execute(
-                text(
-                    """
-                    DO $
-                    BEGIN
-                      IF NOT EXISTS (
+            ).scalar_one_or_none()
+            if old_constraint:
+                quoted = engine.dialect.identifier_preparer.quote(old_constraint)
+                await connection.execute(
+                    text(
+                        "ALTER TABLE telegram_neighbor_deliveries "
+                        f"DROP CONSTRAINT {quoted}"
+                    )
+                )
+
+            new_constraint = (
+                await connection.execute(
+                    text(
+                        """
                         SELECT 1
                           FROM pg_constraint con
                           JOIN pg_class rel ON rel.oid = con.conrelid
                          WHERE rel.relname = 'telegram_neighbor_deliveries'
                            AND con.conname = 'uq_telegram_neighbor_delivery_event'
-                      ) THEN
-                        ALTER TABLE telegram_neighbor_deliveries
-                          ADD CONSTRAINT uq_telegram_neighbor_delivery_event
-                          UNIQUE (planting_id, user_id, event_type);
-                      END IF;
-                    END $;
-                    """
+                         LIMIT 1
+                        """
+                    )
                 )
-            )
+            ).scalar_one_or_none()
+            if new_constraint is None:
+                await connection.execute(
+                    text(
+                        "ALTER TABLE telegram_neighbor_deliveries "
+                        "ADD CONSTRAINT uq_telegram_neighbor_delivery_event "
+                        "UNIQUE (planting_id, user_id, event_type)"
+                    )
+                )
 
     _schema_ready = True
 
