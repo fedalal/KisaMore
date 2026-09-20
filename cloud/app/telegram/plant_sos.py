@@ -312,7 +312,9 @@ async def _user_thread(user_id: int, planting_id: str):
 
         # Reports created by the first SOS implementation have no chat-message
         # rows. Preserve that history instead of hiding it.
-        report_ids_with_messages = {item.report_id for item in messages}
+        report_ids_with_user_messages = {
+            item.report_id for item in messages if item.sender_type == "user"
+        }
         legacy = [
             (
                 report.created_at,
@@ -320,7 +322,7 @@ async def _user_thread(user_id: int, planting_id: str):
                 report.message,
             )
             for report in reports
-            if report.id not in report_ids_with_messages and report.message
+            if report.id not in report_ids_with_user_messages and report.message
         ]
         combined = [
             (item.created_at, item.sender_type, item.body)
