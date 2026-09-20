@@ -11,6 +11,7 @@ from sqlalchemy import select
 from ..config import get_settings
 from ..db import SessionLocal
 from ..models import Allocation, Plant, Planting, RackPhoto, RackSlot
+from .activity_notifier import TelegramActivityDelivery
 from .models import TelegramUser
 from .neighbor_models import TelegramNeighborDelivery, TelegramNeighborNotifierState, TelegramNeighborReadyDelivery
 from .service import language_base, localized_value, resolve_photo_path
@@ -322,7 +323,24 @@ async def discover_neighbor_deliveries() -> int:
     return created
 
 
-async def _ready_recipients(session, slot: RackSlot, owner_allocation: Allocation) -> list[TelegramUser]:
+async def _ready_recipients(
+    session,
+    slot: RackSlot,
+    owner_allocation: Allocation,
+    *,
+    event_at: datetime | None = None,
+) -> list[TelegramUser]:
+    conditions = [
+        Allocation.device_id == slot.device_id,
+        Allocation.rack_id == slot.rack_id,
+        Allocation.status == "active",
+        Allocation.slot_number.is_not(None),
+        Allocation.user_id != owner_allocation.user_id,
+        TelegramUser.is_active.is_(True),
+    ]
+    if event_at is not None:
+        conditions.append(Allocation.starts_at <= event_at)
+
     return list(
         (
             await session.execute(
@@ -331,14 +349,7 @@ async def _ready_recipients(session, slot: RackSlot, owner_allocation: Allocatio
                     Allocation,
                     TelegramUser.marketplace_user_id == Allocation.user_id,
                 )
-                .where(
-                    Allocation.device_id == slot.device_id,
-                    Allocation.rack_id == slot.rack_id,
-                    Allocation.status == "active",
-                    Allocation.slot_number.is_not(None),
-                    Allocation.user_id != owner_allocation.user_id,
-                    TelegramUser.is_active.is_(True),
-                )
+                .where(*conditions)
                 .distinct()
             )
         ).scalars().all()
@@ -415,7 +426,6 @@ async def discover_ready_neighbor_deliveries() -> int:
                 .join(Allocation, Allocation.id == Planting.cloud_allocation_id)
                 .where(
                     Planting.status == "ready",
-                    Planting.observed_at >= state.activated_at,
                     Allocation.status == "active",
                 )
                 .order_by(Planting.observed_at)
@@ -424,7 +434,26 @@ async def discover_ready_neighbor_deliveries() -> int:
         ).all()
 
         for planting, slot, owner_allocation in rows:
-            recipients = await _ready_recipients(session, slot, owner_allocation)
+            ready_event = await session.get(
+                TelegramActivityDelivery,
+                f"planting_ready:{planting.id}",
+            )
+            if ready_event is None:
+                # The lifecycle notifier has not observed this transition yet.
+                # Retry on the next pass so the stable ready-event timestamp is
+                # used instead of Planting.observed_at, which changes on every
+                # edge snapshot.
+                continue
+            event_at = _aware(ready_event.created_at) or _now()
+            if event_at < _aware(state.activated_at):
+                continue
+
+            recipients = await _ready_recipients(
+                session,
+                slot,
+                owner_allocation,
+                event_at=event_at,
+            )
             for recipient in recipients:
                 exists = (
                     await session.execute(
@@ -445,7 +474,7 @@ async def discover_ready_neighbor_deliveries() -> int:
                         user_id=recipient.id,
                         status="pending",
                         attempts=0,
-                        created_at=_aware(planting.observed_at) or _now(),
+                        created_at=event_at,
                     )
                 )
                 created += 1
