@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, time, timezone
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -9,7 +10,7 @@ from sqlalchemy import or_, select
 from ..config import get_settings
 from ..db import SessionLocal
 from ..models import Plant, Planting, RackPhoto, RackSlot
-from ..rack_photo_storage import slot_latest_path
+from ..rack_photo_storage import ensure_slot_latest_from_rack
 from .models import SocialFollow, TelegramUser
 
 
@@ -90,18 +91,21 @@ async def pending_follow_notifications(limit: int = 50):
                 continue
             if last_notified is not None and photo_updated <= last_notified:
                 continue
-            # Followers should see only the container they subscribed to, not
-            # the whole 2x3 rack. The slot crop is generated from the same
-            # RackPhoto archive by worker_slot_photos.
-            crop_path = slot_latest_path(
-                get_settings().photo_dir,
-                slot.device_id,
-                slot.rack_id,
-                slot.slot_number,
-            )
-            if not crop_path.is_file():
-                # Do not fall back to the full rack: the next notification pass
-                # will pick this up as soon as the container crop is available.
+            # Followers must receive only the exact container they subscribed
+            # to, never the complete 2x3 rack. Refresh the crop on demand from
+            # the current RackPhoto so this also works for legacy/HTTP uploads.
+            try:
+                crop_path = await asyncio.to_thread(
+                    ensure_slot_latest_from_rack,
+                    rack_photo_path=photo.file_path,
+                    photo_dir=get_settings().photo_dir,
+                    device_id=slot.device_id,
+                    rack_id=slot.rack_id,
+                    slot_number=slot.slot_number,
+                )
+            except Exception:
+                # Never fall back to the whole rack. A future pass will retry
+                # after the source rack photo becomes readable.
                 continue
             result.append(
                 SimpleNamespace(
