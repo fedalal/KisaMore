@@ -14,6 +14,7 @@ from .admin_models import AdminAuditLog
 from .config import get_settings
 from .models import User
 from .security import get_admin_user, get_session
+from .telegram.broadcast_media import media_kind, media_mime
 from .telegram.broadcast_models import (
     TelegramBroadcast,
     TelegramBroadcastAnswer,
@@ -41,14 +42,60 @@ def _base_language(value: str | None) -> str:
     return raw.split("-", 1)[0] if raw else ""
 
 
-def _image_kind(content: bytes) -> tuple[str, str]:
-    if content.startswith(b"\xff\xd8\xff"):
-        return ".jpg", "image/jpeg"
-    if content.startswith(b"\x89PNG\r\n\x1a\n"):
-        return ".png", "image/png"
-    if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
-        return ".webp", "image/webp"
-    raise HTTPException(status_code=422, detail="Supported image formats: JPEG, PNG, WEBP")
+def _upload_media_kind(
+    header: bytes,
+    filename: str | None,
+    content_type: str | None,
+) -> tuple[str, str, str]:
+    suffix = Path(str(filename or "")).suffix.lower()
+    mime = (content_type or "").lower()
+
+    if header.startswith(b"\xff\xd8\xff"):
+        return "photo", ".jpg", "image/jpeg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "photo", ".png", "image/png"
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return "photo", ".webp", "image/webp"
+    if header.startswith((b"GIF87a", b"GIF89a")):
+        return "animation", ".gif", "image/gif"
+    if header.startswith(b"\x1aE\xdf\xa3") or suffix == ".webm" or mime == "video/webm":
+        return "video", ".webm", "video/webm"
+    if len(header) >= 12 and header[4:8] == b"ftyp":
+        if suffix == ".mov" or mime == "video/quicktime":
+            return "video", ".mov", "video/quicktime"
+        return "video", ".mp4", "video/mp4"
+
+    raise HTTPException(
+        status_code=422,
+        detail="Supported media formats: JPEG, PNG, WEBP, GIF, MP4, MOV, WEBM",
+    )
+
+
+async def _save_upload(upload: UploadFile, target: Path, max_bytes: int) -> int:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    size = 0
+    try:
+        with temporary.open("wb") as handle:
+            while True:
+                chunk = await upload.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Media is too large (max {max_bytes // 1024 // 1024} MB)",
+                    )
+                handle.write(chunk)
+        temporary.replace(target)
+        return size
+    finally:
+        await upload.close()
+        if temporary.exists():
+            temporary.unlink(missing_ok=True)
+
+
 
 
 def _parse_options(raw: str, answer_mode: str) -> list[str]:
@@ -131,9 +178,35 @@ async def _broadcast_payload(session: AsyncSession, row: TelegramBroadcast) -> d
         "question": row.question,
         "answer_mode": row.answer_mode,
         "show_results_to_users": row.show_results_to_users,
-        "has_photo": bool(row.photo_path),
+        "has_media": bool(row.photo_path),
+        "media_kind": (
+            media_kind(row.photo_path, row.photo_name)
+            if row.photo_path
+            else None
+        ),
+        "media_name": row.photo_name,
+        "media_size_bytes": (
+            Path(row.photo_path).stat().st_size
+            if row.photo_path and Path(row.photo_path).is_file()
+            else None
+        ),
+        "media_url": (
+            f"/api/v1/admin/telegram-broadcasts/{row.id}/media"
+            if row.photo_path
+            else None
+        ),
+        # Backwards-compatible fields for older admin JavaScript.
+        "has_photo": bool(
+            row.photo_path
+            and media_kind(row.photo_path, row.photo_name) == "photo"
+        ),
         "photo_name": row.photo_name,
-        "photo_url": f"/api/v1/admin/telegram-broadcasts/{row.id}/photo" if row.photo_path else None,
+        "photo_url": (
+            f"/api/v1/admin/telegram-broadcasts/{row.id}/photo"
+            if row.photo_path
+            and media_kind(row.photo_path, row.photo_name) == "photo"
+            else None
+        ),
         "status": row.status,
         "total_recipients": row.total_recipients,
         "sent_count": row.sent_count,
@@ -211,23 +284,40 @@ async def get_broadcast(
     return await _broadcast_payload(session, row)
 
 
-@router.get("/{broadcast_id}/photo")
-async def get_broadcast_photo(
+@router.get("/{broadcast_id}/media")
+async def get_broadcast_media(
     broadcast_id: int,
     _: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_session),
 ):
     row = await session.get(TelegramBroadcast, broadcast_id)
     if row is None or not row.photo_path:
-        raise HTTPException(status_code=404, detail="Broadcast photo not found")
+        raise HTTPException(status_code=404, detail="Broadcast media not found")
     path = Path(row.photo_path)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="Broadcast photo file not found")
-    suffix = path.suffix.lower()
-    media_type = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}.get(
-        suffix, "application/octet-stream"
+        raise HTTPException(status_code=404, detail="Broadcast media file not found")
+    return FileResponse(
+        path,
+        media_type=media_mime(path, row.photo_name),
     )
-    return FileResponse(path, media_type=media_type, filename=row.photo_name or path.name)
+
+
+@router.get("/{broadcast_id}/photo")
+async def get_broadcast_photo(
+    broadcast_id: int,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    # Kept for old admin pages and previously created photo broadcasts.
+    row = await session.get(TelegramBroadcast, broadcast_id)
+    if row is None or not row.photo_path:
+        raise HTTPException(status_code=404, detail="Broadcast photo not found")
+    path = Path(row.photo_path)
+    if not path.is_file() or media_kind(path, row.photo_name) != "photo":
+        raise HTTPException(status_code=404, detail="Broadcast photo not found")
+    return FileResponse(path, media_type=media_mime(path, row.photo_name))
+
+
 
 
 @router.post("")
@@ -238,6 +328,7 @@ async def create_broadcast(
     answer_mode: str = Form(default="none"),
     options_json: str = Form(default="[]"),
     show_results_to_users: bool = Form(default=False),
+    media: UploadFile | None = File(default=None),
     photo: UploadFile | None = File(default=None),
     admin: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_session),
@@ -252,6 +343,10 @@ async def create_broadcast(
     if mode not in ANSWER_MODES:
         raise HTTPException(status_code=422, detail="Unsupported poll mode")
 
+    if media is not None and photo is not None:
+        raise HTTPException(status_code=422, detail="Upload only one media file")
+    upload = media or photo
+
     message_text = (text or "").strip()
     poll_question = (question or "").strip()
     if len(message_text) > 3500:
@@ -263,8 +358,8 @@ async def create_broadcast(
         raise HTTPException(status_code=422, detail="Poll question is required")
     if mode == "none":
         poll_question = ""
-    if not message_text and not poll_question and photo is None:
-        raise HTTPException(status_code=422, detail="Message text, question or photo is required")
+    if not message_text and not poll_question and upload is None:
+        raise HTTPException(status_code=422, detail="Message text, question or media is required")
 
     now = datetime.now(timezone.utc)
     row = TelegramBroadcast(
@@ -281,22 +376,31 @@ async def create_broadcast(
     session.add(row)
     await session.flush()
 
-    if photo is not None:
+    uploaded_kind = None
+    uploaded_size = 0
+    if upload is not None:
         settings = get_settings()
-        content = await photo.read(settings.photo_max_bytes + 1)
-        original_name = photo.filename or "broadcast-photo"
-        await photo.close()
-        if len(content) > settings.photo_max_bytes:
-            raise HTTPException(status_code=413, detail=f"Image is too large (max {settings.photo_max_bytes // 1024 // 1024} MB)")
-        extension, _ = _image_kind(content)
+        header = await upload.read(64)
+        await upload.seek(0)
+        uploaded_kind, extension, _mime = _upload_media_kind(
+            header,
+            upload.filename,
+            upload.content_type,
+        )
+        max_bytes = (
+            settings.photo_max_bytes
+            if uploaded_kind == "photo"
+            else settings.broadcast_media_max_bytes
+        )
+        original_name = upload.filename or f"broadcast-{uploaded_kind}{extension}"
         target_dir = Path(settings.photo_dir) / "admin" / "broadcasts" / str(row.id)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target = target_dir / f"{now.strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}{extension}"
-        temporary = target.with_suffix(target.suffix + ".tmp")
-        temporary.write_bytes(content)
-        temporary.replace(target)
+        target = target_dir / (
+            f"{now.strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}{extension}"
+        )
+        uploaded_size = await _save_upload(upload, target, max_bytes)
         row.photo_path = str(target)
         row.photo_name = original_name[:255]
+
 
     for position, option_text in enumerate(options, start=1):
         session.add(
@@ -335,7 +439,9 @@ async def create_broadcast(
                 "answer_mode": mode,
                 "options": len(options),
                 "recipients": len(recipients),
-                "has_photo": bool(row.photo_path),
+                "has_media": bool(row.photo_path),
+                "media_kind": uploaded_kind,
+                "media_size_bytes": uploaded_size or None,
             },
         )
     )
