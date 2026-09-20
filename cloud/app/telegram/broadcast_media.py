@@ -104,7 +104,7 @@ def _transcode(
             "-i",
             str(source),
             "-vf",
-            "scale=w='if(gt(iw,1280),1280,iw)':h=-2",
+            "scale=w='if(gt(iw,1280),1280,iw)':h='if(gt(ih,1280),1280,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
             "-c:v",
             "libx264",
             "-preset",
