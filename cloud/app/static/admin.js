@@ -140,6 +140,7 @@ async function loadOverview() {
     ["Активные растения", data.active_plantings],
     ["Комментарии", data.published_comments],
     ["Заявки на аренду", data.rental_requests],
+    ["Открытые SOS", data.sos_open || 0],
   ];
   qs("#overviewCards").innerHTML = cards.map(([label, value]) => `<div class="stat-card"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`).join("");
 }
