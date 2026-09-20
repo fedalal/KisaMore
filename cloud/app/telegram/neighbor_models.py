@@ -21,7 +21,14 @@ class TelegramNeighborNotifierState(Base):
 
 class TelegramNeighborDelivery(Base):
     __tablename__ = "telegram_neighbor_deliveries"
-    __table_args__ = (UniqueConstraint("planting_id", "user_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "planting_id",
+            "user_id",
+            "event_type",
+            name="uq_telegram_neighbor_delivery_event",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     planting_id: Mapped[str] = mapped_column(
@@ -29,6 +36,9 @@ class TelegramNeighborDelivery(Base):
     )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("telegram_users.id"), index=True, nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(
+        String(20), default="planted", index=True, nullable=False
     )
     status: Mapped[str] = mapped_column(
         String(20), default="pending", index=True, nullable=False
