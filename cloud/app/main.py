@@ -90,8 +90,8 @@ async def admin_dashboard() -> HTMLResponse:
     content = content.replace(
         "</body>",
         '<script src="/static/admin_stars.js?v=20260913-1" defer></script>\n'
-        '<script src="/static/admin_broadcasts.js?v=20260914-2" defer></script>\n'
-        '<script src="/static/admin_broadcasts_live.js?v=20260914-1" defer></script>\n</body>',
+        '<script src="/static/admin_broadcasts.js?v=20260920-1" defer></script>\n'
+        '<script src="/static/admin_broadcasts_live.js?v=20260920-1" defer></script>\n</body>',
     )
     return HTMLResponse(
         content,
