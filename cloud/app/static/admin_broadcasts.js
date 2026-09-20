@@ -79,8 +79,9 @@
           <label>Текст сообщения
             <textarea id="broadcastText" maxlength="3500" rows="8" placeholder="Новость, объявление или пояснение к опросу"></textarea>
           </label>
-          <label>Фотография (необязательно)
-            <input id="broadcastPhoto" type="file" accept="image/jpeg,image/png,image/webp">
+          <label>Медиа (необязательно)
+            <input id="broadcastMedia" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime">
+            <span class="broadcast-small">Фото — до 2 МБ. Видео и GIF — до 100 МБ. Большие GIF/видео автоматически оптимизируются перед отправкой в Telegram.</span>
           </label>
           <div id="broadcastPollFields" class="broadcast-poll" hidden>
             <label>Вопрос
@@ -174,6 +175,13 @@
     if (fields) fields.hidden = mode === "none";
   }
 
+  function mediaLabel(file) {
+    if (!file) return "";
+    if (file.type === "image/gif") return "GIF-анимация";
+    if (file.type.startsWith("video/")) return "видео";
+    return "фотография";
+  }
+
   function renderPreview() {
     const preview = document.querySelector("#broadcastPreview");
     if (!preview) return;
@@ -181,32 +189,63 @@
     const question = document.querySelector("#broadcastQuestion")?.value.trim() || "";
     const mode = document.querySelector("#broadcastMode")?.value || "none";
     const options = mode === "none" ? [] : pollOptions();
-    const file = document.querySelector("#broadcastPhoto")?.files?.[0] || null;
+    const file = document.querySelector("#broadcastMedia")?.files?.[0] || null;
 
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       previewUrl = null;
     }
-    const image = file ? (() => {
+
+    let media = "";
+    if (file) {
       previewUrl = URL.createObjectURL(file);
-      return `<img src="${previewUrl}" alt="Предпросмотр">`;
-    })() : "";
+      if (file.type.startsWith("video/")) {
+        media = `<video class="broadcast-detail-photo" src="${previewUrl}" controls muted loop playsinline></video>`;
+      } else {
+        media = `<img src="${previewUrl}" alt="Предпросмотр медиа">`;
+      }
+    }
+
     const body = text ? `<div class="broadcast-preview-text">${esc(text)}</div>` : "";
     const poll = question ? `<div class="broadcast-preview-text" style="margin-top:12px"><strong>${esc(question)}</strong></div>` : "";
     const buttons = options.map((item) => `<span class="broadcast-preview-option">${esc(item)}</span>`).join("");
-    preview.innerHTML = image || body || poll || buttons ? `${image}${body}${poll}${buttons}` : '<div class="muted">Сообщение пока пустое.</div>';
+    preview.innerHTML = media || body || poll || buttons
+      ? `${media}${body}${poll}${buttons}`
+      : '<div class="muted">Сообщение пока пустое.</div>';
   }
 
   function validateForm() {
     const mode = document.querySelector("#broadcastMode")?.value || "none";
     const text = document.querySelector("#broadcastText")?.value.trim() || "";
     const question = document.querySelector("#broadcastQuestion")?.value.trim() || "";
-    const photo = document.querySelector("#broadcastPhoto")?.files?.[0] || null;
+    const media = document.querySelector("#broadcastMedia")?.files?.[0] || null;
     const options = mode === "none" ? [] : pollOptions();
-    if (!text && !question && !photo) throw new Error("Добавьте текст, вопрос или фотографию.");
+
+    if (!text && !question && !media) throw new Error("Добавьте текст, вопрос или медиа.");
     if (mode !== "none" && !question) throw new Error("Для опроса нужен вопрос.");
     if (mode !== "none" && (options.length < 2 || options.length > 10)) throw new Error("Укажите от 2 до 10 вариантов ответа.");
-    return { mode, text, question, photo, options };
+
+    if (media) {
+      const allowed = new Set([
+        "image/jpeg", "image/png", "image/webp", "image/gif",
+        "video/mp4", "video/webm", "video/quicktime",
+      ]);
+      if (!allowed.has(media.type)) {
+        throw new Error("Поддерживаются JPEG, PNG, WEBP, GIF, MP4, MOV и WEBM.");
+      }
+      const maxBytes = (media.type === "image/gif" || media.type.startsWith("video/"))
+        ? 100 * 1024 * 1024
+        : 2 * 1024 * 1024;
+      if (media.size > maxBytes) {
+        throw new Error(
+          media.type === "image/gif" || media.type.startsWith("video/")
+            ? "Видео или GIF не должны превышать 100 МБ."
+            : "Фотография не должна превышать 2 МБ."
+        );
+      }
+    }
+
+    return { mode, text, question, media, options };
   }
 
   async function submitBroadcast(event) {
@@ -217,8 +256,8 @@
       const language = document.querySelector("#broadcastLanguage")?.value || "all";
       const count = selectedAudienceCount();
       const type = MODE_NAMES[values.mode] || values.mode;
-      const photoText = values.photo ? " + фотография" : "";
-      if (!window.confirm(`Отправить «${type}»${photoText} аудитории «${LANGUAGE_NAMES[language] || language}»?\n\nПолучателей: ${count}`)) return;
+      const mediaText = values.media ? ` + ${mediaLabel(values.media)}` : "";
+      if (!window.confirm(`Отправить «${type}»${mediaText} аудитории «${LANGUAGE_NAMES[language] || language}»?\n\nПолучателей: ${count}`)) return;
 
       const form = new FormData();
       form.append("language_code", language);
@@ -227,7 +266,7 @@
       form.append("answer_mode", values.mode);
       form.append("options_json", JSON.stringify(values.options));
       form.append("show_results_to_users", document.querySelector("#broadcastShowResults")?.checked ? "true" : "false");
-      if (values.photo) form.append("photo", values.photo);
+      if (values.media) form.append("media", values.media);
 
       const submit = formEl.querySelector('button[type="submit"]');
       if (submit) submit.disabled = true;
@@ -266,7 +305,7 @@
         return `<tr>
           <td>${esc(fmtDate(item.created_at))}</td>
           <td><div class="user-name">${esc(LANGUAGE_NAMES[item.language_code] || item.language_code)}</div><div class="username">${esc(item.total_recipients)} получателей</div></td>
-          <td>${esc(MODE_NAMES[item.answer_mode] || item.answer_mode)}${item.has_photo ? '<div class="username">📷 С фото</div>' : ""}</td>
+          <td>${esc(MODE_NAMES[item.answer_mode] || item.answer_mode)}${item.has_media ? `<div class="username">${item.media_kind === "animation" ? "🎞 GIF" : item.media_kind === "video" ? "🎬 Видео" : "📷 Фото"}</div>` : ""}</td>
           <td>${esc(delivered)}${failed}</td>
           <td>${esc(answered)}</td>
           <td>${statusBadge(item.status)}</td>
@@ -300,7 +339,15 @@
     detail.innerHTML = '<div class="muted">Загрузка рассылки…</div>';
     try {
       const item = await api(`/api/v1/admin/telegram-broadcasts/${id}`);
-      const image = item.photo_url ? `<img class="broadcast-detail-photo" src="${esc(item.photo_url)}?t=${encodeURIComponent(item.created_at || Date.now())}" alt="Фото рассылки">` : "";
+      let media = "";
+      if (item.media_url) {
+        const src = `${esc(item.media_url)}?t=${encodeURIComponent(item.created_at || Date.now())}`;
+        if (item.media_kind === "video") {
+          media = `<video class="broadcast-detail-photo" src="${src}" controls preload="metadata" playsinline></video>`;
+        } else {
+          media = `<img class="broadcast-detail-photo" src="${src}" alt="Медиа рассылки">`;
+        }
+      }
       const text = item.text ? `<div class="broadcast-message">${esc(item.text)}</div>` : "";
       const question = item.question ? `<h3 style="margin-top:14px">${esc(item.question)}</h3>` : "";
       const results = item.options?.length ? `<div class="broadcast-results">${item.options.map((option) =>
@@ -309,7 +356,7 @@
       detail.innerHTML = `
         <div class="panel-head"><div><h2>Рассылка #${esc(item.id)}</h2><p>${esc(LANGUAGE_NAMES[item.language_code] || item.language_code)} · ${esc(MODE_NAMES[item.answer_mode] || item.answer_mode)} · ${esc(fmtDate(item.created_at))}</p></div>${statusBadge(item.status)}</div>
         <div class="watering-note">Получателей: ${esc(item.total_recipients)} · отправлено: ${esc(item.sent_count)} · ошибок: ${esc(item.failed_count)}${item.answer_mode !== "none" ? ` · ответили: ${esc(item.answered_users)} (${Number(item.response_rate || 0).toFixed(1)}%)` : ""}</div>
-        ${image}${text}${question}${results}`;
+        ${media}${text}${question}${results}`;
     } catch (error) {
       detail.innerHTML = `<div class="muted">Ошибка: ${esc(error.message)}</div>`;
     }
@@ -326,7 +373,7 @@
   document.querySelector("#broadcastLanguage")?.addEventListener("change", updateAudienceNote);
   document.querySelector("#broadcastMode")?.addEventListener("change", () => { togglePollFields(); renderPreview(); });
   document.querySelector("#broadcastPreviewButton")?.addEventListener("click", renderPreview);
-  document.querySelector("#broadcastPhoto")?.addEventListener("change", renderPreview);
+  document.querySelector("#broadcastMedia")?.addEventListener("change", renderPreview);
   document.querySelector("#broadcastForm")?.addEventListener("submit", submitBroadcast);
   document.querySelector("#reloadBroadcasts")?.addEventListener("click", async () => {
     try { await Promise.all([loadAudience(), loadBroadcasts()]); } catch (error) { toast(`Ошибка: ${error.message}`); }
