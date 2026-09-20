@@ -8,7 +8,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstr
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import SessionLocal
-from ..models import Base, Plant, Planting, RackSlot
+from ..models import Allocation, Base, Plant, Planting, RackSlot
 from .admin_models import TelegramAdmin
 from .models import TelegramUser
 
@@ -24,6 +24,7 @@ SOS_TEXT = {
         "empty": "Please describe the problem in a text message.",
         "too_long": "The message is too long. Please keep it under 1500 characters.",
         "back": "🌱 Back to plant",
+        "not_owner": "SOS is available only for plants you are currently growing.",
     },
     "ru": {
         "button": "🚨 SOS",
@@ -33,6 +34,7 @@ SOS_TEXT = {
         "empty": "Опишите проблему текстовым сообщением.",
         "too_long": "Сообщение слишком длинное. Максимум 1500 символов.",
         "back": "🌱 Вернуться к растению",
+        "not_owner": "SOS доступен только для растений, которые вы сейчас выращиваете.",
     },
     "de": {
         "button": "🚨 SOS",
@@ -42,6 +44,7 @@ SOS_TEXT = {
         "empty": "Bitte beschreibe das Problem als Text.",
         "too_long": "Die Nachricht ist zu lang. Maximal 1500 Zeichen.",
         "back": "🌱 Zurück zur Pflanze",
+        "not_owner": "SOS ist nur für Pflanzen verfügbar, die du aktuell anbaust.",
     },
     "fr": {
         "button": "🚨 SOS",
@@ -51,6 +54,7 @@ SOS_TEXT = {
         "empty": "Veuillez décrire le problème par écrit.",
         "too_long": "Le message est trop long. Maximum 1500 caractères.",
         "back": "🌱 Retour à la plante",
+        "not_owner": "SOS est disponible uniquement pour les plantes que vous cultivez actuellement.",
     },
     "es": {
         "button": "🚨 SOS",
@@ -60,6 +64,7 @@ SOS_TEXT = {
         "empty": "Describe el problema en un mensaje de texto.",
         "too_long": "El mensaje es demasiado largo. Máximo 1500 caracteres.",
         "back": "🌱 Volver a la planta",
+        "not_owner": "SOS solo está disponible para las plantas que estás cultivando actualmente.",
     },
     "it": {
         "button": "🚨 SOS",
@@ -69,6 +74,7 @@ SOS_TEXT = {
         "empty": "Descrivi il problema con un messaggio di testo.",
         "too_long": "Il messaggio è troppo lungo. Massimo 1500 caratteri.",
         "back": "🌱 Torna alla pianta",
+        "not_owner": "SOS è disponibile solo per le piante che stai coltivando.",
     },
     "pt": {
         "button": "🚨 SOS",
@@ -78,6 +84,7 @@ SOS_TEXT = {
         "empty": "Descreva o problema em uma mensagem de texto.",
         "too_long": "A mensagem é muito longa. Máximo de 1500 caracteres.",
         "back": "🌱 Voltar à planta",
+        "not_owner": "SOS está disponível apenas para as plantas que você está cultivando.",
     },
     "pl": {
         "button": "🚨 SOS",
@@ -87,6 +94,7 @@ SOS_TEXT = {
         "empty": "Opisz problem w wiadomości tekstowej.",
         "too_long": "Wiadomość jest za długa. Maksymalnie 1500 znaków.",
         "back": "🌱 Wróć do rośliny",
+        "not_owner": "SOS jest dostępny tylko dla roślin, które aktualnie uprawiasz.",
     },
     "zh": {
         "button": "🚨 SOS",
@@ -96,6 +104,7 @@ SOS_TEXT = {
         "empty": "请用文字描述问题。",
         "too_long": "消息过长，最多 1500 个字符。",
         "back": "🌱 返回植物",
+        "not_owner": "SOS 仅适用于您当前正在种植的植物。",
     },
 }
 
@@ -143,7 +152,28 @@ def _tr(lang: str) -> dict:
     return SOS_TEXT.get(lang) or SOS_TEXT["en"]
 
 
+async def _owns_planting(user_id: int, planting_id: str) -> bool:
+    async with SessionLocal() as session:
+        telegram_user = await session.get(TelegramUser, user_id)
+        planting = await session.get(Planting, planting_id)
+        if (
+            telegram_user is None
+            or not telegram_user.marketplace_user_id
+            or planting is None
+            or not planting.cloud_allocation_id
+        ):
+            return False
+        allocation = await session.get(Allocation, planting.cloud_allocation_id)
+        return bool(
+            allocation is not None
+            and allocation.status == "active"
+            and allocation.user_id == telegram_user.marketplace_user_id
+        )
+
+
 async def _create_report(user_id: int, planting_id: str, message: str) -> int | None:
+    if not await _owns_planting(user_id, planting_id):
+        return None
     now = datetime.now(timezone.utc)
     async with SessionLocal() as session:
         planting = await session.get(Planting, planting_id)
@@ -291,22 +321,65 @@ def install(core) -> None:
     if getattr(core, "_plant_sos_installed", False):
         return
 
-    previous_plant_keyboard = core.plant_keyboard
     previous_handle_callback = core.handle_callback
     previous_handle_message = core.handle_message
     previous_follow_notification_loop = core.follow_notification_loop
 
     def plant_keyboard(lang: str, card, index: int, total: int) -> dict:
-        markup = previous_plant_keyboard(lang, card, index, total)
-        rows = [list(row) for row in markup.get("inline_keyboard", [])]
-        sos_row = [{
-            "text": _tr(lang)["button"],
-            "callback_data": f"sos:start:{card.planting.id}:{index}",
-        }]
-        if rows:
-            rows.insert(max(0, len(rows) - 1), sos_row)
-        else:
-            rows.append(sos_row)
+        # Keep the card compact: social counters/actions in two rows and
+        # navigation in one row. Writing a comment remains available after
+        # opening the comments list.
+        like_text = f"{'✅' if card.my_vote == 'like' else ''}❤️ {card.likes}"
+        dislike_text = f"{'✅' if card.my_vote == 'dislike' else ''}👎 {card.dislikes}"
+
+        rows = [
+            [
+                {
+                    "text": like_text,
+                    "callback_data": f"vote:like:{card.planting.id}:{index}",
+                },
+                {
+                    "text": dislike_text,
+                    "callback_data": f"vote:dislike:{card.planting.id}:{index}",
+                },
+                {
+                    "text": f"💬 {card.comments}",
+                    "callback_data": f"comment:list:{card.planting.id}:{index}",
+                },
+            ]
+        ]
+
+        actions = [
+            {
+                "text": "✅🔔" if card.following else "🔔",
+                "callback_data": f"follow:{card.planting.id}:{index}",
+            },
+            {
+                "text": "🎁",
+                "callback_data": f"gift:menu:{card.planting.id}:{index}",
+            },
+            {
+                "text": "🎞",
+                "callback_data": f"timelapse:{card.planting.id}",
+            },
+        ]
+        if bool(getattr(card, "is_owner", False)):
+            actions.append(
+                {
+                    "text": _tr(lang)["button"],
+                    "callback_data": f"sos:start:{card.planting.id}:{index}",
+                }
+            )
+        rows.append(actions)
+
+        nav = []
+        if index > 0:
+            nav.append({"text": "⬅️", "callback_data": f"feed:{index - 1}"})
+        nav.append({"text": "🏠", "callback_data": "menu:home"})
+        if index + 1 < total:
+            nav.append({"text": "➡️", "callback_data": f"feed:{index + 1}"})
+        rows.append(nav)
+
         return {"inline_keyboard": rows}
 
     async def handle_callback(bot, query: dict) -> None:
@@ -333,6 +406,13 @@ def install(core) -> None:
 
         user, _ = await core.get_or_create_user(tg)
         lang = core.language_for(tg)
+        if not await _owns_planting(user.id, planting_id):
+            await bot.answer_callback_query(
+                qid,
+                text=_tr(lang)["not_owner"],
+                show_alert=True,
+            )
+            return
         await core.set_state(
             user.id,
             "plant_sos",
