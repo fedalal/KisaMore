@@ -5,7 +5,8 @@ from html import escape
 from sqlalchemy import func, select
 
 from ..db import SessionLocal
-from .models import SocialFollow
+from ..models import Allocation
+from .models import SocialFollow, TelegramUser
 
 
 async def _follower_count(planting_id: str) -> int:
@@ -62,6 +63,19 @@ def install(core) -> None:
         card = await previous_get_plant_card(planting_id, user_id)
         if card is not None:
             card.followers = await _follower_count(planting_id)
+            card.is_owner = False
+            allocation_id = getattr(card.planting, "cloud_allocation_id", None)
+            if allocation_id:
+                async with SessionLocal() as session:
+                    telegram_user = await session.get(TelegramUser, user_id)
+                    allocation = await session.get(Allocation, allocation_id)
+                    card.is_owner = bool(
+                        telegram_user is not None
+                        and telegram_user.marketplace_user_id
+                        and allocation is not None
+                        and allocation.status == "active"
+                        and allocation.user_id == telegram_user.marketplace_user_id
+                    )
         return card
 
     async def show_plant_card(
