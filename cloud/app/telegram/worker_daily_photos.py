@@ -20,6 +20,7 @@ from .reaction_refresh import install as install_reaction_refresh
 from .rentable_catalog import install as install_rentable_catalog
 from .rental_picker_ui import install as install_rental_picker_ui
 from .rental_progress_notifier import install as install_rental_progress
+from .rental_engagement import install as install_rental_engagement
 from .stars_monitor import telegram_stars_sync_loop
 from .wallet_gift_notifier import install as install_wallet_gift_notifications
 from .watering_facts import install as install_watering_facts
@@ -29,6 +30,7 @@ core = existing.core
 install_rentable_catalog(core)
 install(core)
 install_rental_progress(core)
+install_rental_engagement(core)
 install_rental_picker_ui()
 install_plant_card_ui(core)
 install_reaction_refresh(core)
