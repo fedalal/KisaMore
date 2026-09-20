@@ -31,9 +31,15 @@
       const item = await api(`/api/v1/admin/telegram-broadcasts/${id}`);
       if (currentBroadcastId !== id) return;
 
-      const image = item.photo_url
-        ? `<img class="broadcast-detail-photo" src="${esc(item.photo_url)}?t=${encodeURIComponent(item.created_at || Date.now())}" alt="Фото рассылки">`
-        : "";
+      let media = "";
+      if (item.media_url) {
+        const src = `${esc(item.media_url)}?t=${encodeURIComponent(item.created_at || Date.now())}`;
+        if (item.media_kind === "video") {
+          media = `<video class="broadcast-detail-photo" src="${src}" controls preload="metadata" playsinline></video>`;
+        } else {
+          media = `<img class="broadcast-detail-photo" src="${src}" alt="Медиа рассылки">`;
+        }
+      }
       const text = item.text ? `<div class="broadcast-message">${esc(item.text)}</div>` : "";
       const question = item.question ? `<h3 style="margin-top:14px">${esc(item.question)}</h3>` : "";
       const results = item.options?.length
@@ -46,7 +52,7 @@
       detail.innerHTML = `
         <div class="panel-head"><div><h2>Рассылка #${esc(item.id)}</h2><p>${esc(LANGUAGE_NAMES[item.language_code] || item.language_code)} · ${esc(MODE_NAMES[item.answer_mode] || item.answer_mode)} · ${esc(fmtDate(item.created_at))}</p></div>${statusBadge(item.status)}</div>
         <div class="watering-note">Получателей: ${esc(item.total_recipients)} · отправлено: ${esc(item.sent_count)} · ошибок: ${esc(item.failed_count)}${item.answer_mode !== "none" ? ` · ответили: ${esc(item.answered_users)} (${Number(item.response_rate || 0).toFixed(1)}%)` : ""}</div>
-        ${image}${text}${question}${results}
+        ${media}${text}${question}${results}
         <div class="broadcast-small" style="margin-top:10px">Результаты обновляются автоматически.</div>`;
     } catch (error) {
       if (!quiet && currentBroadcastId === id) {
