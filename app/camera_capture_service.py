@@ -1,17 +1,63 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import os
-
 from pathlib import Path
 
 from sqlalchemy import select
-from .db import SessionLocal
-from .models import RackState
 
+from .db import SessionLocal
+from .models import RackSchedule, RackState
 from . import runtime
 from .camera_one_shot import capture_one_shot_jpeg
 from .camera_profiles import profile_controls, profile_format
 from .google_drive_uploader import GoogleDriveUploader
+
+
+DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+def _parse_schedule_time(value: str) -> time:
+    parts = str(value or "").strip().split(":")
+    if len(parts) == 2:
+        hh, mm = parts
+        ss = 0
+    elif len(parts) == 3:
+        hh, mm, ss = parts
+    else:
+        raise ValueError("time must be HH:MM or HH:MM:SS")
+    return time(int(hh), int(mm), int(ss))
+
+
+def _in_any_range(now: datetime, ranges: list[dict]) -> bool:
+    for item in ranges:
+        try:
+            start = _parse_schedule_time(item.get("start"))
+            end = _parse_schedule_time(item.get("end"))
+        except Exception:
+            continue
+
+        start_dt = now.replace(
+            hour=start.hour,
+            minute=start.minute,
+            second=start.second,
+            microsecond=0,
+        )
+        end_dt = now.replace(
+            hour=end.hour,
+            minute=end.minute,
+            second=end.second,
+            microsecond=0,
+        )
+
+        if end_dt <= start_dt:
+            end_dt += timedelta(days=1)
+            if now < start_dt:
+                start_dt -= timedelta(days=1)
+
+        if start_dt <= now < end_dt:
+            return True
+
+    return False
 
 
 class CameraCaptureService:
@@ -20,15 +66,115 @@ class CameraCaptureService:
         self.stop_event = asyncio.Event()
         self.uploader: GoogleDriveUploader | None = None
         self.uploader_key: tuple[str, str, str] | None = None
+        # Monotonic timestamp of the last night-capture attempt per rack.
+        # We record attempts rather than only successful frames so a broken
+        # camera cannot flash the grow light every normal capture interval.
+        self._last_night_capture_attempt: dict[int, float] = {}
 
-    async def _get_light_states(self) -> dict[int, bool]:
+    async def _get_light_contexts(self) -> dict[int, dict]:
+        now = datetime.now()
+        day_key = DAYS[now.weekday()]
+
         async with SessionLocal() as s:
-            rows = (await s.execute(select(RackState))).scalars().all()
+            states = (await s.execute(select(RackState))).scalars().all()
+            schedules = {
+                int(row.rack_id): row
+                for row in (await s.execute(select(RackSchedule))).scalars().all()
+            }
 
-        return {
-            int(row.rack_id): bool(row.light_on)
-            for row in rows
-        }
+        result: dict[int, dict] = {}
+        for state in states:
+            rack_id = int(state.rack_id)
+            schedule = schedules.get(rack_id)
+            schedule_json = schedule.schedule_json if schedule else {}
+            ranges = (((schedule_json.get("light") or {}).get(day_key)) or [])
+            result[rack_id] = {
+                "light_on": bool(state.light_on),
+                "light_mode": str(state.light_mode or "schedule"),
+                "schedule_on": _in_any_range(now, ranges),
+            }
+        return result
+
+    async def _get_light_context(self, rack_id: int) -> dict | None:
+        contexts = await self._get_light_contexts()
+        return contexts.get(int(rack_id))
+
+    def _night_capture_due(self, rack_id: int, interval_seconds: int) -> bool:
+        now = asyncio.get_running_loop().time()
+        previous = self._last_night_capture_attempt.get(int(rack_id))
+        return previous is None or (now - previous) >= interval_seconds
+
+    def _mark_night_capture_attempt(self, rack_id: int) -> None:
+        self._last_night_capture_attempt[int(rack_id)] = (
+            asyncio.get_running_loop().time()
+        )
+
+    async def _start_temporary_light(self, rack_id: int) -> bool:
+        if not runtime.cfg or not runtime.driver:
+            return False
+
+        rack_cfg = runtime.cfg.racks.get(str(rack_id))
+        if rack_cfg is None:
+            return False
+
+        # Re-check immediately before touching the relay. The operator may have
+        # changed the light mode since the capture pass began.
+        context = await self._get_light_context(rack_id)
+        if not context:
+            return False
+        if context["light_mode"] != "schedule":
+            return False
+        if context["light_on"] or context["schedule_on"]:
+            return False
+
+        self._mark_night_capture_attempt(rack_id)
+        await runtime.driver.set_relay(rack_cfg.light_relay, True)
+        print(
+            f"[camera-capture] night rack={rack_id}: temporary light ON "
+            f"(relay={rack_cfg.light_relay})"
+        )
+        return True
+
+    async def _restore_temporary_light(self, rack_id: int) -> None:
+        if not runtime.cfg or not runtime.driver:
+            return
+
+        rack_cfg = runtime.cfg.racks.get(str(rack_id))
+        if rack_cfg is None:
+            return
+
+        try:
+            context = await self._get_light_context(rack_id)
+        except Exception as exc:
+            # We started from a confirmed schedule/OFF state. If local DB state
+            # cannot be re-read, returning the relay to OFF is the safer
+            # fail-safe than leaving a grow light on indefinitely.
+            print(
+                f"[camera-capture] night rack={rack_id}: cannot re-check light "
+                f"state before restore ({exc}); forcing temporary light OFF"
+            )
+            await runtime.driver.set_relay(rack_cfg.light_relay, False)
+            return
+
+        if (
+            context
+            and context["light_mode"] == "schedule"
+            and not context["schedule_on"]
+            and not context["light_on"]
+        ):
+            await runtime.driver.set_relay(rack_cfg.light_relay, False)
+            print(
+                f"[camera-capture] night rack={rack_id}: temporary light OFF "
+                f"(relay={rack_cfg.light_relay})"
+            )
+            return
+
+        # Do not turn the lamp off if during capture the operator switched to
+        # manual ON, or the scheduled daytime period started.
+        print(
+            f"[camera-capture] night rack={rack_id}: keep light unchanged after "
+            "capture because mode/state/schedule changed"
+        )
 
     async def start(self):
         if self.task and not self.task.done():
@@ -207,85 +353,93 @@ class CameraCaptureService:
                 print(f"[camera-capture] error: {e}")
 
             interval = 30
-
             if runtime.cfg and runtime.cfg.camera_capture:
-                interval = runtime.cfg.camera_capture.interval_seconds
+                cfg = runtime.cfg.camera_capture
+                interval = cfg.interval_seconds
+                if cfg.night_capture_enabled and cfg.only_when_light_on:
+                    interval = min(interval, cfg.night_capture_interval_seconds)
 
             await asyncio.sleep(interval)
 
-    async def _capture_once(self):
-        if not runtime.cfg:
-            print("[camera-capture] config is not loaded")
-            return
-
+    async def _capture_rack(
+        self,
+        *,
+        rack_id: int,
+        rack_cfg,
+        uploader,
+        quality: int,
+        default_width: int,
+        default_height: int,
+        night_capture: bool,
+    ) -> None:
         cfg = runtime.cfg.camera_capture
+        camera_id = rack_cfg.camera_id or f"rack_{rack_id}_legacy"
+        camera_cfg = (
+            runtime.cfg.cameras.get(rack_cfg.camera_id)
+            if rack_cfg.camera_id
+            else None
+        )
 
-        if not cfg.enabled:
+        if camera_cfg:
+            device = camera_cfg.device.strip()
+            flip_vertical = camera_cfg.flip_vertical
+            flip_horizontal = camera_cfg.flip_horizontal
+            warp_enabled = camera_cfg.warp_enabled
+            warp_points = camera_cfg.warp_points
+            autofocus_enabled = camera_cfg.autofocus_enabled
+            focus_absolute = camera_cfg.focus_absolute
+            white_balance_auto = camera_cfg.white_balance_auto
+            white_balance_temperature = camera_cfg.white_balance_temperature
+            brightness = camera_cfg.brightness
+            contrast = camera_cfg.contrast
+            saturation = camera_cfg.saturation
+            sharpness = camera_cfg.sharpness
+        else:
+            device = (rack_cfg.camera_device or "").strip()
+            flip_vertical = rack_cfg.camera_flip_vertical
+            flip_horizontal = rack_cfg.camera_flip_horizontal
+            warp_enabled = rack_cfg.camera_warp_enabled
+            warp_points = rack_cfg.camera_warp_points
+            autofocus_enabled = True
+            focus_absolute = None
+            white_balance_auto = True
+            white_balance_temperature = None
+            brightness = None
+            contrast = None
+            saturation = None
+            sharpness = None
+
+        if not device:
             return
 
-        uploader = self._get_uploader()
+        if not os.path.exists(device):
+            print(f"[camera-capture] camera not found: rack={rack_id}, device={device}")
+            return
 
-        if uploader is not None:
-            await self._upload_pending_files(uploader)
-        else:
-            print("[camera-capture] Google Drive не настроен: credentials_file, token_file или google_folder_id пустые")
+        temporary_light = False
+        try:
+            if night_capture:
+                temporary_light = await self._start_temporary_light(rack_id)
+                if not temporary_light:
+                    print(
+                        f"[camera-capture] skip night rack={rack_id}: "
+                        "light mode/state changed"
+                    )
+                    return
 
-        await self._cleanup_archive_files()
+                warmup = float(cfg.night_capture_light_warmup_seconds)
+                if warmup > 0:
+                    print(
+                        f"[camera-capture] night rack={rack_id}: "
+                        f"waiting {warmup:.1f}s before frame"
+                    )
+                    await asyncio.sleep(warmup)
 
-        light_states = await self._get_light_states()
-
-        quality = cfg.jpeg_quality
-        default_width = cfg.frame_width
-        default_height = cfg.frame_height
-
-        # Cameras are opened strictly one after another. The saved profile for a
-        # camera controls its own format and all V4L2 image settings.
-        for rack_id_str, rack_cfg in runtime.cfg.racks.items():
-            rack_id = int(rack_id_str)
-            camera_id = rack_cfg.camera_id or f"rack_{rack_id}_legacy"
-            camera_cfg = runtime.cfg.cameras.get(rack_cfg.camera_id) if rack_cfg.camera_id else None
-
-            if camera_cfg:
-                device = camera_cfg.device.strip()
-                flip_vertical = camera_cfg.flip_vertical
-                flip_horizontal = camera_cfg.flip_horizontal
-                warp_enabled = camera_cfg.warp_enabled
-                warp_points = camera_cfg.warp_points
-                autofocus_enabled = camera_cfg.autofocus_enabled
-                focus_absolute = camera_cfg.focus_absolute
-                white_balance_auto = camera_cfg.white_balance_auto
-                white_balance_temperature = camera_cfg.white_balance_temperature
-                brightness = camera_cfg.brightness
-                contrast = camera_cfg.contrast
-                saturation = camera_cfg.saturation
-                sharpness = camera_cfg.sharpness
-            else:
-                device = (rack_cfg.camera_device or "").strip()
-                flip_vertical = rack_cfg.camera_flip_vertical
-                flip_horizontal = rack_cfg.camera_flip_horizontal
-                warp_enabled = rack_cfg.camera_warp_enabled
-                warp_points = rack_cfg.camera_warp_points
-                autofocus_enabled = True
-                focus_absolute = None
-                white_balance_auto = True
-                white_balance_temperature = None
-                brightness = None
-                contrast = None
-                saturation = None
-                sharpness = None
-
-            if not device:
-                continue
-
-            if cfg.only_when_light_on and not light_states.get(rack_id, False):
-                print(f"[camera-capture] skip rack={rack_id}: light is off")
-                continue
-
-            if not os.path.exists(device):
-                print(f"[camera-capture] camera not found: rack={rack_id}, device={device}")
-                continue
-
-            saved_profile = runtime.camera_profiles.get(camera_id) if runtime.camera_profiles else None
+            saved_profile = (
+                runtime.camera_profiles.get(camera_id)
+                if runtime.camera_profiles
+                else None
+            )
             frame_width, frame_height, pixel_format, fps = profile_format(
                 saved_profile,
                 default_width=default_width,
@@ -320,8 +474,11 @@ class CameraCaptureService:
             )
 
             if not jpeg:
-                print(f"[camera-capture] no high-resolution frame: rack={rack_id}, device={device}")
-                continue
+                print(
+                    f"[camera-capture] no high-resolution frame: "
+                    f"rack={rack_id}, device={device}"
+                )
+                return
 
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"rack_{rack_id}_{now}.jpg"
@@ -331,12 +488,14 @@ class CameraCaptureService:
 
             print(
                 f"[camera-capture] frame saved: rack={rack_id}, camera={camera_id}, "
+                f"mode={'night-assisted' if night_capture else 'normal'}, "
                 f"profile={'saved' if saved_profile else 'yaml-fallback'}, "
-                f"requested={frame_width}x{frame_height} {pixel_format}@{fps}, bytes={len(jpeg)}"
+                f"requested={frame_width}x{frame_height} {pixel_format}@{fps}, "
+                f"bytes={len(jpeg)}"
             )
 
             if uploader is None:
-                continue
+                return
 
             try:
                 result = await asyncio.to_thread(
@@ -349,6 +508,92 @@ class CameraCaptureService:
             except Exception as e:
                 self._reset_uploader()
                 self._save_pending_file(jpeg, filename, f"upload failed: {e}")
+
+        finally:
+            if temporary_light:
+                after = float(cfg.night_capture_light_after_seconds)
+                if after > 0:
+                    try:
+                        await asyncio.sleep(after)
+                    except asyncio.CancelledError:
+                        # Still restore the relay below before shutdown.
+                        pass
+
+                # Shield the restore so service shutdown/cancellation cannot
+                # leave a temporary grow-light pulse permanently ON.
+                await asyncio.shield(self._restore_temporary_light(rack_id))
+
+    async def _capture_once(self):
+        if not runtime.cfg:
+            print("[camera-capture] config is not loaded")
+            return
+
+        cfg = runtime.cfg.camera_capture
+
+        if not cfg.enabled:
+            return
+
+        uploader = self._get_uploader()
+
+        if uploader is not None:
+            await self._upload_pending_files(uploader)
+        else:
+            print(
+                "[camera-capture] Google Drive не настроен: credentials_file, "
+                "token_file или google_folder_id пустые"
+            )
+
+        await self._cleanup_archive_files()
+
+        light_contexts = await self._get_light_contexts()
+
+        quality = cfg.jpeg_quality
+        default_width = cfg.frame_width
+        default_height = cfg.frame_height
+
+        # Cameras are opened strictly one after another. During the dark period
+        # a rack in schedule mode gets a short light pulse only when its
+        # independent night interval is due.
+        for rack_id_str, rack_cfg in runtime.cfg.racks.items():
+            rack_id = int(rack_id_str)
+            context = light_contexts.get(rack_id) or {
+                "light_on": False,
+                "light_mode": "schedule",
+                "schedule_on": False,
+            }
+
+            night_capture = False
+            if cfg.only_when_light_on and not context["light_on"]:
+                if (
+                    cfg.night_capture_enabled
+                    and context["light_mode"] == "schedule"
+                    and not context["schedule_on"]
+                    and self._night_capture_due(
+                        rack_id,
+                        cfg.night_capture_interval_seconds,
+                    )
+                ):
+                    night_capture = True
+                else:
+                    # Avoid noisy "light is off" logs on every 30-second pass.
+                    # Log only manual-off situations, because those deliberately
+                    # suppress automatic night illumination.
+                    if context["light_mode"] != "schedule":
+                        print(
+                            f"[camera-capture] skip rack={rack_id}: "
+                            "light is off in manual mode"
+                        )
+                    continue
+
+            await self._capture_rack(
+                rack_id=rack_id,
+                rack_cfg=rack_cfg,
+                uploader=uploader,
+                quality=quality,
+                default_width=default_width,
+                default_height=default_height,
+                night_capture=night_capture,
+            )
 
 
 camera_capture_service = CameraCaptureService()
