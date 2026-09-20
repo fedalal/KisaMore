@@ -455,6 +455,28 @@ async def discover_ready_neighbor_deliveries() -> int:
         if state is None:
             return 0
 
+        # Repair deliveries skipped by the first ready-notification version.
+        # Requeue them independently of the planting's current status because
+        # the persisted ready event remains valid after harvest/cleanup.
+        broken = list(
+            (
+                await session.execute(
+                    select(TelegramNeighborDelivery).where(
+                        TelegramNeighborDelivery.event_type == "ready",
+                        TelegramNeighborDelivery.status == "skipped",
+                        TelegramNeighborDelivery.last_error
+                        == "Planting is no longer in ready state",
+                    )
+                )
+            ).scalars().all()
+        )
+        for delivery in broken:
+            delivery.status = "pending"
+            delivery.attempts = 0
+            delivery.last_error = None
+            delivery.sent_at = None
+            created += 1
+
         rows = (
             await session.execute(
                 select(Planting, RackSlot, Allocation)
