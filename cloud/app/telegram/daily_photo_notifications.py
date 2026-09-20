@@ -9,6 +9,7 @@ from sqlalchemy import or_, select
 from ..config import get_settings
 from ..db import SessionLocal
 from ..models import Plant, Planting, RackPhoto, RackSlot
+from ..rack_photo_storage import slot_latest_path
 from .models import SocialFollow, TelegramUser
 
 
@@ -89,6 +90,19 @@ async def pending_follow_notifications(limit: int = 50):
                 continue
             if last_notified is not None and photo_updated <= last_notified:
                 continue
+            # Followers should see only the container they subscribed to, not
+            # the whole 2x3 rack. The slot crop is generated from the same
+            # RackPhoto archive by worker_slot_photos.
+            crop_path = slot_latest_path(
+                get_settings().photo_dir,
+                slot.device_id,
+                slot.rack_id,
+                slot.slot_number,
+            )
+            if not crop_path.is_file():
+                # Do not fall back to the full rack: the next notification pass
+                # will pick this up as soon as the container crop is available.
+                continue
             result.append(
                 SimpleNamespace(
                     follow_id=follow.id,
@@ -98,7 +112,10 @@ async def pending_follow_notifications(limit: int = 50):
                     plant_name_values=plant.names,
                     rack_id=slot.rack_id,
                     slot_number=slot.slot_number,
-                    photo=photo,
+                    photo=SimpleNamespace(
+                        file_path=str(crop_path),
+                        updated_at=photo.updated_at,
+                    ),
                 )
             )
         return result
