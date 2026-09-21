@@ -315,8 +315,8 @@ async def discover_activity(session, now: datetime) -> int:
             delivery_kind="planting_harvested",
             text_key="harvested",
             event_time=event_time,
-            button_key="garden",
-            callback_data="menu:garden",
+            button_key="open",
+            callback_data=f"plant:show:{planting.id}:0",
         ):
             created += 1
 
