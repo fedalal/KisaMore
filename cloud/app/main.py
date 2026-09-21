@@ -19,6 +19,7 @@ from .config import get_settings
 from .db import create_tables, engine
 from .marketplace_api import router as marketplace_router
 from .plant_sos_admin_api import router as plant_sos_admin_router
+from .promotion_admin_api import router as promotion_admin_router
 from .mqtt_sync import mqtt_snapshot_consumer
 from .mqtt_photo_sync import mqtt_photo_consumer
 from .rack_photo_api import router as rack_photo_router
@@ -91,7 +92,8 @@ async def admin_dashboard() -> HTMLResponse:
         "</body>",
         '<script src="/static/admin_stars.js?v=20260913-1" defer></script>\n'
         '<script src="/static/admin_broadcasts.js?v=20260920-1" defer></script>\n'
-        '<script src="/static/admin_broadcasts_live.js?v=20260920-1" defer></script>\n</body>',
+        '<script src="/static/admin_broadcasts_live.js?v=20260920-1" defer></script>\n'
+        '<script src="/static/admin_promotions.js?v=20260921-1" defer></script>\n</body>',
     )
     return HTMLResponse(
         content,
@@ -104,6 +106,7 @@ app.include_router(router)
 app.include_router(auth_router)
 app.include_router(marketplace_router)
 app.include_router(plant_sos_admin_router)
+app.include_router(promotion_admin_router)
 app.include_router(rack_photo_router)
 app.include_router(timelapse_router)
 app.include_router(admin_router)
