@@ -22,6 +22,8 @@ from .service import (
     get_or_create_user,
     get_plant_card,
     get_state,
+    harvested_planting_for_user,
+    harvested_plantings,
     linked_allocations,
     list_active_plants,
     list_available_slots,
@@ -89,6 +91,27 @@ def plant_name(plant, lang: str) -> str:
 
 def status_text(lang: str, status: str) -> str:
     return st(lang, f"status_{status}")
+
+
+def _aware_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _date_text(value: datetime | None) -> str:
+    aware = _aware_utc(value)
+    return aware.strftime("%Y-%m-%d") if aware else "—"
+
+
+def _growth_days(planted_at: datetime | None, harvested_at: datetime | None) -> int:
+    start = _aware_utc(planted_at)
+    end = _aware_utc(harvested_at)
+    if start is None or end is None or end < start:
+        return 0
+    return max(1, int((end - start).total_seconds() // 86400) + 1)
 
 
 def plant_keyboard(lang: str, card, index: int, total: int) -> dict:
@@ -234,29 +257,211 @@ async def show_garden(bot: TelegramBotAPI, chat_id: int, tg: dict) -> None:
     lang = language_for(tg)
     user, _ = await get_or_create_user(tg)
     followed = await list_followed_plantings(user.id, 6)
-    requests = await rental_requests(user.id, 6)
+    request_rows = await rental_requests(user.id, 10)
+    requests = [
+        row for row in request_rows
+        if row[0].status in ("requested", "approved")
+    ][:6]
     allocations = await linked_allocations(user, 6)
+    harvests = await harvested_plantings(user, 3)
+
     parts = [t(lang, "garden")]
     buttons = []
+
     if followed:
         parts.append("\n" + st(lang, "garden_following"))
         for planting, plant, slot in followed:
             name = plant_name(plant, lang)
             parts.append(f"• 🌱 {escape(name)} · #{slot.rack_id}/{slot.slot_number}")
-            buttons.append([{"text": f"🌱 {name}"[:60], "callback_data": f"plant:show:{planting.id}:0"}])
+            buttons.append([
+                {
+                    "text": f"🌱 {name}"[:60],
+                    "callback_data": f"plant:show:{planting.id}:0",
+                }
+            ])
+
     if requests:
         parts.append(st(lang, "garden_requests"))
         for req, slot, plant in requests:
-            parts.append(st(lang, "rent_status", rack=slot.rack_id, slot=slot.slot_number, plant=escape(plant_name(plant, lang)), status=escape(st(lang, f"status_{req.status}"))))
+            parts.append(
+                st(
+                    lang,
+                    "rent_status",
+                    rack=slot.rack_id,
+                    slot=slot.slot_number,
+                    plant=escape(plant_name(plant, lang)),
+                    status=escape(st(lang, f"status_{req.status}")),
+                )
+            )
+
     if allocations:
-        parts.append("\n\n🪴 <b>Active allocations</b>")
+        parts.append("\n\n" + st(lang, "garden_active_allocations"))
         for allocation in allocations:
-            parts.append(f"• Rack {allocation.rack_id} · Container {allocation.slot_number or '—'}")
-    if not followed and not requests and not allocations:
+            parts.append(
+                st(
+                    lang,
+                    "garden_active_allocation",
+                    rack=allocation.rack_id,
+                    slot=allocation.slot_number or "—",
+                )
+            )
+
+    # When the live garden is empty, turn the page into a collection instead of
+    # showing a dead end. Historical harvests remain the user's permanent record.
+    if not allocations and not requests and harvests:
+        parts.append("\n\n" + st(lang, "harvest_collection_intro"))
+        for planting, plant, slot, _allocation in harvests:
+            name = plant_name(plant, lang)
+            parts.append(
+                st(
+                    lang,
+                    "harvest_collection_item",
+                    plant=escape(name),
+                    date=_date_text(planting.actual_harvest_at),
+                    rack=slot.rack_id,
+                    slot=slot.slot_number,
+                )
+            )
+            buttons.append([
+                {
+                    "text": f"🏆 {name} · {_date_text(planting.actual_harvest_at)}"[:60],
+                    "callback_data": f"harvest:show:{planting.id}",
+                }
+            ])
+    elif not followed and not requests and not allocations:
         parts.append("\n" + st(lang, "garden_empty"))
+
+    if harvests:
+        buttons.append([
+            {
+                "text": st(lang, "harvest_collection_button"),
+                "callback_data": "garden:harvests",
+            }
+        ])
+
     buttons.append([{"text": st(lang, "rent_button"), "callback_data": "rent:start"}])
     buttons.append([{"text": t(lang, "back_home"), "callback_data": "menu:home"}])
-    await bot.send_message(chat_id, "\n".join(parts), reply_markup={"inline_keyboard": buttons})
+    await bot.send_message(
+        chat_id,
+        "\n".join(parts),
+        reply_markup={"inline_keyboard": buttons},
+    )
+
+
+async def show_harvest_collection(
+    bot: TelegramBotAPI,
+    chat_id: int,
+    tg: dict,
+) -> None:
+    lang = language_for(tg)
+    user, _ = await get_or_create_user(tg)
+    rows = await harvested_plantings(user, 20)
+
+    if not rows:
+        await bot.send_message(
+            chat_id,
+            st(lang, "harvest_collection_empty"),
+            reply_markup={
+                "inline_keyboard": [[
+                    {
+                        "text": st(lang, "back_garden"),
+                        "callback_data": "menu:garden",
+                    }
+                ]]
+            },
+        )
+        return
+
+    text_parts = [
+        st(lang, "harvest_collection_title", count=len(rows)),
+        st(lang, "harvest_collection_subtitle"),
+    ]
+    buttons = []
+    for planting, plant, slot, _allocation in rows:
+        name = plant_name(plant, lang)
+        harvested = _date_text(planting.actual_harvest_at)
+        days = _growth_days(planting.planted_at, planting.actual_harvest_at)
+        text_parts.append(
+            st(
+                lang,
+                "harvest_list_item",
+                plant=escape(name),
+                date=harvested,
+                days=days,
+            )
+        )
+        buttons.append([
+            {
+                "text": f"🏆 {name} · {harvested}"[:60],
+                "callback_data": f"harvest:show:{planting.id}",
+            }
+        ])
+
+    buttons.append([
+        {
+            "text": st(lang, "back_garden"),
+            "callback_data": "menu:garden",
+        }
+    ])
+    await bot.send_message(
+        chat_id,
+        "\n".join(text_parts),
+        reply_markup={"inline_keyboard": buttons},
+    )
+
+
+async def show_harvest_detail(
+    bot: TelegramBotAPI,
+    chat_id: int,
+    tg: dict,
+    planting_id: str,
+) -> None:
+    lang = language_for(tg)
+    user, _ = await get_or_create_user(tg)
+    row = await harvested_planting_for_user(user, planting_id)
+    if row is None:
+        await show_harvest_collection(bot, chat_id, tg)
+        return
+
+    planting, plant, slot, _allocation = row
+    name = plant_name(plant, lang)
+    days = _growth_days(planting.planted_at, planting.actual_harvest_at)
+    text = st(
+        lang,
+        "harvest_detail",
+        plant=escape(name),
+        planted=_date_text(planting.planted_at),
+        harvested=_date_text(planting.actual_harvest_at),
+        days=days,
+        rack=slot.rack_id,
+        slot=slot.slot_number,
+    )
+    await bot.send_message(
+        chat_id,
+        text,
+        reply_markup={
+            "inline_keyboard": [
+                [
+                    {
+                        "text": st(lang, "grow_again"),
+                        "callback_data": "rent:start",
+                    }
+                ],
+                [
+                    {
+                        "text": st(lang, "harvest_collection_button"),
+                        "callback_data": "garden:harvests",
+                    }
+                ],
+                [
+                    {
+                        "text": st(lang, "back_garden"),
+                        "callback_data": "menu:garden",
+                    }
+                ],
+            ]
+        },
+    )
 
 
 async def show_rental_slots(bot: TelegramBotAPI, chat_id: int, tg: dict) -> None:
@@ -397,6 +602,11 @@ async def handle_callback(bot: TelegramBotAPI, query: dict) -> None:
         await bot.answer_callback_query(qid); await show_plant_at(bot, chat_id, tg, 0)
     elif data == "menu:garden":
         await bot.answer_callback_query(qid); await show_garden(bot, chat_id, tg)
+    elif data == "garden:harvests":
+        await bot.answer_callback_query(qid); await show_harvest_collection(bot, chat_id, tg)
+    elif data.startswith("harvest:show:"):
+        await bot.answer_callback_query(qid)
+        await show_harvest_detail(bot, chat_id, tg, data.split(":", 2)[2])
     elif data == "menu:community":
         await bot.answer_callback_query(qid); await show_community(bot, chat_id, tg)
     elif data.startswith("feed:"):
