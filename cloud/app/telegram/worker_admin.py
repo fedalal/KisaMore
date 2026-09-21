@@ -10,7 +10,7 @@ from ..admin_models import AdminAuditLog
 from ..db import SessionLocal
 from ..models import User
 from ..rental_admin_api import RejectRentalIn, approve_rental_request, reject_rental_request
-from . import admin_rental_notifier, new_user_notifier
+from . import admin_plant_task_notifier, admin_rental_notifier, new_user_notifier
 from . import worker_seed_inventory as existing
 from .models import (
     TelegramConversationState,
@@ -411,8 +411,94 @@ async def _handle_admin_user_callback(bot, query: dict) -> bool:
     return True
 
 
+async def _handle_admin_plant_callback(bot, query: dict) -> bool:
+    data = str(query.get("data") or "")
+    if not data.startswith("adminplant:"):
+        return False
+
+    qid = query.get("id")
+    tg = query.get("from")
+    chat_id = ((query.get("message") or {}).get("chat") or {}).get("id")
+    if not qid or tg is None or chat_id is None:
+        return True
+
+    admin_user, web_admin = await _authorized_admin(tg)
+    if web_admin is None:
+        await bot.answer_callback_query(
+            qid,
+            text="Нет прав администратора",
+            show_alert=True,
+        )
+        return True
+
+    parts = data.split(":", 2)
+    if len(parts) != 3:
+        await bot.answer_callback_query(qid)
+        return True
+
+    action = parts[1]
+    target = parts[2]
+    await bot.answer_callback_query(qid, text="Передаю команду на Raspberry Pi…")
+
+    try:
+        if action == "plant":
+            request_id = int(target)
+            command = await admin_plant_task_notifier.queue_plant_command(
+                request_id=request_id,
+                telegram_admin_user_id=admin_user.id,
+                web_admin=web_admin,
+            )
+            await bot.send_message(
+                chat_id,
+                "🌱 <b>Команда «посажено» принята.</b>\n\n"
+                f"Заявка: <b>#{request_id}</b>\n"
+                f"Команда: <code>{command.id}</code>\n\n"
+                "Raspberry Pi получит её при ближайшей синхронизации. "
+                "После применения посадка появится в системе автоматически.",
+            )
+            return True
+
+        if action == "ready":
+            command = await admin_plant_task_notifier.queue_ready_command(
+                planting_id=target,
+                telegram_admin_user_id=admin_user.id,
+                web_admin=web_admin,
+            )
+            await bot.send_message(
+                chat_id,
+                "✅ <b>Команда «готово к сбору» принята.</b>\n\n"
+                f"Команда: <code>{command.id}</code>\n\n"
+                "Raspberry Pi обновит статус растения при ближайшей синхронизации.",
+            )
+            return True
+
+        await bot.send_message(chat_id, "⚠️ Неизвестное действие.")
+    except ValueError as exc:
+        labels = {
+            "request_not_approved": "Заявка уже не находится в статусе «Одобрена».",
+            "allocation_missing": "Активное назначение для этой заявки не найдено.",
+            "already_planted": "Это растение уже отмечено посаженным.",
+            "planting_missing": "Посадка больше не найдена.",
+            "already_ready": "Растение уже отмечено готовым.",
+            "not_growing": "Растение уже не находится в стадии роста.",
+        }
+        await bot.send_message(
+            chat_id,
+            f"⚠️ {labels.get(str(exc), escape(str(exc)))}",
+        )
+    except Exception:
+        core.logger.exception("Telegram admin plant action failed: %s", data)
+        await bot.send_message(
+            chat_id,
+            "⚠️ Не удалось поставить команду в очередь. Попробуйте ещё раз.",
+        )
+    return True
+
+
 async def handle_callback(bot, query: dict) -> None:
     if await _handle_admin_user_callback(bot, query):
+        return
+    if await _handle_admin_plant_callback(bot, query):
         return
 
     data = str(query.get("data") or "")
@@ -531,9 +617,26 @@ async def follow_notification_loop(bot) -> None:
                 core.logger.exception("Telegram admin alert pass failed")
             await asyncio.sleep(admin_rental_notifier.CHECK_SECONDS)
 
+    async def plant_task_loop() -> None:
+        while True:
+            try:
+                sent, failed = await admin_plant_task_notifier.send_daily_alerts(bot)
+                if sent or failed:
+                    core.logger.info(
+                        "Telegram admin plant task pass: sent=%s failed=%s",
+                        sent,
+                        failed,
+                    )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                core.logger.exception("Telegram admin plant task pass failed")
+            await asyncio.sleep(admin_plant_task_notifier.CHECK_SECONDS)
+
     await asyncio.gather(
         _previous_follow_notification_loop(bot),
         admin_alert_loop(),
+        plant_task_loop(),
     )
 
 
