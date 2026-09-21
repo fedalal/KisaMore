@@ -472,6 +472,21 @@ async def _handle_admin_plant_callback(bot, query: dict) -> bool:
             )
             return True
 
+        if action == "harvest":
+            command = await admin_plant_task_notifier.queue_harvest_command(
+                planting_id=target,
+                telegram_admin_user_id=admin_user.id,
+                web_admin=web_admin,
+            )
+            await bot.send_message(
+                chat_id,
+                "✂️ <b>Команда «собрано» принята.</b>\n\n"
+                f"Команда: <code>{command.id}</code>\n\n"
+                "Raspberry Pi отметит растение собранным. "
+                "После синхронизации аренда будет завершена автоматически.",
+            )
+            return True
+
         await bot.send_message(chat_id, "⚠️ Неизвестное действие.")
     except ValueError as exc:
         labels = {
@@ -481,6 +496,8 @@ async def _handle_admin_plant_callback(bot, query: dict) -> bool:
             "planting_missing": "Посадка больше не найдена.",
             "already_ready": "Растение уже отмечено готовым.",
             "not_growing": "Растение уже не находится в стадии роста.",
+            "already_harvested": "Растение уже отмечено собранным.",
+            "not_ready": "Сначала растение нужно отметить готовым к сбору.",
         }
         await bot.send_message(
             chat_id,
