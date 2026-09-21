@@ -332,25 +332,24 @@ async def show_garden(bot: TelegramBotAPI, chat_id: int, tg: dict) -> None:
                     "callback_data": f"harvest:show:{planting.id}",
                 }
             ])
-    elif not followed and not requests and not allocations:
-        if recent_harvests:
-            parts.append("\n\n" + st(lang, "harvest_showcase_intro"))
-            for planting, plant, slot in recent_harvests:
-                name = plant_name(plant, lang)
-                parts.append(
-                    st(
-                        lang,
-                        "harvest_showcase_item",
-                        plant=escape(name),
-                        date=_date_text(planting.actual_harvest_at),
-                        days=_growth_days(
-                            planting.planted_at,
-                            planting.actual_harvest_at,
-                        ),
-                    )
+    elif not requests and not allocations and recent_harvests:
+        parts.append("\n\n" + st(lang, "harvest_showcase_intro"))
+        for planting, plant, slot in recent_harvests:
+            name = plant_name(plant, lang)
+            parts.append(
+                st(
+                    lang,
+                    "harvest_showcase_item",
+                    plant=escape(name),
+                    date=_date_text(planting.actual_harvest_at),
+                    days=_growth_days(
+                        planting.planted_at,
+                        planting.actual_harvest_at,
+                    ),
                 )
-        else:
-            parts.append("\n" + st(lang, "garden_empty"))
+            )
+    elif not followed and not requests and not allocations:
+        parts.append("\n" + st(lang, "garden_empty"))
 
     if harvests:
         buttons.append([
