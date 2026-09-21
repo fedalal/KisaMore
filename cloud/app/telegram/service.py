@@ -623,6 +623,28 @@ async def harvested_planting_for_user(
         ).first()
 
 
+
+async def recent_harvested_plantings(
+    limit: int = 6,
+) -> list[tuple[Planting, Plant, RackSlot]]:
+    """Recent real harvests used as inspiration when a user's garden is empty."""
+    async with SessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(Planting, Plant, RackSlot)
+                .join(Plant, Plant.id == Planting.plant_id)
+                .join(RackSlot, RackSlot.id == Planting.slot_id)
+                .where(Planting.status == "harvested")
+                .order_by(
+                    Planting.actual_harvest_at.desc(),
+                    Planting.observed_at.desc(),
+                )
+                .limit(max(1, min(limit, 20)))
+            )
+        ).all()
+        return list(rows)
+
+
 @dataclass
 class FollowNotification:
     follow_id: int
