@@ -119,6 +119,14 @@ def _ensure_telegram_columns(connection) -> None:
         },
     )
 
+    _ensure_columns(
+        connection,
+        "edge_operator_commands",
+        {
+            "result_notified_at": f"{timestamp_type} NULL",
+        },
+    )
+
     tables = inspect(connection).get_table_names()
     if "social_follows" in tables:
         connection.exec_driver_sql(
