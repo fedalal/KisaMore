@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -58,7 +59,7 @@ class TelegramPromotionGrant(Base):
     transaction_id: Mapped[int | None] = mapped_column(
         ForeignKey("wallet_transactions.id"), unique=True, nullable=True
     )
-    balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    balance_after: Mapped[int] = mapped_column(BigInteger, nullable=False)
     granted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
