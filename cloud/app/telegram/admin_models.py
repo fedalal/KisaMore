@@ -113,3 +113,6 @@ class EdgeOperatorCommand(Base):
         DateTime(timezone=True), default=utcnow, nullable=False
     )
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    result_notified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
