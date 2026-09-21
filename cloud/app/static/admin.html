@@ -28,6 +28,7 @@
       <nav>
         <button class="nav-item active" data-section="overview">Обзор</button>
         <button class="nav-item" data-section="users">Пользователи</button>
+        <button class="nav-item" data-section="promotions">🎉 Акции</button>
         <button class="nav-item" data-section="rentals">Заявки на аренду</button>
         <button class="nav-item" data-section="seeds">🌾 Семена</button>
         <button class="nav-item" data-section="watering">💧 Поливы</button>
@@ -60,6 +61,80 @@
             <div class="search-row"><input id="userSearch" placeholder="Имя, @username или Telegram ID"><button id="userSearchButton">Найти</button></div>
           </div>
           <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Telegram ID</th><th>Язык</th><th>Баланс</th><th>Регистрация</th><th></th></tr></thead><tbody id="usersBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="section-promotions" class="section">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Акции Kisa</h2>
+              <p>Автоматические начисления пользователям в заданный период.</p>
+            </div>
+            <button id="reloadPromotions" type="button">Обновить</button>
+          </div>
+
+          <form id="promotionForm" style="display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px;margin:18px 0 22px">
+            <label style="grid-column:1/-1">Название акции
+              <input id="promotionName" maxlength="160" placeholder="Например: Счастливый садовник" required>
+            </label>
+
+            <label>Участники
+              <select id="promotionAudience" required>
+                <option value="new">Новые пользователи</option>
+                <option value="existing">Существующие пользователи</option>
+                <option value="all">Все пользователи</option>
+              </select>
+            </label>
+
+            <label>Начислить Kisa
+              <input id="promotionAmount" type="number" min="1" max="1000000" value="10" required>
+            </label>
+
+            <label>Дата начала
+              <input id="promotionStartDate" type="date" required>
+            </label>
+
+            <label>Дата окончания
+              <input id="promotionEndDate" type="date" required>
+            </label>
+
+            <label style="grid-column:1/-1">Сообщение пользователю
+              <textarea id="promotionMessage" rows="4" maxlength="1200" placeholder='Поздравляем участников акции "Счастливый садовник"!' required></textarea>
+            </label>
+
+            <div style="grid-column:1/-1;display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap">
+              <div class="muted">
+                «Новые» — зарегистрированные во время акции. «Существующие» — зарегистрированные до её начала.
+                Каждый пользователь получает бонус только один раз в рамках одной акции.
+                <span id="promotionTimezone"></span>
+              </div>
+              <button type="submit" class="primary">Создать акцию</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Созданные акции</h2><p>Статус, начисления и доставка сообщений.</p></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Акция</th>
+                  <th>Участники</th>
+                  <th>Период</th>
+                  <th>Бонус</th>
+                  <th>Статус</th>
+                  <th>Начислено</th>
+                  <th>Уведомлено</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="promotionsBody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
