@@ -697,8 +697,6 @@ async def recent_harvested_plantings(
 async def ensure_planting_timelapse(planting_id: str) -> Path | None:
     """Return a planting-specific video, backfilling old harvested crops on demand."""
     target = planting_timelapse_path(settings.photo_dir, planting_id)
-    if target.is_file():
-        return target
 
     async with SessionLocal() as session:
         row = (
@@ -727,6 +725,23 @@ async def ensure_planting_timelapse(planting_id: str) -> Path | None:
         final = True
     if end_at is None:
         return None
+
+    end_aware = end_at
+    if end_aware.tzinfo is None:
+        end_aware = end_aware.replace(tzinfo=timezone.utc)
+    else:
+        end_aware = end_aware.astimezone(timezone.utc)
+
+    if target.is_file():
+        if not final:
+            return target
+        try:
+            # A full.mp4 generated while the crop was still active is not the
+            # immutable final video. Force one last render after harvest.
+            if target.stat().st_mtime >= end_aware.timestamp():
+                return target
+        except OSError:
+            pass
 
     try:
         return await asyncio.to_thread(
