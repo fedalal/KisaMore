@@ -123,6 +123,20 @@ async def _ready_tasks(session):
     return list(rows)
 
 
+async def _harvest_tasks(session):
+    rows = (
+        await session.execute(
+            select(Planting, Plant, RackSlot)
+            .join(Plant, Plant.id == Planting.plant_id)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .where(Planting.status == "ready")
+            .order_by(Planting.expected_harvest_at, Planting.planted_at)
+            .limit(200)
+        )
+    ).all()
+    return list(rows)
+
+
 async def _due_for_admin(
     session,
     *,
@@ -180,13 +194,25 @@ def _ready_text(planting, plant, slot) -> str:
         overdue_days = max(0, (now - expected).days)
     overdue = f"\nПросрочено: <b>{overdue_days} дн.</b>" if overdue_days else ""
     return (
-        "✂️ <b>Пора проверить растение для сбора</b>\n\n"
+        "⏳ <b>Срок выращивания закончился — проверьте растение</b>\n\n"
         f"Растение: <b>{escape(_plant_name(plant))}</b>\n"
         f"Полка {slot.rack_id} · контейнер {slot.slot_number}\n"
         f"Посажено: {_local_text(planting.planted_at)}\n"
         f"Плановый срок: <b>{_local_text(planting.expected_harvest_at)}</b>"
         f"{overdue}\n\n"
-        "Если растение действительно достигло нужной стадии, отметьте его готовым."
+        "Если растение уже достигло нужной стадии, отметьте его готовым к сбору."
+    )
+
+
+def _harvest_text(planting, plant, slot) -> str:
+    return (
+        "✂️ <b>Растение готово — его нужно собрать</b>\n\n"
+        f"Растение: <b>{escape(_plant_name(plant))}</b>\n"
+        f"Полка {slot.rack_id} · контейнер {slot.slot_number}\n"
+        f"Посажено: {_local_text(planting.planted_at)}\n"
+        f"Плановый срок: {_local_text(planting.expected_harvest_at)}\n\n"
+        "После фактического сбора нажмите кнопку ниже. "
+        "Аренда будет завершена после подтверждения Raspberry Pi."
     )
 
 
@@ -216,6 +242,7 @@ async def send_daily_alerts(bot) -> tuple[int, int]:
 
         plant_tasks = await _plant_tasks(session)
         ready_tasks = await _ready_tasks(session)
+        harvest_tasks = await _harvest_tasks(session)
 
         for admin, admin_user in admins:
             for request, renter, slot, plant, _allocation in plant_tasks:
@@ -274,6 +301,34 @@ async def send_daily_alerts(bot) -> tuple[int, int]:
                 except Exception:
                     failed += 1
 
+            for planting, plant, slot in harvest_tasks:
+                alert = await _due_for_admin(
+                    session,
+                    admin_user_id=admin.user_id,
+                    task_type="harvest",
+                    task_key=str(planting.id),
+                    now=now,
+                )
+                if alert is None:
+                    continue
+                try:
+                    await bot.send_message(
+                        int(admin_user.telegram_user_id),
+                        _harvest_text(planting, plant, slot),
+                        reply_markup={
+                            "inline_keyboard": [[
+                                {
+                                    "text": "✂️ Отметить собранным",
+                                    "callback_data": f"adminplant:harvest:{planting.id}",
+                                }
+                            ]]
+                        },
+                    )
+                    alert.last_reminded_at = now
+                    sent += 1
+                except Exception:
+                    failed += 1
+
         if sent:
             await session.commit()
         elif session.new:
@@ -314,11 +369,17 @@ async def send_command_results(bot) -> tuple[int, int]:
                             f"Полка {command.rack_id} · контейнер {command.slot_number}\n"
                             "Посадка создана, срок выращивания рассчитан автоматически."
                         )
-                    else:
+                    elif command.action == "ready":
                         text = (
                             "✅ <b>Raspberry Pi обновил растение.</b>\n\n"
                             f"Полка {command.rack_id} · контейнер {command.slot_number}\n"
                             "Статус: <b>готово к сбору</b>."
+                        )
+                    else:
+                        text = (
+                            "✂️ <b>Raspberry Pi подтвердил сбор растения.</b>\n\n"
+                            f"Полка {command.rack_id} · контейнер {command.slot_number}\n"
+                            "Статус: <b>собрано</b>. Аренда завершается автоматически."
                         )
                 else:
                     reason = escape(command.error or "неизвестная ошибка")
@@ -484,6 +545,77 @@ async def queue_ready_command(
                     "device_id": slot.device_id,
                     "rack_id": slot.rack_id,
                     "slot_number": slot.slot_number,
+                },
+            )
+        )
+        await session.commit()
+        await session.refresh(command)
+        return command
+
+
+async def queue_harvest_command(
+    *,
+    planting_id: str,
+    telegram_admin_user_id: int,
+    web_admin: User,
+) -> EdgeOperatorCommand:
+    async with SessionLocal() as session:
+        row = (
+            await session.execute(
+                select(Planting, RackSlot)
+                .join(RackSlot, RackSlot.id == Planting.slot_id)
+                .where(Planting.id == planting_id)
+            )
+        ).first()
+        if row is None:
+            raise ValueError("planting_missing")
+        planting, slot = row
+        if planting.status == "harvested":
+            raise ValueError("already_harvested")
+        if planting.status != "ready":
+            raise ValueError("not_ready")
+
+        existing_command = (
+            await session.execute(
+                select(EdgeOperatorCommand)
+                .where(
+                    EdgeOperatorCommand.action == "harvest",
+                    EdgeOperatorCommand.planting_id == planting.id,
+                    EdgeOperatorCommand.status.in_(("pending", "applied")),
+                )
+                .order_by(EdgeOperatorCommand.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if existing_command is not None:
+            return existing_command
+
+        command = EdgeOperatorCommand(
+            id=str(uuid4()),
+            device_id=slot.device_id,
+            action="harvest",
+            rack_id=slot.rack_id,
+            slot_number=slot.slot_number,
+            plant_id=planting.plant_id,
+            planting_id=planting.id,
+            allocation_id=planting.cloud_allocation_id,
+            status="pending",
+            requested_by_admin_user_id=telegram_admin_user_id,
+            created_at=datetime.now(timezone.utc),
+        )
+        session.add(command)
+        session.add(
+            AdminAuditLog(
+                admin_user_id=web_admin.id,
+                action="telegram_mark_harvested",
+                target_type="planting",
+                target_id=str(planting.id),
+                details={
+                    "command_id": command.id,
+                    "device_id": slot.device_id,
+                    "rack_id": slot.rack_id,
+                    "slot_number": slot.slot_number,
+                    "allocation_id": planting.cloud_allocation_id,
                 },
             )
         )
