@@ -11,6 +11,7 @@ from .db import SessionLocal, create_tables, engine
 from .models import Planting, RackSlot
 from .timelapse_service import (
     PERIODS,
+    ensure_planting_final_photo,
     generate_slot_timelapse,
     period_window,
     planting_timelapse_path,
@@ -179,6 +180,18 @@ async def run_once() -> None:
                     skipped += 1
                 else:
                     generated += 1
+
+                if final:
+                    await asyncio.to_thread(
+                        ensure_planting_final_photo,
+                        photo_dir=settings.photo_dir,
+                        device_id=slot.device_id,
+                        rack_id=slot.rack_id,
+                        slot_number=slot.slot_number,
+                        planting_id=planting.id,
+                        start_at=planted_at,
+                        end_at=end_at,
+                    )
             except Exception:
                 failed += 1
                 logger.exception("Could not generate full timelapse for planting %s", planting.id)
