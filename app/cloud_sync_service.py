@@ -762,6 +762,25 @@ class CloudSyncService:
             slot.status = "ready"
             return
 
+        if action == "harvest":
+            planting_id = str(command.get("planting_id") or "").strip()
+            if not planting_id:
+                raise ValueError("harvest command is incomplete")
+            planting = await session.get(Planting, planting_id)
+            if planting is None:
+                raise ValueError("planting was not found locally")
+            if planting.status == "harvested":
+                return
+            if planting.status != "ready":
+                raise ValueError(f"planting is already {planting.status}")
+            if planting.slot_id != slot.id:
+                raise ValueError("planting is assigned to another slot")
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            planting.status = "harvested"
+            planting.actual_harvest_at = now
+            slot.status = "maintenance"
+            return
+
         raise ValueError(f"unsupported operator command: {action}")
 
     def _ack_operator_command_blocking(
