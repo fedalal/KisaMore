@@ -16,6 +16,7 @@ from .language_preferences import install as install_language_preferences
 from .neighbor_notifier import install as install_neighbor_notifications
 from .plant_card_ui import install as install_plant_card_ui
 from .plant_sos import install as install_plant_sos
+from .promotion_service import install as install_promotions
 from .reaction_refresh import install as install_reaction_refresh
 from .rentable_catalog import install as install_rentable_catalog
 from .rental_picker_ui import install as install_rental_picker_ui
@@ -45,6 +46,7 @@ install_gamification_profile(core)
 install_find_plant_game(core)
 install_gamification_resilience(core)
 install_plant_sos(core)
+install_promotions(core)
 install_broadcast_poll_selection(core)
 
 
