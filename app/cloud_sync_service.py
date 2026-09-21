@@ -11,7 +11,7 @@ import tempfile
 import time
 from base64 import urlsafe_b64encode
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from pathlib import Path
 
@@ -674,10 +674,208 @@ class CloudSyncService:
                 except FileNotFoundError:
                     pass
 
-    async def _apply_assignments(self, payload: dict[str, Any]) -> None:
+    async def _apply_operator_command(self, session, command: dict[str, Any]) -> None:
+        action = str(command.get("action") or "")
+        rack_id = int(command["rack_id"])
+        slot_number = int(command["slot_number"])
+        slot = (
+            await session.execute(
+                select(RackSlot).where(
+                    RackSlot.rack_id == rack_id,
+                    RackSlot.slot_number == slot_number,
+                )
+            )
+        ).scalar_one_or_none()
+        if slot is None:
+            raise ValueError(f"rack {rack_id} slot {slot_number} was not found")
+
+        if action == "plant":
+            planting_id = str(command.get("planting_id") or "").strip()
+            plant_id = str(command.get("plant_id") or "").strip()
+            allocation_id = str(command.get("allocation_id") or "").strip()
+            if not planting_id or not plant_id or not allocation_id:
+                raise ValueError("plant command is incomplete")
+
+            plant = await session.get(Plant, plant_id)
+            if plant is None or not plant.active:
+                raise ValueError("requested plant is not available locally")
+
+            active = (
+                await session.execute(
+                    select(Planting)
+                    .where(
+                        Planting.slot_id == slot.id,
+                        Planting.status.in_(("planned", "growing", "ready")),
+                    )
+                    .order_by(Planting.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if active is not None:
+                if (
+                    active.cloud_allocation_id == allocation_id
+                    and active.plant_id == plant_id
+                ):
+                    return
+                raise ValueError("slot already has another active planting")
+
+            existing = await session.get(Planting, planting_id)
+            if existing is not None:
+                if (
+                    existing.cloud_allocation_id == allocation_id
+                    and existing.plant_id == plant_id
+                ):
+                    return
+                raise ValueError("planting id already belongs to another planting")
+
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            planting = Planting(
+                id=planting_id,
+                slot_id=slot.id,
+                plant_id=plant.id,
+                planted_at=now,
+                expected_harvest_at=now + timedelta(days=int(plant.grow_days or 1)),
+                status="growing",
+                cloud_allocation_id=allocation_id,
+                notes="Created from Telegram administrator action",
+            )
+            slot.cloud_allocation_id = allocation_id
+            slot.requested_plant_id = plant.id
+            slot.status = "growing"
+            session.add(planting)
+            return
+
+        if action == "ready":
+            planting_id = str(command.get("planting_id") or "").strip()
+            if not planting_id:
+                raise ValueError("ready command is incomplete")
+            planting = await session.get(Planting, planting_id)
+            if planting is None:
+                raise ValueError("planting was not found locally")
+            if planting.status == "ready":
+                return
+            if planting.status != "growing":
+                raise ValueError(f"planting is already {planting.status}")
+            if planting.slot_id != slot.id:
+                raise ValueError("planting is assigned to another slot")
+            planting.status = "ready"
+            slot.status = "ready"
+            return
+
+        raise ValueError(f"unsupported operator command: {action}")
+
+    def _ack_operator_command_blocking(
+        self,
+        command_id: str,
+        status: str,
+        error: str = "",
+    ) -> None:
+        assert self._settings is not None
+        body = json.dumps(
+            {"status": status, "error": error[:1000]},
+            ensure_ascii=False,
+        ).encode("utf-8")
+        headers = (
+            f"Authorization: Bearer {self._settings.device_token}\n"
+            f"X-Device-ID: {self._settings.device_id}\n"
+            "Content-Type: application/json\n"
+            "Accept: application/json\n"
+            "Connection: close\n"
+        ).encode("utf-8")
+        timeout = self._settings.request_timeout_seconds
+        command = [
+            "curl",
+            "--http1.1",
+            "--noproxy",
+            "*",
+            "--silent",
+            "--show-error",
+            "--request",
+            "POST",
+            "--connect-timeout",
+            f"{min(timeout, 5.0):g}",
+            "--max-time",
+            f"{timeout:g}",
+            "--header",
+            "@-",
+            "--data-binary",
+            "@-",
+            "--output",
+            os.devnull,
+            "--write-out",
+            "%{http_code}",
+            f"{self._settings.api_url}/api/v1/edge/operator-commands/{command_id}/ack",
+        ]
+        # curl cannot consume both headers and JSON from the same stdin stream.
+        # Use temporary files so credentials never appear in the process list.
+        header_path = None
+        body_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                prefix="kisamore-command-headers-", delete=False
+            ) as header_file:
+                header_file.write(headers)
+                header_path = header_file.name
+            with tempfile.NamedTemporaryFile(
+                prefix="kisamore-command-body-", delete=False
+            ) as body_file:
+                body_file.write(body)
+                body_path = body_file.name
+            command = [
+                "curl",
+                "--http1.1",
+                "--noproxy",
+                "*",
+                "--silent",
+                "--show-error",
+                "--request",
+                "POST",
+                "--connect-timeout",
+                f"{min(timeout, 5.0):g}",
+                "--max-time",
+                f"{timeout:g}",
+                "--header",
+                f"@{header_path}",
+                "--data-binary",
+                f"@{body_path}",
+                "--output",
+                os.devnull,
+                "--write-out",
+                "%{http_code}",
+                f"{self._settings.api_url}/api/v1/edge/operator-commands/{command_id}/ack",
+            ]
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                check=False,
+                timeout=timeout + 1.0,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    result.stderr.decode("utf-8", errors="replace").strip()
+                    or f"command ack failed with curl code {result.returncode}"
+                )
+            status_code = result.stdout.decode("ascii", errors="replace").strip()
+            if status_code != "200":
+                raise RuntimeError(
+                    f"command ack API returned HTTP {status_code or 'unknown'}"
+                )
+        finally:
+            for path in (header_path, body_path):
+                if path:
+                    try:
+                        os.unlink(path)
+                    except FileNotFoundError:
+                        pass
+
+    async def _apply_assignments(self, payload: dict[str, Any]) -> list[tuple[str, str, str]]:
         assignments = payload.get("assignments")
         if not isinstance(assignments, list):
             raise ValueError("cloud assignment response is invalid")
+        commands = payload.get("operator_commands") or []
+        if not isinstance(commands, list):
+            raise ValueError("cloud operator command response is invalid")
+
         desired_by_slot: dict[tuple[int, int], dict[str, Any]] = {}
         for assignment in assignments:
             rack_id = int(assignment["rack_id"])
@@ -688,6 +886,7 @@ class CloudSyncService:
             for slot_number in slot_numbers:
                 desired_by_slot[(rack_id, slot_number)] = assignment
 
+        acknowledgements: list[tuple[str, str, str]] = []
         async with SessionLocal() as session:
             slots = (await session.execute(select(RackSlot))).scalars().all()
             for slot in slots:
@@ -701,11 +900,51 @@ class CloudSyncService:
                     slot.cloud_allocation_id = None
                     slot.requested_plant_id = None
                     slot.status = "available"
+
+            await session.flush()
+
+            for item in commands:
+                command_id = str(item.get("id") or "").strip()
+                if not command_id:
+                    continue
+                try:
+                    async with session.begin_nested():
+                        await self._apply_operator_command(session, item)
+                    acknowledgements.append((command_id, "applied", ""))
+                    print(
+                        f"[cloud-sync] operator command applied: "
+                        f"id={command_id}, action={item.get('action')}, "
+                        f"rack={item.get('rack_id')}, slot={item.get('slot_number')}"
+                    )
+                except Exception as exc:
+                    message = f"{type(exc).__name__}: {exc}"[:1000]
+                    acknowledgements.append((command_id, "failed", message))
+                    print(
+                        f"[cloud-sync] operator command failed: "
+                        f"id={command_id}, action={item.get('action')}, error={message}"
+                    )
+
             await session.commit()
+        return acknowledgements
 
     async def _sync_assignments(self) -> int:
         payload = await asyncio.to_thread(self._fetch_assignments_blocking)
-        await self._apply_assignments(payload)
+        acknowledgements = await self._apply_assignments(payload)
+        for command_id, status, error in acknowledgements:
+            try:
+                await asyncio.to_thread(
+                    self._ack_operator_command_blocking,
+                    command_id,
+                    status,
+                    error,
+                )
+            except Exception as exc:
+                # The command itself is idempotent. If acknowledgement fails,
+                # the cloud returns it again and the next pass safely retries it.
+                print(
+                    f"[cloud-sync] operator command ack failed: "
+                    f"id={command_id}, status={status}, error={type(exc).__name__}: {exc}"
+                )
         self._acknowledge_inventory(payload)
         return len(payload.get("assignments", []))
 
