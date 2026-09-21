@@ -34,6 +34,7 @@ from .service import (
     mark_follow_notified,
     pending_follow_notifications,
     profile_stats,
+    recent_harvested_plantings,
     rental_requests,
     resolve_photo_path,
     send_gift,
@@ -264,6 +265,9 @@ async def show_garden(bot: TelegramBotAPI, chat_id: int, tg: dict) -> None:
     ][:6]
     allocations = await linked_allocations(user, 6)
     harvests = await harvested_plantings(user, 3)
+    recent_harvests = []
+    if not allocations and not requests and not harvests:
+        recent_harvests = await recent_harvested_plantings(3)
 
     parts = [t(lang, "garden")]
     buttons = []
@@ -329,7 +333,24 @@ async def show_garden(bot: TelegramBotAPI, chat_id: int, tg: dict) -> None:
                 }
             ])
     elif not followed and not requests and not allocations:
-        parts.append("\n" + st(lang, "garden_empty"))
+        if recent_harvests:
+            parts.append("\n\n" + st(lang, "harvest_showcase_intro"))
+            for planting, plant, slot in recent_harvests:
+                name = plant_name(plant, lang)
+                parts.append(
+                    st(
+                        lang,
+                        "harvest_showcase_item",
+                        plant=escape(name),
+                        date=_date_text(planting.actual_harvest_at),
+                        days=_growth_days(
+                            planting.planted_at,
+                            planting.actual_harvest_at,
+                        ),
+                    )
+                )
+        else:
+            parts.append("\n" + st(lang, "garden_empty"))
 
     if harvests:
         buttons.append([
