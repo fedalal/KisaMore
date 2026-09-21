@@ -61,11 +61,23 @@ def slot_timelapse_path(
     )
 
 
-def planting_timelapse_path(photo_dir: str | Path, planting_id: str) -> Path:
+def _safe_planting_id(planting_id: str) -> str:
     safe_id = "".join(ch for ch in str(planting_id) if ch.isalnum() or ch in ("-", "_"))
     if not safe_id:
         raise ValueError("invalid planting id")
-    return Path(photo_dir) / "timelapse" / "plantings" / safe_id / "full.mp4"
+    return safe_id
+
+
+def planting_media_dir(photo_dir: str | Path, planting_id: str) -> Path:
+    return Path(photo_dir) / "timelapse" / "plantings" / _safe_planting_id(planting_id)
+
+
+def planting_timelapse_path(photo_dir: str | Path, planting_id: str) -> Path:
+    return planting_media_dir(photo_dir, planting_id) / "full.mp4"
+
+
+def planting_final_photo_path(photo_dir: str | Path, planting_id: str) -> Path:
+    return planting_media_dir(photo_dir, planting_id) / "final.jpg"
 
 
 def _frame_datetime(path: Path) -> datetime | None:
@@ -210,6 +222,57 @@ def _prepare_timelapse_frame(
     prepared = Image.alpha_composite(crop.convert("RGBA"), overlay).convert("RGB")
     target.parent.mkdir(parents=True, exist_ok=True)
     prepared.save(target, format="JPEG", quality=92, optimize=True)
+
+
+def ensure_planting_final_photo(
+    *,
+    photo_dir: str | Path,
+    device_id: str,
+    rack_id: int,
+    slot_number: int,
+    planting_id: str,
+    start_at: datetime,
+    end_at: datetime,
+) -> Path | None:
+    """Persist the last frame of one planting as immutable historical media.
+
+    A rack/slot is reused by future crops, so historical Telegram cards must
+    never point at the mutable slot_latest image. The final image is generated
+    from the archived rack frame that belongs to this planting and stored under
+    planting_id.
+    """
+    target = planting_final_photo_path(photo_dir, planting_id)
+    if target.is_file():
+        return target
+
+    frames = archive_frames(photo_dir, device_id, rack_id, start_at, end_at)
+    if not frames:
+        return None
+
+    source = frames[-1]
+    captured_at = _frame_datetime(source)
+    if captured_at is None:
+        return None
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".tmp.jpg")
+    _prepare_timelapse_frame(
+        source,
+        temporary,
+        slot_number=slot_number,
+        captured_at=captured_at,
+    )
+    temporary.replace(target)
+    logger.info(
+        "Saved final planting photo: planting=%s device=%s rack=%s slot=%s source=%s target=%s",
+        planting_id,
+        device_id,
+        rack_id,
+        slot_number,
+        source,
+        target,
+    )
+    return target
 
 
 def _render_marker_path(target: Path) -> Path:
