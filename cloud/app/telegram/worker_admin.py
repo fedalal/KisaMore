@@ -621,11 +621,15 @@ async def follow_notification_loop(bot) -> None:
         while True:
             try:
                 sent, failed = await admin_plant_task_notifier.send_daily_alerts(bot)
-                if sent or failed:
+                result_sent, result_failed = await admin_plant_task_notifier.send_command_results(bot)
+                if sent or failed or result_sent or result_failed:
                     core.logger.info(
-                        "Telegram admin plant task pass: sent=%s failed=%s",
+                        "Telegram admin plant task pass: reminders_sent=%s reminders_failed=%s "
+                        "results_sent=%s results_failed=%s",
                         sent,
                         failed,
+                        result_sent,
+                        result_failed,
                     )
             except asyncio.CancelledError:
                 raise
