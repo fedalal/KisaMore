@@ -14,6 +14,10 @@ from .telegram.broadcast_models import (  # noqa: F401 - register tables in Base
     TelegramBroadcastDelivery,
     TelegramBroadcastOption,
 )
+from .telegram.promotion_models import (  # noqa: F401 - register tables in Base metadata
+    TelegramPromotion,
+    TelegramPromotionGrant,
+)
 
 
 settings = get_settings()
