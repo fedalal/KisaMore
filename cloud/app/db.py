@@ -13,6 +13,12 @@ from .telegram.models import (  # noqa: F401 - register core Telegram tables in 
     WalletAccount,
     WalletTransaction,
 )
+from .telegram.admin_models import (  # noqa: F401 - register Telegram admin tables
+    EdgeOperatorCommand,
+    TelegramAdmin,
+    TelegramAdminPlantTaskAlert,
+    TelegramAdminRentalAlert,
+)
 from .telegram.broadcast_models import (  # noqa: F401 - register tables in Base metadata
     TelegramBroadcast,
     TelegramBroadcastAnswer,
