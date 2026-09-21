@@ -689,18 +689,17 @@ async def handle_callback(bot: TelegramBotAPI, query: dict) -> None:
         if path is None:
             await bot.send_message(chat_id, st(lang, "timelapse_unavailable"))
         else:
+            card = await get_plant_card(planting_id, user.id)
+            archived = bool(
+                card is not None and card.planting.status == "harvested"
+            )
             await bot.send_video(
                 chat_id,
                 path,
-                caption=st(lang, "final_timelapse_caption")
-                if "harvested" in str(
-                    getattr(
-                        await get_plant_card(planting_id, user.id),
-                        "planting",
-                        "",
-                    )
-                )
-                else st(lang, "timelapse_caption"),
+                caption=st(
+                    lang,
+                    "final_timelapse_caption" if archived else "timelapse_caption",
+                ),
             )
     elif data == "rent:start":
         await bot.answer_callback_query(qid); await show_rental_slots(bot, chat_id, tg)
