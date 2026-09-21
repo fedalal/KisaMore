@@ -159,6 +159,10 @@ async def discover_and_grant() -> int:
                     .where(
                         TelegramPromotion.enabled.is_(True),
                         TelegramPromotion.start_at <= now,
+                        # Keep recovering campaigns after temporary worker downtime,
+                        # but never execute a campaign that was created only after
+                        # its configured end date had already passed.
+                        TelegramPromotion.created_at < TelegramPromotion.end_at,
                     )
                     .order_by(TelegramPromotion.id)
                 )
