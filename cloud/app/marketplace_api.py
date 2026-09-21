@@ -8,6 +8,7 @@ import hashlib
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,9 +55,15 @@ from .security import authenticate_device, get_current_user, get_session
 from .config import get_settings
 from .rack_photo_storage import store_rack_photo
 from .seed_inventory import SeedUnavailable, require_seed_available, seed_availability
+from .telegram.admin_models import EdgeOperatorCommand
 
 
 router = APIRouter(prefix="/api/v1", tags=["marketplace"])
+
+
+class EdgeOperatorCommandAckIn(BaseModel):
+    status: str = Field(pattern="^(applied|failed)$")
+    error: str = Field(default="", max_length=1000)
 
 
 def allocation_out(item: Allocation) -> AllocationOut:
@@ -652,6 +659,19 @@ async def edge_assignments(
             .order_by(Allocation.rack_id, Allocation.slot_number)
         )
     ).scalars().all()
+    commands = list(
+        (
+            await session.execute(
+                select(EdgeOperatorCommand)
+                .where(
+                    EdgeOperatorCommand.device_id == device.id,
+                    EdgeOperatorCommand.status == "pending",
+                )
+                .order_by(EdgeOperatorCommand.created_at, EdgeOperatorCommand.id)
+                .limit(50)
+            )
+        ).scalars().all()
+    )
     receipt = await session.get(InventorySyncReceipt, device.id)
     return {
         "inventory_sync_id": receipt.sync_id if receipt else None,
@@ -664,5 +684,49 @@ async def edge_assignments(
                 "plant_id": item.plant_id,
             }
             for item in allocations
-        ]
+        ],
+        "operator_commands": [
+            {
+                "id": item.id,
+                "action": item.action,
+                "rack_id": item.rack_id,
+                "slot_number": item.slot_number,
+                "plant_id": item.plant_id,
+                "planting_id": item.planting_id,
+                "allocation_id": item.allocation_id,
+            }
+            for item in commands
+        ],
     }
+
+
+@router.post("/edge/operator-commands/{command_id}/ack")
+async def acknowledge_edge_operator_command(
+    command_id: str,
+    payload: EdgeOperatorCommandAckIn,
+    device: Device = Depends(authenticate_device),
+    session: AsyncSession = Depends(get_session),
+):
+    command = (
+        await session.execute(
+            select(EdgeOperatorCommand)
+            .where(
+                EdgeOperatorCommand.id == command_id,
+                EdgeOperatorCommand.device_id == device.id,
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if command is None:
+        raise HTTPException(status_code=404, detail="Operator command not found")
+
+    if command.status == "applied" and payload.status == "applied":
+        return {"ok": True, "status": command.status}
+    if command.status == "failed" and payload.status == "failed":
+        return {"ok": True, "status": command.status}
+
+    command.status = payload.status
+    command.error = payload.error.strip()[:1000] or None
+    command.applied_at = datetime.now(timezone.utc) if payload.status == "applied" else None
+    await session.commit()
+    return {"ok": True, "status": command.status}
