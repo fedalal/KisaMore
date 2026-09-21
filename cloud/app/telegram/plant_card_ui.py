@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timezone
 from html import escape
 
 from sqlalchemy import func, select
@@ -22,12 +23,54 @@ async def _follower_count(planting_id: str) -> int:
     return int(value or 0)
 
 
-def build_plant_caption(core, lang: str, card) -> str:
-    """Build a plant caption with temperature and social counters.
+def _date_text(value) -> str:
+    if value is None:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%d")
 
-    Soil moisture is intentionally omitted from the public Telegram card. The
-    fourth social counter shows how many users are subscribed to this planting.
-    """
+
+def _growth_days(start, end) -> int:
+    if start is None or end is None:
+        return 0
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    if end < start:
+        return 0
+    return max(1, int((end - start).total_seconds() // 86400) + 1)
+
+
+def build_plant_caption(core, lang: str, card) -> str:
+    """Build a live or immutable historical planting caption."""
+    if card.planting.status == "harvested":
+        caption = core.st(
+            lang,
+            "historical_plant_card",
+            name=escape(core.plant_name(card.plant, lang)),
+            planted=_date_text(card.planting.planted_at),
+            harvested=_date_text(card.planting.actual_harvest_at),
+            days=_growth_days(
+                card.planting.planted_at,
+                card.planting.actual_harvest_at,
+            ),
+            rack=card.slot.rack_id,
+            slot=card.slot.slot_number,
+            likes=card.likes,
+            dislikes=card.dislikes,
+            comments=card.comments,
+            gifts=card.gifts,
+            gift_kisa=card.gift_kisa,
+        )
+        followers = int(getattr(card, "followers", 0) or 0)
+        stats = f"❤️ {card.likes}   👎 {card.dislikes}   💬 {card.comments}"
+        stats_with_followers = f"{stats}   🔔 {followers}"
+        if stats in caption:
+            caption = caption.replace(stats, stats_with_followers, 1)
+        return caption
+
     sensor = ""
     if card.rack and card.rack.soil_temperature is not None:
         sensor = f"\n\n🌡 {card.rack.soil_temperature:.1f}°C"
