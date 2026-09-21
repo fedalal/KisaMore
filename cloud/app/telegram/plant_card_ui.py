@@ -141,7 +141,13 @@ def install(core) -> None:
             await core.show_plant_at(bot, chat_id, tg, 0)
             return
 
-        if total is None:
+        if card.planting.status == "harvested":
+            # A historical card is not part of the live feed. Do not show
+            # Previous/Next buttons that could jump to the current crop in the
+            # same physical slot.
+            index = 0
+            total = 1
+        elif total is None:
             total = max(1, len(await core.list_plantings(limit=20)))
 
         caption = build_plant_caption(core, lang, card)
