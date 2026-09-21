@@ -7,7 +7,9 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .config import get_settings
 from .rack_photo_storage import SLOT_COUNT, device_photo_dir
 
 
@@ -15,6 +17,7 @@ logger = logging.getLogger(__name__)
 FPS = 12
 MAX_FRAMES = 360
 MIN_FRAMES = 12
+TIMELAPSE_RENDER_VERSION = "timestamp-v1"
 
 
 @dataclass(frozen=True)
@@ -127,6 +130,92 @@ def select_evenly(paths: list[Path], max_frames: int = MAX_FRAMES) -> list[Path]
     return result
 
 
+def _farm_zone() -> ZoneInfo:
+    try:
+        return ZoneInfo(get_settings().farm_timezone)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("UTC")
+
+
+def _slot_box(width: int, height: int, slot_number: int) -> tuple[int, int, int, int]:
+    slot = int(slot_number)
+    if slot < 1 or slot > SLOT_COUNT:
+        raise ValueError("slot_number must be 1..6")
+
+    index = slot - 1
+    row = index // 2
+    column = index % 2
+
+    left = round(width * column / 2)
+    right = round(width * (column + 1) / 2)
+    top = round(height * row / 3)
+    bottom = round(height * (row + 1) / 3)
+    return left, top, right, bottom
+
+
+def _timestamp_text(captured_at: datetime) -> str:
+    local = _aware_utc(captured_at).astimezone(_farm_zone())
+    return local.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _prepare_timelapse_frame(
+    source: Path,
+    target: Path,
+    *,
+    slot_number: int,
+    captured_at: datetime,
+) -> None:
+    """Crop the requested container and draw an international timestamp."""
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+    with Image.open(source) as raw:
+        raw.load()
+        image = ImageOps.exif_transpose(raw).convert("RGB")
+        crop = image.crop(_slot_box(image.width, image.height, slot_number))
+
+    text = _timestamp_text(captured_at)
+    font_size = max(18, min(48, round(min(crop.width, crop.height) * 0.05)))
+    try:
+        font = ImageFont.load_default(size=font_size)
+    except TypeError:
+        font = ImageFont.load_default()
+
+    overlay = Image.new("RGBA", crop.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+
+    padding_x = max(8, round(font_size * 0.35))
+    padding_y = max(5, round(font_size * 0.20))
+    margin = max(10, round(font_size * 0.45))
+
+    right = crop.width - margin
+    bottom = crop.height - margin
+    left = max(0, right - text_width - 2 * padding_x)
+    top = max(0, bottom - text_height - 2 * padding_y)
+
+    draw.rounded_rectangle(
+        (left, top, right, bottom),
+        radius=max(4, round(font_size * 0.18)),
+        fill=(0, 0, 0, 150),
+    )
+    draw.text(
+        (right - text_width - padding_x, bottom - text_height - padding_y),
+        text,
+        font=font,
+        fill=(255, 255, 255, 255),
+    )
+
+    prepared = Image.alpha_composite(crop.convert("RGBA"), overlay).convert("RGB")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    prepared.save(target, format="JPEG", quality=92, optimize=True)
+
+
+def _render_marker_path(target: Path) -> Path:
+    return target.with_name(target.name + f".{TIMELAPSE_RENDER_VERSION}")
+
+
 def _crop_filter(slot_number: int) -> str:
     slot = int(slot_number)
     if slot < 1 or slot > SLOT_COUNT:
@@ -143,6 +232,9 @@ def _crop_filter(slot_number: int) -> str:
 
 def _needs_refresh(target: Path, frames: list[Path], refresh: timedelta, *, final: bool) -> bool:
     if not target.is_file():
+        return True
+    if not _render_marker_path(target).is_file():
+        # One-time rebuild of timelapses created before timestamps were added.
         return True
     try:
         target_mtime = target.stat().st_mtime
@@ -182,14 +274,19 @@ def generate_slot_timelapse(
     with tempfile.TemporaryDirectory(prefix="kisamore-timelapse-") as temp_name:
         temp_dir = Path(temp_name)
         for index, source in enumerate(frames, start=1):
-            link = temp_dir / f"frame_{index:06d}.jpg"
-            try:
-                link.symlink_to(source.resolve())
-            except OSError:
-                link.write_bytes(source.read_bytes())
+            captured_at = _frame_datetime(source)
+            if captured_at is None:
+                continue
+            prepared = temp_dir / f"frame_{index:06d}.jpg"
+            _prepare_timelapse_frame(
+                source,
+                prepared,
+                slot_number=slot_number,
+                captured_at=captured_at,
+            )
 
         temporary = output.with_suffix(".tmp.mp4")
-        vf = f"{_crop_filter(slot_number)},scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p"
+        vf = "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p"
         command = [
             "ffmpeg",
             "-hide_banner",
@@ -226,6 +323,10 @@ def generate_slot_timelapse(
             message = (exc.stderr or b"").decode("utf-8", errors="replace")[-1200:]
             raise RuntimeError(f"ffmpeg timelapse failed: {message}") from exc
         temporary.replace(output)
+        _render_marker_path(output).write_text(
+            TIMELAPSE_RENDER_VERSION,
+            encoding="utf-8",
+        )
 
     logger.info(
         "Generated timelapse: period=%s device=%s rack=%s slot=%s frames=%s duration=%.1fs target=%s",
