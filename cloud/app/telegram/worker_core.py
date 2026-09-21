@@ -20,6 +20,7 @@ from .service import (
     create_rental_request,
     day_number,
     get_or_create_user,
+    ensure_planting_timelapse,
     get_plant_card,
     get_state,
     harvested_planting_for_user,
@@ -119,11 +120,16 @@ def plant_keyboard(lang: str, card, index: int, total: int) -> dict:
     vote_like = "✅❤️" if card.my_vote == "like" else st(lang, "like")
     vote_dislike = "✅👎" if card.my_vote == "dislike" else st(lang, "dislike")
     follow = st(lang, "unfollow") if card.following else st(lang, "follow")
+    timelapse_text = (
+        st(lang, "final_timelapse")
+        if card.planting.status == "harvested"
+        else st(lang, "timelapse")
+    )
     rows = [
         [{"text": vote_like, "callback_data": f"vote:like:{card.planting.id}:{index}"}, {"text": vote_dislike, "callback_data": f"vote:dislike:{card.planting.id}:{index}"}],
         [{"text": st(lang, "write_comment"), "callback_data": f"comment:write:{card.planting.id}"}, {"text": st(lang, "view_comments", count=card.comments), "callback_data": f"comment:list:{card.planting.id}:{index}"}],
         [{"text": follow, "callback_data": f"follow:{card.planting.id}:{index}"}, {"text": st(lang, "gift"), "callback_data": f"gift:menu:{card.planting.id}:{index}"}],
-        [{"text": st(lang, "timelapse"), "callback_data": f"timelapse:{card.planting.id}"}],
+        [{"text": timelapse_text, "callback_data": f"timelapse:{card.planting.id}"}],
     ]
     nav = []
     if index > 0:
@@ -677,7 +683,25 @@ async def handle_callback(bot: TelegramBotAPI, query: dict) -> None:
             await bot.answer_callback_query(qid, text=st(lang, "gift_sent", cost=cost, balance=balance) if ok else st(lang, "not_enough_kisa", balance=balance), show_alert=not ok)
         else: await bot.answer_callback_query(qid)
     elif data.startswith("timelapse:"):
-        await bot.answer_callback_query(qid); await bot.send_message(chat_id, st(lang, "timelapse_unavailable"))
+        await bot.answer_callback_query(qid, text=st(lang, "timelapse_preparing"))
+        planting_id = data.split(":", 1)[1]
+        path = await ensure_planting_timelapse(planting_id)
+        if path is None:
+            await bot.send_message(chat_id, st(lang, "timelapse_unavailable"))
+        else:
+            await bot.send_video(
+                chat_id,
+                path,
+                caption=st(lang, "final_timelapse_caption")
+                if "harvested" in str(
+                    getattr(
+                        await get_plant_card(planting_id, user.id),
+                        "planting",
+                        "",
+                    )
+                )
+                else st(lang, "timelapse_caption"),
+            )
     elif data == "rent:start":
         await bot.answer_callback_query(qid); await show_rental_slots(bot, chat_id, tg)
     elif data.startswith("rent:slot:"):
