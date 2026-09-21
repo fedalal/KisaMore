@@ -565,6 +565,64 @@ async def linked_allocations(user: TelegramUser, limit: int = 10) -> list[Alloca
         )).scalars().all())
 
 
+async def harvested_plantings(
+    user: TelegramUser,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[tuple[Planting, Plant, RackSlot, Allocation]]:
+    """Return this user's completed physical harvests.
+
+    We deliberately link by the allocation stored on the planting instead of by
+    rack/slot. A physical slot can be reused many times, while the allocation
+    preserves ownership of the historical planting.
+    """
+    if not user.marketplace_user_id:
+        return []
+    async with SessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(Planting, Plant, RackSlot, Allocation)
+                .join(Plant, Plant.id == Planting.plant_id)
+                .join(RackSlot, RackSlot.id == Planting.slot_id)
+                .join(Allocation, Allocation.id == Planting.cloud_allocation_id)
+                .where(
+                    Allocation.user_id == user.marketplace_user_id,
+                    Planting.status == "harvested",
+                )
+                .order_by(
+                    Planting.actual_harvest_at.desc(),
+                    Planting.observed_at.desc(),
+                )
+                .offset(max(0, offset))
+                .limit(max(1, min(limit, 50)))
+            )
+        ).all()
+        return list(rows)
+
+
+async def harvested_planting_for_user(
+    user: TelegramUser,
+    planting_id: str,
+) -> tuple[Planting, Plant, RackSlot, Allocation] | None:
+    if not user.marketplace_user_id:
+        return None
+    async with SessionLocal() as session:
+        return (
+            await session.execute(
+                select(Planting, Plant, RackSlot, Allocation)
+                .join(Plant, Plant.id == Planting.plant_id)
+                .join(RackSlot, RackSlot.id == Planting.slot_id)
+                .join(Allocation, Allocation.id == Planting.cloud_allocation_id)
+                .where(
+                    Planting.id == planting_id,
+                    Planting.status == "harvested",
+                    Allocation.user_id == user.marketplace_user_id,
+                )
+                .limit(1)
+            )
+        ).first()
+
+
 @dataclass
 class FollowNotification:
     follow_id: int
