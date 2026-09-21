@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,12 @@ from sqlalchemy import delete, func, select
 from ..config import get_settings
 from ..db import SessionLocal
 from ..models import Allocation, Plant, Planting, RackCurrent, RackPhoto, RackSlot
+from ..timelapse_service import (
+    ensure_planting_final_photo,
+    generate_slot_timelapse,
+    planting_final_photo_path,
+    planting_timelapse_path,
+)
 from .models import (
     SocialComment,
     SocialFollow,
@@ -29,11 +36,18 @@ settings = get_settings()
 
 
 @dataclass
+class PhotoRef:
+    file_path: str
+    captured_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+@dataclass
 class PlantCard:
     planting: Planting
     plant: Plant
     slot: RackSlot
-    photo: RackPhoto | None
+    photo: RackPhoto | PhotoRef | None
     rack: RackCurrent | None
     likes: int
     dislikes: int
@@ -77,7 +91,7 @@ def day_number(planted_at: datetime | None) -> int:
     return max(1, (now - dt).days + 1)
 
 
-def resolve_photo_path(photo: RackPhoto | None) -> Path | None:
+def resolve_photo_path(photo: RackPhoto | PhotoRef | None) -> Path | None:
     if photo is None or not photo.file_path:
         return None
     path = Path(photo.file_path)
@@ -162,22 +176,57 @@ async def get_plant_card(planting_id: str, user_id: int) -> PlantCard | None:
         if row is None:
             return None
         planting, plant, slot = row
-        photo = (
-            await session.execute(
-                select(RackPhoto).where(
-                    RackPhoto.device_id == slot.device_id,
-                    RackPhoto.rack_id == slot.rack_id,
+
+        if planting.status == "harvested":
+            # Historical planting cards are immutable. Never point them at the
+            # rack's current latest photo, because that slot may already contain
+            # another user's crop.
+            start_at = planting.planted_at
+            end_at = planting.actual_harvest_at or planting.observed_at
+            archived_path = None
+            if start_at is not None and end_at is not None:
+                try:
+                    archived_path = await asyncio.to_thread(
+                        ensure_planting_final_photo,
+                        photo_dir=settings.photo_dir,
+                        device_id=slot.device_id,
+                        rack_id=slot.rack_id,
+                        slot_number=slot.slot_number,
+                        planting_id=planting.id,
+                        start_at=start_at,
+                        end_at=end_at,
+                    )
+                except Exception:
+                    archived_path = None
+            photo = (
+                PhotoRef(
+                    file_path=str(archived_path),
+                    captured_at=end_at,
+                    updated_at=end_at,
                 )
+                if archived_path is not None
+                else None
             )
-        ).scalar_one_or_none()
-        rack = (
-            await session.execute(
-                select(RackCurrent).where(
-                    RackCurrent.device_id == slot.device_id,
-                    RackCurrent.rack_id == slot.rack_id,
+            # Current rack sensor values also belong to the new crop, not to
+            # this historical planting.
+            rack = None
+        else:
+            photo = (
+                await session.execute(
+                    select(RackPhoto).where(
+                        RackPhoto.device_id == slot.device_id,
+                        RackPhoto.rack_id == slot.rack_id,
+                    )
                 )
-            )
-        ).scalar_one_or_none()
+            ).scalar_one_or_none()
+            rack = (
+                await session.execute(
+                    select(RackCurrent).where(
+                        RackCurrent.device_id == slot.device_id,
+                        RackCurrent.rack_id == slot.rack_id,
+                    )
+                )
+            ).scalar_one_or_none()
 
         reaction_rows = (
             await session.execute(
@@ -645,6 +694,57 @@ async def recent_harvested_plantings(
         return list(rows)
 
 
+async def ensure_planting_timelapse(planting_id: str) -> Path | None:
+    """Return a planting-specific video, backfilling old harvested crops on demand."""
+    target = planting_timelapse_path(settings.photo_dir, planting_id)
+    if target.is_file():
+        return target
+
+    async with SessionLocal() as session:
+        row = (
+            await session.execute(
+                select(Planting, RackSlot)
+                .join(RackSlot, RackSlot.id == Planting.slot_id)
+                .where(Planting.id == planting_id)
+                .limit(1)
+            )
+        ).first()
+        if row is None:
+            return None
+        planting, slot = row
+
+    start_at = planting.planted_at
+    if start_at is None:
+        return None
+    if planting.status == "harvested":
+        end_at = planting.actual_harvest_at or planting.observed_at
+        final = True
+    elif planting.status in ACTIVE_PLANTING_STATUSES:
+        end_at = datetime.now(timezone.utc)
+        final = False
+    else:
+        end_at = planting.observed_at
+        final = True
+    if end_at is None:
+        return None
+
+    try:
+        return await asyncio.to_thread(
+            generate_slot_timelapse,
+            photo_dir=settings.photo_dir,
+            device_id=slot.device_id,
+            rack_id=slot.rack_id,
+            slot_number=slot.slot_number,
+            period="full",
+            start_at=start_at,
+            end_at=end_at,
+            target=target,
+            final=final,
+        )
+    except Exception:
+        return None
+
+
 @dataclass
 class FollowNotification:
     follow_id: int
@@ -669,6 +769,7 @@ async def pending_follow_notifications(limit: int = 50) -> list[FollowNotificati
             .where(
                 SocialFollow.notifications_enabled.is_(True),
                 SocialFollow.last_notified_at.is_not(None),
+                Planting.status.in_(ACTIVE_PLANTING_STATUSES),
                 RackPhoto.updated_at > SocialFollow.last_notified_at,
             )
             .order_by(RackPhoto.updated_at.asc())
