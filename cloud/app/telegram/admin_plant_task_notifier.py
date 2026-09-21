@@ -283,6 +283,61 @@ async def send_daily_alerts(bot) -> tuple[int, int]:
     return sent, failed
 
 
+async def send_command_results(bot) -> tuple[int, int]:
+    """Tell the requesting Telegram admin when Raspberry applied the action."""
+    sent = 0
+    failed = 0
+    async with SessionLocal() as session:
+        rows = (
+            await session.execute(
+                select(EdgeOperatorCommand, TelegramUser)
+                .join(
+                    TelegramUser,
+                    TelegramUser.id == EdgeOperatorCommand.requested_by_admin_user_id,
+                )
+                .where(
+                    EdgeOperatorCommand.status.in_(("applied", "failed")),
+                    EdgeOperatorCommand.result_notified_at.is_(None),
+                    TelegramUser.is_active.is_(True),
+                )
+                .order_by(EdgeOperatorCommand.created_at)
+                .limit(50)
+            )
+        ).all()
+
+        for command, admin_user in rows:
+            try:
+                if command.status == "applied":
+                    if command.action == "plant":
+                        text = (
+                            "✅ <b>Raspberry Pi подтвердил посадку.</b>\n\n"
+                            f"Полка {command.rack_id} · контейнер {command.slot_number}\n"
+                            "Посадка создана, срок выращивания рассчитан автоматически."
+                        )
+                    else:
+                        text = (
+                            "✅ <b>Raspberry Pi обновил растение.</b>\n\n"
+                            f"Полка {command.rack_id} · контейнер {command.slot_number}\n"
+                            "Статус: <b>готово к сбору</b>."
+                        )
+                else:
+                    reason = escape(command.error or "неизвестная ошибка")
+                    text = (
+                        "⚠️ <b>Raspberry Pi не смог выполнить команду.</b>\n\n"
+                        f"Полка {command.rack_id} · контейнер {command.slot_number}\n"
+                        f"Причина: <code>{reason}</code>\n\n"
+                        "Задача останется актуальной, и бот напомнит о ней снова."
+                    )
+                await bot.send_message(int(admin_user.telegram_user_id), text)
+                command.result_notified_at = datetime.now(timezone.utc)
+                sent += 1
+            except Exception:
+                failed += 1
+            await session.commit()
+
+    return sent, failed
+
+
 async def queue_plant_command(
     *,
     request_id: int,
