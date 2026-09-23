@@ -93,6 +93,33 @@ def reservation_out(item: ReservationRequest) -> ReservationOut:
     )
 
 
+def _public_plant_image_path(plant: Plant) -> tuple[Path, str] | None:
+    """Resolve the same catalogue image directory used by the Telegram bot."""
+    raw_name = (
+        str(plant.microgreen_image_name or "").strip()
+        or str(plant.seed_image_name or "").strip()
+    )
+    if not raw_name:
+        return None
+
+    name = Path(raw_name).name
+    if name != raw_name:
+        return None
+
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }
+    media_type = media_types.get(Path(name).suffix.lower())
+    if media_type is None:
+        return None
+
+    path = Path(get_settings().plant_image_dir) / name
+    return (path, media_type) if path.is_file() else None
+
+
 def offer_out(item: Offer) -> OfferOut:
     return OfferOut(
         id=item.id,
@@ -249,6 +276,27 @@ async def public_market(
             for plant in plants
         ],
         racks=racks,
+    )
+
+
+@router.get("/public/plants/{plant_id}/image", response_class=FileResponse)
+async def public_plant_image(
+    plant_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    plant = await session.get(Plant, plant_id)
+    if plant is None or not plant.active:
+        raise HTTPException(status_code=404, detail="Plant image not found")
+
+    resolved = _public_plant_image_path(plant)
+    if resolved is None:
+        raise HTTPException(status_code=404, detail="Plant image not found")
+
+    path, media_type = resolved
+    return FileResponse(
+        path,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=3600"},
     )
 
 
