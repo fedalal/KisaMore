@@ -913,38 +913,28 @@
   }
 
   function renderAccount() {
-    if (!account) return;
-    $("#accountName").textContent = account.user.display_name;
-    const activeAllocations = account.allocations.filter((item) => item.status === "active").map((item) =>
-      accountItem(targetLabel(item), `${t("status")}: ${item.status}`, t("release"), () => releaseAllocation(item.id))
-    );
-    const reservations = account.reservations.filter((item) => ["waiting", "offered"].includes(item.status)).map((item) =>
-      accountItem(targetLabel(item), `${t("status")}: ${item.status}`, null, null)
-    );
-    const offers = account.offers.filter((item) => item.status === "pending").map((item) =>
-      accountItem(targetLabel(item), `${t("offerUntil")}: ${date(item.expires_at)}`, t("acceptOffer"), () => {
-        $("#accountDialog").close();
-        openAction({ mode: "purchase", resourceType: item.resource_type, rackId: item.rack_id, slotNumber: item.slot_number, plantId: item.plant_id, offerId: item.id });
-      })
-    );
-    const notifications = account.notifications.slice(0, 20).map((item) =>
-      accountItem(item.kind.replaceAll("_", " "), date(item.created_at), null, null)
-    );
-    $("#accountContent").replaceChildren(
-      accountGroup("offers", offers),
-      accountGroup("allocations", activeAllocations),
-      accountGroup("reservations", reservations),
-      accountGroup("notifications", notifications)
-    );
+    if (!user) return;
+    $("#accountName").textContent = user.display_name;
+
+    const profile = document.createElement("div");
+    profile.className = "account-profile";
+
+    const emailLabel = document.createElement("span");
+    emailLabel.className = "account-profile-label";
+    emailLabel.textContent = t("email");
+
+    const email = document.createElement("strong");
+    email.className = "account-profile-email";
+    email.textContent = user.email;
+
+    profile.append(emailLabel, email);
+    $("#accountContent").replaceChildren(profile);
   }
 
-  async function openAccount() {
+  function openAccount() {
     if (!user) { openAuth(); return; }
-    try {
-      account = await api("/api/v1/account");
-      renderAccount();
-      $("#accountDialog").showModal();
-    } catch (error) { console.error(error); }
+    renderAccount();
+    $("#accountDialog").showModal();
   }
 
   async function releaseAllocation(id) {
@@ -1086,7 +1076,7 @@
         pendingAction = null;
         openAction(action);
       } else {
-        openAccount();
+        render();
       }
     } catch (error) {
       const node = $(".form-error", form);
@@ -1112,7 +1102,7 @@
       $("#actionDialog").close();
       $("#notice").textContent = t(isPurchase ? "purchaseCreated" : "reservationCreated");
       $("#notice").classList.remove("hidden");
-      await Promise.all([loadData(), openAccount()]);
+      await loadData();
     } catch (error) {
       const node = $(".form-error", form);
       node.textContent = error.message || t("actionError");
