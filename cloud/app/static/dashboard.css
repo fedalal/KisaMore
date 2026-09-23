@@ -563,7 +563,8 @@ a { color: inherit; }
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .slot-timelapses {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .slot-social-button,
 .slot-video-button {
@@ -583,6 +584,16 @@ a { color: inherit; }
 }
 .slot-social-button {
   width: 100%;
+  gap: 6px;
+}
+.slot-social-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.slot-social-count {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 900;
 }
 .slot-social-button:hover,
 .slot-video-button:hover {
@@ -591,10 +602,11 @@ a { color: inherit; }
   background: #fff;
 }
 .slot-video-button {
-  flex: 1 1 auto;
-  min-width: 78px;
+  width: 100%;
+  min-width: 0;
   color: var(--green-dark);
   background: var(--green-pale);
+  cursor: pointer;
 }
 .slot-action {
   width: 100%;
@@ -745,6 +757,44 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
 .account-item span { color: var(--muted); font-size: 12px; }
 .account-item button { flex: none; }
 
+.video-dialog {
+  width: min(920px, calc(100% - 28px));
+  max-height: calc(100vh - 28px);
+  overflow: hidden;
+}
+.video-dialog > section {
+  padding: 16px;
+}
+.video-dialog header {
+  min-height: 42px;
+  padding-bottom: 10px;
+}
+.video-dialog h2 {
+  overflow: hidden;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.video-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #07110e;
+}
+.video-stage video {
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - 130px);
+  background: #000;
+}
+.video-error {
+  margin: 0;
+  padding: 18px;
+  color: #fff;
+  text-align: center;
+  background: #07110e;
+}
+
 @media (max-width: 1080px) {
   .main-nav { display: none; }
   .topbar { grid-template-columns: 1fr auto; }
@@ -795,7 +845,8 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
   .slot { padding: 8px; }
   .slot-social { gap: 5px; }
   .slot-social-button { min-height: 34px; padding: 7px 5px; font-size: 10px; }
-  .slot-video-button { min-height: 32px; padding: 6px 7px; font-size: 9px; }
+  .slot-social-count { font-size: 14px; }
+  .slot-video-button { min-height: 32px; padding: 6px 4px; font-size: 8px; }
   .slot-action { min-height: 36px; padding: 8px 6px; font-size: 10px; }
   .token-band { grid-template-columns: auto 1fr; }
   .token-band .primary-button { grid-column: 1 / -1; text-align: center; }
