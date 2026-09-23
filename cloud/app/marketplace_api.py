@@ -9,7 +9,7 @@ import hashlib
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .auth_api import user_out
@@ -28,6 +28,8 @@ from .models import (
     RackSlot,
     ReservationRequest,
     User,
+    WebSocialComment,
+    WebSocialReaction,
 )
 from .marketplace_service import (
     active_inventory,
@@ -56,7 +58,15 @@ from .config import get_settings
 from .rack_photo_storage import store_rack_photo
 from .seed_inventory import SeedUnavailable, require_seed_available, seed_availability
 from .telegram.admin_models import EdgeOperatorCommand
-from .telegram.models import SocialComment, SocialGift, SocialReaction
+from .telegram.models import (
+    SocialComment,
+    SocialGift,
+    SocialReaction,
+    TelegramUser,
+    WalletAccount,
+    WalletTransaction,
+)
+from .telegram.service import GIFT_COSTS
 
 
 router = APIRouter(prefix="/api/v1", tags=["marketplace"])
@@ -65,6 +75,96 @@ router = APIRouter(prefix="/api/v1", tags=["marketplace"])
 class EdgeOperatorCommandAckIn(BaseModel):
     status: str = Field(pattern="^(applied|failed)$")
     error: str = Field(default="", max_length=1000)
+
+
+class WebReactionIn(BaseModel):
+    reaction: str = Field(pattern="^(like|dislike)$")
+
+
+class WebCommentIn(BaseModel):
+    body: str = Field(min_length=1, max_length=1000)
+
+
+class WebGiftIn(BaseModel):
+    gift_code: str = Field(pattern="^(sprout|sun|support|trophy)$")
+
+
+async def _social_counts(session: AsyncSession, planting_id: str) -> dict[str, int]:
+    telegram_reactions = (
+        await session.execute(
+            select(SocialReaction.reaction, func.count(SocialReaction.id))
+            .where(
+                SocialReaction.target_type == "planting",
+                SocialReaction.target_id == planting_id,
+                SocialReaction.reaction.in_(("like", "dislike")),
+            )
+            .group_by(SocialReaction.reaction)
+        )
+    ).all()
+    web_reactions = (
+        await session.execute(
+            select(WebSocialReaction.reaction, func.count(WebSocialReaction.id))
+            .where(
+                WebSocialReaction.target_type == "planting",
+                WebSocialReaction.target_id == planting_id,
+                WebSocialReaction.reaction.in_(("like", "dislike")),
+            )
+            .group_by(WebSocialReaction.reaction)
+        )
+    ).all()
+
+    result = {"likes": 0, "dislikes": 0, "comments": 0, "gifts": 0, "gift_kisa": 0}
+    for reaction, count in [*telegram_reactions, *web_reactions]:
+        key = "likes" if reaction == "like" else "dislikes"
+        result[key] += int(count or 0)
+
+    telegram_comments = int(
+        (
+            await session.execute(
+                select(func.count(SocialComment.id)).where(
+                    SocialComment.target_type == "planting",
+                    SocialComment.target_id == planting_id,
+                    SocialComment.status == "published",
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
+    web_comments = int(
+        (
+            await session.execute(
+                select(func.count(WebSocialComment.id)).where(
+                    WebSocialComment.target_type == "planting",
+                    WebSocialComment.target_id == planting_id,
+                    WebSocialComment.status == "published",
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
+    result["comments"] = telegram_comments + web_comments
+
+    gift_row = (
+        await session.execute(
+            select(
+                func.count(SocialGift.id),
+                func.coalesce(func.sum(SocialGift.token_cost), 0),
+            ).where(
+                SocialGift.target_type == "planting",
+                SocialGift.target_id == planting_id,
+            )
+        )
+    ).one()
+    result["gifts"] = int(gift_row[0] or 0)
+    result["gift_kisa"] = int(gift_row[1] or 0)
+    return result
+
+
+async def _require_planting(session: AsyncSession, planting_id: str) -> Planting:
+    planting = await session.get(Planting, planting_id)
+    if planting is None:
+        raise HTTPException(status_code=404, detail="Planting not found")
+    return planting
 
 
 def allocation_out(item: Allocation) -> AllocationOut:
@@ -221,6 +321,25 @@ async def public_market(
             key = "likes" if reaction == "like" else "dislikes"
             social_by_planting[target_id][key] = int(count or 0)
 
+        web_reaction_rows = (
+            await session.execute(
+                select(
+                    WebSocialReaction.target_id,
+                    WebSocialReaction.reaction,
+                    func.count(WebSocialReaction.id),
+                )
+                .where(
+                    WebSocialReaction.target_type == "planting",
+                    WebSocialReaction.target_id.in_(planting_ids),
+                    WebSocialReaction.reaction.in_(("like", "dislike")),
+                )
+                .group_by(WebSocialReaction.target_id, WebSocialReaction.reaction)
+            )
+        ).all()
+        for target_id, reaction, count in web_reaction_rows:
+            key = "likes" if reaction == "like" else "dislikes"
+            social_by_planting[target_id][key] += int(count or 0)
+
         comment_rows = (
             await session.execute(
                 select(SocialComment.target_id, func.count(SocialComment.id))
@@ -234,6 +353,20 @@ async def public_market(
         ).all()
         for target_id, count in comment_rows:
             social_by_planting[target_id]["comments"] = int(count or 0)
+
+        web_comment_rows = (
+            await session.execute(
+                select(WebSocialComment.target_id, func.count(WebSocialComment.id))
+                .where(
+                    WebSocialComment.target_type == "planting",
+                    WebSocialComment.target_id.in_(planting_ids),
+                    WebSocialComment.status == "published",
+                )
+                .group_by(WebSocialComment.target_id)
+            )
+        ).all()
+        for target_id, count in web_comment_rows:
+            social_by_planting[target_id]["comments"] += int(count or 0)
 
         gift_rows = (
             await session.execute(
