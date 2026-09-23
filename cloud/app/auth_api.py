@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import asyncio
+import base64
 import logging
 import secrets
-import smtplib
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from uuid import uuid4
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,29 +60,58 @@ def _password_reset_email(user: User, reset_url: str) -> tuple[str, str]:
     return subject, body
 
 
-def _send_password_reset_email(user: User, reset_url: str) -> None:
+async def _send_password_reset_email(user: User, reset_url: str) -> None:
     settings = get_settings()
-    if not settings.smtp_host or not settings.smtp_from_email:
-        raise RuntimeError("Password reset email is not configured")
+    if (
+        not settings.gmail_client_id
+        or not settings.gmail_client_secret
+        or not settings.gmail_refresh_token
+        or not settings.gmail_from_email
+    ):
+        raise RuntimeError("Password reset Gmail API is not configured")
 
     subject, body = _password_reset_email(user, reset_url)
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
+    message["From"] = f"{settings.gmail_from_name} <{settings.gmail_from_email}>"
     message["To"] = user.email
     message.set_content(body)
 
-    smtp_factory = (
-        smtplib.SMTP_SSL
-        if settings.smtp_port == 465 and not settings.smtp_starttls
-        else smtplib.SMTP
-    )
-    with smtp_factory(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
-        if settings.smtp_starttls:
-            smtp.starttls()
-        if settings.smtp_username:
-            smtp.login(settings.smtp_username, settings.smtp_password)
-        smtp.send_message(message)
+    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        token_response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": settings.gmail_client_id,
+                "client_secret": settings.gmail_client_secret,
+                "refresh_token": settings.gmail_refresh_token,
+                "grant_type": "refresh_token",
+            },
+        )
+        if token_response.is_error:
+            raise RuntimeError(
+                f"Gmail OAuth token request failed: HTTP {token_response.status_code} "
+                f"{token_response.text[:500]}"
+            )
+
+        access_token = token_response.json().get("access_token")
+        if not access_token:
+            raise RuntimeError("Gmail OAuth token response did not include access_token")
+
+        send_response = await client.post(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            },
+            json={"raw": raw_message},
+        )
+        if send_response.is_error:
+            raise RuntimeError(
+                f"Gmail API send failed: HTTP {send_response.status_code} "
+                f"{send_response.text[:500]}"
+            )
 
 
 def user_out(user: User) -> UserOut:
@@ -169,7 +198,12 @@ async def request_password_reset(
     session: AsyncSession = Depends(get_session),
 ):
     settings = get_settings()
-    if not settings.smtp_host or not settings.smtp_from_email:
+    if (
+        not settings.gmail_client_id
+        or not settings.gmail_client_secret
+        or not settings.gmail_refresh_token
+        or not settings.gmail_from_email
+    ):
         raise HTTPException(
             status_code=503,
             detail="Password recovery email is not configured",
@@ -207,14 +241,11 @@ async def request_password_reset(
 
     reset_url = f"{settings.public_base_url}/?reset_token={raw_token}"
     try:
-        await asyncio.to_thread(_send_password_reset_email, user, reset_url)
+        await _send_password_reset_email(user, reset_url)
     except Exception:
         logger.exception(
-            "Could not send password recovery email via SMTP host=%s port=%s user=%s from=%s",
-            settings.smtp_host,
-            settings.smtp_port,
-            settings.smtp_username,
-            settings.smtp_from_email,
+            "Could not send password recovery email via Gmail API from=%s",
+            settings.gmail_from_email,
         )
         await session.execute(
             delete(PasswordResetToken).where(
