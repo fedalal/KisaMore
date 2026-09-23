@@ -729,6 +729,88 @@
     if (priceNode) priceNode.textContent = minPrice === null ? "—" : String(minPrice);
   }
 
+  function rackPhotoSlotTooltip(slot, plantsById) {
+    const tooltip = document.createElement("span");
+    tooltip.className = "rack-slot-tooltip";
+
+    const heading = document.createElement("strong");
+    heading.className = "rack-slot-tooltip-title";
+    heading.textContent = `${t("container")} ${slot.slot_number} · ${statusLabel(slot.status)}`;
+    tooltip.append(heading);
+
+    if (slot.planting) {
+      const labels = slotUiText();
+      const plantingPlant = plantsById.get(slot.planting.plant_id);
+
+      const plant = document.createElement("strong");
+      plant.className = "rack-slot-tooltip-plant";
+      plant.textContent = plantingName(slot.planting, plantingPlant);
+      tooltip.append(plant);
+
+      const planted = document.createElement("span");
+      planted.textContent = `${labels.planted}: ${dateOnly(slot.planting.planted_at)}`;
+
+      const day = document.createElement("span");
+      day.textContent = `${labels.day}: ${growthDay(slot.planting.planted_at)}`;
+
+      const reactions = document.createElement("span");
+      reactions.className = "rack-slot-tooltip-reactions";
+      reactions.textContent = [
+        `❤️ ${slot.planting.likes || 0}`,
+        `👎 ${slot.planting.dislikes || 0}`,
+        `🎁 ${slot.planting.gift_kisa || 0}`,
+        `💬 ${slot.planting.comments || 0}`
+      ].join("   ");
+
+      tooltip.append(planted, day, reactions);
+    } else if (slot.status !== "disabled") {
+      const action = document.createElement("span");
+      action.className = "rack-slot-tooltip-action";
+      action.textContent = slot.available ? t("buy") : t("reserve");
+      tooltip.append(action);
+    }
+
+    return tooltip;
+  }
+
+  function addRackPhotoHotspots(photo, rack, orderedSlots, plantsById) {
+    const layer = document.createElement("div");
+    layer.className = "rack-photo-hotspots";
+    layer.setAttribute("aria-label", `${t("rack")} ${rack.rack_id}`);
+
+    for (const slot of orderedSlots) {
+      const hotspot = document.createElement("button");
+      hotspot.type = "button";
+      hotspot.className = `rack-photo-hotspot is-${slot.status}`;
+      hotspot.style.gridColumn = String(((Number(slot.slot_number) - 1) % 2) + 1);
+      hotspot.style.gridRow = String(Math.floor((Number(slot.slot_number) - 1) / 2) + 1);
+      hotspot.setAttribute(
+        "aria-label",
+        `${t("container")} ${slot.slot_number}: ${statusLabel(slot.status)}`
+      );
+
+      const marker = document.createElement("span");
+      marker.className = "rack-photo-slot-marker";
+      marker.textContent = String(slot.slot_number);
+      hotspot.append(marker, rackPhotoSlotTooltip(slot, plantsById));
+
+      if (slot.status === "disabled") {
+        hotspot.setAttribute("aria-disabled", "true");
+      } else {
+        hotspot.addEventListener("click", () => openAction({
+          mode: slot.available ? "purchase" : "reservation",
+          resourceType: "slot",
+          rackId: slot.rack_id,
+          slotNumber: slot.slot_number
+        }));
+      }
+
+      layer.append(hotspot);
+    }
+
+    photo.append(layer);
+  }
+
   function renderRack(rack, plantsById) {
     const card = $("#rackTemplate").content.firstElementChild.cloneNode(true);
     translateTree(card);
@@ -751,6 +833,9 @@
     }
 
     const orderedSlots = [...rack.slots].sort((a, b) => Number(a.slot_number) - Number(b.slot_number));
+    if (rack.photo_url) {
+      addRackPhotoHotspots(photo, rack, orderedSlots, plantsById);
+    }
     const allSlotsFree = orderedSlots.length === 6 && orderedSlots.every((slot) => slot.available === true);
 
     const rackButton = $(".rack-action", card);
