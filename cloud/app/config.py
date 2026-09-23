@@ -23,6 +23,7 @@ class Settings:
     cookie_secure: bool
     offer_hours: int
     photo_dir: str
+    plant_image_dir: str
     photo_max_bytes: int
     broadcast_media_max_bytes: int
     mqtt_host: str
@@ -67,6 +68,9 @@ def get_settings() -> Settings:
         not in ("0", "false", "no"),
         offer_hours=max(1, int(os.getenv("KISAMORE_OFFER_HOURS", "24"))),
         photo_dir=os.getenv("KISAMORE_PHOTO_DIR", "/srv/kisamore/data/photos").strip(),
+        plant_image_dir=os.getenv(
+            "KISAMORE_PLANT_IMAGE_DIR", "/srv/kisamore/data/plant-images"
+        ).strip(),
         photo_max_bytes=max(
             100_000, int(os.getenv("KISAMORE_PHOTO_MAX_BYTES", "2097152"))
         ),
