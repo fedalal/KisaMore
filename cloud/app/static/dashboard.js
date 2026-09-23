@@ -294,7 +294,23 @@
 
     const visual = document.createElement("div");
     visual.className = "plant-visual";
-    visual.innerHTML = '<span aria-hidden="true">🌿</span>';
+
+    const fallback = document.createElement("span");
+    fallback.className = "plant-image-fallback";
+    fallback.setAttribute("aria-hidden", "true");
+    fallback.textContent = "🌿";
+    visual.append(fallback);
+
+    if (plant?.id && (plant.microgreen_image_name || plant.seed_image_name)) {
+      const image = document.createElement("img");
+      image.src = `/api/v1/public/plants/${encodeURIComponent(plant.id)}/image`;
+      image.alt = plantName(plant);
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.addEventListener("load", () => fallback.classList.add("hidden"));
+      image.addEventListener("error", () => image.remove());
+      visual.append(image);
+    }
 
     const body = document.createElement("div");
     body.className = "plant-card-body";
