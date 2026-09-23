@@ -246,6 +246,23 @@
   const telegramPlantLink = (action, plantingId) =>
     `https://t.me/KisaMoreBot?start=${encodeURIComponent(action + "_" + plantingId)}`;
 
+  function openVideoDialog(href, title) {
+    const dialog = $("#videoDialog");
+    const video = $("#videoPlayer");
+    $("#videoTitle").textContent = title;
+    $("#videoError").classList.add("hidden");
+    video.src = href;
+    video.load();
+    dialog.showModal();
+  }
+
+  function closeVideoDialog() {
+    const video = $("#videoPlayer");
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  }
+
   async function api(path, options = {}) {
     const response = await fetch(path, {
       credentials: "same-origin",
@@ -357,7 +374,16 @@
         link.rel = "noopener";
         link.title = label;
         link.setAttribute("aria-label", `${label}: ${count}`);
-        link.textContent = `${icon} ${count}`;
+
+        const iconNode = document.createElement("span");
+        iconNode.className = "slot-social-icon";
+        iconNode.textContent = icon;
+
+        const countNode = document.createElement("strong");
+        countNode.className = "slot-social-count";
+        countNode.textContent = String(count);
+
+        link.append(iconNode, countNode);
         social.append(link);
       }
       card.append(social);
@@ -372,13 +398,15 @@
       ];
 
       for (const [, label, href] of videoItems) {
-        const link = document.createElement("a");
-        link.className = "slot-video-button";
-        link.href = href;
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.textContent = label;
-        videos.append(link);
+        const button = document.createElement("button");
+        button.className = "slot-video-button";
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", () => openVideoDialog(
+          href,
+          `${plantingName(slot.planting, plantingPlant)} · ${label}`
+        ));
+        videos.append(button);
       }
       card.append(videos);
     }
@@ -718,6 +746,10 @@
   $("#accountCtaButton")?.addEventListener("click", openAccount);
   $("#authModeButton").addEventListener("click", () => { authMode = authMode === "login" ? "register" : "login"; renderAuthDialog(); });
   document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
+  $("#videoDialog")?.addEventListener("close", closeVideoDialog);
+  $("#videoPlayer")?.addEventListener("error", () => {
+    $("#videoError").classList.remove("hidden");
+  });
 
   $("#authForm").addEventListener("submit", async (event) => {
     event.preventDefault();
