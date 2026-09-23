@@ -48,6 +48,11 @@ class Settings:
     smtp_from_email: str = ""
     smtp_from_name: str = "KisaMore"
     smtp_starttls: bool = True
+    gmail_client_id: str = ""
+    gmail_client_secret: str = ""
+    gmail_refresh_token: str = ""
+    gmail_from_email: str = ""
+    gmail_from_name: str = "KisaMore"
 
 
 @lru_cache
@@ -115,4 +120,9 @@ def get_settings() -> Settings:
         smtp_from_name=os.getenv("KISAMORE_SMTP_FROM_NAME", "KisaMore").strip() or "KisaMore",
         smtp_starttls=os.getenv("KISAMORE_SMTP_STARTTLS", "true").strip().lower()
         in ("1", "true", "yes", "on"),
+        gmail_client_id=os.getenv("KISAMORE_GMAIL_CLIENT_ID", "").strip(),
+        gmail_client_secret=os.getenv("KISAMORE_GMAIL_CLIENT_SECRET", ""),
+        gmail_refresh_token=os.getenv("KISAMORE_GMAIL_REFRESH_TOKEN", ""),
+        gmail_from_email=os.getenv("KISAMORE_GMAIL_FROM_EMAIL", "").strip(),
+        gmail_from_name=os.getenv("KISAMORE_GMAIL_FROM_NAME", "KisaMore").strip() or "KisaMore",
     )
