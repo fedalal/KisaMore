@@ -137,7 +137,6 @@
     translateTree(card);
     $(".rack-title", card).textContent = `${t("rack")} ${rack.rack_id}`;
     $(".light-value", card).textContent = rack.light_on ? t("lightOn") : t("lightOff");
-    $(".water-value", card).textContent = rack.water_on ? t("waterOn") : t("waterOff");
     $(".temperature-value", card).textContent = Number.isFinite(rack.soil_temperature) ? `${rack.soil_temperature.toFixed(1)} °C` : "—";
     $(".moisture-value", card).textContent = Number.isFinite(rack.soil_moisture) ? `${rack.soil_moisture.toFixed(1)} %` : "—";
     const photo = $(".rack-photo", card);
@@ -156,7 +155,8 @@
       rackId: rack.rack_id,
       slotNumber: null
     }));
-    $(".slots", card).replaceChildren(...rack.slots.map((slot) => renderSlot(slot, plantsById)));
+    const orderedSlots = [...rack.slots].sort((a, b) => Number(a.slot_number) - Number(b.slot_number));
+    $(".slots", card).replaceChildren(...orderedSlots.map((slot) => renderSlot(slot, plantsById)));
     return card;
   }
 
