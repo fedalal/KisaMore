@@ -340,7 +340,7 @@ a { color: inherit; }
 .plant-visual {
   position: relative;
   display: grid;
-  height: 180px;
+  height: 270px;
   overflow: hidden;
   place-items: center;
   background:
@@ -605,6 +605,7 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
 }
 
 @media (max-width: 820px) {
+  .plant-visual { height: 240px; }
   .page-shell { width: min(100% - 24px, 720px); }
   .topbar { top: 6px; padding: 8px 10px; }
   .brand small { display: none; }
@@ -624,6 +625,7 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
 }
 
 @media (max-width: 620px) {
+  .plant-visual { height: 230px; }
   .top-actions { gap: 6px; }
   #languageSelect { max-width: 108px; }
   #accountButton { padding: 9px 10px; font-size: 11px; }
