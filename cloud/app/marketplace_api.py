@@ -163,6 +163,7 @@ async def public_market(
             await session.execute(select(Plant).where(Plant.active.is_(True)).order_by(Plant.code))
         ).scalars().all()
     )
+    plant_by_id = {plant.id: plant for plant in all_plants}
     plants = [
         plant
         for plant in all_plants
@@ -278,6 +279,11 @@ async def public_market(
                         PlantingPublicOut(
                             id=planting.id,
                             plant_id=planting.plant_id,
+                            plant_names=(
+                                plant_by_id[planting.plant_id].names
+                                if planting.plant_id in plant_by_id
+                                else {}
+                            ),
                             planted_at=aware_utc(planting.planted_at),
                             expected_harvest_at=aware_utc(planting.expected_harvest_at),
                             status=planting.status,
