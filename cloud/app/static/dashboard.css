@@ -749,6 +749,24 @@ dialog input, dialog select { width: 100%; padding: 11px 12px; border: 1px solid
 dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
 .text-button { margin-right: auto; border: 0; color: var(--green); background: transparent; font-weight: 700; }
 .form-error { color: #a13939; font-size: 12px; }
+.form-success {
+  margin: 12px 0 0;
+  color: var(--green-dark);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.dialog-copy {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.auth-footer {
+  flex-wrap: wrap;
+}
+#forgotPasswordButton {
+  margin-right: 0;
+}
 .account-dialog { width: min(760px, calc(100% - 30px)); }
 .account-group { margin-top: 25px; }
 .account-group h3 { margin: 0 0 10px; }
