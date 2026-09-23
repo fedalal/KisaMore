@@ -226,7 +226,7 @@ class FarmMarketOut(BaseModel):
 class RegisterIn(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     display_name: str = Field(min_length=1, max_length=120)
-    password: str = Field(min_length=10, max_length=256)
+    password: str = Field(min_length=5, max_length=256)
     language: str = Field(default="en", max_length=10)
 
     @field_validator("email")
@@ -248,6 +248,23 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=256)
+
+
+class PasswordResetRequestIn(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str):
+        value = value.strip().lower()
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            raise ValueError("invalid email address")
+        return value
+
+
+class PasswordResetConfirmIn(BaseModel):
+    token: str = Field(min_length=20, max_length=512)
+    password: str = Field(min_length=5, max_length=256)
 
 
 class LanguageIn(BaseModel):
