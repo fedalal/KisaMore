@@ -289,8 +289,10 @@
 
 
   function renderPlantCard(plant) {
-    const card = document.createElement("article");
+    const card = document.createElement("a");
     card.className = "plant-card";
+    card.href = "#greenhouse";
+    card.setAttribute("aria-label", `${plantName(plant)} — ${t("choosePlaceCta")}`);
 
     const visual = document.createElement("div");
     visual.className = "plant-visual";
@@ -329,10 +331,14 @@
     const description = document.createElement("p");
     description.textContent = plantDescription(plant);
 
-    const action = document.createElement("a");
+    const action = document.createElement("span");
     action.className = "plant-action";
-    action.href = "#greenhouse";
     action.textContent = t("choosePlaceCta");
+    const arrow = document.createElement("span");
+    arrow.className = "plant-action-arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = "→";
+    action.append(arrow);
 
     body.append(meta, title, description, action);
     card.append(visual, body);
