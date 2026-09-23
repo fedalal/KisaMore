@@ -585,7 +585,34 @@ async def handle_message(bot: TelegramBotAPI, message: dict) -> None:
         return
     text = (message.get("text") or "").strip()
     command = text.split(maxsplit=1)[0].split("@", 1)[0].lower()
-    if command in {"/start", "/menu"}:
+    start_payload = ""
+    if command == "/start" and len(text.split(maxsplit=1)) > 1:
+        start_payload = text.split(maxsplit=1)[1].strip()
+
+    if command == "/start" and start_payload:
+        action, separator, planting_id = start_payload.partition("_")
+        if separator and action in {"plant", "like", "dislike", "comment", "gift"}:
+            card = await get_plant_card(planting_id, user.id)
+            if card is None:
+                await show_home(bot, chat_id, tg)
+            elif action in {"like", "dislike"}:
+                await toggle_vote(user.id, planting_id, action)
+                await show_plant_card(bot, chat_id, tg, planting_id, user_id=user.id)
+            elif action == "comment":
+                await set_state(
+                    user.id,
+                    "comment",
+                    target_type="planting",
+                    target_id=planting_id,
+                )
+                await bot.send_message(chat_id, st(lang, "comment_prompt"))
+            elif action == "gift":
+                await show_gift_menu(bot, chat_id, tg, planting_id, 0)
+            else:
+                await show_plant_card(bot, chat_id, tg, planting_id, user_id=user.id)
+        else:
+            await show_home(bot, chat_id, tg)
+    elif command in {"/start", "/menu"}:
         await show_home(bot, chat_id, tg)
     elif command == "/wallet":
         await show_wallet(bot, chat_id, tg)
