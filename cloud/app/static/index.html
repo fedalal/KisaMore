@@ -7,8 +7,8 @@
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
   <meta name="description" content="KisaMore lets you watch real plants grow online, choose what to grow and rent a real greenhouse container.">
   <title>KisaMore — grow something real</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=16">
-  <script src="/static/dashboard.js?v=13" defer></script>
+  <link rel="stylesheet" href="/static/dashboard.css?v=17">
+  <script src="/static/dashboard.js?v=14" defer></script>
 </head>
 <body>
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
@@ -264,6 +264,38 @@
         <video id="videoPlayer" controls playsinline preload="metadata"></video>
         <p id="videoError" class="video-error hidden">Video is not available yet.</p>
       </div>
+    </section>
+  </dialog>
+
+  <dialog id="commentDialog" class="social-dialog">
+    <section>
+      <header>
+        <h2 id="commentTitle">Comments</h2>
+        <button type="button" class="close-button" data-close aria-label="Close">×</button>
+      </header>
+      <div id="commentList" class="comment-list"></div>
+      <form id="commentForm" class="comment-form">
+        <textarea id="commentInput" maxlength="1000" rows="3" placeholder="Write a comment…"></textarea>
+        <p id="commentError" class="form-error hidden"></p>
+        <button id="commentSubmit" class="primary-button" type="submit">Send</button>
+      </form>
+    </section>
+  </dialog>
+
+  <dialog id="giftDialog" class="social-dialog gift-dialog">
+    <section>
+      <header>
+        <h2 id="giftTitle">Support this plant</h2>
+        <button type="button" class="close-button" data-close aria-label="Close">×</button>
+      </header>
+      <p id="giftHint" class="gift-hint">Choose a KISA gift.</p>
+      <div class="gift-options">
+        <button type="button" data-gift-code="sprout">🌱 <strong>1</strong> KISA</button>
+        <button type="button" data-gift-code="sun">☀️ <strong>5</strong> KISA</button>
+        <button type="button" data-gift-code="support">💚 <strong>10</strong> KISA</button>
+        <button type="button" data-gift-code="trophy">🏆 <strong>50</strong> KISA</button>
+      </div>
+      <p id="giftError" class="form-error hidden"></p>
     </section>
   </dialog>
 </body>
