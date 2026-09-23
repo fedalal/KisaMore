@@ -40,6 +40,14 @@ class Settings:
     admin_email: str = ""
     admin_password: str = ""
     admin_name: str = "KisaMore Admin"
+    public_base_url: str = "https://kisamore.farm"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "KisaMore"
+    smtp_starttls: bool = True
 
 
 @lru_cache
@@ -98,4 +106,13 @@ def get_settings() -> Settings:
         admin_email=os.getenv("KISAMORE_ADMIN_EMAIL", "").strip().lower(),
         admin_password=os.getenv("KISAMORE_ADMIN_PASSWORD", ""),
         admin_name=os.getenv("KISAMORE_ADMIN_NAME", "KisaMore Admin").strip() or "KisaMore Admin",
+        public_base_url=os.getenv("KISAMORE_PUBLIC_BASE_URL", "https://kisamore.farm").strip().rstrip("/") or "https://kisamore.farm",
+        smtp_host=os.getenv("KISAMORE_SMTP_HOST", "").strip(),
+        smtp_port=int(os.getenv("KISAMORE_SMTP_PORT", "587")),
+        smtp_username=os.getenv("KISAMORE_SMTP_USERNAME", "").strip(),
+        smtp_password=os.getenv("KISAMORE_SMTP_PASSWORD", ""),
+        smtp_from_email=os.getenv("KISAMORE_SMTP_FROM_EMAIL", "").strip(),
+        smtp_from_name=os.getenv("KISAMORE_SMTP_FROM_NAME", "KisaMore").strip() or "KisaMore",
+        smtp_starttls=os.getenv("KISAMORE_SMTP_STARTTLS", "true").strip().lower()
+        in ("1", "true", "yes", "on"),
     )
