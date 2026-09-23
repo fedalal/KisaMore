@@ -181,6 +181,7 @@ class PlantPublicOut(BaseModel):
 class PlantingPublicOut(BaseModel):
     id: str
     plant_id: str
+    plant_names: dict[str, str] = Field(default_factory=dict)
     planted_at: datetime
     expected_harvest_at: datetime
     status: str
