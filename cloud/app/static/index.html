@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#123e32">
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
   <title>KisaMore — Smart greenhouse</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=5">
-  <script src="/static/dashboard.js?v=4" defer></script>
+  <link rel="stylesheet" href="/static/dashboard.css?v=6">
+  <script src="/static/dashboard.js?v=5" defer></script>
 </head>
 <body>
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
@@ -60,7 +60,6 @@
     <section class="racks-section">
       <div class="section-heading">
         <div><p class="eyebrow" data-i18n="choosePlace">Choose a place</p><h2 data-i18n="greenhouseRacks">Greenhouse racks</h2></div>
-        <p data-i18n="rackHint">Each rack has six container positions. Lighting and watering are shared within a rack.</p>
       </div>
       <div class="racks-grid" id="racksGrid" aria-live="polite" aria-busy="true">
         <div class="loading-card" data-i18n="loading">Loading greenhouse data…</div>
@@ -78,7 +77,6 @@
       </header>
       <div class="telemetry">
         <span>☀ <b class="light-value"></b></span>
-        <span>● <b class="water-value"></b></span>
         <span>° <b class="temperature-value"></b></span>
         <span>% <b class="moisture-value"></b></span>
       </div>
@@ -104,7 +102,6 @@
       <input type="hidden" name="resourceType"><input type="hidden" name="rackId"><input type="hidden" name="slotNumber"><input type="hidden" name="mode"><input type="hidden" name="offerId">
       <p id="actionDescription"></p>
       <label><span data-i18n="preferredPlant">Preferred plant</span><select name="plantId"></select></label>
-      <p class="shared-warning" data-i18n="sharedControls">Lighting and watering settings are shared by all six containers on this rack.</p>
       <p class="form-error hidden"></p>
       <footer><button type="button" class="secondary-button" data-close data-i18n="cancel">Cancel</button><button type="submit" class="primary-button" id="actionSubmit"></button></footer>
     </form>
