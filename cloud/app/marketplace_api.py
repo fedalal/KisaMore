@@ -9,7 +9,7 @@ import hashlib
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .auth_api import user_out
@@ -56,6 +56,7 @@ from .config import get_settings
 from .rack_photo_storage import store_rack_photo
 from .seed_inventory import SeedUnavailable, require_seed_available, seed_availability
 from .telegram.admin_models import EdgeOperatorCommand
+from .telegram.models import SocialComment, SocialGift, SocialReaction
 
 
 router = APIRouter(prefix="/api/v1", tags=["marketplace"])
@@ -194,6 +195,63 @@ async def public_market(
         ).scalars().all()
     planting_by_slot = {item.slot_id: item for item in plantings}
 
+    social_by_planting: dict[str, dict[str, int]] = {
+        item.id: {"likes": 0, "dislikes": 0, "comments": 0, "gifts": 0, "gift_kisa": 0}
+        for item in plantings
+    }
+    planting_ids = list(social_by_planting)
+    if planting_ids:
+        reaction_rows = (
+            await session.execute(
+                select(
+                    SocialReaction.target_id,
+                    SocialReaction.reaction,
+                    func.count(SocialReaction.id),
+                )
+                .where(
+                    SocialReaction.target_type == "planting",
+                    SocialReaction.target_id.in_(planting_ids),
+                    SocialReaction.reaction.in_(("like", "dislike")),
+                )
+                .group_by(SocialReaction.target_id, SocialReaction.reaction)
+            )
+        ).all()
+        for target_id, reaction, count in reaction_rows:
+            key = "likes" if reaction == "like" else "dislikes"
+            social_by_planting[target_id][key] = int(count or 0)
+
+        comment_rows = (
+            await session.execute(
+                select(SocialComment.target_id, func.count(SocialComment.id))
+                .where(
+                    SocialComment.target_type == "planting",
+                    SocialComment.target_id.in_(planting_ids),
+                    SocialComment.status == "published",
+                )
+                .group_by(SocialComment.target_id)
+            )
+        ).all()
+        for target_id, count in comment_rows:
+            social_by_planting[target_id]["comments"] = int(count or 0)
+
+        gift_rows = (
+            await session.execute(
+                select(
+                    SocialGift.target_id,
+                    func.count(SocialGift.id),
+                    func.coalesce(func.sum(SocialGift.token_cost), 0),
+                )
+                .where(
+                    SocialGift.target_type == "planting",
+                    SocialGift.target_id.in_(planting_ids),
+                )
+                .group_by(SocialGift.target_id)
+            )
+        ).all()
+        for target_id, count, gift_kisa in gift_rows:
+            social_by_planting[target_id]["gifts"] = int(count or 0)
+            social_by_planting[target_id]["gift_kisa"] = int(gift_kisa or 0)
+
     racks: list[RackMarketOut] = []
     for rack_id in range(1, device.racks_count + 1):
         rack_slots = [slot for slot in slots if slot.rack_id == rack_id]
@@ -223,6 +281,11 @@ async def public_market(
                             planted_at=aware_utc(planting.planted_at),
                             expected_harvest_at=aware_utc(planting.expected_harvest_at),
                             status=planting.status,
+                            likes=social_by_planting[planting.id]["likes"],
+                            dislikes=social_by_planting[planting.id]["dislikes"],
+                            comments=social_by_planting[planting.id]["comments"],
+                            gifts=social_by_planting[planting.id]["gifts"],
+                            gift_kisa=social_by_planting[planting.id]["gift_kisa"],
                         )
                         if planting
                         else None
