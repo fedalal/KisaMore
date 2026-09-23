@@ -7,8 +7,8 @@
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
   <meta name="description" content="KisaMore lets you watch real plants grow online, choose what to grow and rent a real greenhouse container.">
   <title>KisaMore — grow something real</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=17">
-  <script src="/static/dashboard.js?v=14" defer></script>
+  <link rel="stylesheet" href="/static/dashboard.css?v=18">
+  <script src="/static/dashboard.js?v=15" defer></script>
 </head>
 <body>
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
@@ -229,9 +229,36 @@
       <header><h2 id="authTitle"></h2><button type="button" class="close-button" data-close>×</button></header>
       <label id="displayNameLabel"><span data-i18n="displayName">Name</span><input name="displayName" autocomplete="name"></label>
       <label><span data-i18n="email">Email</span><input name="email" type="email" autocomplete="email" required></label>
-      <label><span data-i18n="password">Password</span><input name="password" type="password" minlength="10" autocomplete="current-password" required></label>
+      <label><span data-i18n="password">Password</span><input name="password" type="password" minlength="5" autocomplete="current-password" required></label>
       <p class="form-error hidden"></p>
-      <footer><button type="button" class="text-button" id="authModeButton"></button><button type="submit" class="primary-button" id="authSubmit"></button></footer>
+      <footer class="auth-footer">
+        <button type="button" class="text-button" id="forgotPasswordButton"></button>
+        <button type="button" class="text-button" id="authModeButton"></button>
+        <button type="submit" class="primary-button" id="authSubmit"></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="passwordResetRequestDialog">
+    <form id="passwordResetRequestForm">
+      <header><h2 id="passwordResetRequestTitle"></h2><button type="button" class="close-button" data-close>×</button></header>
+      <p id="passwordResetRequestText" class="dialog-copy"></p>
+      <label><span data-i18n="email">Email</span><input name="email" type="email" autocomplete="email" required></label>
+      <p class="form-error hidden"></p>
+      <p class="form-success hidden"></p>
+      <footer><button type="button" class="secondary-button" data-close data-i18n="cancel">Cancel</button><button type="submit" class="primary-button" id="passwordResetRequestSubmit"></button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="passwordResetConfirmDialog">
+    <form id="passwordResetConfirmForm">
+      <header><h2 id="passwordResetConfirmTitle"></h2><button type="button" class="close-button" data-close>×</button></header>
+      <p id="passwordResetConfirmText" class="dialog-copy"></p>
+      <label><span data-i18n="password">Password</span><input name="password" type="password" minlength="5" autocomplete="new-password" required></label>
+      <p id="passwordResetPasswordHint" class="dialog-copy"></p>
+      <p class="form-error hidden"></p>
+      <p class="form-success hidden"></p>
+      <footer><button type="submit" class="primary-button" id="passwordResetConfirmSubmit"></button></footer>
     </form>
   </dialog>
 
