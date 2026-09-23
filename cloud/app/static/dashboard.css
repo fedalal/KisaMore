@@ -555,43 +555,62 @@ a { color: inherit; }
 .slot-social,
 .slot-timelapses {
   display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.slot-social {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.slot-timelapses {
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 9px;
 }
 .slot-social-button,
 .slot-video-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 30px;
-  padding: 6px 9px;
+  min-height: 36px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 10px;
   color: var(--ink-soft);
-  background: rgba(255,255,255,.78);
-  font-size: 10px;
-  font-weight: 800;
+  background: rgba(255,255,255,.9);
+  font-size: 12px;
+  font-weight: 850;
   line-height: 1;
   text-decoration: none;
 }
+.slot-social-button {
+  width: 100%;
+}
 .slot-social-button:hover,
 .slot-video-button:hover {
-  border-color: #a7d5c2;
+  border-color: #8fcfb6;
   color: var(--green-dark);
   background: #fff;
 }
 .slot-video-button {
+  flex: 1 1 auto;
+  min-width: 78px;
   color: var(--green-dark);
   background: var(--green-pale);
 }
 .slot-action {
   width: 100%;
-  margin-top: 9px;
-  padding: 8px 7px;
-  font-size: 10px;
+  min-height: 38px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  color: #fff;
+  background: var(--green);
+  box-shadow: 0 7px 18px rgba(22,129,95,.18);
+  font-size: 11px;
+  font-weight: 850;
 }
-.slot:not(.is-available) .slot-action { color: var(--green-dark); background: var(--green-soft); box-shadow: none; }
+.slot-action:hover {
+  color: #fff;
+  background: var(--green-dark);
+}
 
 .pricing-grid {
   display: grid;
@@ -774,8 +793,10 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
   .racks-grid { grid-template-columns: 1fr; }
   .slots { grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 10px; }
   .slot { padding: 8px; }
-  .slot-social-button, .slot-video-button { min-height: 28px; padding: 5px 7px; font-size: 9px; }
-  .slot-action { padding: 7px 4px; font-size: 9px; }
+  .slot-social { gap: 5px; }
+  .slot-social-button { min-height: 34px; padding: 7px 5px; font-size: 10px; }
+  .slot-video-button { min-height: 32px; padding: 6px 7px; font-size: 9px; }
+  .slot-action { min-height: 36px; padding: 8px 6px; font-size: 10px; }
   .token-band { grid-template-columns: auto 1fr; }
   .token-band .primary-button { grid-column: 1 / -1; text-align: center; }
   .telegram-actions { flex-direction: column; }
