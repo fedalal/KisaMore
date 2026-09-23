@@ -371,9 +371,14 @@
     const card = $("#rackTemplate").content.firstElementChild.cloneNode(true);
     translateTree(card);
     $(".rack-title", card).textContent = `${t("rack")} ${rack.rack_id}`;
-    $(".light-value", card).textContent = rack.light_on ? t("lightOn") : t("lightOff");
-    $(".temperature-value", card).textContent = Number.isFinite(rack.soil_temperature) ? `${rack.soil_temperature.toFixed(1)} °C` : "—";
-    $(".moisture-value", card).textContent = Number.isFinite(rack.soil_moisture) ? `${rack.soil_moisture.toFixed(1)} %` : "—";
+
+    const temperature = $(".rack-temperature", card);
+    if (Number.isFinite(rack.soil_temperature)) {
+      temperature.textContent = `${rack.soil_temperature.toFixed(1)} °C`;
+    } else {
+      temperature.classList.add("hidden");
+    }
+
     const photo = $(".rack-photo", card);
     if (rack.photo_url) {
       const image = $("img", photo);
@@ -382,15 +387,22 @@
       $("figcaption", photo).textContent = `${t("updated")}: ${date(rack.photo_captured_at)}`;
       photo.classList.remove("hidden");
     }
-    const rackButton = $(".rack-action", card);
-    rackButton.textContent = rack.whole_rack_available ? t("buyRack") : t("reserveRack");
-    rackButton.addEventListener("click", () => openAction({
-      mode: rack.whole_rack_available ? "purchase" : "reservation",
-      resourceType: "rack",
-      rackId: rack.rack_id,
-      slotNumber: null
-    }));
+
     const orderedSlots = [...rack.slots].sort((a, b) => Number(a.slot_number) - Number(b.slot_number));
+    const allSlotsFree = orderedSlots.length === 6 && orderedSlots.every((slot) => slot.available === true);
+
+    const rackButton = $(".rack-action", card);
+    if (allSlotsFree) {
+      rackButton.textContent = t("reserveRack");
+      rackButton.classList.remove("hidden");
+      rackButton.addEventListener("click", () => openAction({
+        mode: "purchase",
+        resourceType: "rack",
+        rackId: rack.rack_id,
+        slotNumber: null
+      }));
+    }
+
     $(".slots", card).replaceChildren(...orderedSlots.map((slot) => renderSlot(slot, plantsById)));
     return card;
   }
