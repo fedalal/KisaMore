@@ -152,6 +152,32 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class WebSocialReaction(Base):
+    __tablename__ = "web_social_reactions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "target_type", "target_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    target_type: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    target_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    reaction: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class WebSocialComment(Base):
+    __tablename__ = "web_social_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    target_type: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    target_id: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="published", index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class UserSession(Base):
     __tablename__ = "user_sessions"
 
