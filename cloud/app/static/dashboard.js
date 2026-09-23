@@ -200,6 +200,17 @@
   const locale = () => ({ en: "en-US", ru: "ru-RU", de: "de-DE", fr: "fr-FR", es: "es-ES", it: "it-IT", pt: "pt-PT", pl: "pl-PL", zh: "zh-CN" }[language]);
   const plantName = (plant) => plant?.names?.[language] || plant?.names?.en || plant?.names?.ru || plant?.code || "—";
   const plantDescription = (plant) => plant?.descriptions?.[language] || plant?.descriptions?.en || plant?.descriptions?.ru || t("plantFallback");
+  const temperatureLabel = () => ({
+    en: "Temperature",
+    ru: "Температура",
+    de: "Temperatur",
+    fr: "Température",
+    es: "Temperatura",
+    it: "Temperatura",
+    pt: "Temperatura",
+    pl: "Temperatura",
+    zh: "温度"
+  }[language] || "Temperature");
 
   async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -374,7 +385,7 @@
 
     const temperature = $(".rack-temperature", card);
     if (Number.isFinite(rack.soil_temperature)) {
-      temperature.textContent = `${rack.soil_temperature.toFixed(1)} °C`;
+      temperature.textContent = `${temperatureLabel()}: ${rack.soil_temperature.toFixed(1)} °C`;
     } else {
       temperature.classList.add("hidden");
     }
