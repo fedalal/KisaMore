@@ -7,8 +7,8 @@
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
   <meta name="description" content="KisaMore lets you watch real plants grow online, choose what to grow and rent a real greenhouse container.">
   <title>KisaMore — grow something real</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=15">
-  <script src="/static/dashboard.js?v=11" defer></script>
+  <link rel="stylesheet" href="/static/dashboard.css?v=16">
+  <script src="/static/dashboard.js?v=12" defer></script>
 </head>
 <body>
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
@@ -251,6 +251,19 @@
       <header><div><p class="eyebrow" data-i18n="personalAccount">Personal account</p><h2 id="accountName"></h2></div><button type="button" class="close-button" data-close>×</button></header>
       <div id="accountContent"></div>
       <footer><button id="logoutButton" class="secondary-button" type="button" data-i18n="signOut">Sign out</button></footer>
+    </section>
+  </dialog>
+
+  <dialog id="videoDialog" class="video-dialog">
+    <section>
+      <header>
+        <h2 id="videoTitle">Timelapse</h2>
+        <button type="button" class="close-button" data-close aria-label="Close">×</button>
+      </header>
+      <div class="video-stage">
+        <video id="videoPlayer" controls playsinline preload="metadata"></video>
+        <p id="videoError" class="video-error hidden">Video is not available yet.</p>
+      </div>
     </section>
   </dialog>
 </body>
