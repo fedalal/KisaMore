@@ -481,6 +481,206 @@ async def public_market(
     )
 
 
+@router.post("/public/plantings/{planting_id}/reaction")
+async def web_planting_reaction(
+    planting_id: str,
+    payload: WebReactionIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await _require_planting(session, planting_id)
+
+    current = (
+        await session.execute(
+            select(WebSocialReaction).where(
+                WebSocialReaction.user_id == user.id,
+                WebSocialReaction.target_type == "planting",
+                WebSocialReaction.target_id == planting_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    active_reaction: str | None = payload.reaction
+    if current is not None and current.reaction == payload.reaction:
+        await session.delete(current)
+        active_reaction = None
+    else:
+        if current is not None:
+            await session.delete(current)
+            await session.flush()
+        session.add(
+            WebSocialReaction(
+                user_id=user.id,
+                target_type="planting",
+                target_id=planting_id,
+                reaction=payload.reaction,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+
+    await session.commit()
+    counts = await _social_counts(session, planting_id)
+    return {**counts, "my_reaction": active_reaction}
+
+
+@router.get("/public/plantings/{planting_id}/comments")
+async def web_planting_comments(
+    planting_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    await _require_planting(session, planting_id)
+
+    web_rows = (
+        await session.execute(
+            select(WebSocialComment, User)
+            .join(User, User.id == WebSocialComment.user_id)
+            .where(
+                WebSocialComment.target_type == "planting",
+                WebSocialComment.target_id == planting_id,
+                WebSocialComment.status == "published",
+            )
+            .order_by(WebSocialComment.created_at.desc())
+            .limit(50)
+        )
+    ).all()
+    telegram_rows = (
+        await session.execute(
+            select(SocialComment, TelegramUser)
+            .join(TelegramUser, TelegramUser.id == SocialComment.user_id)
+            .where(
+                SocialComment.target_type == "planting",
+                SocialComment.target_id == planting_id,
+                SocialComment.status == "published",
+            )
+            .order_by(SocialComment.created_at.desc())
+            .limit(50)
+        )
+    ).all()
+
+    items = [
+        {
+            "id": f"web:{comment.id}",
+            "author": author.display_name,
+            "body": comment.body,
+            "created_at": aware_utc(comment.created_at),
+            "source": "web",
+        }
+        for comment, author in web_rows
+    ]
+    items.extend(
+        {
+            "id": f"telegram:{comment.id}",
+            "author": author.first_name or author.username or "KisaMore user",
+            "body": comment.body,
+            "created_at": aware_utc(comment.created_at),
+            "source": "telegram",
+        }
+        for comment, author in telegram_rows
+    )
+    items.sort(key=lambda item: item["created_at"], reverse=True)
+    return {"items": items[:50]}
+
+
+@router.post("/public/plantings/{planting_id}/comments", status_code=201)
+async def web_add_planting_comment(
+    planting_id: str,
+    payload: WebCommentIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await _require_planting(session, planting_id)
+    body = payload.body.strip()
+    if not body:
+        raise HTTPException(status_code=422, detail="Comment cannot be empty")
+
+    comment = WebSocialComment(
+        user_id=user.id,
+        target_type="planting",
+        target_id=planting_id,
+        body=body,
+        status="published",
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(comment)
+    await session.commit()
+    await session.refresh(comment)
+    counts = await _social_counts(session, planting_id)
+    return {
+        "comment": {
+            "id": f"web:{comment.id}",
+            "author": user.display_name,
+            "body": comment.body,
+            "created_at": aware_utc(comment.created_at),
+            "source": "web",
+        },
+        **counts,
+    }
+
+
+@router.post("/public/plantings/{planting_id}/gift")
+async def web_planting_gift(
+    planting_id: str,
+    payload: WebGiftIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await _require_planting(session, planting_id)
+    cost = GIFT_COSTS[payload.gift_code]
+
+    telegram_user = (
+        await session.execute(
+            select(TelegramUser).where(TelegramUser.marketplace_user_id == user.id)
+        )
+    ).scalar_one_or_none()
+    if telegram_user is None:
+        raise HTTPException(
+            status_code=409,
+            detail="KISA wallet is not linked to this website account",
+        )
+
+    wallet = (
+        await session.execute(
+            select(WalletAccount)
+            .where(WalletAccount.user_id == telegram_user.id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if wallet is None:
+        raise HTTPException(status_code=409, detail="KISA wallet is not available")
+    if wallet.balance < cost:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Not enough KISA. Balance: {wallet.balance}",
+        )
+
+    wallet.balance -= cost
+    session.add(
+        SocialGift(
+            user_id=telegram_user.id,
+            target_type="planting",
+            target_id=planting_id,
+            gift_code=payload.gift_code,
+            token_cost=cost,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    session.add(
+        WalletTransaction(
+            user_id=telegram_user.id,
+            amount=-cost,
+            balance_after=wallet.balance,
+            kind="plant_gift",
+            reference_type="planting",
+            reference_id=planting_id,
+            details={"gift": payload.gift_code, "source": "web"},
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await session.commit()
+    counts = await _social_counts(session, planting_id)
+    return {**counts, "balance": wallet.balance, "cost": cost}
+
+
 @router.get("/public/plants/{plant_id}/image", response_class=FileResponse)
 async def public_plant_image(
     plant_id: str,
