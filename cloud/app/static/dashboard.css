@@ -767,7 +767,29 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
 #forgotPasswordButton {
   margin-right: 0;
 }
-.account-dialog { width: min(760px, calc(100% - 30px)); }
+.account-dialog { width: min(430px, calc(100% - 30px)); }
+.account-profile {
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbf9;
+}
+.account-profile-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.account-profile-email {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
 .account-group { margin-top: 25px; }
 .account-group h3 { margin: 0 0 10px; }
 .account-list { display: grid; gap: 8px; }
