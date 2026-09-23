@@ -251,9 +251,20 @@
     const video = $("#videoPlayer");
     $("#videoTitle").textContent = title;
     $("#videoError").classList.add("hidden");
+
+    video.muted = true;
+    video.autoplay = true;
     video.src = href;
     video.load();
+
     dialog.showModal();
+
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        // If a browser blocks autoplay, controls remain available for manual start.
+      });
+    }
   }
 
   function closeVideoDialog() {
