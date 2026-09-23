@@ -212,6 +212,40 @@
     zh: "温度"
   }[language] || "Temperature");
 
+  const slotUiText = () => ({
+    en: { planted: "Planted", day: "Day", like: "Like", dislike: "Dislike", gift: "Gift", comments: "Comments", full: "Full cycle" },
+    ru: { planted: "Посажено", day: "День", like: "Лайк", dislike: "Дизлайк", gift: "Донат", comments: "Комментарии", full: "Весь цикл" },
+    de: { planted: "Gepflanzt", day: "Tag", like: "Gefällt", dislike: "Gefällt nicht", gift: "Geschenk", comments: "Kommentare", full: "Gesamter Zyklus" },
+    fr: { planted: "Planté", day: "Jour", like: "J’aime", dislike: "Je n’aime pas", gift: "Don", comments: "Commentaires", full: "Cycle complet" },
+    es: { planted: "Plantado", day: "Día", like: "Me gusta", dislike: "No me gusta", gift: "Donar", comments: "Comentarios", full: "Ciclo completo" },
+    it: { planted: "Piantato", day: "Giorno", like: "Mi piace", dislike: "Non mi piace", gift: "Dono", comments: "Commenti", full: "Ciclo completo" },
+    pt: { planted: "Plantado", day: "Dia", like: "Gosto", dislike: "Não gosto", gift: "Doar", comments: "Comentários", full: "Ciclo completo" },
+    pl: { planted: "Posadzono", day: "Dzień", like: "Lubię", dislike: "Nie lubię", gift: "Prezent", comments: "Komentarze", full: "Pełny cykl" },
+    zh: { planted: "种植日期", day: "第", like: "喜欢", dislike: "不喜欢", gift: "赠礼", comments: "评论", full: "完整周期" }
+  }[language] || {
+    planted: "Planted", day: "Day", like: "Like", dislike: "Dislike", gift: "Gift", comments: "Comments", full: "Full cycle"
+  });
+
+  const plantingName = (planting, fallbackPlant) =>
+    planting?.plant_names?.[language]
+    || planting?.plant_names?.en
+    || planting?.plant_names?.ru
+    || plantName(fallbackPlant);
+
+  function dateOnly(value) {
+    return value
+      ? new Intl.DateTimeFormat(locale(), { dateStyle: "medium" }).format(new Date(value))
+      : "—";
+  }
+
+  function growthDay(value) {
+    if (!value) return 0;
+    return Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 86400000) + 1);
+  }
+
+  const telegramPlantLink = (action, plantingId) =>
+    `https://t.me/KisaMoreBot?start=${encodeURIComponent(action + "_" + plantingId)}`;
+
   async function api(path, options = {}) {
     const response = await fetch(path, {
       credentials: "same-origin",
@@ -271,17 +305,84 @@
   function renderSlot(slot, plantsById) {
     const card = document.createElement("article");
     card.className = `slot is-${slot.status}`;
+
+    const top = document.createElement("div");
+    top.className = "slot-top";
+
     const number = document.createElement("span");
     number.className = "slot-number";
     number.textContent = `${t("container")} ${slot.slot_number}`;
-    const title = document.createElement("strong");
-    const plantingPlant = plantsById.get(slot.planting?.plant_id);
-    title.textContent = slot.planting ? plantName(plantingPlant) : statusLabel(slot.status);
-    const detail = document.createElement("small");
-    detail.textContent = slot.planting?.expected_harvest_at
-      ? `${t("expected")}: ${new Intl.DateTimeFormat(locale(), { dateStyle: "medium" }).format(new Date(slot.planting.expected_harvest_at))}`
-      : statusLabel(slot.status);
-    card.append(number, title, detail);
+
+    const status = document.createElement("span");
+    status.className = "slot-status";
+    status.textContent = statusLabel(slot.status);
+    top.append(number, status);
+    card.append(top);
+
+    if (slot.planting) {
+      const plantingPlant = plantsById.get(slot.planting.plant_id);
+      const title = document.createElement("strong");
+      title.className = "slot-plant-name";
+      title.textContent = plantingName(slot.planting, plantingPlant);
+      card.append(title);
+
+      const labels = slotUiText();
+      const meta = document.createElement("div");
+      meta.className = "slot-growing-meta";
+
+      const planted = document.createElement("span");
+      planted.textContent = `${labels.planted}: ${dateOnly(slot.planting.planted_at)}`;
+
+      const day = document.createElement("span");
+      day.textContent = `${labels.day}: ${growthDay(slot.planting.planted_at)}`;
+
+      meta.append(planted, day);
+      card.append(meta);
+
+      const social = document.createElement("div");
+      social.className = "slot-social";
+
+      const socialItems = [
+        ["like", "❤️", slot.planting.likes || 0, labels.like],
+        ["dislike", "👎", slot.planting.dislikes || 0, labels.dislike],
+        ["gift", "🎁", slot.planting.gift_kisa || 0, labels.gift],
+        ["comment", "💬", slot.planting.comments || 0, labels.comments]
+      ];
+
+      for (const [action, icon, count, label] of socialItems) {
+        const link = document.createElement("a");
+        link.className = "slot-social-button";
+        link.href = telegramPlantLink(action, slot.planting.id);
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.title = label;
+        link.setAttribute("aria-label", `${label}: ${count}`);
+        link.textContent = `${icon} ${count}`;
+        social.append(link);
+      }
+      card.append(social);
+
+      const videos = document.createElement("div");
+      videos.className = "slot-timelapses";
+
+      const videoItems = [
+        ["24h", "🎬 24h", `/api/v1/public/farms/${encodeURIComponent(farmSlug)}/racks/${slot.rack_id}/slots/${slot.slot_number}/timelapse/24h`],
+        ["3d", "🎬 3d", `/api/v1/public/farms/${encodeURIComponent(farmSlug)}/racks/${slot.rack_id}/slots/${slot.slot_number}/timelapse/3d`],
+        ["full", `🎞 ${labels.full}`, `/api/v1/public/plantings/${encodeURIComponent(slot.planting.id)}/timelapse/full`]
+      ];
+
+      for (const [, label, href] of videoItems) {
+        const link = document.createElement("a");
+        link.className = "slot-video-button";
+        link.href = href;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = label;
+        videos.append(link);
+      }
+      card.append(videos);
+    }
+
     if (slot.status !== "disabled") {
       const button = document.createElement("button");
       button.className = "slot-action";
@@ -295,6 +396,7 @@
       }));
       card.append(button);
     }
+
     return card;
   }
 
