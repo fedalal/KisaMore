@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
 import smtplib
 from datetime import datetime, timedelta, timezone
@@ -32,6 +33,7 @@ from .security import (
 
 
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
+logger = logging.getLogger(__name__)
 
 
 def _password_reset_email(user: User, reset_url: str) -> tuple[str, str]:
@@ -207,6 +209,13 @@ async def request_password_reset(
     try:
         await asyncio.to_thread(_send_password_reset_email, user, reset_url)
     except Exception:
+        logger.exception(
+            "Could not send password recovery email via SMTP host=%s port=%s user=%s from=%s",
+            settings.smtp_host,
+            settings.smtp_port,
+            settings.smtp_username,
+            settings.smtp_from_email,
+        )
         await session.execute(
             delete(PasswordResetToken).where(
                 PasswordResetToken.token_hash == token_hash
