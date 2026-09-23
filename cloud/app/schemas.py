@@ -184,6 +184,11 @@ class PlantingPublicOut(BaseModel):
     planted_at: datetime
     expected_harvest_at: datetime
     status: str
+    likes: int = 0
+    dislikes: int = 0
+    comments: int = 0
+    gifts: int = 0
+    gift_kisa: int = 0
 
 
 class SlotPublicOut(BaseModel):
