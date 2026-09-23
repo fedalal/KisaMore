@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#123e32">
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
-  <title>KisaMore — Smart greenhouse</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=6">
-  <script src="/static/dashboard.js?v=5" defer></script>
+  <meta name="description" content="KisaMore lets you watch real plants grow online, choose what to grow and rent a real greenhouse container.">
+  <title>KisaMore — grow something real</title>
+  <link rel="stylesheet" href="/static/dashboard.css?v=7">
+  <script src="/static/dashboard.js?v=6" defer></script>
 </head>
 <body>
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
@@ -19,6 +20,14 @@
         <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
         <span><strong>KisaMore</strong><small data-i18n="smartGreenhouse">smart greenhouse</small></span>
       </a>
+
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#how" data-i18n="navHow">How it works</a>
+        <a href="#plants" data-i18n="navPlants">Plants</a>
+        <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a>
+        <a href="#kisa" data-i18n="navKisa">KISA</a>
+      </nav>
+
       <nav class="top-actions">
         <select id="languageSelect" aria-label="Language">
           <option value="en">English</option>
@@ -32,41 +41,173 @@
           <option value="zh">中文</option>
         </select>
         <button id="accountButton" class="secondary-button" type="button" data-i18n="signIn">Sign in</button>
-        <div class="connection-pill is-waiting" id="connectionPill" role="status">
-          <span class="connection-dot" aria-hidden="true"></span>
-          <span id="connectionText" data-i18n="connecting">Connecting…</span>
-        </div>
       </nav>
     </header>
 
-    <section class="hero">
-      <div>
-        <p class="eyebrow" data-i18n="liveFarm">Live farm</p>
-        <h1 id="farmName">KisaMore Farm</h1>
-        <p class="hero-subtitle" id="lastSeen" data-i18n="waitingData">Waiting for data</p>
+    <section class="hero commercial-hero">
+      <div class="hero-copy">
+        <p class="eyebrow" data-i18n="heroEyebrow">A real greenhouse, online</p>
+        <h1 data-i18n="heroTitle">Grow something real from anywhere.</h1>
+        <p class="hero-lead" data-i18n="heroLead">Choose a plant, rent a real container and follow its growth with live greenhouse data, photos and timelapses.</p>
+        <div class="hero-actions">
+          <a class="primary-button large-button" href="#greenhouse" data-i18n="heroLiveCta">Open live greenhouse</a>
+          <a class="secondary-link" href="#plants" data-i18n="heroPlantsCta">Choose a plant</a>
+        </div>
+        <p class="hero-note" data-i18n="heroNote">Free to watch. Rent only when you want your own plant.</p>
       </div>
-      <button class="primary-button" id="refreshButton" type="button" data-i18n="refresh">Refresh</button>
+
+      <aside class="live-preview" aria-label="Live greenhouse status">
+        <div class="live-preview-header">
+          <div>
+            <span class="live-label"><i></i><span data-i18n="liveNow">LIVE NOW</span></span>
+            <h2 id="farmName">KisaMore Farm</h2>
+          </div>
+          <div class="connection-pill is-waiting" id="connectionPill" role="status">
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span id="connectionText" data-i18n="connecting">Connecting…</span>
+          </div>
+        </div>
+        <p class="preview-seen" id="lastSeen" data-i18n="waitingData">Waiting for data</p>
+        <div class="summary compact-summary" aria-label="Farm summary">
+          <div><strong id="rackCount">—</strong><span data-i18n="racks">racks</span></div>
+          <div><strong id="slotCount">—</strong><span data-i18n="containers">containers</span></div>
+          <div><strong id="availableCount">—</strong><span data-i18n="available">available</span></div>
+          <div><strong id="growingCount">—</strong><span data-i18n="growing">growing</span></div>
+        </div>
+        <a class="preview-link" href="#greenhouse"><span data-i18n="seeGreenhouse">See the greenhouse</span><b aria-hidden="true">→</b></a>
+      </aside>
     </section>
 
-    <section class="summary" aria-label="Farm summary">
-      <div><strong id="rackCount">—</strong><span data-i18n="racks">racks</span></div>
-      <div><strong id="slotCount">—</strong><span data-i18n="containers">containers</span></div>
-      <div><strong id="availableCount">—</strong><span data-i18n="available">available</span></div>
-      <div><strong id="growingCount">—</strong><span data-i18n="growing">growing</span></div>
+    <section class="story-section" id="how">
+      <div class="section-intro centered-intro">
+        <p class="eyebrow" data-i18n="howEyebrow">How KisaMore works</p>
+        <h2 data-i18n="howTitle">Your plant is real. The interface is online.</h2>
+        <p data-i18n="howLead">KisaMore connects a physical greenhouse with a simple digital experience.</p>
+      </div>
+      <div class="steps-grid">
+        <article class="step-card">
+          <span class="step-number">01</span>
+          <div class="step-icon" aria-hidden="true">🌱</div>
+          <h3 data-i18n="step1Title">Choose what to grow</h3>
+          <p data-i18n="step1Body">Pick an available crop and a real container in the greenhouse.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-number">02</span>
+          <div class="step-icon" aria-hidden="true">📷</div>
+          <h3 data-i18n="step2Title">Watch it grow</h3>
+          <p data-i18n="step2Body">Follow current photos, greenhouse status and growth progress from anywhere.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-number">03</span>
+          <div class="step-icon" aria-hidden="true">🎬</div>
+          <h3 data-i18n="step3Title">Keep the story</h3>
+          <p data-i18n="step3Body">Get timelapses and updates that turn the growing cycle into a story you can share.</p>
+        </article>
+      </div>
     </section>
 
-    <div class="notice hidden" id="notice" role="alert"></div>
-
-    <section class="racks-section">
-      <div class="section-heading">
-        <div><p class="eyebrow" data-i18n="choosePlace">Choose a place</p><h2 data-i18n="greenhouseRacks">Greenhouse racks</h2></div>
+    <section class="plants-section" id="plants">
+      <div class="section-heading marketing-heading">
+        <div>
+          <p class="eyebrow" data-i18n="plantsEyebrow">Choose your crop</p>
+          <h2 data-i18n="plantsTitle">What can we grow for you?</h2>
+        </div>
+        <p data-i18n="plantsLead">Availability comes directly from the greenhouse. Rental price depends on the selected crop.</p>
       </div>
+      <div class="plants-grid" id="plantsGrid">
+        <div class="loading-card" data-i18n="loading">Loading greenhouse data…</div>
+      </div>
+    </section>
+
+    <section class="live-section" id="greenhouse">
+      <div class="section-heading marketing-heading">
+        <div>
+          <p class="eyebrow" data-i18n="liveEyebrow">Real greenhouse</p>
+          <h2 data-i18n="liveTitle">Live racks and containers</h2>
+        </div>
+        <div class="live-heading-actions">
+          <p data-i18n="liveLead">These are real places in the greenhouse, not a simulation.</p>
+          <button class="secondary-button refresh-button" id="refreshButton" type="button" data-i18n="refresh">Refresh</button>
+        </div>
+      </div>
+
+      <div class="notice hidden" id="notice" role="alert"></div>
       <div class="racks-grid" id="racksGrid" aria-live="polite" aria-busy="true">
         <div class="loading-card" data-i18n="loading">Loading greenhouse data…</div>
       </div>
     </section>
 
-    <footer class="footer"><span data-i18n="footerText">Grow something real from anywhere in the world.</span><span id="pageUpdated"></span></footer>
+    <section class="pricing-section" id="kisa">
+      <div class="section-intro centered-intro">
+        <p class="eyebrow" data-i18n="pricingEyebrow">KISA credits</p>
+        <h2 data-i18n="pricingTitle">Watch for free. Pay only for your own growing space.</h2>
+        <p data-i18n="pricingLead">KISA is the internal credit used for rentals and extra paid actions. Credits can be topped up through the KisaMore Telegram bot using Telegram Stars.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <article class="price-card">
+          <span class="price-badge" data-i18n="freeBadge">FREE</span>
+          <h3 data-i18n="freeTitle">Observer</h3>
+          <div class="price-line"><strong>0</strong><span>KISA</span></div>
+          <ul>
+            <li data-i18n="freeFeature1">Watch the live greenhouse</li>
+            <li data-i18n="freeFeature2">See current rack photos</li>
+            <li data-i18n="freeFeature3">Explore available plants and places</li>
+          </ul>
+          <a class="secondary-link price-action" href="#greenhouse" data-i18n="freeCta">Watch now</a>
+        </article>
+
+        <article class="price-card featured-price">
+          <span class="price-badge" data-i18n="popularBadge">YOUR PLANT</span>
+          <h3 data-i18n="containerTitle">Container rental</h3>
+          <div class="price-line"><small data-i18n="from">from</small><strong id="minRentalPrice">—</strong><span>KISA</span></div>
+          <ul>
+            <li data-i18n="containerFeature1">A real greenhouse container</li>
+            <li data-i18n="containerFeature2">Choose the crop you want</li>
+            <li data-i18n="containerFeature3">Photos, progress and timelapse</li>
+          </ul>
+          <a class="primary-button price-action" href="#greenhouse" data-i18n="containerCta">Choose a container</a>
+        </article>
+
+        <article class="price-card">
+          <span class="price-badge" data-i18n="proBadge">FULL RACK</span>
+          <h3 data-i18n="rackPlanTitle">Private rack</h3>
+          <div class="price-line text-price"><strong data-i18n="byRequest">By request</strong></div>
+          <ul>
+            <li data-i18n="rackFeature1">All six container positions</li>
+            <li data-i18n="rackFeature2">One growing zone reserved for you</li>
+            <li data-i18n="rackFeature3">Suitable for experiments and projects</li>
+          </ul>
+          <a class="secondary-link price-action" href="https://t.me/KisaMoreBot" target="_blank" rel="noopener" data-i18n="rackCta">Ask in Telegram</a>
+        </article>
+      </div>
+
+      <div class="token-band">
+        <div class="token-symbol">K</div>
+        <div>
+          <h3 data-i18n="tokenTitle">KISA keeps payments simple</h3>
+          <p data-i18n="tokenBody">Top up once in Telegram and use your balance for rentals and paid features inside KisaMore.</p>
+        </div>
+        <a class="primary-button" href="https://t.me/KisaMoreBot" target="_blank" rel="noopener" data-i18n="tokenCta">Open @KisaMoreBot</a>
+      </div>
+    </section>
+
+    <section class="telegram-section">
+      <div>
+        <p class="eyebrow light-eyebrow" data-i18n="telegramEyebrow">KisaMore in Telegram</p>
+        <h2 data-i18n="telegramTitle">Your greenhouse can live in your pocket.</h2>
+        <p data-i18n="telegramBody">Get plant updates, notifications and KISA credits through the Telegram bot. The website stays your full live view and personal account.</p>
+      </div>
+      <div class="telegram-actions">
+        <a class="light-button" href="https://t.me/KisaMoreBot" target="_blank" rel="noopener" data-i18n="telegramCta">Open Telegram bot</a>
+        <button class="ghost-light-button" id="accountCtaButton" type="button" data-i18n="accountCta">Personal account</button>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span><strong>KisaMore</strong> · <span data-i18n="footerText">Grow something real from anywhere in the world.</span></span>
+      <span id="pageUpdated"></span>
+    </footer>
   </main>
 
   <template id="rackTemplate">
