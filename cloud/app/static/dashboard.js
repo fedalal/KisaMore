@@ -194,6 +194,7 @@
   let account = null;
   let authMode = "login";
   let pendingAction = null;
+  let pendingSocialAction = null;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const t = (key) => commercialTranslations[language]?.[key] || translations[language]?.[key] || commercialTranslations.en[key] || translations.en[key] || key;
@@ -243,8 +244,112 @@
     return Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 86400000) + 1);
   }
 
-  const telegramPlantLink = (action, plantingId) =>
-    `https://t.me/KisaMoreBot?start=${encodeURIComponent(action + "_" + plantingId)}`;
+  const socialUiText = () => ({
+    en: { comments: "Comments", addComment: "Add comment", commentPlaceholder: "Write a comment…", send: "Send", gift: "Support this plant", giftHint: "Choose a KISA gift.", close: "Close", loginFirst: "Sign in to use this action.", walletLink: "Your KISA wallet is not linked to this website account.", commentEmpty: "No comments yet." },
+    ru: { comments: "Комментарии", addComment: "Добавить комментарий", commentPlaceholder: "Напишите комментарий…", send: "Отправить", gift: "Поддержать растение", giftHint: "Выберите подарок за KISA.", close: "Закрыть", loginFirst: "Войдите в аккаунт для этого действия.", walletLink: "KISA-кошелёк не связан с этим аккаунтом сайта.", commentEmpty: "Комментариев пока нет." },
+    de: { comments: "Kommentare", addComment: "Kommentar hinzufügen", commentPlaceholder: "Kommentar schreiben…", send: "Senden", gift: "Pflanze unterstützen", giftHint: "KISA-Geschenk auswählen.", close: "Schließen", loginFirst: "Bitte anmelden.", walletLink: "Das KISA-Wallet ist nicht mit diesem Webkonto verbunden.", commentEmpty: "Noch keine Kommentare." },
+    fr: { comments: "Commentaires", addComment: "Ajouter un commentaire", commentPlaceholder: "Écrire un commentaire…", send: "Envoyer", gift: "Soutenir cette plante", giftHint: "Choisissez un cadeau KISA.", close: "Fermer", loginFirst: "Connectez-vous pour cette action.", walletLink: "Le portefeuille KISA n’est pas lié à ce compte.", commentEmpty: "Aucun commentaire pour le moment." },
+    es: { comments: "Comentarios", addComment: "Añadir comentario", commentPlaceholder: "Escribe un comentario…", send: "Enviar", gift: "Apoyar esta planta", giftHint: "Elige un regalo KISA.", close: "Cerrar", loginFirst: "Inicia sesión para esta acción.", walletLink: "La cartera KISA no está vinculada a esta cuenta.", commentEmpty: "Aún no hay comentarios." },
+    it: { comments: "Commenti", addComment: "Aggiungi commento", commentPlaceholder: "Scrivi un commento…", send: "Invia", gift: "Sostieni questa pianta", giftHint: "Scegli un regalo KISA.", close: "Chiudi", loginFirst: "Accedi per questa azione.", walletLink: "Il portafoglio KISA non è collegato a questo account.", commentEmpty: "Ancora nessun commento." },
+    pt: { comments: "Comentários", addComment: "Adicionar comentário", commentPlaceholder: "Escreva um comentário…", send: "Enviar", gift: "Apoiar esta planta", giftHint: "Escolha um presente KISA.", close: "Fechar", loginFirst: "Inicie sessão para esta ação.", walletLink: "A carteira KISA não está ligada a esta conta.", commentEmpty: "Ainda não há comentários." },
+    pl: { comments: "Komentarze", addComment: "Dodaj komentarz", commentPlaceholder: "Napisz komentarz…", send: "Wyślij", gift: "Wesprzyj roślinę", giftHint: "Wybierz prezent KISA.", close: "Zamknij", loginFirst: "Zaloguj się, aby wykonać tę akcję.", walletLink: "Portfel KISA nie jest połączony z tym kontem.", commentEmpty: "Brak komentarzy." },
+    zh: { comments: "评论", addComment: "添加评论", commentPlaceholder: "写下评论…", send: "发送", gift: "支持这株植物", giftHint: "选择 KISA 礼物。", close: "关闭", loginFirst: "请先登录。", walletLink: "KISA 钱包尚未与此网站账户关联。", commentEmpty: "暂无评论。" }
+  }[language] || {
+    comments: "Comments", addComment: "Add comment", commentPlaceholder: "Write a comment…", send: "Send", gift: "Support this plant", giftHint: "Choose a KISA gift.", close: "Close", loginFirst: "Sign in to use this action.", walletLink: "Your KISA wallet is not linked to this website account.", commentEmpty: "No comments yet."
+  });
+
+  function runWithSocialAuth(action) {
+    if (user) {
+      action();
+      return;
+    }
+    pendingSocialAction = action;
+    openAuth();
+  }
+
+  async function toggleWebReaction(plantingId, reaction) {
+    runWithSocialAuth(async () => {
+      try {
+        await api(`/api/v1/public/plantings/${encodeURIComponent(plantingId)}/reaction`, {
+          method: "POST",
+          body: JSON.stringify({ reaction })
+        });
+        await loadData();
+      } catch (error) {
+        console.error(error);
+      }
+    });
+  }
+
+  async function openCommentsDialog(plantingId, plantLabel) {
+    const dialog = $("#commentDialog");
+    const labels = socialUiText();
+    dialog.dataset.plantingId = plantingId;
+    $("#commentTitle").textContent = `${labels.comments} · ${plantLabel}`;
+    $("#commentSubmit").textContent = labels.send;
+    $("#commentInput").placeholder = labels.commentPlaceholder;
+    $("#commentError").classList.add("hidden");
+    $("#commentList").replaceChildren();
+
+    try {
+      const result = await api(`/api/v1/public/plantings/${encodeURIComponent(plantingId)}/comments`);
+      if (!result.items.length) {
+        const empty = document.createElement("p");
+        empty.className = "comment-empty";
+        empty.textContent = labels.commentEmpty;
+        $("#commentList").append(empty);
+      } else {
+        for (const item of result.items) {
+          const row = document.createElement("article");
+          row.className = "comment-item";
+          const head = document.createElement("div");
+          head.className = "comment-item-head";
+          const author = document.createElement("strong");
+          author.textContent = item.author;
+          const when = document.createElement("span");
+          when.textContent = date(item.created_at);
+          head.append(author, when);
+          const body = document.createElement("p");
+          body.textContent = item.body;
+          row.append(head, body);
+          $("#commentList").append(row);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+
+    dialog.showModal();
+  }
+
+  function openGiftDialog(plantingId, plantLabel) {
+    runWithSocialAuth(() => {
+      const labels = socialUiText();
+      const dialog = $("#giftDialog");
+      dialog.dataset.plantingId = plantingId;
+      $("#giftTitle").textContent = `${labels.gift} · ${plantLabel}`;
+      $("#giftHint").textContent = labels.giftHint;
+      $("#giftError").classList.add("hidden");
+      dialog.showModal();
+    });
+  }
+
+  async function sendWebGift(giftCode) {
+    const plantingId = $("#giftDialog").dataset.plantingId;
+    if (!plantingId) return;
+    try {
+      await api(`/api/v1/public/plantings/${encodeURIComponent(plantingId)}/gift`, {
+        method: "POST",
+        body: JSON.stringify({ gift_code: giftCode })
+      });
+      $("#giftDialog").close();
+      await loadData();
+    } catch (error) {
+      const node = $("#giftError");
+      node.textContent = error.message || socialUiText().walletLink;
+      node.classList.remove("hidden");
+    }
+  }
 
   function openVideoDialog(href, title) {
     const dialog = $("#videoDialog");
@@ -378,13 +483,11 @@
       ];
 
       for (const [action, icon, count, label] of socialItems) {
-        const link = document.createElement("a");
-        link.className = "slot-social-button";
-        link.href = telegramPlantLink(action, slot.planting.id);
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.title = label;
-        link.setAttribute("aria-label", `${label}: ${count}`);
+        const button = document.createElement("button");
+        button.className = "slot-social-button";
+        button.type = "button";
+        button.title = label;
+        button.setAttribute("aria-label", `${label}: ${count}`);
 
         const iconNode = document.createElement("span");
         iconNode.className = "slot-social-icon";
@@ -394,8 +497,21 @@
         countNode.className = "slot-social-count";
         countNode.textContent = String(count);
 
-        link.append(iconNode, countNode);
-        social.append(link);
+        button.append(iconNode, countNode);
+        if (action === "like" || action === "dislike") {
+          button.addEventListener("click", () => toggleWebReaction(slot.planting.id, action));
+        } else if (action === "gift") {
+          button.addEventListener("click", () => openGiftDialog(
+            slot.planting.id,
+            plantingName(slot.planting, plantingPlant)
+          ));
+        } else if (action === "comment") {
+          button.addEventListener("click", () => openCommentsDialog(
+            slot.planting.id,
+            plantingName(slot.planting, plantingPlant)
+          ));
+        }
+        social.append(button);
       }
       card.append(social);
 
@@ -762,6 +878,52 @@
     $("#videoError").classList.remove("hidden");
   });
 
+  $("#commentForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const plantingId = $("#commentDialog").dataset.plantingId;
+    const body = $("#commentInput").value.trim();
+    if (!plantingId || !body) return;
+
+    if (!user) {
+      pendingSocialAction = async () => {
+        try {
+          await api(`/api/v1/public/plantings/${encodeURIComponent(plantingId)}/comments`, {
+            method: "POST",
+            body: JSON.stringify({ body })
+          });
+          $("#commentInput").value = "";
+          await loadData();
+          await openCommentsDialog(plantingId, $("#commentTitle").textContent.split(" · ").slice(1).join(" · "));
+        } catch (error) {
+          const node = $("#commentError");
+          node.textContent = error.message || t("actionError");
+          node.classList.remove("hidden");
+        }
+      };
+      $("#commentDialog").close();
+      openAuth();
+      return;
+    }
+
+    try {
+      await api(`/api/v1/public/plantings/${encodeURIComponent(plantingId)}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body })
+      });
+      $("#commentInput").value = "";
+      await loadData();
+      await openCommentsDialog(plantingId, $("#commentTitle").textContent.split(" · ").slice(1).join(" · "));
+    } catch (error) {
+      const node = $("#commentError");
+      node.textContent = error.message || t("actionError");
+      node.classList.remove("hidden");
+    }
+  });
+
+  document.querySelectorAll("[data-gift-code]").forEach((button) => {
+    button.addEventListener("click", () => sendWebGift(button.dataset.giftCode));
+  });
+
   $("#authForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -772,7 +934,11 @@
       user = await api(`/api/v1/auth/${authMode === "register" ? "register" : "login"}`, { method: "POST", body: JSON.stringify(payload) });
       $("#authDialog").close();
       applyLanguage();
-      if (pendingAction) {
+      if (pendingSocialAction) {
+        const action = pendingSocialAction;
+        pendingSocialAction = null;
+        await action();
+      } else if (pendingAction) {
         const action = pendingAction;
         pendingAction = null;
         openAction(action);
