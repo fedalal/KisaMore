@@ -57,7 +57,7 @@ button { cursor: pointer; }
 .rack-header { justify-content: space-between; padding: 20px 22px 16px; }
 .rack-header h3 { margin: 0; font-size: 24px; }
 .rack-action { font-size: 12px; }
-.telemetry { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #f8fbf9; }
+.telemetry { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #f8fbf9; }
 .telemetry span { padding: 11px 13px; color: var(--muted); font-size: 12px; }
 .telemetry span + span { border-left: 1px solid var(--line); }
 .telemetry b { color: var(--ink); }
@@ -111,9 +111,9 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
 }
 @media (max-width: 560px) {
   .brand small { display: none; }
-  .slots { grid-template-columns: repeat(2, 1fr); }
-  .telemetry { grid-template-columns: repeat(2, 1fr); }
-  .telemetry span:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
-  .telemetry span:nth-child(4) { border-top: 1px solid var(--line); }
+  .slots { grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 10px; }
+  .slot { padding: 9px; }
+  .slot-action { padding: 7px 4px; font-size: 10px; }
+  .telemetry { grid-template-columns: repeat(3, 1fr); }
   .footer { align-items: flex-start; flex-direction: column; }
 }
