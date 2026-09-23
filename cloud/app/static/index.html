@@ -7,8 +7,8 @@
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
   <meta name="description" content="KisaMore lets you watch real plants grow online, choose what to grow and rent a real greenhouse container.">
   <title>KisaMore — grow something real</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=10">
-  <script src="/static/dashboard.js?v=8" defer></script>
+  <link rel="stylesheet" href="/static/dashboard.css?v=11">
+  <script src="/static/dashboard.js?v=9" defer></script>
 </head>
 <body>
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
@@ -213,14 +213,12 @@
   <template id="rackTemplate">
     <article class="rack-card">
       <header class="rack-header">
-        <div><p class="rack-kicker" data-i18n="growingZone">Growing zone</p><h3 class="rack-title"></h3></div>
-        <button type="button" class="rack-action"></button>
+        <div class="rack-title-row">
+          <h3 class="rack-title"></h3>
+          <span class="rack-temperature"></span>
+        </div>
+        <button type="button" class="rack-action hidden"></button>
       </header>
-      <div class="telemetry">
-        <span>☀ <b class="light-value"></b></span>
-        <span>° <b class="temperature-value"></b></span>
-        <span>% <b class="moisture-value"></b></span>
-      </div>
       <figure class="rack-photo hidden"><img loading="lazy"><figcaption></figcaption></figure>
       <div class="slots"></div>
     </article>
