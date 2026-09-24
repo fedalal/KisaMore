@@ -112,7 +112,7 @@ rack is kept on the VPS; the Raspberry Pi local archive remains the source for f
 ## Website analytics and registration alerts
 
 The admin sidebar **Посещаемость** shows unique browser visitors, visits, page views,
-website registrations, visitor conversion, and source / medium / campaign totals for
+website registrations, visitor conversion, and source / medium / campaign / utm_content totals for
  today, 7 days, or 30 days. Calendar boundaries use `KISAMORE_FARM_TIMEZONE`.
 Counting begins at deployment; historical visits cannot be recovered.
 
@@ -151,3 +151,7 @@ docker compose --env-file cloud/.env -f docker-compose.cloud.yml logs --tail=80 
 New tables are created automatically at API startup. Existing accounts, balances,
 settings, and volumes are preserved. Update the API before the bot (the Compose health
 check dependency handles this). This change does not require a Raspberry Pi update.
+
+`utm_content` distinguishes placements within a campaign and is included in registration
+alerts. Existing rows receive an empty value during automatic schema migration;
+historical placement values cannot be recovered.

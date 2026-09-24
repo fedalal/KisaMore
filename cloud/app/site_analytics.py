@@ -36,6 +36,7 @@ class VisitIn(BaseModel):
     source: str = Field(default='', max_length=100)
     medium: str = Field(default='', max_length=100)
     campaign: str = Field(default='', max_length=100)
+    utm_content: str = Field(default='', max_length=100)
     referrer: str = Field(default='', max_length=2048)
 
 
@@ -67,13 +68,15 @@ async def visit(payload: VisitIn, request: Request, response: Response,
     source = payload.source.strip() or (referrer_host[:100] if external else 'direct')
     medium = payload.medium.strip() or ('referral' if external else '')
     campaign = payload.campaign.strip()
+    utm_content = payload.utm_content.strip()
     # Preserve the entry source across reloads during the same visit.
     if continued:
         source, medium, campaign = last.source, last.medium, last.campaign
+        utm_content = last.utm_content
     session.add(PageView(id=str(payload.event_id), visitor_id=visitor,
                          session_id=last.session_id if continued else str(uuid4()),
                          path=payload.path, source=source, medium=medium,
-                         campaign=campaign, created_at=now))
+                         campaign=campaign, utm_content=utm_content, created_at=now))
     try:
         await session.commit()
     except IntegrityError:
@@ -88,7 +91,8 @@ async def record_registration(session, user, request):
     row = SiteRegistration(user_id=user.id, visitor_id=visitor,
                            source=last.source if last else 'unknown',
                            medium=last.medium if last else '',
-                           campaign=last.campaign if last else '', created_at=user.created_at)
+                           campaign=last.campaign if last else '',
+                           utm_content=last.utm_content if last else '', created_at=user.created_at)
     session.add(row)
     await session.flush()
     admins = (await session.execute(select(TelegramAdmin.user_id).where(TelegramAdmin.enabled.is_(True)))).scalars()
@@ -112,19 +116,19 @@ async def analytics(days: int = Query(default=7, ge=1, le=366),
     converted = (await session.execute(select(func.count(func.distinct(SiteRegistration.visitor_id))).where(
         SiteRegistration.created_at >= start, SiteRegistration.created_at <= now,
         SiteRegistration.visitor_id.in_(select(PageView.visitor_id).where(*period))))).scalar_one()
-    sources = (await session.execute(select(PageView.source, PageView.medium, PageView.campaign,
+    sources = (await session.execute(select(PageView.source, PageView.medium, PageView.campaign, PageView.utm_content,
         func.count(PageView.id), func.count(func.distinct(PageView.visitor_id)),
         func.count(func.distinct(PageView.session_id))).where(*period)
-        .group_by(PageView.source, PageView.medium, PageView.campaign)
+        .group_by(PageView.source, PageView.medium, PageView.campaign, PageView.utm_content)
         .order_by(func.count(PageView.id).desc()).limit(100))).all()
-    registered_sources = dict(((s, m, c), n) for s, m, c, n in (await session.execute(
-        select(SiteRegistration.source, SiteRegistration.medium, SiteRegistration.campaign,
+    registered_sources = dict(((s, m, c, content), n) for s, m, c, content, n in (await session.execute(
+        select(SiteRegistration.source, SiteRegistration.medium, SiteRegistration.campaign, SiteRegistration.utm_content,
                func.count(SiteRegistration.user_id)).where(SiteRegistration.created_at >= start,
                SiteRegistration.created_at <= now).group_by(SiteRegistration.source,
-               SiteRegistration.medium, SiteRegistration.campaign))).all())
+               SiteRegistration.medium, SiteRegistration.campaign, SiteRegistration.utm_content))).all())
     return dict(days=days, timezone=str(tz), start=start, end=now, views=views,
                 visitors=visitors, visits=visits, registrations=registrations,
                 conversion=round(converted / visitors * 100, 2) if visitors else 0,
-                sources=[dict(source=s, medium=m, campaign=c, views=p, visitors=u, visits=v,
-                              registrations=registered_sources.get((s, m, c), 0))
-                         for s, m, c, p, u, v in sources])
+                sources=[dict(source=s, medium=m, campaign=c, utm_content=content, views=p, visitors=u, visits=v,
+                              registrations=registered_sources.get((s, m, c, content), 0))
+                         for s, m, c, content, p, u, v in sources])

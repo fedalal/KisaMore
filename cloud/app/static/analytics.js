@@ -7,6 +7,7 @@
     source: (params.get('utm_source') || '').slice(0, 100),
     medium: (params.get('utm_medium') || '').slice(0, 100),
     campaign: (params.get('utm_campaign') || '').slice(0, 100),
+    utm_content: (params.get('utm_content') || '').slice(0, 100),
     referrer: document.referrer.slice(0, 2048)
   };
   const send = () => fetch('/api/v1/analytics/visit', {

@@ -398,8 +398,8 @@ async function loadAnalytics() {
       ['Регистрации', data.registrations], ['Конверсия', `${data.conversion}%`]
       ].map(([label, value]) => `<div class="stat-card"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`).join('');
     qs('#analyticsSources').innerHTML = data.sources.length ? data.sources.map(row =>
-      `<tr>${[row.source, row.medium || '—', row.campaign || '—', row.visitors, row.visits, row.views, row.registrations].map(value => `<td>${esc(value)}</td>`).join('')}</tr>`
-      ).join('') : '<tr><td colspan="7">За этот период посещений пока нет.</td></tr>';
+      `<tr>${[row.source, row.medium || '—', row.campaign || '—', row.utm_content || '—', row.visitors, row.visits, row.views, row.registrations].map(value => `<td>${esc(value)}</td>`).join('')}</tr>`
+      ).join('') : '<tr><td colspan="8">За этот период посещений пока нет.</td></tr>';
   } catch (error) {
     if (request !== analyticsRequest) return;
     qs('#analyticsError').textContent = error.message;

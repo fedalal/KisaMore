@@ -32,6 +32,7 @@ async def send_pending_alerts(bot):
                     f'Источник: {escape(registration.source)}\n'
                     f'Канал: {escape(registration.medium or "—")}\n'
                     f'Кампания: {escape(registration.campaign or "—")}\n'
+                    f'Размещение: {escape(registration.utm_content or "—")}\n'
                     f'Дата (UTC): {registration.created_at:%Y-%m-%d %H:%M}\n'
                     f'Всего аккаунтов сайта: {total}')
             try:

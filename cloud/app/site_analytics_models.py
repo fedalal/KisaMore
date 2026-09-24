@@ -14,6 +14,7 @@ class PageView(Base):
     source: Mapped[str] = mapped_column(String(100))
     medium: Mapped[str] = mapped_column(String(100))
     campaign: Mapped[str] = mapped_column(String(100))
+    utm_content: Mapped[str] = mapped_column(String(100), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
@@ -24,6 +25,7 @@ class SiteRegistration(Base):
     source: Mapped[str] = mapped_column(String(100))
     medium: Mapped[str] = mapped_column(String(100))
     campaign: Mapped[str] = mapped_column(String(100))
+    utm_content: Mapped[str] = mapped_column(String(100), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
