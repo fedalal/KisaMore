@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from uuid import uuid4
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,6 +153,7 @@ async def create_user_session(session: AsyncSession, user: User, response: Respo
 @router.post("/register", response_model=UserOut, status_code=201)
 async def register(
     payload: RegisterIn,
+    request: Request,
     response: Response,
     session: AsyncSession = Depends(get_session),
 ):
@@ -172,6 +173,8 @@ async def register(
     )
     session.add(user)
     await session.flush()
+    from .site_analytics import record_registration
+    await record_registration(session, user, request)
     await create_user_session(session, user, response)
     return user_out(user)
 

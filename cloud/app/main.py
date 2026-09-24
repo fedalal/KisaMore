@@ -13,6 +13,7 @@ from .admin_api import router as admin_router
 from .admin_camera_api import router as admin_camera_router
 from .api import router
 from .auth_api import router as auth_router
+from .site_analytics import router as analytics_router
 from .bootstrap import bootstrap_first_device
 from .bootstrap_admin import bootstrap_admin
 from .config import get_settings
@@ -104,6 +105,7 @@ async def admin_dashboard() -> HTMLResponse:
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(router)
 app.include_router(auth_router)
+app.include_router(analytics_router)
 app.include_router(marketplace_router)
 app.include_router(plant_sos_admin_router)
 app.include_router(promotion_admin_router)

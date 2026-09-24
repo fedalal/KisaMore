@@ -108,3 +108,46 @@ notifications are shown in the personal account.
 
 Rack photos are stored in the `kisamore-photos` Docker volume. Only the latest photo for each
 rack is kept on the VPS; the Raspberry Pi local archive remains the source for future timelapses.
+
+## Website analytics and registration alerts
+
+The admin sidebar **Посещаемость** shows unique browser visitors, visits, page views,
+website registrations, visitor conversion, and source / medium / campaign totals for
+ today, 7 days, or 30 days. Calendar boundaries use `KISAMORE_FARM_TIMEZONE`.
+Counting begins at deployment; historical visits cannot be recovered.
+
+The public dashboard submits one event per document load. Background API polling does
+not count as a page view. A first-party HttpOnly random visitor cookie lasts one year;
+a visit restarts after 30 minutes without a page opening. Cookies identify browsers,
+not people. Known crawlers and webdriver sessions are excluded; this is not a complete
+bot-detection system. No IP addresses, full referrer URLs, passwords, or query strings
+are stored. Only the referrer hostname and explicitly selected UTM fields are retained.
+
+Example advertisement link:
+
+```text
+https://kisamore.farm/?utm_source=telegram&utm_medium=paid&utm_campaign=telega_in
+```
+
+Registrations through `/api/v1/auth/register` create an analytics record and one durable
+notification per currently enabled Telegram admin in the same database transaction as
+the account. The existing Telegram worker sends these alerts, with escaped names and
+advertising source. Failed sends retry with backoff up to one hour between attempts;
+restarts preserve the queue. Login does not enqueue alerts. Existing Telegram-only
+registration alerts continue unchanged. No additional token or admin chat ID is needed.
+Like other Telegram deliveries, an ambiguous network failure after Telegram accepts a
+message can cause a retry; Telegram sendMessage has no idempotency key.
+
+From the existing repository directory on the VPS:
+
+```bash
+git pull --ff-only origin feature/telegram-marketplace-integration
+docker compose --env-file cloud/.env -f docker-compose.cloud.yml up -d --build api telegram-bot
+docker compose --env-file cloud/.env -f docker-compose.cloud.yml ps
+curl --fail http://127.0.0.1:8080/api/v1/health
+docker compose --env-file cloud/.env -f docker-compose.cloud.yml logs --tail=80 api telegram-bot
+```
+
+New tables are created automatically at API startup. Existing accounts, balances,
+settings, and volumes are preserved. Update the API before the bot (the Compose health
+check dependency handles this). This change does not require a Raspberry Pi update.

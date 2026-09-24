@@ -2,6 +2,7 @@ const qs = (s) => document.querySelector(s);
 const qsa = (s) => [...document.querySelectorAll(s)];
 
 const titles = {
+  analytics: ["Посещаемость", "Посетители, реклама и регистрации сайта"],
   overview: ["Обзор", "Состояние KisaMore"],
   users: ["Пользователи", "Telegram-пользователи и баланс Kisa"],
   promotions: ["Акции", "Автоматические бонусы Kisa для новых и существующих пользователей"],
@@ -126,6 +127,7 @@ function selectSection(name) {
   qs("#pageTitle").textContent = titles[name][0];
   qs("#pageSubtitle").textContent = titles[name][1];
   if (name === "overview") loadOverview();
+  if (name === "analytics") loadAnalytics();
   if (name === "users") loadUsers();
   if (name === "rentals") loadRentals();
   if (name === "cameras") loadRackPhotos();
@@ -382,3 +384,28 @@ qs("#photoForm").addEventListener("submit", submitPhoto);
 qsa("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => qs(`#${button.dataset.closeDialog}`).close()));
 
 checkSession();
+
+let analyticsRequest = 0;
+async function loadAnalytics() {
+  const request = ++analyticsRequest;
+  qs('#analyticsError').textContent = '';
+  try {
+    const data = await api(`/api/v1/admin/analytics?days=${qs('#analyticsDays').value}`);
+    if (request !== analyticsRequest) return;
+    qs('#analyticsNote').textContent = `Часовой пояс: ${data.timezone}. Данные на ${fmtDate(data.end)}.`;
+    qs('#analyticsCards').innerHTML = [
+      ['Посетители', data.visitors], ['Визиты', data.visits], ['Просмотры', data.views],
+      ['Регистрации', data.registrations], ['Конверсия', `${data.conversion}%`]
+      ].map(([label, value]) => `<div class="stat-card"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`).join('');
+    qs('#analyticsSources').innerHTML = data.sources.length ? data.sources.map(row =>
+      `<tr>${[row.source, row.medium || '—', row.campaign || '—', row.visitors, row.visits, row.views, row.registrations].map(value => `<td>${esc(value)}</td>`).join('')}</tr>`
+      ).join('') : '<tr><td colspan="7">За этот период посещений пока нет.</td></tr>';
+  } catch (error) {
+    if (request !== analyticsRequest) return;
+    qs('#analyticsError').textContent = error.message;
+    qs('#analyticsCards').innerHTML = '';
+    qs('#analyticsSources').innerHTML = '';
+  }
+}
+qs('#analyticsDays').addEventListener('change', loadAnalytics);
+qs('#analyticsRefresh').addEventListener('click', loadAnalytics);

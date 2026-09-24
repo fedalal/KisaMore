@@ -27,6 +27,7 @@
       <div class="sidebar-brand"><span>🌱</span><div><strong>KisaMore</strong><small>Administration</small></div></div>
       <nav>
         <button class="nav-item active" data-section="overview">Обзор</button>
+        <button class="nav-item" data-section="analytics">Посещаемость</button>
         <button class="nav-item" data-section="users">Пользователи</button>
         <button class="nav-item" data-section="promotions">🎉 Акции</button>
         <button class="nav-item" data-section="rentals">Заявки на аренду</button>
@@ -51,6 +52,20 @@
         <div class="panel intro-panel">
           <h2>Администрирование KisaMore</h2>
           <p>Все операции с Kisa записываются в историю кошелька. Подтверждённая заявка на аренду превращается в активное назначение и передаётся на Raspberry через существующую синхронизацию.</p>
+        </div>
+      </section>
+
+      <section id="section-analytics" class="section">
+        <div class="panel">
+          <div class="panel-head"><h2>Посещаемость сайта</h2>
+            <select id="analyticsDays" aria-label="Период статистики"><option value="1">Сегодня</option><option value="7" selected>7 дней</option><option value="30">30 дней</option></select>
+            <button id="analyticsRefresh">Обновить</button>
+          </div>
+          <p id="analyticsNote"></p><p id="analyticsError" class="error" role="alert"></p>
+          <div id="analyticsCards" class="stat-grid"></div>
+          <h3>Источники переходов</h3>
+          <div class="table-wrap"><table><thead><tr><th>Источник</th><th>Канал</th><th>Кампания</th><th>Посетители</th><th>Визиты</th><th>Просмотры</th><th>Регистрации</th></tr></thead><tbody id="analyticsSources"></tbody></table></div>
+          <p>Посетитель определяется по cookie браузера. Новый визит начинается после 30 минут без открытий страниц. Конверсия — доля посетителей за период, зарегистрировавшихся за этот же период. Фоновые обновления данных не учитываются. Учёт начинается после обновления сайта.</p>
         </div>
       </section>
 
@@ -285,7 +300,7 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/admin.js?v=20260921-1" defer></script>
+  <script src="/static/admin.js?v=20260924-1" defer></script>
   <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
   <script src="/static/admin_seeds.js?v=20260910-1" defer></script>

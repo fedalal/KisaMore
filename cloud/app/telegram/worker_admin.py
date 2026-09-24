@@ -10,7 +10,7 @@ from ..admin_models import AdminAuditLog
 from ..db import SessionLocal
 from ..models import User
 from ..rental_admin_api import RejectRentalIn, approve_rental_request, reject_rental_request
-from . import admin_plant_task_notifier, admin_rental_notifier, new_user_notifier
+from . import admin_plant_task_notifier, admin_rental_notifier, new_user_notifier, site_registration_notifier
 from . import worker_seed_inventory as existing
 from .models import (
     TelegramConversationState,
@@ -617,6 +617,9 @@ async def follow_notification_loop(bot) -> None:
                 rental_sent, rental_failed = await admin_rental_notifier.send_pending_alerts(bot)
                 new_discovered = await new_user_notifier.discover_new_users()
                 new_sent, new_failed = await new_user_notifier.send_pending_alerts(bot)
+                site_sent, site_failed = await site_registration_notifier.send_pending_alerts(bot)
+                if site_sent or site_failed:
+                    core.logger.info("Website registration alerts: sent=%s failed=%s", site_sent, site_failed)
                 if welcomed or rental_sent or rental_failed or new_discovered or new_sent or new_failed:
                     core.logger.info(
                         "Telegram admin alert pass: welcomed=%s rental_sent=%s rental_failed=%s "
