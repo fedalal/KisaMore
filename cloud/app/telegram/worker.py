@@ -9,12 +9,14 @@ from sqlalchemy import select
 from ..admin_models import PlantingPhoto
 from ..db import SessionLocal
 from ..models import Plant
+from ..telegram_link import consume_telegram_link_token
 from . import worker_core as core
 from .rental_service import InsufficientRentalBalance, create_rental_request, list_available_slots
 
 
 _original_get_plant_card = core.get_plant_card
 _original_handle_callback = core.handle_callback
+_original_handle_message = core.handle_message
 _original_t = core.t
 _original_st = core.st
 
@@ -282,6 +284,46 @@ async def show_garden(bot, chat_id: int, tg: dict) -> None:
     await bot.send_message(chat_id, "\n".join(parts), reply_markup={"inline_keyboard": buttons})
 
 
+LINK_TEXT = {
+    "en": {
+        "ok": "✅ <b>Telegram is linked to your KisaMore website account.</b>\n\nYou can return to the website and join Plant Battles using your Kisa balance.",
+        "expired": "⚠️ This linking link is invalid or has expired. Create a new link on the KisaMore website.",
+        "busy": "⚠️ This Telegram account or website account is already linked to another account.",
+    },
+    "ru": {
+        "ok": "✅ <b>Telegram привязан к вашему аккаунту KisaMore на сайте.</b>\n\nТеперь можно вернуться на сайт и оплачивать участие в «Битве растений» балансом Kisa.",
+        "expired": "⚠️ Ссылка привязки недействительна или устарела. Создайте новую ссылку на сайте KisaMore.",
+        "busy": "⚠️ Этот Telegram или аккаунт сайта уже привязан к другой учётной записи.",
+    },
+}
+
+
+async def handle_message(bot, message: dict) -> None:
+    text = str(message.get("text") or "").strip()
+    tg = message.get("from")
+    chat_id = (message.get("chat") or {}).get("id")
+    if not text.startswith("/start link_") or tg is None or chat_id is None:
+        await _original_handle_message(bot, message)
+        return
+
+    raw_token = text.split(maxsplit=1)[1][len("link_"):].strip()
+    lang = core.language_for(tg)
+    tr = LINK_TEXT.get(lang) or LINK_TEXT["en"]
+    user, _ = await core.get_or_create_user(tg)
+    try:
+        async with SessionLocal() as session:
+            await consume_telegram_link_token(
+                session,
+                raw_token=raw_token,
+                telegram_user_id=user.telegram_user_id,
+            )
+            await session.commit()
+        await bot.send_message(chat_id, tr["ok"], reply_markup=core.main_keyboard(lang))
+    except ValueError as exc:
+        key = "busy" if str(exc) in ("telegram_already_linked", "website_already_linked") else "expired"
+        await bot.send_message(chat_id, tr[key], reply_markup=core.main_keyboard(lang))
+
+
 async def handle_callback(bot, query: dict) -> None:
     data = str(query.get("data") or "")
 
@@ -367,6 +409,7 @@ core.show_wallet = show_wallet
 core.show_rental_plants = show_rental_plants
 core.show_rental_slots = show_rental_slots
 core.show_garden = show_garden
+core.handle_message = handle_message
 core.handle_callback = handle_callback
 
 
