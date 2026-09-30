@@ -5,7 +5,7 @@ from html import escape
 import io
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import qrcode
@@ -82,7 +82,7 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
                     else None
                 ),
                 "certificate_url": (
-                    f"/battle-certificate/{entry.id}"
+                    f"/api/v1/battle-certificate/{entry.id}"
                     if battle.status == "finished"
                     else None
                 ),
@@ -133,7 +133,7 @@ async def _certificate_context(session: AsyncSession, entry_id: str):
     return entry, battle, plant, user
 
 
-@router.get("/api/v1/public/battle-entries/{entry_id}")
+@router.get("/public/battle-entries/{entry_id}")
 async def public_battle_entry(
     entry_id: str,
     session: AsyncSession = Depends(get_session),
@@ -164,14 +164,14 @@ async def public_battle_entry(
     }
 
 
-@router.get("/api/v1/public/battle-entries/{entry_id}/qr")
+@router.get("/public/battle-entries/{entry_id}/qr")
 async def battle_entry_qr(
     entry_id: str,
     session: AsyncSession = Depends(get_session),
 ):
     entry, _battle, _plant, _user = await _certificate_context(session, entry_id)
     base = get_settings().public_base_url.rstrip("/")
-    url = f"{base}/battle-certificate/{entry.id}"
+    url = f"{base}/api/v1/battle-certificate/{entry.id}"
     image = qrcode.make(url)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
@@ -186,7 +186,6 @@ async def battle_entry_qr(
 @router.get("/battle-certificate/{entry_id}", response_class=HTMLResponse, include_in_schema=False)
 async def battle_certificate(
     entry_id: str,
-    request: Request,
     session: AsyncSession = Depends(get_session),
 ):
     entry, battle, plant, user = await _certificate_context(session, entry_id)
