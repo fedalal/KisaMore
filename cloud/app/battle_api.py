@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry
 from .battle_service import queue_admin_text, queue_telegram_text
-from .models import Farm, Plant, User
+from .models import Device, Farm, Plant, User
 from .security import get_current_user, get_session
 from .telegram.models import TelegramUser, WalletAccount, WalletTransaction
 
@@ -37,8 +37,8 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
     farm_slug = (
         await session.execute(
             select(Farm.slug)
-            .join_from(Farm, __import__("cloud.app.models", fromlist=["Device"]).Device, __import__("cloud.app.models", fromlist=["Device"]).Device.farm_id == Farm.id)
-            .where(__import__("cloud.app.models", fromlist=["Device"]).Device.id == battle.device_id)
+            .join(Device, Device.farm_id == Farm.id)
+            .where(Device.id == battle.device_id)
             .limit(1)
         )
     ).scalar_one_or_none() or "demo-farm"
