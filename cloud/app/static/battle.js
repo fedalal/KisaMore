@@ -1,5 +1,5 @@
 (function(){
-  var root=document.getElementById("battleSection");
+  var root=document.getElementById("battle");
   if(!root)return;
   var list=document.getElementById("battleList");
   var langSelect=document.getElementById("languageSelect");
