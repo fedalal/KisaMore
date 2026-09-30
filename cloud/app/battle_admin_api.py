@@ -673,6 +673,8 @@ async def choose_winner(
     )
     notified: set[int] = set()
     for participant in entries:
+        if participant.status == "active":
+            participant.status = "finished"
         if participant.telegram_user_id in notified:
             continue
         notified.add(participant.telegram_user_id)
