@@ -12,6 +12,8 @@ from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry
 from .battle_service import queue_admin_text, queue_telegram_text
 from .models import Device, Farm, Plant, User
 from .security import get_current_user, get_session
+from .config import get_settings
+from .telegram_link import create_telegram_link_token, linked_telegram_user
 from .telegram.models import TelegramUser, WalletAccount, WalletTransaction
 
 
@@ -100,6 +102,43 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "planted_at": battle.planted_at,
         "finished_at": battle.finished_at,
         "entries": entry_rows,
+    }
+
+
+@router.get("/account/telegram-link/status")
+async def telegram_link_status(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    linked = await linked_telegram_user(session, user_id=user.id)
+    return {
+        "linked": linked is not None,
+        "telegram_username": linked.username if linked else None,
+    }
+
+
+@router.post("/account/telegram-link", status_code=201)
+async def create_telegram_link(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    linked = await linked_telegram_user(session, user_id=user.id)
+    if linked is not None:
+        return {
+            "linked": True,
+            "telegram_username": linked.username,
+            "bot_url": None,
+            "expires_at": None,
+        }
+
+    token, expires_at = await create_telegram_link_token(session, user_id=user.id)
+    await session.commit()
+    username = get_settings().telegram_bot_username.lstrip("@")
+    return {
+        "linked": False,
+        "telegram_username": None,
+        "bot_url": f"https://t.me/{username}?start=link_{token}",
+        "expires_at": expires_at,
     }
 
 
