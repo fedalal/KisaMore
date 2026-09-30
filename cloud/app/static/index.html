@@ -7,8 +7,8 @@
   <meta name="kisamore-farm-slug" content="__KISAMORE_FARM_SLUG__">
   <meta name="description" content="KisaMore lets you watch real plants grow online, choose what to grow and rent a real greenhouse container.">
   <title>KisaMore — grow something real</title>
-  <link rel="stylesheet" href="/static/dashboard.css?v=21">
-  <script src="/static/dashboard.js?v=17" defer></script>
+  <link rel="stylesheet" href="/static/dashboard.css?v=21">\n  <link rel="stylesheet" href="/static/battle.css?v=20260930-1">
+  <script src="/static/dashboard.js?v=17" defer></script>\n  <script src="/static/battle.js?v=20260930-1" defer></script>
   <script src="/static/analytics.js?v=20260924-2" defer></script>
 </head>
 <body>
@@ -25,7 +25,7 @@
       <nav class="main-nav" aria-label="Main navigation">
         <a href="#how" data-i18n="navHow">How it works</a>
         <a href="#plants" data-i18n="navPlants">Plants</a>
-        <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a>
+        <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a>\n        <a href="#battle">Battle</a>
         <a href="#kisa" data-i18n="navKisa">KISA</a>
       </nav>
 
@@ -117,6 +117,25 @@
       </div>
       <div class="plants-grid" id="plantsGrid">
         <div class="loading-card" data-i18n="loading">Loading greenhouse data…</div>
+      </div>
+    </section>
+
+    <section class="battle-section" id="battle">
+      <div class="battle-head">
+        <div>
+          <p class="eyebrow" id="battleEyebrow">Plant Battle</p>
+          <h2 id="battleTitle">Compete with a real plant</h2>
+          <p id="battleLead">Six identical plants, one seed batch and equal resource limits. You decide how to use them.</p>
+        </div>
+      </div>
+      <div class="battle-rules">
+        <div class="battle-rule" id="battleRule1">6 containers start together</div>
+        <div class="battle-rule" id="battleRule2">Same seeds and resource limits</div>
+        <div class="battle-rule" id="battleRule3">You control water, nutrients and shade</div>
+        <div class="battle-rule" id="battleRule4">Winner gets a digital badge and Kisa prize</div>
+      </div>
+      <div id="battleList" class="battle-list">
+        <div class="battle-message">Loading battles…</div>
       </div>
     </section>
 
