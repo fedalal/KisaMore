@@ -4,11 +4,11 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
 
-from sqlalchemy import DateTime, ForeignKey, String, select
+from sqlalchemy import DateTime, ForeignKey, String, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .models import Base, User
+from .models import Allocation, Base, Notification, Offer, Order, ReservationRequest, User
 from .telegram.models import TelegramUser
 
 
@@ -104,8 +104,16 @@ async def consume_telegram_link_token(
         raise ValueError("website_user_unavailable")
     if telegram_user is None or not telegram_user.is_active:
         raise ValueError("telegram_user_unavailable")
-    if telegram_user.marketplace_user_id and telegram_user.marketplace_user_id != website_user.id:
-        raise ValueError("telegram_already_linked")
+    old_marketplace_user_id = telegram_user.marketplace_user_id
+    if old_marketplace_user_id and old_marketplace_user_id != website_user.id:
+        old_user = await session.get(User, old_marketplace_user_id)
+        is_internal = bool(
+            old_user
+            and not old_user.is_active
+            and old_user.email.endswith("@internal.kisamore.local")
+        )
+        if not is_internal:
+            raise ValueError("telegram_already_linked")
 
     existing = (
         await session.execute(
@@ -119,6 +127,17 @@ async def consume_telegram_link_token(
     ).scalar_one_or_none()
     if existing is not None:
         raise ValueError("website_already_linked")
+
+    if old_marketplace_user_id and old_marketplace_user_id != website_user.id:
+        # Telegram-first rentals historically used an inactive technical User.
+        # Move their marketplace ownership to the real website account so
+        # current plants and rental history remain visible after linking.
+        for model in (Allocation, ReservationRequest, Offer, Order, Notification):
+            await session.execute(
+                update(model)
+                .where(model.user_id == old_marketplace_user_id)
+                .values(user_id=website_user.id)
+            )
 
     telegram_user.marketplace_user_id = website_user.id
     row.used_at = now
