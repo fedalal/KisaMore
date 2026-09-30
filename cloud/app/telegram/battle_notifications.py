@@ -97,6 +97,8 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
 
     created = 0
     for entry, battle, telegram_user, plant in rows:
+        if not entry.planting_id:
+            continue
         planted = _aware(battle.planted_at)
         if planted is None:
             continue
