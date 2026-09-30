@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import BATTLE_BLOCKING_STATUSES, PlantBattle, PlantBattleEntry
-from .models import Notification, Planting
+from .models import Planting
 from .telegram.activity_notifier import TelegramActivityDelivery
 from .telegram.admin_models import TelegramAdmin
 from .telegram.models import TelegramUser
@@ -106,24 +106,6 @@ async def queue_admin_text(
             event_key=f"{event_prefix}:{admin.user_id}",
             text=text,
         )
-
-
-async def queue_user_notice(
-    session: AsyncSession,
-    *,
-    user_id: str,
-    kind: str,
-    payload: dict,
-) -> None:
-    session.add(
-        Notification(
-            id=payload.pop("_notification_id"),
-            user_id=user_id,
-            kind=kind,
-            payload=payload,
-            created_at=datetime.now(timezone.utc),
-        )
-    )
 
 
 async def sync_battles_from_plantings(
