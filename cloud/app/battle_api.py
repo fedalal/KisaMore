@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry
-from .battle_service import queue_admin_text, queue_telegram_text
+from .battle_service import battle_message, queue_admin_text, queue_telegram_text
 from .models import Device, Farm, Plant, User
 from .security import get_current_user, get_session
 from .config import get_settings
@@ -454,11 +454,11 @@ async def join_battle(
                     session,
                     telegram_user_id=tg.telegram_user_id,
                     event_key=f"battle_full:{battle.id}:{tg.id}",
-                    text=(
-                        "🏁 <b>Набор в «Битву растений» завершён!</b>\n\n"
-                        f"Полка {battle.rack_id}: все {battle.max_entries} мест заняты. "
-                        "Администратор получил задачу посадить растения из одной партии семян. "
-                        "После посадки вы получите уведомление."
+                    text=battle_message(
+                        tg,
+                        "full",
+                        rack=battle.rack_id,
+                        count=battle.max_entries,
                     ),
                 )
         await queue_admin_text(
