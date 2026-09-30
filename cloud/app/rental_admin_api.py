@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .admin_models import AdminAuditLog
+from .battle_service import rack_has_blocking_battle
 from .marketplace_service import process_waitlist
 from .models import Allocation, Offer, Plant, RackSlot, User
 from .security import get_admin_user, get_session
@@ -236,6 +237,12 @@ async def approve_rental_request(
     if request.status == "approved":
         allocation = await _allocation_for_request(session, request, telegram_user, slot)
         return {"ok": True, "status": "approved", "allocation_id": allocation.id if allocation else None}
+    if await rack_has_blocking_battle(
+        session,
+        device_id=slot.device_id,
+        rack_id=slot.rack_id,
+    ):
+        raise HTTPException(status_code=409, detail="Rack is reserved for a plant battle")
     if request.status != "requested":
         raise HTTPException(status_code=409, detail=f"Request is already {request.status}")
     if not slot.enabled or slot.physical_status != "available":
