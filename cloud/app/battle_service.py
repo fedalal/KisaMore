@@ -7,9 +7,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import BATTLE_BLOCKING_STATUSES, PlantBattle, PlantBattleEntry
 from .models import Planting
-from .telegram.activity_notifier import TelegramActivityDelivery
+from .telegram.activity_notifier import TelegramActivityDelivery, user_language
 from .telegram.admin_models import TelegramAdmin
 from .telegram.models import TelegramUser
+
+
+BATTLE_MESSAGES = {
+    "en": {
+        "full": "🏁 <b>Plant Battle is full!</b>\n\nRack {rack}: all {count} places are taken. The administrator will plant all six containers from the same seed batch. You will be notified when growing starts.",
+        "started": "🌱 <b>Plant Battle has started!</b>\n\nRack {rack}. All six plants have been planted. You can now manage your resource allowance and follow photos and timelapses.",
+        "cancelled": "↩️ <b>Plant Battle was cancelled.</b>\n\nⓀ {refund} were returned for container {slot}.",
+        "action_done": "✅ <b>Your Plant Battle action was completed.</b>\n\nRack {rack} · Container {slot}\n{action}: {amount} {unit}",
+        "winner": "🏆 <b>You won the Plant Battle!</b>\n\nPrize: Ⓚ {reward}\nBadge: <b>Best Gardener</b>\n\nYour digital diploma: {certificate}",
+        "finished": "🏁 <b>Plant Battle is finished.</b>\n\nContainer #{winner_slot} won. Thank you for participating. Your growth history, timelapse and digital diploma remain available: {certificate}",
+    },
+    "ru": {
+        "full": "🏁 <b>Набор в «Битву растений» завершён!</b>\n\nПолка {rack}: все {count} мест заняты. Администратор посадит все шесть контейнеров семенами из одной партии. После посадки вы получите уведомление.",
+        "started": "🌱 <b>Битва растений началась!</b>\n\nПолка {rack}. Все 6 растений посажены. Теперь вы можете управлять лимитами ресурсов и следить за фото и таймлапсами.",
+        "cancelled": "↩️ <b>Битва растений отменена.</b>\n\nЗа контейнер {slot} возвращено Ⓚ {refund}.",
+        "action_done": "✅ <b>Действие для вашего растения выполнено.</b>\n\nПолка {rack} · контейнер {slot}\n{action}: {amount} {unit}",
+        "winner": "🏆 <b>Вы победили в «Битве растений»!</b>\n\nНаграда: Ⓚ {reward}\nЗначок: <b>Лучший садовод</b>\n\nВаш цифровой диплом: {certificate}",
+        "finished": "🏁 <b>«Битва растений» завершена.</b>\n\nПобедил контейнер №{winner_slot}. Спасибо за участие. История роста, таймлапс и цифровой диплом доступны здесь: {certificate}",
+    },
+}
+
+
+def battle_message(user: TelegramUser, key: str, **kwargs) -> str:
+    lang = user_language(user.language_code)
+    values = BATTLE_MESSAGES["ru"] if lang == "ru" else BATTLE_MESSAGES["en"]
+    return values[key].format(**kwargs)
 
 
 def aware_utc(value: datetime | None) -> datetime | None:
@@ -175,10 +201,10 @@ async def sync_battles_from_plantings(
                 seen_users.add(entry.user_id)
                 tg = await session.get(TelegramUser, entry.telegram_user_id)
                 if tg is not None and tg.is_active:
-                    text = (
-                        "🌱 <b>Битва растений началась!</b>\n\n"
-                        f"Полка {battle.rack_id}. Все 6 растений посажены. "
-                        "Теперь вы можете управлять ресурсами своего растения и следить за ростом."
+                    text = battle_message(
+                        tg,
+                        "started",
+                        rack=battle.rack_id,
                     )
                     await queue_telegram_text(
                         session,
