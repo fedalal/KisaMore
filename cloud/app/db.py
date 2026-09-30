@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from .config import get_settings
 from .models import Base
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry  # noqa: F401 - register battle tables
+from .telegram_link import WebsiteTelegramLinkToken  # noqa: F401 - register website/Telegram linking table
 from . import site_analytics_models  # noqa: F401 - register analytics tables
 from .plant_fact_models import PlantFactPool  # noqa: F401 - register table in Base metadata
 from .telegram.models import (  # noqa: F401 - register core Telegram tables in Base metadata
