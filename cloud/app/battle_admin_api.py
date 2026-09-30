@@ -10,11 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .admin_models import AdminAuditLog
 from .battle_models import BATTLE_BLOCKING_STATUSES, PlantBattle, PlantBattleAction, PlantBattleEntry
-from .battle_service import queue_telegram_text, rack_has_blocking_battle
+from .battle_service import battle_message, queue_telegram_text, rack_has_blocking_battle
 from .marketplace_service import process_waitlist
 from .models import Allocation, Device, Offer, Plant, RackSlot, User
 from .security import get_admin_user, get_session
 from .seed_inventory import SeedUnavailable, require_seed_available
+from .config import get_settings
 from .telegram.admin_models import EdgeOperatorCommand
 from .telegram.models import TelegramRentalRequest, TelegramUser, WalletAccount, WalletTransaction
 
@@ -485,9 +486,11 @@ async def cancel_battle(
                 session,
                 telegram_user_id=tg.telegram_user_id,
                 event_key=f"battle_cancelled:{battle.id}:{entry.id}",
-                text=(
-                    "↩️ <b>Битва растений отменена.</b>\n\n"
-                    f"За контейнер {entry.slot_number} возвращено Ⓚ {entry.price_kisa}."
+                text=battle_message(
+                    tg,
+                    "cancelled",
+                    slot=entry.slot_number,
+                    refund=entry.price_kisa,
                 ),
             )
 
@@ -537,15 +540,25 @@ async def complete_action(
     action.completed_by_user_id = admin.id
     tg = await session.get(TelegramUser, entry.telegram_user_id)
     if tg is not None and tg.is_active:
-        labels = {"water": "полив", "nutrient": "питательный раствор", "shade": "закрытие от света"}
+        lang_ru = (tg.language_code or "").lower().startswith("ru")
+        labels = (
+            {"water": "полив", "nutrient": "питательный раствор", "shade": "закрытие от света"}
+            if lang_ru
+            else {"water": "watering", "nutrient": "nutrient solution", "shade": "shade"}
+        )
+        unit = "мин" if lang_ru and action.kind == "shade" else "ml" if not lang_ru and action.kind != "shade" else "min" if action.kind == "shade" else "мл"
         await queue_telegram_text(
             session,
             telegram_user_id=tg.telegram_user_id,
             event_key=f"battle_action_done:{action.id}",
-            text=(
-                "✅ <b>Действие для вашего растения выполнено.</b>\n\n"
-                f"Полка {battle.rack_id} · контейнер {entry.slot_number}\n"
-                f"{labels.get(action.kind, action.kind)}: {action.amount}"
+            text=battle_message(
+                tg,
+                "action_done",
+                rack=battle.rack_id,
+                slot=entry.slot_number,
+                action=labels.get(action.kind, action.kind),
+                amount=action.amount,
+                unit=unit,
             ),
         )
     await session.commit()
@@ -681,18 +694,22 @@ async def choose_winner(
         tg = await session.get(TelegramUser, participant.telegram_user_id)
         if tg is None or not tg.is_active:
             continue
+        certificate = (
+            f"{get_settings().public_base_url.rstrip('/')}/api/v1/battle-certificate/{participant.id}"
+        )
         if participant.telegram_user_id == entry.telegram_user_id:
-            text = (
-                "🏆 <b>Вы победили в «Битве растений»!</b>\n\n"
-                f"Награда: Ⓚ {reward}\n"
-                "Значок: <b>Лучший садовод</b>\n\n"
-                "Поздравляем!"
+            text = battle_message(
+                tg,
+                "winner",
+                reward=reward,
+                certificate=certificate,
             )
         else:
-            text = (
-                "🏁 <b>«Битва растений» завершена.</b>\n\n"
-                f"Победил контейнер №{entry.slot_number}. "
-                "Спасибо за участие — история роста и таймлапсы остаются доступны на сайте."
+            text = battle_message(
+                tg,
+                "finished",
+                winner_slot=entry.slot_number,
+                certificate=certificate,
             )
         await queue_telegram_text(
             session,
