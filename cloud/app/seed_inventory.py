@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import SessionLocal
 from .models import Allocation, Base, Plant, Planting, ReservationRequest
+from .battle_models import PlantBattle
 from .telegram.models import TelegramRentalRequest
 
 
@@ -126,6 +127,21 @@ async def reserved_plantings(session: AsyncSession, plant_id: str) -> int:
     ).scalars().all()
     marketplace_reserved = sum(_resource_seed_portions(value) for value in marketplace_rows)
 
+    # An open battle promises all six containers from one seed batch. Once
+    # planting starts, normal Allocation rows below take over the reservation
+    # so the same seeds are never counted twice.
+    battle_reserved = int(
+        (
+            await session.execute(
+                select(func.coalesce(func.sum(PlantBattle.max_entries), 0)).where(
+                    PlantBattle.plant_id == plant_id,
+                    PlantBattle.status.in_(("open", "ready_to_plant")),
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
+
     allocation_rows = (
         await session.execute(
             select(Allocation.id, Allocation.resource_type).where(
@@ -151,7 +167,7 @@ async def reserved_plantings(session: AsyncSession, plant_id: str) -> int:
             planted = int(planting_counts.get(allocation_id, 0) or 0)
             allocation_reserved += max(0, required - planted)
 
-    return telegram_requested + marketplace_reserved + allocation_reserved
+    return telegram_requested + marketplace_reserved + battle_reserved + allocation_reserved
 
 
 async def seed_availability(session: AsyncSession, plant_id: str) -> SeedAvailability:
