@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from . import activity_notifier
+from .battle_notifications import install as install_battle_notifications
 from . import worker_admin as existing
 from .broadcast_poll_selection import install as install_broadcast_poll_selection
 from .broadcast_service import install as install_broadcasts
@@ -37,6 +38,7 @@ install_plant_card_ui(core)
 install_reaction_refresh(core)
 install_gift_feedback(core)
 install_watering_facts(activity_notifier)
+install_battle_notifications(activity_notifier)
 install_broadcasts(core)
 install_neighbor_notifications(core)
 install_wallet_gift_notifications(core)
