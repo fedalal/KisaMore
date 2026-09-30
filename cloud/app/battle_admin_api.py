@@ -390,6 +390,8 @@ async def start_battle(
         session.add(allocation)
         await session.flush()
         entry.allocation_id = allocation.id
+        planting_id = str(uuid4())
+        entry.planting_id = planting_id
         session.add(
             EdgeOperatorCommand(
                 id=str(uuid4()),
@@ -398,6 +400,7 @@ async def start_battle(
                 rack_id=battle.rack_id,
                 slot_number=entry.slot_number,
                 plant_id=battle.plant_id,
+                planting_id=planting_id,
                 allocation_id=allocation.id,
                 status="pending",
                 created_at=now,
