@@ -13,6 +13,8 @@ from .admin_api import router as admin_router
 from .admin_camera_api import router as admin_camera_router
 from .api import router
 from .auth_api import router as auth_router
+from .battle_api import router as battle_router
+from .battle_admin_api import router as battle_admin_router
 from .site_analytics import router as analytics_router
 from .bootstrap import bootstrap_first_device
 from .bootstrap_admin import bootstrap_admin
@@ -107,6 +109,8 @@ app.include_router(router)
 app.include_router(auth_router)
 app.include_router(analytics_router)
 app.include_router(marketplace_router)
+app.include_router(battle_router)
+app.include_router(battle_admin_router)
 app.include_router(plant_sos_admin_router)
 app.include_router(promotion_admin_router)
 app.include_router(rack_photo_router)
