@@ -99,8 +99,12 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "plant_names": plant.names if plant else {},
         "entry_price_kisa": battle.entry_price_kisa,
         "max_entries": battle.max_entries,
-        "entries_count": len([item for item in entries if item.status == "active"]),
-        "remaining_entries": max(0, battle.max_entries - len([item for item in entries if item.status == "active"])),
+        "entries_count": len([item for item in entries if item.status in ("active", "finished")]),
+        "remaining_entries": (
+            max(0, battle.max_entries - len([item for item in entries if item.status == "active"]))
+            if battle.status == "open"
+            else 0
+        ),
         "water_budget_ml": battle.water_budget_ml,
         "nutrient_budget_ml": battle.nutrient_budget_ml,
         "shade_budget_minutes": battle.shade_budget_minutes,
@@ -155,7 +159,7 @@ async def public_battle_entry(
         "shade_used_minutes": entry.shade_used_minutes,
         "is_winner": entry.is_winner,
         "badge": entry.badge,
-        "certificate_url": f"/battle-certificate/{entry.id}",
+        "certificate_url": f"/api/v1/battle-certificate/{entry.id}",
         "timelapse_full_url": (
             f"/api/v1/public/plantings/{entry.planting_id}/timelapse/full"
             if entry.planting_id
