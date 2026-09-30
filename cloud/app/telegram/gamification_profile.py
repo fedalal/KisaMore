@@ -7,6 +7,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, 
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import SessionLocal
+from ..battle_models import PlantBattleEntry
 from ..models import Base
 from .gamification import (
     TEXTS as GAME_TEXTS,
@@ -123,6 +124,19 @@ PROFILE_TEXT = {
     "zh": {"title": "🎮 <b>游戏进度</b>", "level": "等级", "xp": "XP", "streak": "当前连续", "best": "最佳连续", "ach": "🏅 <b>成就</b>", "empty": "暂时还没有成就。"},
 }
 
+BATTLE_BADGE = {
+    "en": "🏆 Best Gardener",
+    "ru": "🏆 Лучший садовод",
+    "de": "🏆 Bester Gärtner",
+    "fr": "🏆 Meilleur jardinier",
+    "es": "🏆 Mejor jardinero",
+    "it": "🏆 Miglior giardiniere",
+    "pt": "🏆 Melhor jardineiro",
+    "pl": "🏆 Najlepszy ogrodnik",
+    "zh": "🏆 最佳园丁",
+}
+
+
 TRY_AGAIN = {
     "en": "🧠 Try again", "ru": "🧠 Попробовать ещё раз", "de": "🧠 Noch einmal",
     "fr": "🧠 Réessayer", "es": "🧠 Intentar de nuevo", "it": "🧠 Riprova",
@@ -195,6 +209,17 @@ async def _game_profile(user_id: int, lang: str) -> str:
     codes = await _sync_achievements(user_id)
     async with SessionLocal() as session:
         profile = await session.get(TelegramGamificationProfile, user_id)
+        battle_wins = int(
+            (
+                await session.execute(
+                    select(func.count(PlantBattleEntry.id)).where(
+                        PlantBattleEntry.telegram_user_id == user_id,
+                        PlantBattleEntry.is_winner.is_(True),
+                    )
+                )
+            ).scalar_one()
+            or 0
+        )
     xp = int(profile.xp or 0) if profile is not None else 0
     streak = _effective_streak(profile) if profile is not None else 0
     best = int(profile.best_streak or 0) if profile is not None else 0
@@ -203,6 +228,9 @@ async def _game_profile(user_id: int, lang: str) -> str:
         (ACHIEVEMENTS.get(code, {}).get(lang) or ACHIEVEMENTS.get(code, {}).get("en") or code)
         for code in codes
     ]
+    if battle_wins:
+        badge = BATTLE_BADGE.get(lang) or BATTLE_BADGE["en"]
+        achievements.append(f"{badge}" + (f" × {battle_wins}" if battle_wins > 1 else ""))
     achievement_text = "\n".join(f"• {item}" for item in achievements) if achievements else tr["empty"]
     return (
         f"{tr['title']}\n"
