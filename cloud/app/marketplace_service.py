@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import get_settings
+from .battle_service import active_battle_blockers, sync_battles_from_plantings
 from .models import (
     Allocation,
     Notification,
@@ -170,6 +171,7 @@ async def sync_edge_inventory(session: AsyncSession, device_id: str, payload, no
     # did on the Raspberry Pi and removes watering controls immediately after
     # the harvested state reaches the cloud.
     completed = await complete_harvested_allocations(session, device_id=device_id, now=now)
+    await sync_battles_from_plantings(session, device_id=device_id)
     if completed:
         await process_waitlist(session, device_id)
 
@@ -244,14 +246,20 @@ async def active_inventory(session: AsyncSession, device_id: str):
             .order_by(RackSlot.rack_id, RackSlot.slot_number)
         )
     ).scalars().all()
-    allocations = (
-        await session.execute(
-            select(Allocation).where(
-                Allocation.device_id == device_id,
-                Allocation.status == "active",
+    allocations = list(
+        (
+            await session.execute(
+                select(Allocation).where(
+                    Allocation.device_id == device_id,
+                    Allocation.status == "active",
+                )
             )
-        )
-    ).scalars().all()
+        ).scalars().all()
+    )
+    # A battle reserves the whole rack while participants are joining, growing
+    # and waiting for judging. Treat it as a virtual rack allocation so every
+    # existing marketplace availability path keeps working unchanged.
+    allocations.extend(await active_battle_blockers(session, device_id))
     offers = (
         await session.execute(
             select(Offer).where(
