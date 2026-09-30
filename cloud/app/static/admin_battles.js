@@ -1,7 +1,7 @@
 (function(){
   if(typeof titles!=="undefined")titles.battles=["Битвы растений","Полка, участники, ресурсы и действия соревнования"];
   var oldSelect=selectSection;
-  selectSection=function(name){oldSelect(name);if(name==="battles")loadBattles()};
+  selectSection=function(name){oldSelect(name);if(name==="battles"){loadOptions();loadBattles()}};
   var form=document.getElementById("battleCreateForm"),rack=document.getElementById("battleRack"),plant=document.getElementById("battlePlant"),body=document.getElementById("battlesBody"),actions=document.getElementById("battleActionsBody");
   function status(s){var m={open:"Набор",ready_to_plant:"Нужно посадить",planting:"Посадка",growing:"Растёт",judging:"Выбрать победителя",finished:"Завершена",cancelled:"Отменена"};return m[s]||s}
   function actionName(k){return {water:"💧 Вода",nutrient:"🧪 Питательный раствор",shade:"🌘 Закрыть от света"}[k]||k}
