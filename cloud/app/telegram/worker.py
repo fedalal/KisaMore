@@ -4,11 +4,10 @@ import asyncio
 from html import escape
 import re
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from ..admin_models import PlantingPhoto
 from ..db import SessionLocal
-from ..battle_models import PlantBattleEntry
 from ..models import Plant
 from . import worker_core as core
 from .rental_service import InsufficientRentalBalance, create_rental_request, list_available_slots
@@ -128,61 +127,6 @@ async def get_plant_card(planting_id: str, user_id: int):
     if photo is not None:
         card.photo = photo
     return card
-
-
-BATTLE_BADGE_LABEL = {
-    "en": "Best Gardener",
-    "ru": "Лучший садовод",
-    "de": "Bester Gärtner",
-    "fr": "Meilleur jardinier",
-    "es": "Mejor jardinero",
-    "it": "Miglior giardiniere",
-    "pt": "Melhor jardineiro",
-    "pl": "Najlepszy ogrodnik",
-    "zh": "最佳园丁",
-}
-
-
-async def show_profile(bot, chat_id: int, tg: dict) -> None:
-    """Render the regular profile plus Plant Battle winner badges."""
-    lang = core.language_for(tg)
-    user, wallet = await core.get_or_create_user(tg)
-    username = f"@{escape(user.username)}" if user.username else "—"
-    stats = await core.profile_stats(user.id)
-    async with SessionLocal() as session:
-        wins = int(
-            (
-                await session.execute(
-                    select(func.count(PlantBattleEntry.id)).where(
-                        PlantBattleEntry.telegram_user_id == user.id,
-                        PlantBattleEntry.is_winner.is_(True),
-                    )
-                )
-            ).scalar_one()
-            or 0
-        )
-    text = core.t(
-        lang,
-        "profile",
-        name=escape(user.first_name or "—"),
-        username=username,
-        balance=wallet.balance,
-    )
-    text += core.st(
-        lang,
-        "profile_stats",
-        likes=stats["likes"],
-        comments=stats["comments"],
-        follows=stats["follows"],
-        gifts=stats["gifts"],
-        spent=stats["kisa_spent"],
-    )
-    if wins:
-        label = BATTLE_BADGE_LABEL.get(lang, BATTLE_BADGE_LABEL["en"])
-        text += f"\n\n🏆 <b>{escape(label)}</b>"
-        if wins > 1:
-            text += f" × {wins}"
-    await bot.send_message(chat_id, text, reply_markup=core.back_keyboard(lang))
 
 
 async def show_wallet(bot, chat_id: int, tg: dict) -> None:
@@ -419,7 +363,6 @@ core.st = display_st
 core.get_plant_card = get_plant_card
 core.list_available_slots = list_available_slots
 core.create_rental_request = create_rental_request
-core.show_profile = show_profile
 core.show_wallet = show_wallet
 core.show_rental_plants = show_rental_plants
 core.show_rental_slots = show_rental_slots
