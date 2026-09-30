@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from ..db import SessionLocal
+from ..battle_service import active_battle_blockers
 from ..models import Allocation, Offer, Plant, RackSlot
 from ..seed_inventory import SeedUnavailable, require_seed_available
 from .models import TelegramRentalRequest, WalletAccount, WalletTransaction
@@ -61,6 +62,7 @@ async def list_available_slots(limit: int = 20) -> list[RackSlot]:
                 )
             ).scalars().all()
         )
+        allocations.extend(await active_battle_blockers(session))
         offers = list(
             (
                 await session.execute(
@@ -151,6 +153,7 @@ async def create_rental_request(
                 )
             ).scalars().all()
         )
+        allocations.extend(await active_battle_blockers(session, slot.device_id))
         if any(_resource_blocks_slot(item, slot) for item in allocations):
             raise ValueError("slot_unavailable")
 
