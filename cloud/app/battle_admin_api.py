@@ -93,7 +93,7 @@ async def _serialize(session: AsyncSession, battle: PlantBattle) -> dict:
         "plant_name": _plant_name(plant) if plant else battle.plant_id,
         "entry_price_kisa": battle.entry_price_kisa,
         "max_entries": battle.max_entries,
-        "entries_count": len([entry for entry in entries if entry.status == "active"]),
+        "entries_count": len([entry for entry in entries if entry.status in ("active", "finished")]),
         "water_budget_ml": battle.water_budget_ml,
         "nutrient_budget_ml": battle.nutrient_budget_ml,
         "shade_budget_minutes": battle.shade_budget_minutes,
