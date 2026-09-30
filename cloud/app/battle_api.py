@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from html import escape
+import io
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
+import qrcode
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -77,6 +81,11 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
                     if entry.planting_id
                     else None
                 ),
+                "certificate_url": (
+                    f"/battle-certificate/{entry.id}"
+                    if battle.status == "finished"
+                    else None
+                ),
             }
         )
     return {
@@ -103,6 +112,144 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "finished_at": battle.finished_at,
         "entries": entry_rows,
     }
+
+
+async def _certificate_context(session: AsyncSession, entry_id: str):
+    row = (
+        await session.execute(
+            select(PlantBattleEntry, PlantBattle, Plant, User)
+            .join(PlantBattle, PlantBattle.id == PlantBattleEntry.battle_id)
+            .join(Plant, Plant.id == PlantBattle.plant_id)
+            .join(User, User.id == PlantBattleEntry.user_id)
+            .where(PlantBattleEntry.id == entry_id)
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Battle entry not found")
+    entry, battle, plant, user = row
+    if battle.status != "finished":
+        raise HTTPException(status_code=409, detail="Diploma is available after the battle is finished")
+    return entry, battle, plant, user
+
+
+@router.get("/api/v1/public/battle-entries/{entry_id}")
+async def public_battle_entry(
+    entry_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    entry, battle, plant, user = await _certificate_context(session, entry_id)
+    names = plant.names or {}
+    return {
+        "entry_id": entry.id,
+        "battle_id": battle.id,
+        "battle_title": battle.title,
+        "participant": user.display_name,
+        "plant_names": names,
+        "rack_id": battle.rack_id,
+        "slot_number": entry.slot_number,
+        "planted_at": battle.planted_at,
+        "finished_at": battle.finished_at,
+        "water_used_ml": entry.water_used_ml,
+        "nutrient_used_ml": entry.nutrient_used_ml,
+        "shade_used_minutes": entry.shade_used_minutes,
+        "is_winner": entry.is_winner,
+        "badge": entry.badge,
+        "certificate_url": f"/battle-certificate/{entry.id}",
+        "timelapse_full_url": (
+            f"/api/v1/public/plantings/{entry.planting_id}/timelapse/full"
+            if entry.planting_id
+            else None
+        ),
+    }
+
+
+@router.get("/api/v1/public/battle-entries/{entry_id}/qr")
+async def battle_entry_qr(
+    entry_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    entry, _battle, _plant, _user = await _certificate_context(session, entry_id)
+    base = get_settings().public_base_url.rstrip("/")
+    url = f"{base}/battle-certificate/{entry.id}"
+    image = qrcode.make(url)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@router.get("/battle-certificate/{entry_id}", response_class=HTMLResponse, include_in_schema=False)
+async def battle_certificate(
+    entry_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    entry, battle, plant, user = await _certificate_context(session, entry_id)
+    lang = (user.preferred_language or "en").lower().split("-", 1)[0]
+    ru = lang == "ru"
+    names = plant.names or {}
+    plant_name = names.get(lang) or names.get("en") or names.get("ru") or plant.code
+    title = "Цифровой диплом" if ru else "Digital diploma"
+    subtitle = "Битва растений KisaMore" if ru else "KisaMore Plant Battle"
+    participant_label = "Участник" if ru else "Participant"
+    plant_label = "Растение" if ru else "Plant"
+    place_label = "Место" if ru else "Position"
+    result_label = "Результат" if ru else "Result"
+    result = (
+        "🏆 Лучший садовод" if ru and entry.is_winner
+        else "🏆 Best Gardener" if entry.is_winner
+        else "Участник соревнования" if ru
+        else "Battle participant"
+    )
+    info = (
+        "QR-код открывает полную историю растения и таймлапс."
+        if ru
+        else "The QR code opens this plant's permanent result page and timelapse."
+    )
+    full_video = (
+        f'<a class="button" href="/api/v1/public/plantings/{escape(entry.planting_id)}/timelapse/full">'
+        + ("Смотреть таймлапс" if ru else "Watch full timelapse")
+        + "</a>"
+        if entry.planting_id
+        else ""
+    )
+    return HTMLResponse(
+        f"""<!doctype html>
+<html lang="{escape(lang)}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{escape(title)} — KisaMore</title>
+<style>
+body{{margin:0;background:#edf5f0;color:#183c31;font-family:Arial,sans-serif}}
+.page{{max-width:900px;margin:40px auto;padding:20px}}
+.certificate{{background:#fff;border:2px solid #b9d5c8;border-radius:28px;padding:48px;box-shadow:0 22px 60px rgba(20,60,45,.12)}}
+.brand{{font-weight:900;letter-spacing:.08em;color:#287455}}h1{{font-size:48px;margin:18px 0 8px}}h2{{font-weight:500;color:#668078;margin:0 0 34px}}
+.grid{{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:28px 0}}.item{{padding:16px;border-radius:14px;background:#f5faf7}}
+.label{{display:block;color:#72877f;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}}.value{{font-size:20px;font-weight:800}}
+.result{{font-size:28px;font-weight:900;margin:30px 0;color:#a67400}}.qr{{display:flex;gap:24px;align-items:center;margin-top:34px;padding-top:26px;border-top:1px solid #dfeae5}}.qr img{{width:170px;height:170px}}
+.button{{display:inline-block;margin-top:14px;padding:11px 16px;border-radius:10px;background:#287455;color:white;text-decoration:none;font-weight:700}}
+@media(max-width:650px){{.certificate{{padding:26px}}h1{{font-size:36px}}.grid{{grid-template-columns:1fr}}.qr{{align-items:flex-start;flex-direction:column}}}}
+@media print{{body{{background:#fff}}.page{{margin:0;max-width:none}}.certificate{{box-shadow:none}}}}
+</style>
+</head>
+<body><main class="page"><section class="certificate">
+<div class="brand">KISAMORE</div>
+<h1>{escape(title)}</h1><h2>{escape(subtitle)} · {escape(battle.title)}</h2>
+<div class="grid">
+<div class="item"><span class="label">{escape(participant_label)}</span><span class="value">{escape(user.display_name)}</span></div>
+<div class="item"><span class="label">{escape(plant_label)}</span><span class="value">{escape(str(plant_name))}</span></div>
+<div class="item"><span class="label">{escape(place_label)}</span><span class="value">#{battle.rack_id}/{entry.slot_number}</span></div>
+<div class="item"><span class="label">{escape(result_label)}</span><span class="value">{escape(result)}</span></div>
+</div>
+<div class="result">{escape(result)}</div>
+<div class="qr"><img src="/api/v1/public/battle-entries/{escape(entry.id)}/qr" alt="QR"><div><p>{escape(info)}</p>{full_video}</div></div>
+</section></main></body></html>"""
+    )
 
 
 @router.get("/account/telegram-link/status")
