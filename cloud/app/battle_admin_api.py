@@ -695,7 +695,7 @@ async def choose_winner(
         if tg is None or not tg.is_active:
             continue
         certificate = (
-            f"{get_settings().battle_base_url.rstrip('/')}/api/v1/battle-certificate/{participant.id}"
+            f"{get_settings().public_base_url.rstrip('/')}/api/v1/battle-certificate/{participant.id}"
         )
         if participant.telegram_user_id == entry.telegram_user_id:
             text = battle_message(
