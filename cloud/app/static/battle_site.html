@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08130f">
+  <title>KisaMore Battle — Grow. Decide. Win.</title>
+  <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
+  <link rel="stylesheet" href="/static/battle_site.css?v=20261001-1">
+  <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
+  <script src="/static/battle_site.js?v=20261001-1" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="brand-mark">K</span><span>KisaMore <b>Battle</b></span></a>
+    <nav class="top-nav">
+      <a href="#live" data-i18n="navLive">Live</a>
+      <a href="#upcoming" data-i18n="navUpcoming">Upcoming</a>
+      <a href="#past" data-i18n="navPast">Past battles</a>
+      <a href="#rules" data-i18n="navRules">How it works</a>
+    </nav>
+    <div class="header-actions">
+      <select id="languageSelect" aria-label="Language">
+        <option value="en">EN</option><option value="ru">RU</option>
+        <option value="de">DE</option><option value="fr">FR</option>
+        <option value="es">ES</option><option value="it">IT</option>
+        <option value="pt">PT</option><option value="pl">PL</option><option value="zh">中文</option>
+      </select>
+      <button id="accountButton" class="button secondary" type="button">Sign in</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="live-pill"><span></span><b data-i18n="heroPill">REAL PLANTS · LIVE COMPETITION</b></div>
+        <h1 data-i18n="heroTitle">Grow it better than everyone else.</h1>
+        <p data-i18n="heroText">Six identical plants start together. Everyone gets the same resources. You decide when to water, feed and shade your plant.</p>
+        <div class="hero-actions">
+          <button id="heroJoinButton" class="button primary large" type="button" data-i18n="joinNext">Join the next battle</button>
+          <button id="heroWatchButton" class="button ghost large" type="button" data-i18n="watchLive">Watch live</button>
+        </div>
+        <div class="hero-facts">
+          <span><b>6</b><small data-i18n="factPlayers">plants per battle</small></span>
+          <span><b>1</b><small data-i18n="factBatch">seed batch</small></span>
+          <span><b>100%</b><small data-i18n="factReal">real greenhouse</small></span>
+        </div>
+      </div>
+      <div class="hero-scoreboard">
+        <div class="score-title"><span data-i18n="scoreTitle">Battle status</span><strong id="heroBattleStatus">—</strong></div>
+        <div class="score-main">
+          <span id="heroPlantEmoji">🌱</span>
+          <div><strong id="heroBattleTitle">Loading…</strong><small id="heroBattleMeta"></small></div>
+        </div>
+        <div id="heroSlots" class="mini-slots"></div>
+        <div class="score-foot"><span id="heroEntries"></span><span id="heroPrize"></span></div>
+      </div>
+    </section>
+
+    <section id="myBattleSection" class="section hidden">
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="myBattleEyebrow">YOUR CONTROL ROOM</span><h2 data-i18n="myBattleTitle">My battle</h2></div>
+        <select id="myBattleSelect" class="battle-select hidden"></select>
+      </div>
+      <div id="myBattleArena"></div>
+    </section>
+
+    <section id="live" class="section">
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="liveEyebrow">WATCH IT HAPPEN</span><h2 data-i18n="liveTitle">Live battles</h2></div>
+        <span class="section-note" data-i18n="liveNote">The photo comes from the real greenhouse.</span>
+      </div>
+      <div id="liveBattles" class="battle-grid"></div>
+    </section>
+
+    <section id="upcoming" class="section">
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="upcomingEyebrow">GET A PLANT</span><h2 data-i18n="upcomingTitle">Upcoming battles</h2></div>
+        <span class="section-note" data-i18n="upcomingNote">A battle starts when all six places are taken and planting is confirmed.</span>
+      </div>
+      <div id="upcomingBattles" class="battle-grid"></div>
+    </section>
+
+    <section id="rules" class="section rules-section">
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="rulesEyebrow">THE GAME</span><h2 data-i18n="rulesTitle">Same start. Different decisions.</h2></div>
+      </div>
+      <div class="rules-grid">
+        <article><b>01</b><h3 data-i18n="rule1Title">Choose a battle</h3><p data-i18n="rule1Text">Buy one or more places with Kisa before the six containers are filled.</p></article>
+        <article><b>02</b><h3 data-i18n="rule2Title">Everyone starts equal</h3><p data-i18n="rule2Text">Same crop, same seed batch, same substrate, same light and the same resource limits.</p></article>
+        <article><b>03</b><h3 data-i18n="rule3Title">You make the calls</h3><p data-i18n="rule3Text">Spend your water, nutrient solution and shade time when you think the plant needs it.</p></article>
+        <article><b>04</b><h3 data-i18n="rule4Title">Follow every day</h3><p data-i18n="rule4Text">Watch the whole shelf, your highlighted plant, new photos, actions and timelapses.</p></article>
+        <article><b>05</b><h3 data-i18n="rule5Title">Strategies stay secret</h3><p data-i18n="rule5Text">During the battle you cannot see the exact resource use of competitors. It is revealed at the finish.</p></article>
+        <article><b>06</b><h3 data-i18n="rule6Title">Keep the history</h3><p data-i18n="rule6Text">Every participant gets a permanent result, full growth timelapse, QR and digital diploma.</p></article>
+      </div>
+    </section>
+
+    <section id="past" class="section">
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="pastEyebrow">HALL OF FAME</span><h2 data-i18n="pastTitle">Past battles</h2></div>
+        <span class="section-note" data-i18n="pastNote">Finished battles reveal the competitors' strategies.</span>
+      </div>
+      <div id="pastBattles" class="battle-grid"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div><strong>KisaMore Battle</strong><span data-i18n="footerTag">Real plants. Real decisions.</span></div>
+    <a href="https://kisamore.farm" data-i18n="mainSite">KisaMore main site</a>
+  </footer>
+
+  <dialog id="arenaDialog" class="wide-dialog">
+    <div class="dialog-shell">
+      <button class="dialog-close" type="button" data-close="arenaDialog">×</button>
+      <div id="arenaDialogContent"></div>
+    </div>
+  </dialog>
+
+  <dialog id="authDialog">
+    <form id="authForm" class="dialog-shell auth-shell">
+      <button class="dialog-close" type="button" data-close="authDialog">×</button>
+      <span class="eyebrow" data-i18n="account">ACCOUNT</span>
+      <h2 id="authTitle">Sign in</h2>
+      <label id="authNameRow" class="hidden"><span data-i18n="name">Name</span><input id="authName" autocomplete="name"></label>
+      <label><span>Email</span><input id="authEmail" type="email" autocomplete="email" required></label>
+      <label><span data-i18n="password">Password</span><input id="authPassword" type="password" minlength="5" autocomplete="current-password" required></label>
+      <p id="authError" class="error"></p>
+      <div class="dialog-actions">
+        <button id="authModeButton" class="button ghost" type="button">Create account</button>
+        <button id="authSubmit" class="button primary" type="submit">Sign in</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="joinDialog">
+    <div class="dialog-shell join-shell">
+      <button class="dialog-close" type="button" data-close="joinDialog">×</button>
+      <span class="eyebrow" data-i18n="entry">BATTLE ENTRY</span>
+      <h2 id="joinTitle">Join battle</h2>
+      <p id="joinMeta"></p>
+      <label><span data-i18n="plantsCount">Number of plants</span><select id="joinQuantity"></select></label>
+      <div class="join-price"><span data-i18n="total">Total</span><strong id="joinTotal">Ⓚ 0</strong></div>
+      <p id="joinError" class="error"></p>
+      <button id="joinConfirm" class="button primary large" type="button" data-i18n="confirmEntry">Confirm entry</button>
+    </div>
+  </dialog>
+
+  <dialog id="actionDialog">
+    <div class="dialog-shell action-shell">
+      <button class="dialog-close" type="button" data-close="actionDialog">×</button>
+      <span class="eyebrow" data-i18n="command">GREENHOUSE COMMAND</span>
+      <h2 id="actionTitle">Water</h2>
+      <p id="actionRemaining"></p>
+      <div id="actionPresets" class="preset-grid"></div>
+      <label><span data-i18n="customAmount">Custom amount</span><input id="actionAmount" type="number" min="1"></label>
+      <p class="command-hint" data-i18n="commandHint">The request is sent to the greenhouse operator. You will see when it is completed.</p>
+      <p id="actionError" class="error"></p>
+      <button id="actionConfirm" class="button primary large" type="button" data-i18n="sendCommand">Send command</button>
+    </div>
+  </dialog>
+
+  <dialog id="videoDialog" class="wide-dialog">
+    <div class="dialog-shell">
+      <button class="dialog-close" type="button" data-close="videoDialog">×</button>
+      <h2 id="videoTitle">Timelapse</h2>
+      <video id="videoPlayer" controls playsinline preload="metadata"></video>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+</body>
+</html>
