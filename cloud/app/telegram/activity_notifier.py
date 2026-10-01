@@ -505,7 +505,16 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
         for delivery in deliveries:
             payload = dict(delivery.payload or {})
             markup = None
-            if payload.get("callback_data"):
+            if payload.get("url"):
+                markup = {
+                    "inline_keyboard": [[
+                        {
+                            "text": str(payload.get("button") or "🌱 KisaMore")[:60],
+                            "url": str(payload["url"]),
+                        }
+                    ]]
+                }
+            elif payload.get("callback_data"):
                 markup = {
                     "inline_keyboard": [[
                         {
