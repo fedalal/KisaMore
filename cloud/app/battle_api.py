@@ -206,7 +206,7 @@ async def battle_entry_qr(
     session: AsyncSession = Depends(get_session),
 ):
     entry, _battle, _plant, _user = await _certificate_context(session, entry_id)
-    base = get_settings().public_base_url.rstrip("/")
+    base = get_settings().battle_base_url.rstrip("/")
     url = f"{base}/api/v1/battle-certificate/{entry.id}"
     image = qrcode.make(url)
     buffer = io.BytesIO()
