@@ -134,7 +134,7 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
                     "text": text,
                     "button": tr["button"],
                     "url": (
-                        f"{get_settings().battle_base_url.rstrip('/')}?battle={battle.id}"
+                        f"{get_settings().public_base_url.rstrip('/')}/battle?battle={battle.id}"
                         f"&entry={entry.id}"
                     ),
                     "planting_id": entry.planting_id,
