@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from html import escape
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -86,10 +86,7 @@ def _battle_page() -> HTMLResponse:
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def dashboard(request: Request) -> HTMLResponse:
-    host = (request.headers.get("host") or "").split(":", 1)[0].lower()
-    if host.startswith("battle."):
-        return _battle_page()
+async def dashboard() -> HTMLResponse:
     content = DASHBOARD_TEMPLATE.read_text(encoding="utf-8").replace(
         "__KISAMORE_FARM_SLUG__",
         escape(settings.bootstrap_farm_slug, quote=True),
