@@ -133,7 +133,10 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
                 payload={
                     "text": text,
                     "button": tr["button"],
-                    "callback_data": f"plant:show:{entry.planting_id}:0",
+                    "url": (
+                        f"{get_settings().battle_base_url.rstrip('/')}?battle={battle.id}"
+                        f"&entry={entry.id}"
+                    ),
                     "planting_id": entry.planting_id,
                     "battle_id": battle.id,
                 },
