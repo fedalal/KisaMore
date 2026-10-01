@@ -59,18 +59,47 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
     )
     entry_rows = []
     for entry in entries:
+        is_mine = current_user_id is not None and entry.user_id == current_user_id
+        resources_visible = is_mine or battle.status == "finished"
+        actions_visible = is_mine or battle.status == "finished"
+        actions = []
+        if actions_visible:
+            action_rows = list(
+                (
+                    await session.execute(
+                        select(PlantBattleAction)
+                        .where(PlantBattleAction.entry_id == entry.id)
+                        .order_by(PlantBattleAction.requested_at.desc())
+                        .limit(100)
+                    )
+                ).scalars().all()
+            )
+            actions = [
+                {
+                    "id": action.id,
+                    "kind": action.kind,
+                    "amount": action.amount,
+                    "status": action.status,
+                    "note": action.note,
+                    "requested_at": action.requested_at,
+                    "completed_at": action.completed_at,
+                }
+                for action in action_rows
+            ]
         entry_rows.append(
             {
                 "id": entry.id,
                 "slot_number": entry.slot_number,
                 "status": entry.status,
-                "is_mine": current_user_id is not None and entry.user_id == current_user_id,
-                "water_used_ml": entry.water_used_ml,
-                "water_budget_ml": battle.water_budget_ml,
-                "nutrient_used_ml": entry.nutrient_used_ml,
-                "nutrient_budget_ml": battle.nutrient_budget_ml,
-                "shade_used_minutes": entry.shade_used_minutes,
-                "shade_budget_minutes": battle.shade_budget_minutes,
+                "is_mine": is_mine,
+                "resources_visible": resources_visible,
+                "water_used_ml": entry.water_used_ml if resources_visible else None,
+                "water_budget_ml": battle.water_budget_ml if resources_visible else None,
+                "nutrient_used_ml": entry.nutrient_used_ml if resources_visible else None,
+                "nutrient_budget_ml": battle.nutrient_budget_ml if resources_visible else None,
+                "shade_used_minutes": entry.shade_used_minutes if resources_visible else None,
+                "shade_budget_minutes": battle.shade_budget_minutes if resources_visible else None,
+                "actions": actions,
                 "is_winner": entry.is_winner,
                 "badge": entry.badge,
                 "planting_id": entry.planting_id,
@@ -97,6 +126,9 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "plant_id": battle.plant_id,
         "plant_name": _plant_name(plant) if plant else "Plant",
         "plant_names": plant.names if plant else {},
+        "grow_days": plant.grow_days if plant else None,
+        "farm_slug": farm_slug,
+        "rack_photo_url": f"/api/v1/public/farms/{farm_slug}/racks/{battle.rack_id}/photo",
         "entry_price_kisa": battle.entry_price_kisa,
         "max_entries": battle.max_entries,
         "entries_count": len([item for item in entries if item.status in ("active", "finished")]),
