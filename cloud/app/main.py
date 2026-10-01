@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from html import escape
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -41,6 +41,7 @@ from .watering_admin_api import router as watering_admin_router
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 DASHBOARD_TEMPLATE = STATIC_DIR / "index.html"
 ADMIN_TEMPLATE = STATIC_DIR / "admin.html"
+BATTLE_TEMPLATE = STATIC_DIR / "battle_site.html"
 
 
 @asynccontextmanager
@@ -76,13 +77,29 @@ if settings.cors_origins:
     )
 
 
+def _battle_page() -> HTMLResponse:
+    content = BATTLE_TEMPLATE.read_text(encoding="utf-8").replace(
+        "__KISAMORE_FARM_SLUG__",
+        escape(settings.bootstrap_farm_slug, quote=True),
+    )
+    return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def dashboard() -> HTMLResponse:
+async def dashboard(request: Request) -> HTMLResponse:
+    host = (request.headers.get("host") or "").split(":", 1)[0].lower()
+    if host.startswith("battle."):
+        return _battle_page()
     content = DASHBOARD_TEMPLATE.read_text(encoding="utf-8").replace(
         "__KISAMORE_FARM_SLUG__",
         escape(settings.bootstrap_farm_slug, quote=True),
     )
     return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/battle", response_class=HTMLResponse, include_in_schema=False)
+async def battle_dashboard() -> HTMLResponse:
+    return _battle_page()
 
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
