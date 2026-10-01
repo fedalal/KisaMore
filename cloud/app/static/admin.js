@@ -303,6 +303,48 @@ async function loadRackPhotos() {
   }
 }
 
+function fmtGrowDuration(seconds) {
+  if (seconds === null || seconds === undefined) return "—";
+  const totalHours = Math.max(0, Math.round(Number(seconds) / 3600));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  if (!days) return `${hours} ч`;
+  return hours ? `${days} д ${hours} ч` : `${days} д`;
+}
+
+async function loadPlantingHistory() {
+  const body = qs("#plantingHistoryBody");
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="7" class="muted">Загрузка истории…</td></tr>`;
+  try {
+    const rows = await api("/api/v1/admin/plantings/history");
+    body.innerHTML = rows.length ? rows.map((item) => {
+      const ownerDetails = [
+        item.owner_username ? `@${item.owner_username}` : "",
+        item.owner_email || "",
+        item.owner_telegram_id ? `Telegram ${item.owner_telegram_id}` : "",
+      ].filter(Boolean).join(" · ");
+      const harvestedNote = item.harvested_at_estimated ? `<div class="username">по данным синхронизации</div>` : "";
+      const timelapseLabel = item.timelapse_ready ? "▶ Смотреть" : "🎞 Сформировать";
+      return `<tr>
+        <td><div class="user-name">${esc(item.plant_name)}</div><div class="username">${esc(item.id)}</div></td>
+        <td><div class="user-name">${esc(item.owner_name || "Неизвестно")}</div>${ownerDetails ? `<div class="username">${esc(ownerDetails)}</div>` : ""}</td>
+        <td>Полка ${esc(item.rack_id)} · контейнер ${esc(item.slot_number)}<div class="username">${esc(item.device_id)}</div></td>
+        <td>${esc(fmtDate(item.planted_at))}</td>
+        <td>${esc(fmtDate(item.harvested_at))}${harvestedNote}</td>
+        <td><strong>${esc(fmtGrowDuration(item.duration_seconds))}</strong></td>
+        <td><button class="history-timelapse" data-url="${esc(item.timelapse_url)}">${timelapseLabel}</button></td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="7" class="muted">Завершённых посадок пока нет.</td></tr>`;
+
+    qsa(".history-timelapse").forEach((button) => button.addEventListener("click", () => {
+      window.open(button.dataset.url, "_blank", "noopener");
+    }));
+  } catch (error) {
+    body.innerHTML = `<tr><td colspan="7" class="error">Не удалось загрузить историю: ${esc(error.message)}</td></tr>`;
+  }
+}
+
 async function loadPlantings() {
   const rows = await api("/api/v1/admin/plantings");
   qs("#plantingsBody").innerHTML = rows.length ? rows.map((item) => `<tr>
@@ -321,6 +363,7 @@ async function loadPlantings() {
     qs("#photoCaption").value = "";
     qs("#photoDialog").showModal();
   }));
+  await loadPlantingHistory();
 }
 
 async function submitPhoto(event) {
@@ -378,6 +421,7 @@ qs("#userSearch").addEventListener("keydown", (event) => { if (event.key === "En
 qs("#reloadRentals").addEventListener("click", loadRentals);
 qs("#reloadRackPhotos").addEventListener("click", loadRackPhotos);
 qs("#reloadPlantings").addEventListener("click", loadPlantings);
+qs("#reloadPlantingHistory").addEventListener("click", loadPlantingHistory);
 qs("#reloadComments").addEventListener("click", loadComments);
 qs("#giftForm").addEventListener("submit", submitGift);
 qs("#photoForm").addEventListener("submit", submitPhoto);
