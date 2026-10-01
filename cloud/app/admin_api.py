@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -12,10 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .admin_models import AdminAuditLog, PlantingPhoto
 from .config import get_settings
-from .models import Plant, Planting, RackPhoto, RackSlot, User
+from .models import Allocation, Plant, Planting, RackPhoto, RackSlot, User
 from .security import get_admin_user, get_session
 from .telegram.models import SocialComment, TelegramRentalRequest, TelegramUser, WalletAccount, WalletTransaction
 from .telegram.plant_sos import TelegramPlantSosReport
+from .timelapse_service import generate_slot_timelapse, planting_timelapse_path
 
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -207,6 +209,119 @@ async def plantings(
             }
         )
     return result
+
+
+@router.get("/plantings/history")
+async def planting_history(
+    limit: int = 500,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = (
+        await session.execute(
+            select(Planting, Plant, RackSlot, Allocation, User, TelegramUser)
+            .join(Plant, Plant.id == Planting.plant_id)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .outerjoin(Allocation, Allocation.id == Planting.cloud_allocation_id)
+            .outerjoin(User, User.id == Allocation.user_id)
+            .outerjoin(TelegramUser, TelegramUser.marketplace_user_id == User.id)
+            .where(or_(Planting.status == "harvested", Planting.actual_harvest_at.is_not(None)))
+            .order_by(func.coalesce(Planting.actual_harvest_at, Planting.observed_at).desc())
+            .limit(max(1, min(limit, 2000)))
+        )
+    ).all()
+    settings = get_settings()
+    result = []
+    for planting, plant, slot, allocation, user, telegram_user in rows:
+        planted_at = _aware(planting.planted_at)
+        harvested_at = _aware(planting.actual_harvest_at) or _aware(planting.observed_at)
+        duration_seconds = None
+        if planted_at is not None and harvested_at is not None:
+            duration_seconds = max(0, int((harvested_at - planted_at).total_seconds()))
+
+        telegram_name = ""
+        if telegram_user is not None:
+            telegram_name = " ".join(
+                value for value in (telegram_user.first_name, telegram_user.last_name) if value
+            ).strip()
+        owner_name = telegram_name or (user.display_name if user is not None else "") or "Неизвестно"
+        owner_username = telegram_user.username if telegram_user is not None else None
+        owner_telegram_id = telegram_user.telegram_user_id if telegram_user is not None else None
+        owner_email = None
+        if user is not None and not user.email.endswith("@internal.kisamore.local"):
+            owner_email = user.email
+
+        timelapse = planting_timelapse_path(settings.photo_dir, planting.id)
+        result.append(
+            {
+                "id": planting.id,
+                "plant_id": plant.id,
+                "plant_name": _display_name(plant),
+                "device_id": slot.device_id,
+                "rack_id": slot.rack_id,
+                "slot_number": slot.slot_number,
+                "status": planting.status,
+                "planted_at": planted_at,
+                "harvested_at": harvested_at,
+                "harvested_at_estimated": planting.actual_harvest_at is None,
+                "duration_seconds": duration_seconds,
+                "allocation_id": allocation.id if allocation is not None else planting.cloud_allocation_id,
+                "owner_name": owner_name,
+                "owner_username": owner_username,
+                "owner_telegram_id": owner_telegram_id,
+                "owner_email": owner_email,
+                "timelapse_ready": timelapse.is_file(),
+                "timelapse_url": f"/api/v1/admin/plantings/{planting.id}/timelapse/full",
+            }
+        )
+    return result
+
+
+@router.get("/plantings/{planting_id}/timelapse/full")
+async def admin_planting_timelapse(
+    planting_id: str,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    row = (
+        await session.execute(
+            select(Planting, RackSlot)
+            .join(RackSlot, RackSlot.id == Planting.slot_id)
+            .where(Planting.id == planting_id)
+            .limit(1)
+        )
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Planting not found")
+
+    planting, slot = row
+    start_at = _aware(planting.planted_at)
+    end_at = _aware(planting.actual_harvest_at) or _aware(planting.observed_at)
+    if start_at is None or end_at is None or end_at < start_at:
+        raise HTTPException(status_code=409, detail="Planting dates are incomplete")
+
+    settings = get_settings()
+    target = planting_timelapse_path(settings.photo_dir, planting.id)
+    if not target.is_file():
+        try:
+            generated = await asyncio.to_thread(
+                generate_slot_timelapse,
+                photo_dir=settings.photo_dir,
+                device_id=slot.device_id,
+                rack_id=slot.rack_id,
+                slot_number=slot.slot_number,
+                period="full",
+                start_at=start_at,
+                end_at=end_at,
+                target=target,
+                final=True,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Could not generate timelapse: {exc}") from exc
+        if generated is None:
+            raise HTTPException(status_code=404, detail="Not enough archived frames for this timelapse")
+
+    return FileResponse(target, media_type="video/mp4", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/plantings/{planting_id}/photo")
