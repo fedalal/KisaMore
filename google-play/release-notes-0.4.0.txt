@@ -1,0 +1,11 @@
+KisaMore Battle 0.4.0
+
+First Google Play-ready build.
+
+- Native battle interface for real greenhouse plant competitions.
+- Automatic kisamore.farm -> ru.kisamore.farm server failover.
+- Live rack photos, plant resources and battle commands.
+- Spectator mode and winner predictions.
+- Timelapses, XP, daily missions and gardener achievements.
+- Android 16 / API 36 target.
+- Updated launcher icon and simplified battle overlays.
