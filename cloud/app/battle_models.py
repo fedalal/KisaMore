@@ -79,3 +79,17 @@ class PlantBattleAction(Base):
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+
+class PlantBattlePrediction(Base):
+    __tablename__ = "plant_battle_predictions"
+    __table_args__ = (
+        UniqueConstraint("battle_id", "user_id", name="uq_plant_battle_prediction_user"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    battle_id: Mapped[str] = mapped_column(ForeignKey("plant_battles.id"), index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    entry_id: Mapped[str] = mapped_column(ForeignKey("plant_battle_entries.id"), index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
