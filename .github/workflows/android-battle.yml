@@ -10,6 +10,14 @@ on:
       - "cloud/app/battle_api.py"
       - "cloud/app/battle_models.py"
       - ".github/workflows/android-battle.yml"
+  pull_request:
+    branches:
+      - feature/plant-battle
+    paths:
+      - "android-battle/**"
+      - "cloud/app/battle_api.py"
+      - "cloud/app/battle_models.py"
+      - ".github/workflows/android-battle.yml"
 
 jobs:
   build:
@@ -28,6 +36,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Install Android 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
