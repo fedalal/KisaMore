@@ -305,6 +305,18 @@ class MainActivity : Activity() {
             body.addView(cardWithMargin(login))
         }
 
+        body.addView(sectionTitle("КОНФИДЕНЦИАЛЬНОСТЬ", "Управление данными аккаунта"))
+        val legal = card()
+        legal.addView(outlineButton("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ") {
+            openPublicPage("/privacy")
+        })
+        if (api.hasSession()) {
+            legal.addView(outlineButton("УДАЛИТЬ АККАУНТ И ДАННЫЕ") {
+                openPublicPage("/delete-account")
+            })
+        }
+        body.addView(cardWithMargin(legal))
+
         showContent(scroll)
     }
 
@@ -795,6 +807,15 @@ class MainActivity : Activity() {
                 )
             }
             .show()
+    }
+
+    private fun openPublicPage(path: String) {
+        val url = api.absolute(path) ?: return
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure {
+            toast("Не удалось открыть страницу")
+        }
     }
 
     private fun openVideo(path: String?) {
