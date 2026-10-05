@@ -1,10 +1,10 @@
-name: Android Battle MVP
+name: Android Battle
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - feature/battle-android-mvp
+      - feature/plant-battle
     paths:
       - "android-battle/**"
       - "cloud/app/battle_api.py"
