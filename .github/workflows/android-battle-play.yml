@@ -1,5 +1,9 @@
 name: Android Battle — Google Play AAB
 
+concurrency:
+  group: android-battle-play-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
   push:
