@@ -349,6 +349,13 @@ class MainActivity : Activity() {
                 )
             }
         })
+        form.addView(TextView(this).apply {
+            text = appVersionLabel()
+            setTextColor(muted)
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, 0)
+        })
         body.addView(cardWithMargin(form))
         showContent(scroll)
     }
@@ -1261,6 +1268,12 @@ class MainActivity : Activity() {
             if (battle.growDays > 0) "день " + days + "/" + battle.growDays else "день " + days
         }.getOrDefault(statusHuman(battle.status))
     }
+
+    @Suppress("DEPRECATION")
+    private fun appVersionLabel(): String = runCatching {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        "Версия " + (info.versionName ?: "?") + " (build " + info.versionCode + ")"
+    }.getOrDefault("Версия ?")
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
