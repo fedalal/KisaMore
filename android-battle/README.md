@@ -1,41 +1,52 @@
-# KisaMore Battle — Android MVP
+# KisaMore Battle — Android
 
-First native Android client for KisaMore Plant Battle.
+Native Android client for KisaMore Plant Battle.
 
-## MVP features
+## Current features
 
 - public/spectator battle list;
 - login with the existing KisaMore account;
+- automatic server failover: `https://kisamore.farm` -> `https://ru.kisamore.farm`;
 - player's battle dashboard;
-- real rack photo with the player's container highlighted;
+- real rack photo and container numbers;
 - water, nutrient and shade resource meters;
 - real battle commands sent to the existing FastAPI backend;
 - 24-hour / 3-day timelapse links;
 - player's recent command history;
-- winner prediction voting for players and spectators;
-- persistent session cookie and configurable server URL.
+- winner prediction voting;
+- local XP, streaks, daily missions and badges;
+- visible app version on the login screen.
 
-The default server is `https://kisamore.farm`. The login screen can be switched to
-`https://ru.kisamore.farm` for testing the Russian endpoint.
+## Android / Google Play
 
-## Open in Android Studio
+- applicationId: `farm.kisamore.battle`
+- minSdk: 26
+- compileSdk: 36
+- targetSdk: 36
+- current version: 0.4.0 (versionCode 8)
 
-Open the `android-battle` directory as a Gradle project, wait for Gradle sync, then run the
-`app` configuration on an Android 8.0+ device/emulator.
+Google Play publication material is in:
+`../google-play/`
 
-## Command-line build
-
-A local Gradle installation can build the project:
+## Local debug build
 
 ```bash
 gradle -p android-battle testDebugUnitTest assembleDebug
 ```
 
-The debug APK is created at:
+Debug APK:
+`android-battle/app/build/outputs/apk/debug/app-debug.apk`
 
-```
-android-battle/app/build/outputs/apk/debug/app-debug.apk
+## Release AAB
+
+An unsigned local smoke-test AAB can be built with:
+
+```bash
+gradle -p android-battle bundleRelease
 ```
 
-GitHub Actions also builds and uploads the APK artifact on pushes to
-`feature/battle-android-mvp`.
+For a signed Google Play AAB, use the GitHub Actions workflow:
+**Android Battle — Google Play AAB**
+
+Signing credentials are read only from environment variables / GitHub Actions secrets.
+See `../google-play/signing-setup.md`.
