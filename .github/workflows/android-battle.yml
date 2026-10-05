@@ -1,5 +1,9 @@
 name: Android Battle
 
+concurrency:
+  group: android-battle-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
