@@ -23,7 +23,7 @@ Native Android client for KisaMore Plant Battle.
 - minSdk: 26
 - compileSdk: 36
 - targetSdk: 36
-- current version: 0.4.0 (versionCode 8)
+- current version: 0.4.1 (versionCode 9)
 
 Google Play publication material is in:
 `../google-play/`
