@@ -2,7 +2,7 @@ package farm.kisamore.battle
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.ColorStateList
+import android.content.res.ColorStateList
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -1053,7 +1053,7 @@ class MainActivity : Activity() {
             isFillViewport = true
             addView(
                 body,
-                ScrollView.LayoutParams(
+                FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
