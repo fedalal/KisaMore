@@ -5,14 +5,44 @@ plugins {
 
 android {
     namespace = "farm.kisamore.battle"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "farm.kisamore.battle"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 7
-        versionName = "0.3.4"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "0.4.0"
+    }
+
+    val uploadStoreFile = System.getenv("KISAMORE_UPLOAD_STORE_FILE")
+    val uploadStorePassword = System.getenv("KISAMORE_UPLOAD_STORE_PASSWORD")
+    val uploadKeyAlias = System.getenv("KISAMORE_UPLOAD_KEY_ALIAS")
+    val uploadKeyPassword = System.getenv("KISAMORE_UPLOAD_KEY_PASSWORD")
+
+    signingConfigs {
+        create("release") {
+            if (
+                !uploadStoreFile.isNullOrBlank() &&
+                !uploadStorePassword.isNullOrBlank() &&
+                !uploadKeyAlias.isNullOrBlank() &&
+                !uploadKeyPassword.isNullOrBlank()
+            ) {
+                storeFile = file(uploadStoreFile)
+                storePassword = uploadStorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (!uploadStoreFile.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     compileOptions {
