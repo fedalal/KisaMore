@@ -12,7 +12,7 @@ import qrcode
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry
+from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
 from .models import Device, Farm, Plant, User
 from .security import get_current_user, get_session
@@ -31,6 +31,10 @@ class JoinBattleIn(BaseModel):
 class BattleActionIn(BaseModel):
     kind: str = Field(pattern="^(water|nutrient|shade)$")
     amount: int = Field(ge=1, le=5000)
+
+
+class BattlePredictionIn(BaseModel):
+    entry_id: str = Field(min_length=1, max_length=36)
 
 
 def _plant_name(plant: Plant, lang: str = "en") -> str:
@@ -57,6 +61,21 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
             )
         ).scalars().all()
     )
+    prediction_rows = list(
+        (
+            await session.execute(
+                select(PlantBattlePrediction)
+                .where(PlantBattlePrediction.battle_id == battle.id)
+            )
+        ).scalars().all()
+    )
+    prediction_counts: dict[str, int] = {}
+    my_prediction_entry_id = None
+    for prediction in prediction_rows:
+        prediction_counts[prediction.entry_id] = prediction_counts.get(prediction.entry_id, 0) + 1
+        if current_user_id is not None and prediction.user_id == current_user_id:
+            my_prediction_entry_id = prediction.entry_id
+
     entry_rows = []
     for entry in entries:
         is_mine = current_user_id is not None and entry.user_id == current_user_id
@@ -147,6 +166,9 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "planted_at": battle.planted_at,
         "finished_at": battle.finished_at,
         "entries": entry_rows,
+        "prediction_total": len(prediction_rows),
+        "prediction_counts": prediction_counts,
+        "my_prediction_entry_id": my_prediction_entry_id,
     }
 
 
@@ -370,6 +392,65 @@ async def my_battles(
         ).scalars().all()
     )
     return [await _battle_payload(session, battle, user.id) for battle in rows]
+
+
+@router.get("/battles/{battle_id}")
+async def authenticated_battle(
+    battle_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    battle = await session.get(PlantBattle, battle_id)
+    if battle is None or battle.status == "cancelled":
+        raise HTTPException(status_code=404, detail="Battle not found")
+    return await _battle_payload(session, battle, user.id)
+
+
+@router.post("/battles/{battle_id}/prediction")
+async def set_battle_prediction(
+    battle_id: str,
+    payload: BattlePredictionIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    battle = await session.get(PlantBattle, battle_id)
+    if battle is None or battle.status == "cancelled":
+        raise HTTPException(status_code=404, detail="Battle not found")
+    if battle.status == "finished":
+        raise HTTPException(status_code=409, detail="Predictions are closed for finished battles")
+
+    entry = await session.get(PlantBattleEntry, payload.entry_id)
+    if entry is None or entry.battle_id != battle.id or entry.status not in ("active", "finished"):
+        raise HTTPException(status_code=404, detail="Battle entry not found")
+
+    now = datetime.now(timezone.utc)
+    prediction = (
+        await session.execute(
+            select(PlantBattlePrediction)
+            .where(
+                PlantBattlePrediction.battle_id == battle.id,
+                PlantBattlePrediction.user_id == user.id,
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+
+    if prediction is None:
+        prediction = PlantBattlePrediction(
+            id=str(uuid4()),
+            battle_id=battle.id,
+            user_id=user.id,
+            entry_id=entry.id,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(prediction)
+    else:
+        prediction.entry_id = entry.id
+        prediction.updated_at = now
+
+    await session.commit()
+    return await _battle_payload(session, battle, user.id)
 
 
 @router.post("/battles/{battle_id}/join", status_code=201)
