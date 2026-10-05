@@ -283,17 +283,6 @@ class MainActivity : Activity() {
         }
         body.addView(cardWithMargin(badges))
 
-        body.addView(sectionTitle("СЕРВЕР", "Можно переключиться между российским и глобальным"))
-        val serverCard = card()
-        serverCard.addView(bigText(if (api.isRussianServer()) "🇷🇺 RU сервер" else "🌍 GLOBAL сервер", 18f))
-        serverCard.addView(smallText(api.baseUrl))
-        serverCard.addView(outlineButton("ПЕРЕКЛЮЧИТЬ СЕРВЕР") {
-            api.setRegion(!api.isRussianServer())
-            Toast.makeText(this, "Сервер: " + api.baseUrl, Toast.LENGTH_SHORT).show()
-            loadAll("profile")
-        })
-        body.addView(cardWithMargin(serverCard))
-
         if (api.hasSession()) {
             val account = card()
             account.addView(bigText(api.currentUser?.displayName ?: "Игрок", 18f))
@@ -360,7 +349,6 @@ class MainActivity : Activity() {
                 )
             }
         })
-        form.addView(smallText("Сервер: " + api.baseUrl))
         body.addView(cardWithMargin(form))
         showContent(scroll)
     }
