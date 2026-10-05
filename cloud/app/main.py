@@ -42,6 +42,8 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 DASHBOARD_TEMPLATE = STATIC_DIR / "index.html"
 ADMIN_TEMPLATE = STATIC_DIR / "admin.html"
 BATTLE_TEMPLATE = STATIC_DIR / "battle_site.html"
+PRIVACY_TEMPLATE = STATIC_DIR / "privacy.html"
+DELETE_ACCOUNT_TEMPLATE = STATIC_DIR / "delete_account.html"
 
 
 @asynccontextmanager
@@ -97,6 +99,22 @@ async def dashboard() -> HTMLResponse:
 @app.get("/battle", response_class=HTMLResponse, include_in_schema=False)
 async def battle_dashboard() -> HTMLResponse:
     return _battle_page()
+
+
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_policy() -> HTMLResponse:
+    return HTMLResponse(
+        PRIVACY_TEMPLATE.read_text(encoding="utf-8"),
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@app.get("/delete-account", response_class=HTMLResponse, include_in_schema=False)
+async def delete_account_page() -> HTMLResponse:
+    return HTMLResponse(
+        DELETE_ACCOUNT_TEMPLATE.read_text(encoding="utf-8"),
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
