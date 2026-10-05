@@ -14,9 +14,16 @@ class ApiException(message: String, val statusCode: Int = 0) : IOException(messa
 class ApiClient(context: Context) {
     private val prefs = context.getSharedPreferences("kisamore_battle_api", Context.MODE_PRIVATE)
 
-    var baseUrl: String
-        get() = prefs.getString("base_url", "https://ru.kisamore.farm") ?: "https://ru.kisamore.farm"
-        private set(value) = prefs.edit().putString("base_url", value.trimEnd('/')).apply()
+    companion object {
+        private const val PRIMARY_BASE_URL = "https://kisamore.farm"
+        private const val FALLBACK_BASE_URL = "https://ru.kisamore.farm"
+    }
+
+    @Volatile
+    private var activeBaseUrl: String = PRIMARY_BASE_URL
+
+    val baseUrl: String
+        get() = activeBaseUrl
 
     private var sessionCookie: String?
         get() = prefs.getString("session_cookie", null)
@@ -48,12 +55,6 @@ class ApiClient(context: Context) {
         }
 
     fun hasSession(): Boolean = !sessionCookie.isNullOrBlank()
-
-    fun setRegion(russian: Boolean) {
-        baseUrl = if (russian) "https://ru.kisamore.farm" else "https://kisamore.farm"
-    }
-
-    fun isRussianServer(): Boolean = baseUrl.contains("ru.kisamore.farm")
 
     fun absolute(path: String?): String? {
         if (path.isNullOrBlank()) return null
@@ -106,28 +107,79 @@ class ApiClient(context: Context) {
 
     fun loadBitmap(url: String?): Bitmap? {
         if (url.isNullOrBlank()) return null
-        val connection = URL(url).openConnection() as HttpURLConnection
-        return try {
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 20_000
-            connection.setRequestProperty("Accept", "image/*")
-            connection.inputStream.use { BitmapFactory.decodeStream(it) }
-        } catch (_: Exception) {
-            null
-        } finally {
-            connection.disconnect()
+        val candidates = linkedSetOf(url)
+        when {
+            url.startsWith(PRIMARY_BASE_URL) ->
+                candidates.add(url.replaceFirst(PRIMARY_BASE_URL, FALLBACK_BASE_URL))
+            url.startsWith(FALLBACK_BASE_URL) ->
+                candidates.add(url.replaceFirst(FALLBACK_BASE_URL, PRIMARY_BASE_URL))
         }
+
+        for (candidate in candidates) {
+            val connection = URL(candidate).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = 8_000
+                connection.readTimeout = 20_000
+                connection.setRequestProperty("Accept", "image/*")
+                if (connection.responseCode in 200..299) {
+                    if (candidate.startsWith(FALLBACK_BASE_URL)) activeBaseUrl = FALLBACK_BASE_URL
+                    if (candidate.startsWith(PRIMARY_BASE_URL)) activeBaseUrl = PRIMARY_BASE_URL
+                    return connection.inputStream.use { BitmapFactory.decodeStream(it) }
+                }
+            } catch (_: IOException) {
+                // Try the alternate public server.
+            } finally {
+                connection.disconnect()
+            }
+        }
+        return null
     }
 
     private fun request(method: String, path: String, body: String? = null): String {
-        val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
+        val first = activeBaseUrl
+        val second = if (first == PRIMARY_BASE_URL) FALLBACK_BASE_URL else PRIMARY_BASE_URL
+
+        try {
+            return requestAgainst(first, method, path, body)
+        } catch (firstError: Throwable) {
+            if (!shouldTryAlternate(firstError)) throw firstError
+            return try {
+                requestAgainst(second, method, path, body).also {
+                    activeBaseUrl = second
+                }
+            } catch (secondError: Throwable) {
+                // Keep the error from the server currently preferred by the app unless
+                // the alternate returned a meaningful API response.
+                if (secondError is ApiException && !shouldTryAlternate(secondError)) {
+                    throw secondError
+                }
+                throw firstError
+            }
+        }
+    }
+
+    private fun shouldTryAlternate(error: Throwable): Boolean {
+        return when (error) {
+            is ApiException -> error.statusCode in 500..599
+            is IOException -> true
+            else -> false
+        }
+    }
+
+    private fun requestAgainst(
+        serverBaseUrl: String,
+        method: String,
+        path: String,
+        body: String?
+    ): String {
+        val connection = URL(serverBaseUrl + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
-            connection.connectTimeout = 12_000
+            connection.connectTimeout = 8_000
             connection.readTimeout = 25_000
             connection.instanceFollowRedirects = true
             connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("User-Agent", "KisaMoreBattleAndroid/0.2")
+            connection.setRequestProperty("User-Agent", "KisaMoreBattleAndroid/0.3")
             sessionCookie?.let { connection.setRequestProperty("Cookie", it) }
 
             if (body != null) {
@@ -155,6 +207,8 @@ class ApiClient(context: Context) {
                 }
                 throw ApiException(detail.ifBlank { "HTTP $code" }, code)
             }
+
+            activeBaseUrl = serverBaseUrl
             return response
         } finally {
             connection.disconnect()
