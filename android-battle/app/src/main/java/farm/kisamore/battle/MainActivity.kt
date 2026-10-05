@@ -469,7 +469,6 @@ class MainActivity : Activity() {
         val textBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-        textBlock.addView(labelText("● LIVE BATTLE", green))
         textBlock.addView(bigText(battle.title, 27f))
         textBlock.addView(smallText(battle.plantName + " · полка " + battle.rackId + " · " + dayLabel(battle)))
         row.addView(textBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -514,13 +513,12 @@ class MainActivity : Activity() {
             val entry = battle.entries.firstOrNull { it.slotNumber == slot }
             val mine = entry?.isMine == true
             val cell = TextView(this).apply {
-                text = if (mine) "#" + slot + "  ★ ВЫ" else "#" + slot
+                text = if (mine) slot.toString() + "  ★ ВЫ" else slot.toString()
                 gravity = Gravity.TOP or Gravity.START
                 setPadding(dp(8), dp(7), dp(4), dp(4))
                 setTextColor(if (mine) gold else white)
                 textSize = 11f
                 setTypeface(typeface, Typeface.BOLD)
-                background = cellDrawable(mine)
             }
             val params = GridLayout.LayoutParams(
                 GridLayout.spec(index / 2, 1f),
@@ -528,7 +526,7 @@ class MainActivity : Activity() {
             ).apply {
                 width = 0
                 height = 0
-                setMargins(dp(3), dp(3), dp(3), dp(3))
+                setMargins(0, 0, 0, 0)
             }
             grid.addView(cell, params)
         }
@@ -1061,7 +1059,6 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(24), dp(20), dp(20))
             background = gradientDrawable("#174B34", "#07140F")
-            addView(labelText("KISAMORE", green))
             addView(bigText(title, 29f))
             addView(smallText(subtitle))
         }
