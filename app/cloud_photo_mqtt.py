@@ -25,12 +25,19 @@ def _photo_timeout_seconds() -> float:
     return max(10.0, float(os.getenv("KISAMORE_MQTT_PHOTO_TIMEOUT_SECONDS", "120")))
 
 
-def _message_id(data: bytes, rack_id: int) -> str:
-    nonce = f"{time.time_ns()}:{os.getpid()}:{rack_id}".encode("ascii")
+def _message_id(data: bytes, rack_id: int, camera_id: str) -> str:
+    nonce = f"{time.time_ns()}:{os.getpid()}:{rack_id}:{camera_id}".encode("utf-8")
     return hashlib.sha256(nonce + data).hexdigest()[:24]
 
 
-def _publish_photo_mqtt_blocking(settings, rack_id: int, path: Path, captured_at: str) -> None:
+def _publish_photo_mqtt_blocking(
+    settings,
+    rack_id: int,
+    camera_id: str,
+    is_primary: bool,
+    path: Path,
+    captured_at: str,
+) -> None:
     try:
         import paho.mqtt.client as mqtt
     except ImportError as exc:
@@ -45,14 +52,18 @@ def _publish_photo_mqtt_blocking(settings, rack_id: int, path: Path, captured_at
     if not chunks:
         chunks = [b""]
 
-    message_id = _message_id(data, rack_id)
+    message_id = _message_id(data, rack_id, camera_id)
+    safe_camera_id = "".join(
+        ch if ch.isalnum() or ch in ("-", "_") else "_"
+        for ch in str(camera_id)
+    ).strip("_") or "camera"
     base_topic = (
         f"{settings.mqtt_topic_prefix}/edge/{settings.device_id}/photo/"
-        f"{rack_id}/{message_id}"
+        f"{rack_id}/{safe_camera_id}/{message_id}"
     )
     ack_topic = (
         f"{settings.mqtt_topic_prefix}/cloud/{settings.device_id}/photo/"
-        f"{rack_id}/{message_id}/ack"
+        f"{rack_id}/{safe_camera_id}/{message_id}/ack"
     )
     timeout = _photo_timeout_seconds()
     deadline = time.monotonic() + timeout
@@ -61,7 +72,7 @@ def _publish_photo_mqtt_blocking(settings, rack_id: int, path: Path, captured_at
 
     client = mqtt.Client(
         mqtt.CallbackAPIVersion.VERSION2,
-        client_id=f"kisamore-photo-{os.getpid()}-{rack_id}",
+        client_id=f"kisamore-photo-{os.getpid()}-{rack_id}-{safe_camera_id}",
         protocol=mqtt.MQTTv311,
         reconnect_on_failure=False,
     )
@@ -76,7 +87,7 @@ def _publish_photo_mqtt_blocking(settings, rack_id: int, path: Path, captured_at
         try:
             body = json.loads(bytes(message.payload).decode("utf-8"))
             ack_result.update(body if isinstance(body, dict) else {})
-        except Exception as exc:  # pragma: no cover - defensive logging path
+        except Exception as exc:
             ack_result.update({"ok": False, "error": f"invalid ack: {exc}"})
         finally:
             ack_event.set()
@@ -106,14 +117,15 @@ def _publish_photo_mqtt_blocking(settings, rack_id: int, path: Path, captured_at
                 raise TimeoutError(f"MQTT photo acknowledgement timed out: {label}")
 
         print(
-            f"[cloud-sync] MQTT photo: rack={rack_id}, bytes={len(data)}, "
-            f"chunks={len(chunks)}, chunk={chunk_size}, timeout={timeout:g}s"
+            f"[cloud-sync] MQTT photo: rack={rack_id}, camera={camera_id}, "
+            f"primary={is_primary}, bytes={len(data)}, chunks={len(chunks)}, "
+            f"chunk={chunk_size}, timeout={timeout:g}s"
         )
         for index, chunk in enumerate(chunks):
             publish(
                 f"{base_topic}/chunk/{index}/{len(chunks)}",
                 chunk,
-                f"rack={rack_id} chunk={index + 1}/{len(chunks)}",
+                f"rack={rack_id} camera={camera_id} chunk={index + 1}/{len(chunks)}",
             )
 
         done = json.dumps(
@@ -123,21 +135,31 @@ def _publish_photo_mqtt_blocking(settings, rack_id: int, path: Path, captured_at
                 "chunks": len(chunks),
                 "captured_at": captured_at,
                 "content_type": "image/jpeg",
+                "camera_id": camera_id,
+                "is_primary": bool(is_primary),
             },
             separators=(",", ":"),
         ).encode("utf-8")
-        publish(f"{base_topic}/done", done, f"rack={rack_id} done")
+        publish(
+            f"{base_topic}/done",
+            done,
+            f"rack={rack_id} camera={camera_id} done",
+        )
 
         remaining = deadline - time.monotonic()
         if remaining <= 0 or not ack_event.wait(remaining):
-            raise TimeoutError(f"VPS did not confirm MQTT photo: rack={rack_id}")
+            raise TimeoutError(
+                f"VPS did not confirm MQTT photo: rack={rack_id}, camera={camera_id}"
+            )
         if ack_result.get("ok") is not True:
             raise RuntimeError(
-                f"VPS rejected MQTT photo: rack={rack_id}: "
+                f"VPS rejected MQTT photo: rack={rack_id}, camera={camera_id}: "
                 f"{ack_result.get('error') or 'unknown error'}"
             )
         if ack_result.get("sha256") != hashlib.sha256(data).hexdigest():
-            raise RuntimeError(f"VPS confirmed a different MQTT photo: rack={rack_id}")
+            raise RuntimeError(
+                f"VPS confirmed a different MQTT photo: rack={rack_id}, camera={camera_id}"
+            )
     finally:
         try:
             client.disconnect()
@@ -168,37 +190,67 @@ def install_cloud_photo_mqtt(service) -> None:
         latest_dir = Path(runtime.cfg.camera_capture.latest_dir or "data/camera_latest")
         sent = 0
         for rack_id in range(1, runtime.cfg.racks_count + 1):
-            path = latest_dir / f"rack_{rack_id}.jpg"
-            try:
-                stat = path.stat()
-            except FileNotFoundError:
+            rack_cfg = runtime.cfg.racks.get(str(rack_id))
+            if rack_cfg is None:
                 continue
 
-            mtime_ns = stat.st_mtime_ns
-            if service._uploaded_photo_mtimes.get(rack_id) == mtime_ns:
-                continue
+            camera_ids = list(rack_cfg.camera_ids or [])
+            if rack_cfg.camera_id and rack_cfg.camera_id not in camera_ids:
+                camera_ids.insert(0, rack_cfg.camera_id)
+            if rack_cfg.camera_id and camera_ids and camera_ids[0] != rack_cfg.camera_id:
+                camera_ids = [rack_cfg.camera_id] + [
+                    item for item in camera_ids if item != rack_cfg.camera_id
+                ]
+            if not camera_ids:
+                camera_ids = [f"rack_{rack_id}_legacy"]
 
-            captured_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
-            try:
-                await asyncio.to_thread(
-                    _publish_photo_mqtt_blocking,
-                    settings,
-                    rack_id,
-                    path,
-                    captured_at,
-                )
-            except Exception as exc:
-                # Do not mark this mtime as delivered. It will be retried on the
-                # next cloud-sync cycle, while other racks can still proceed.
+            for index, camera_id in enumerate(camera_ids):
+                is_primary = index == 0
+                camera_key = "".join(
+                    ch if ch.isalnum() or ch in ("-", "_") else "_"
+                    for ch in str(camera_id)
+                ).strip("_") or "camera"
+                path = latest_dir / f"rack_{rack_id}__{camera_key}.jpg"
+                if is_primary and not path.is_file():
+                    path = latest_dir / f"rack_{rack_id}.jpg"
+
+                try:
+                    stat = path.stat()
+                except FileNotFoundError:
+                    continue
+
+                upload_key = f"{rack_id}:{camera_id}"
+                mtime_ns = stat.st_mtime_ns
+                if service._uploaded_photo_mtimes.get(upload_key) == mtime_ns:
+                    continue
+
+                captured_at = datetime.fromtimestamp(
+                    stat.st_mtime,
+                    tz=timezone.utc,
+                ).isoformat()
+                try:
+                    await asyncio.to_thread(
+                        _publish_photo_mqtt_blocking,
+                        settings,
+                        rack_id,
+                        camera_id,
+                        is_primary,
+                        path,
+                        captured_at,
+                    )
+                except Exception as exc:
+                    print(
+                        f"[cloud-sync] MQTT photo failed: rack={rack_id}, "
+                        f"camera={camera_id}: {type(exc).__name__}: {exc!r}"
+                    )
+                    continue
+
+                service._uploaded_photo_mtimes[upload_key] = mtime_ns
+                sent += 1
                 print(
-                    f"[cloud-sync] MQTT photo failed: rack={rack_id}: "
-                    f"{type(exc).__name__}: {exc!r}"
+                    f"[cloud-sync] MQTT photo confirmed by VPS: "
+                    f"rack={rack_id}, camera={camera_id}, primary={is_primary}"
                 )
-                continue
-
-            service._uploaded_photo_mtimes[rack_id] = mtime_ns
-            sent += 1
-            print(f"[cloud-sync] MQTT photo confirmed by VPS: rack={rack_id}")
         return sent
 
     service._send_changed_photos = send_changed_photos
