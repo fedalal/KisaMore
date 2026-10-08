@@ -25,6 +25,7 @@ from .models import (
     Planting,
     RackCurrent,
     RackPhoto,
+    RackCameraPhoto,
     RackSlot,
     ReservationRequest,
     User,
@@ -55,7 +56,7 @@ from .schemas import (
 )
 from .security import authenticate_device, get_current_user, get_session
 from .config import get_settings
-from .rack_photo_storage import store_rack_photo
+from .rack_photo_storage import store_rack_camera_photo
 from .seed_inventory import SeedUnavailable, require_seed_available, seed_availability
 from .telegram.admin_models import EdgeOperatorCommand
 from .telegram.models import (
@@ -706,12 +707,19 @@ async def public_plant_image(
 async def upload_rack_photo(
     rack_id: int,
     captured_at: datetime = Form(),
+    camera_id: str = Form(default="primary"),
+    is_primary: bool = Form(default=True),
     photo: UploadFile = File(),
     device: Device = Depends(authenticate_device),
     session: AsyncSession = Depends(get_session),
 ):
     if rack_id < 1 or rack_id > max(device.racks_count, 1):
         raise HTTPException(status_code=404, detail="Rack not found")
+
+    camera_id = str(camera_id or "").strip()
+    if not camera_id or len(camera_id) > 80:
+        raise HTTPException(status_code=422, detail="Invalid camera_id")
+
     if photo.content_type not in ("image/jpeg", "image/jpg"):
         raise HTTPException(status_code=415, detail="Only JPEG photos are accepted")
     settings = get_settings()
@@ -726,41 +734,99 @@ async def upload_rack_photo(
         raise HTTPException(status_code=422, detail="captured_at is required")
 
     stored = await asyncio.to_thread(
-        store_rack_photo,
+        store_rack_camera_photo,
         photo_dir=settings.photo_dir,
         device_id=device.id,
         rack_id=rack_id,
+        camera_id=camera_id,
+        is_primary=bool(is_primary),
         captured_at=captured_at,
         content=content,
     )
 
     now = datetime.now(timezone.utc)
-    record = (
+
+    if is_primary:
+        existing_primary_rows = (
+            await session.execute(
+                select(RackCameraPhoto).where(
+                    RackCameraPhoto.device_id == device.id,
+                    RackCameraPhoto.rack_id == rack_id,
+                    RackCameraPhoto.is_primary.is_(True),
+                    RackCameraPhoto.camera_id != camera_id,
+                )
+            )
+        ).scalars().all()
+        for item in existing_primary_rows:
+            item.is_primary = False
+
+    camera_record = (
         await session.execute(
-            select(RackPhoto).where(
-                RackPhoto.device_id == device.id,
-                RackPhoto.rack_id == rack_id,
+            select(RackCameraPhoto).where(
+                RackCameraPhoto.device_id == device.id,
+                RackCameraPhoto.rack_id == rack_id,
+                RackCameraPhoto.camera_id == camera_id,
             )
         )
     ).scalar_one_or_none()
-    if record is None:
-        record = RackPhoto(
+    if camera_record is None:
+        camera_record = RackCameraPhoto(
             device_id=device.id,
             rack_id=rack_id,
+            camera_id=camera_id,
+            is_primary=bool(is_primary),
             file_path=str(stored.latest_path),
+            content_type="image/jpeg",
             size_bytes=len(content),
             captured_at=captured_at,
             updated_at=now,
         )
-        session.add(record)
+        session.add(camera_record)
     else:
-        record.file_path = str(stored.latest_path)
-        record.content_type = "image/jpeg"
-        record.size_bytes = len(content)
-        record.captured_at = captured_at
-        record.updated_at = now
+        camera_record.is_primary = bool(is_primary)
+        camera_record.file_path = str(stored.latest_path)
+        camera_record.content_type = "image/jpeg"
+        camera_record.size_bytes = len(content)
+        camera_record.captured_at = captured_at
+        camera_record.updated_at = now
+
+    # Legacy primary record is intentionally retained for old site, Telegram,
+    # Android and timelapse consumers.
+    if is_primary:
+        record = (
+            await session.execute(
+                select(RackPhoto).where(
+                    RackPhoto.device_id == device.id,
+                    RackPhoto.rack_id == rack_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if record is None:
+            record = RackPhoto(
+                device_id=device.id,
+                rack_id=rack_id,
+                file_path=str(stored.latest_path),
+                content_type="image/jpeg",
+                size_bytes=len(content),
+                captured_at=captured_at,
+                updated_at=now,
+            )
+            session.add(record)
+        else:
+            record.file_path = str(stored.latest_path)
+            record.content_type = "image/jpeg"
+            record.size_bytes = len(content)
+            record.captured_at = captured_at
+            record.updated_at = now
+
     await session.commit()
-    return {"accepted": True, "rack_id": rack_id, "captured_at": captured_at}
+    return {
+        "accepted": True,
+        "rack_id": rack_id,
+        "camera_id": camera_id,
+        "is_primary": bool(is_primary),
+        "captured_at": captured_at,
+    }
 
 
 @router.get("/public/farms/{farm_slug}/racks/{rack_id}/photo", response_class=FileResponse)
