@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit
 
 class GameStore(context: Context) {
     private val prefs = context.getSharedPreferences("kisamore_battle_game", Context.MODE_PRIVATE)
+    private val language = AppLanguage(context)
 
     fun openToday(): GameProfile {
         val today = LocalDate.now()
@@ -47,18 +48,18 @@ class GameStore(context: Context) {
         val xp = prefs.getInt("xp", 0)
         val streak = prefs.getInt("streak", 1).coerceAtLeast(1)
         val missions = listOf(
-            mission("open", "🌅", "Зайти в теплицу", 10, today),
-            mission("predict", "🎯", "Сделать прогноз", 10, today),
-            mission("video", "🎬", "Посмотреть таймлапс", 5, today),
-            mission("command", "💧", "Отдать команду растению", 15, today)
+            mission("open", "🌅", t("Зайти в теплицу"), 10, today),
+            mission("predict", "🎯", t("Сделать прогноз"), 10, today),
+            mission("video", "🎬", t("Посмотреть таймлапс"), 5, today),
+            mission("command", "💧", t("Отдать команду растению"), 15, today)
         )
         val badges = buildList {
-            if (xp >= 10) add("🌱 Первый рост")
-            if (prefs.getBoolean("ever_predict", false)) add("🎯 Аналитик")
-            if (prefs.getBoolean("ever_command", false)) add("🧠 Стратег")
-            if (prefs.getBoolean("ever_video", false)) add("🎬 Наблюдатель")
-            if (streak >= 3) add("🔥 Серия $streak дней")
-            if (xp >= 200) add("🏅 Опытный садовод")
+            if (xp >= 10) add(t("🌱 Первый рост"))
+            if (prefs.getBoolean("ever_predict", false)) add(t("🎯 Аналитик"))
+            if (prefs.getBoolean("ever_command", false)) add(t("🧠 Стратег"))
+            if (prefs.getBoolean("ever_video", false)) add(t("🎬 Наблюдатель"))
+            if (streak >= 3) add(t("🔥 Серия %d дней").replace("%d", streak.toString()))
+            if (xp >= 200) add(t("🏅 Опытный садовод"))
         }
         return GameProfile(
             xp = xp,
@@ -82,6 +83,8 @@ class GameStore(context: Context) {
         reward = reward,
         completed = prefs.getBoolean(dayKey("mission_$key", today), false)
     )
+
+    private fun t(source: String): String = language.t(source)
 
     private fun rewardFor(key: String): Int = when (key) {
         "open" -> 10
