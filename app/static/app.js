@@ -608,6 +608,20 @@ function cameraIdOptions(selected){
   return opts.join("");
 }
 
+function cameraExtraCheckboxes(rackId, selected, primary){
+  const cameras = (cfgState && cfgState.cameras) ? cfgState.cameras : {};
+  const selectedSet = new Set(Array.isArray(selected) ? selected : []);
+  return Object.keys(cameras).map(cameraId => {
+    if(String(cameraId) === String(primary)) return "";
+    const cam = cameras[cameraId] || {};
+    const label = cam.name || cameraId;
+    const checked = selectedSet.has(cameraId) ? "checked" : "";
+    return '<label class="cfgCameraExtra"><input type="checkbox" '+checked+
+      ' onchange="cfgRackCameraExtraChange('+rackId+', \''+escapeHtml(cameraId)+'\', this.checked)"> '+
+      escapeHtml(label)+'</label>';
+  }).join("");
+}
+
 function escapeHtml(value){
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -630,7 +644,7 @@ function renderCfg(){
         <div>Реле света</div>
         <div>Реле полива</div>
         <div>Адрес датчика</div>
-        <div>Камера</div>
+        <div>Камеры</div>
       </div>
   `);
 
@@ -642,12 +656,15 @@ function renderCfg(){
         light_relay: 1,
         water_relay: 2,
         sensor_slave_id: i,
-        camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null
+        camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null,
+        camera_ids: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? [`camera_${i}`] : []
       };
     }
 
     const r = cfgState.racks[rk];
     if(r.camera_id === undefined) r.camera_id = r.camera_device ? `camera_${i}` : null;
+    if(!Array.isArray(r.camera_ids)) r.camera_ids = r.camera_id ? [r.camera_id] : [];
+    if(r.camera_id && !r.camera_ids.includes(r.camera_id)) r.camera_ids.unshift(r.camera_id);
 
     rows.push(`
       <div class="cfgTableRow">
@@ -678,10 +695,14 @@ function renderCfg(){
         </div>
         
         <div>
-          <select class="cfgSelect" onchange="cfgRackCameraIdChange(${i}, this.value)">
-            ${cameraIdOptions(r.camera_id)}
-          </select>
-          
+          <div class="cfgCameraAssign">
+            <div class="muted" style="font-size:11px;margin-bottom:4px">Основная</div>
+            <select class="cfgSelect" onchange="cfgRackCameraIdChange(${i}, this.value)">
+              ${cameraIdOptions(r.camera_id)}
+            </select>
+            <div class="muted" style="font-size:11px;margin-top:7px">Дополнительные</div>
+            <div class="cfgCameraExtras">${cameraExtraCheckboxes(i, r.camera_ids, r.camera_id) || '<span class="muted">нет</span>'}</div>
+          </div>
         </div>
       </div>
     `);
@@ -711,7 +732,31 @@ function cfgRackSensorChange(rackId, value){
 function cfgRackCameraIdChange(rackId, value){
   const rk = String(rackId);
   const v = String(value || "").trim();
-  cfgState.racks[rk].camera_id = v || null;
+  const rack = cfgState.racks[rk];
+  rack.camera_id = v || null;
+  const existing = Array.isArray(rack.camera_ids) ? rack.camera_ids : [];
+  rack.camera_ids = v
+    ? [v, ...existing.filter(id => id && id !== v)]
+    : existing.filter(Boolean);
+  if(!v && rack.camera_ids.length){
+    rack.camera_id = rack.camera_ids[0];
+  }
+  renderCfg();
+}
+
+function cfgRackCameraExtraChange(rackId, cameraId, checked){
+  const rk = String(rackId);
+  const rack = cfgState.racks[rk];
+  const primary = rack.camera_id || null;
+  let ids = Array.isArray(rack.camera_ids) ? [...rack.camera_ids] : [];
+  ids = ids.filter(id => id && id !== cameraId);
+  if(checked) ids.push(cameraId);
+  if(primary){
+    ids = [primary, ...ids.filter(id => id !== primary)];
+  }else if(ids.length){
+    rack.camera_id = ids[0];
+  }
+  rack.camera_ids = ids;
 }
 
 function cfgRackCameraChange(rackId, value){
@@ -776,7 +821,8 @@ function cfgRacksCountChange(value){
         light_relay:1,
         water_relay:2,
         sensor_slave_id:i,
-        camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null
+        camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null,
+        camera_ids: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? [`camera_${i}`] : []
       };
     }
   }
@@ -802,7 +848,8 @@ async function loadCfg(){
           light_relay:1,
           water_relay:2,
           sensor_slave_id:i,
-          camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null
+          camera_id: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? `camera_${i}` : null,
+        camera_ids: cfgState.cameras && cfgState.cameras[`camera_${i}`] ? [`camera_${i}`] : []
         };
       }
     }
