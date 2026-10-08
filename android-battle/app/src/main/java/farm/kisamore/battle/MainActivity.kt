@@ -1158,8 +1158,8 @@ class MainActivity : Activity() {
             "🎯 " + battle.predictionTotal,
             "🏆 " + battle.winnerRewardKisa + " K"
         ))
-        c.addView(primaryButton(if (mine) t("ОТКРЫТЬ АРЕНУ") else t("СМОТРЕТЬ LIVE")) {
-            openBattle(battle)
+        c.addView(primaryButton(if (mine) t("ОТКРЫТЬ МОЁ РАСТЕНИЕ") else t("СМОТРЕТЬ LIVE")) {
+            openBattle(battle, spectator = !mine)
         })
         return cardWithMargin(c)
     }
