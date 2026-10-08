@@ -73,6 +73,22 @@ class ApiClient(context: Context) {
         return user
     }
 
+    fun register(displayName: String, email: String, password: String, language: String = "ru"): UserInfo {
+        val payload = JSONObject()
+            .put("display_name", displayName.trim())
+            .put("email", email.trim())
+            .put("password", password)
+            .put("language", language)
+        val json = JSONObject(request("POST", "/api/v1/auth/register", payload.toString()))
+        val user = UserInfo(
+            id = json.optString("id"),
+            displayName = json.optString("display_name", displayName.trim()),
+            email = json.optString("email", email.trim())
+        )
+        currentUser = user
+        return user
+    }
+
     fun logout() {
         runCatching { request("POST", "/api/v1/auth/logout") }
         sessionCookie = null
