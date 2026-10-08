@@ -12,14 +12,16 @@ from sqlalchemy import select
 
 from .config import get_settings
 from .db import SessionLocal
-from .models import Device, RackPhoto
-from .rack_photo_storage import store_rack_photo
+from .models import Device, RackPhoto, RackCameraPhoto
+from .rack_photo_storage import store_rack_camera_photo
 
 
 @dataclass
 class _PendingPhoto:
     created_at: float
     rack_id: int
+    camera_id: str
+    legacy_topic: bool
     total_chunks: int
     chunks: dict[int, bytes] = field(default_factory=dict)
     done: dict | None = None
@@ -30,7 +32,7 @@ class MqttPhotoConsumer:
     def __init__(self) -> None:
         self._client = None
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._pending: dict[tuple[str, int, str], _PendingPhoto] = {}
+        self._pending: dict[tuple[str, int, str, str], _PendingPhoto] = {}
         self._lock = threading.Lock()
 
     async def start(self) -> None:
@@ -105,30 +107,52 @@ class MqttPhotoConsumer:
             raise ValueError("invalid MQTT photo rack id") from exc
         if rack_id < 1 or rack_id > 16:
             raise ValueError("invalid MQTT photo rack id")
-        message_id = parts[5]
+
+        # Legacy: .../photo/{rack}/{message}/chunk/... or /done
+        # New:    .../photo/{rack}/{camera}/{message}/chunk/... or /done
+        legacy_topic = len(parts) in (7, 9)
+        if legacy_topic:
+            camera_id = "primary"
+            message_id = parts[5]
+            suffix_index = 6
+        else:
+            if len(parts) not in (8, 10):
+                return
+            camera_id = str(parts[5] or "").strip()
+            message_id = parts[6]
+            suffix_index = 7
+
+        if not camera_id or len(camera_id) > 80:
+            raise ValueError("invalid MQTT photo camera id")
         if not message_id or len(message_id) > 80:
             raise ValueError("invalid MQTT photo message id")
-        key = (device_id, rack_id, message_id)
 
+        key = (device_id, rack_id, camera_id, message_id)
         ready_payload: bytes | None = None
         done_payload: dict | None = None
+
         with self._lock:
             self._discard_stale_locked(time.monotonic())
-            if len(parts) == 9 and parts[6] == "chunk":
+            suffix = parts[suffix_index:]
+
+            if len(suffix) == 3 and suffix[0] == "chunk":
                 try:
-                    index = int(parts[7])
-                    total = int(parts[8])
+                    index = int(suffix[1])
+                    total = int(suffix[2])
                 except ValueError as exc:
                     raise ValueError("invalid MQTT photo chunk index") from exc
                 if total < 1 or total > 512 or index < 0 or index >= total:
                     raise ValueError("invalid MQTT photo chunk index")
                 if len(payload) > 64 * 1024:
                     raise ValueError("MQTT photo chunk is too large")
+
                 pending = self._pending.setdefault(
                     key,
                     _PendingPhoto(
                         created_at=time.monotonic(),
                         rack_id=rack_id,
+                        camera_id=camera_id,
+                        legacy_topic=legacy_topic,
                         total_chunks=total,
                     ),
                 )
@@ -137,18 +161,25 @@ class MqttPhotoConsumer:
                 if pending.total_chunks != total:
                     raise ValueError("MQTT photo chunk count changed")
                 previous = pending.chunks.get(index)
-                new_total = pending.total_bytes - (len(previous) if previous is not None else 0) + len(payload)
+                new_total = (
+                    pending.total_bytes
+                    - (len(previous) if previous is not None else 0)
+                    + len(payload)
+                )
                 if new_total > settings.photo_max_bytes:
                     self._pending.pop(key, None)
                     raise ValueError("MQTT photo exceeds configured size limit")
                 pending.chunks[index] = payload
                 pending.total_bytes = new_total
-            elif len(parts) == 7 and parts[6] == "done":
+
+            elif len(suffix) == 1 and suffix[0] == "done":
                 pending = self._pending.setdefault(
                     key,
                     _PendingPhoto(
                         created_at=time.monotonic(),
                         rack_id=rack_id,
+                        camera_id=camera_id,
+                        legacy_topic=legacy_topic,
                         total_chunks=0,
                     ),
                 )
@@ -170,10 +201,19 @@ class MqttPhotoConsumer:
                         pending.chunks[index] for index in range(pending.total_chunks)
                     )
                     done_payload = pending.done
+                    legacy_topic = pending.legacy_topic
                     self._pending.pop(key, None)
 
         if ready_payload is not None:
-            self._schedule_photo(device_id, rack_id, message_id, ready_payload, done_payload or {})
+            self._schedule_photo(
+                device_id,
+                rack_id,
+                camera_id,
+                message_id,
+                ready_payload,
+                done_payload or {},
+                legacy_topic=legacy_topic,
+            )
 
     def _discard_stale_locked(self, now: float) -> None:
         ttl = get_settings().mqtt_message_ttl_seconds
@@ -189,27 +229,48 @@ class MqttPhotoConsumer:
         self,
         device_id: str,
         rack_id: int,
+        camera_id: str,
         message_id: str,
         payload_bytes: bytes,
         done: dict,
+        *,
+        legacy_topic: bool,
     ) -> None:
         if self._loop is None:
             return
         future = asyncio.run_coroutine_threadsafe(
-            self._process_photo(device_id, rack_id, message_id, payload_bytes, done),
+            self._process_photo(
+                device_id,
+                rack_id,
+                camera_id,
+                message_id,
+                payload_bytes,
+                done,
+                legacy_topic=legacy_topic,
+            ),
             self._loop,
         )
         future.add_done_callback(
-            lambda item: self._finish_photo(item, device_id, rack_id, message_id)
+            lambda item: self._finish_photo(
+                item,
+                device_id,
+                rack_id,
+                camera_id,
+                message_id,
+                legacy_topic=legacy_topic,
+            )
         )
 
     async def _process_photo(
         self,
         device_id: str,
         rack_id: int,
+        camera_id: str,
         message_id: str,
         payload_bytes: bytes,
         done: dict,
+        *,
+        legacy_topic: bool,
     ) -> dict[str, object]:
         settings = get_settings()
         if len(payload_bytes) > settings.photo_max_bytes:
@@ -218,6 +279,14 @@ class MqttPhotoConsumer:
             raise ValueError("invalid JPEG photo")
         if done.get("content_type") not in (None, "image/jpeg", "image/jpg"):
             raise ValueError("unsupported MQTT photo content type")
+
+        payload_camera_id = str(done.get("camera_id") or camera_id).strip()
+        if not payload_camera_id or len(payload_camera_id) > 80:
+            raise ValueError("invalid MQTT photo camera id")
+        if not legacy_topic and payload_camera_id != camera_id:
+            raise ValueError("MQTT photo camera id mismatch")
+        camera_id = payload_camera_id
+        is_primary = True if legacy_topic else bool(done.get("is_primary", False))
 
         expected_hash = str(done.get("sha256") or "")
         actual_hash = hashlib.sha256(payload_bytes).hexdigest()
@@ -246,92 +315,170 @@ class MqttPhotoConsumer:
                 raise ValueError("MQTT photo rack was not found")
 
             stored = await asyncio.to_thread(
-                store_rack_photo,
+                store_rack_camera_photo,
                 photo_dir=settings.photo_dir,
                 device_id=device.id,
                 rack_id=rack_id,
+                camera_id=camera_id,
+                is_primary=is_primary,
                 captured_at=captured_at,
                 content=payload_bytes,
             )
 
             now = datetime.now(timezone.utc)
-            record = (
+            if is_primary:
+                old_primary = (
+                    await session.execute(
+                        select(RackCameraPhoto).where(
+                            RackCameraPhoto.device_id == device.id,
+                            RackCameraPhoto.rack_id == rack_id,
+                            RackCameraPhoto.is_primary.is_(True),
+                            RackCameraPhoto.camera_id != camera_id,
+                        )
+                    )
+                ).scalars().all()
+                for item in old_primary:
+                    item.is_primary = False
+
+            camera_record = (
                 await session.execute(
-                    select(RackPhoto).where(
-                        RackPhoto.device_id == device.id,
-                        RackPhoto.rack_id == rack_id,
+                    select(RackCameraPhoto).where(
+                        RackCameraPhoto.device_id == device.id,
+                        RackCameraPhoto.rack_id == rack_id,
+                        RackCameraPhoto.camera_id == camera_id,
                     )
                 )
             ).scalar_one_or_none()
-            if record is None:
-                record = RackPhoto(
+            if camera_record is None:
+                camera_record = RackCameraPhoto(
                     device_id=device.id,
                     rack_id=rack_id,
+                    camera_id=camera_id,
+                    is_primary=is_primary,
                     file_path=str(stored.latest_path),
                     content_type="image/jpeg",
                     size_bytes=len(payload_bytes),
                     captured_at=captured_at,
                     updated_at=now,
                 )
-                session.add(record)
+                session.add(camera_record)
             else:
-                record.file_path = str(stored.latest_path)
-                record.content_type = "image/jpeg"
-                record.size_bytes = len(payload_bytes)
-                record.captured_at = captured_at
-                record.updated_at = now
+                camera_record.is_primary = is_primary
+                camera_record.file_path = str(stored.latest_path)
+                camera_record.content_type = "image/jpeg"
+                camera_record.size_bytes = len(payload_bytes)
+                camera_record.captured_at = captured_at
+                camera_record.updated_at = now
+
+            if is_primary:
+                record = (
+                    await session.execute(
+                        select(RackPhoto).where(
+                            RackPhoto.device_id == device.id,
+                            RackPhoto.rack_id == rack_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if record is None:
+                    record = RackPhoto(
+                        device_id=device.id,
+                        rack_id=rack_id,
+                        file_path=str(stored.latest_path),
+                        content_type="image/jpeg",
+                        size_bytes=len(payload_bytes),
+                        captured_at=captured_at,
+                        updated_at=now,
+                    )
+                    session.add(record)
+                else:
+                    record.file_path = str(stored.latest_path)
+                    record.content_type = "image/jpeg"
+                    record.size_bytes = len(payload_bytes)
+                    record.captured_at = captured_at
+                    record.updated_at = now
+
             await session.commit()
 
         print(
             f"[cloud-mqtt-photo] photo accepted: device={device_id}, rack={rack_id}, "
-            f"message={message_id}, bytes={len(payload_bytes)}, chunks={done.get('chunks')}, "
-            f"image={stored.width}x{stored.height}, slots=6, archive={stored.archive_path.name}"
+            f"camera={camera_id}, primary={is_primary}, message={message_id}, "
+            f"bytes={len(payload_bytes)}, chunks={done.get('chunks')}, "
+            f"image={stored.width}x{stored.height}, slots=6, "
+            f"archive={stored.archive_path.name}"
         )
-        return {"sha256": actual_hash, "bytes": len(payload_bytes)}
+        return {
+            "sha256": actual_hash,
+            "bytes": len(payload_bytes),
+            "camera_id": camera_id,
+            "is_primary": is_primary,
+        }
 
-    def _finish_photo(self, future, device_id: str, rack_id: int, message_id: str) -> None:
+    def _finish_photo(
+        self,
+        future,
+        device_id: str,
+        rack_id: int,
+        camera_id: str,
+        message_id: str,
+        *,
+        legacy_topic: bool,
+    ) -> None:
         try:
             result = future.result()
         except Exception as exc:
             print(
                 f"[cloud-mqtt-photo] photo failed: device={device_id}, rack={rack_id}, "
-                f"message={message_id}, error={type(exc).__name__}: {exc!r}"
+                f"camera={camera_id}, message={message_id}, "
+                f"error={type(exc).__name__}: {exc!r}"
             )
             self._publish_ack(
                 device_id,
                 rack_id,
+                camera_id,
                 message_id,
                 {"ok": False, "error": str(exc)[:200]},
+                legacy_topic=legacy_topic,
             )
             return
 
         self._publish_ack(
             device_id,
             rack_id,
+            camera_id,
             message_id,
             {"ok": True, **result},
+            legacy_topic=legacy_topic,
         )
 
     def _publish_ack(
         self,
         device_id: str,
         rack_id: int,
+        camera_id: str,
         message_id: str,
         payload: dict[str, object],
+        *,
+        legacy_topic: bool,
     ) -> None:
         if self._client is None:
             return
         settings = get_settings()
-        topic = (
-            f"{settings.mqtt_topic_prefix}/cloud/{device_id}/photo/"
-            f"{rack_id}/{message_id}/ack"
-        )
+        if legacy_topic:
+            topic = (
+                f"{settings.mqtt_topic_prefix}/cloud/{device_id}/photo/"
+                f"{rack_id}/{message_id}/ack"
+            )
+        else:
+            topic = (
+                f"{settings.mqtt_topic_prefix}/cloud/{device_id}/photo/"
+                f"{rack_id}/{camera_id}/{message_id}/ack"
+            )
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         info = self._client.publish(topic, body, qos=1, retain=False)
         if info.rc != 0:
             print(
                 f"[cloud-mqtt-photo] ack publish failed: device={device_id}, "
-                f"rack={rack_id}, message={message_id}, rc={info.rc}"
+                f"rack={rack_id}, camera={camera_id}, message={message_id}, rc={info.rc}"
             )
 
 
