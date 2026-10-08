@@ -42,6 +42,8 @@ class MainActivity : Activity() {
     private var currentScreen = "home"
     private var currentBattleId: String? = null
     private var watchBattleIndex = 0
+    private var arenaFilter = "live"
+    private var battleViewMode = "owner"
     private val selectedMineEntryByBattle = mutableMapOf<String, String>()
 
     private val handler = Handler(Looper.getMainLooper())
@@ -109,16 +111,16 @@ class MainActivity : Activity() {
             currentScreen = "home"
             showHome()
         })
-        navBar.addView(navButton("🌱", t("Моя битва")) {
+        navBar.addView(navButton("🌱", t("Моё растение")) {
             stopAutoRefresh()
             val battle = activeMyBattle()
             if (battle == null) {
                 if (api.hasSession()) showNoBattle() else showLogin()
             } else {
-                openBattle(battle)
+                openBattle(battle, spectator = false)
             }
         })
-        navBar.addView(navButton("👁", t("Смотреть")) {
+        navBar.addView(navButton("👁", t("Арена")) {
             stopAutoRefresh()
             currentScreen = "watch"
             showWatch()
@@ -199,9 +201,9 @@ class MainActivity : Activity() {
             body.addView(
                 compactBattlePanel(
                     active,
-                    label = t("ВАША БИТВА"),
-                    actionLabel = t("ОТКРЫТЬ АРЕНУ")
-                ) { openBattle(active) },
+                    label = t("МОЁ РАСТЕНИЕ"),
+                    actionLabel = t("ОТКРЫТЬ МОЁ РАСТЕНИЕ")
+                ) { openBattle(active, spectator = false) },
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     0,
@@ -286,13 +288,15 @@ class MainActivity : Activity() {
         currentBattleId = null
 
         val body = compactScreen()
-        body.addView(compactHeader(t("LIVE АРЕНА"), t("Наблюдайте, болейте, делайте прогнозы")))
+        body.addView(compactHeader(t("АРЕНА"), t("Наблюдайте, болейте, делайте прогнозы")))
+        body.addView(arenaFilterRow())
 
-        if (publicBattles.isEmpty()) {
+        val battles = arenaBattles()
+        if (battles.isEmpty()) {
             val empty = compactCard().apply {
                 gravity = Gravity.CENTER
-                addView(bigText(t("Пока нет активных битв"), 19f))
-                addView(smallText(t("После создания следующей битвы она автоматически появится здесь.")))
+                addView(bigText(t("Здесь пока нет битв"), 19f))
+                addView(smallText(t("Выберите другую категорию или обновите список.")))
                 addView(compactPrimaryButton(t("ОБНОВИТЬ")) { loadAll("watch") })
             }
             body.addView(
@@ -301,29 +305,29 @@ class MainActivity : Activity() {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     0,
                     1f
-                ).apply { setMargins(dp(12), dp(10), dp(12), dp(12)) }
+                ).apply { setMargins(dp(12), dp(8), dp(12), dp(12)) }
             )
             showContent(body)
             return
         }
 
-        watchBattleIndex = watchBattleIndex.coerceIn(0, publicBattles.lastIndex)
-        val battle = publicBattles[watchBattleIndex]
+        watchBattleIndex = watchBattleIndex.coerceIn(0, battles.lastIndex)
+        val battle = battles[watchBattleIndex]
 
-        if (publicBattles.size > 1) {
-            body.addView(battlePager(publicBattles.size))
+        if (battles.size > 1) {
+            body.addView(battlePager(battles.size))
         }
 
         body.addView(
             compactBattlePanel(
                 battle,
                 label = statusHuman(battle.status).uppercase(),
-                actionLabel = t("ОТКРЫТЬ АРЕНУ")
-            ) { openBattle(battle) },
+                actionLabel = t("СМОТРЕТЬ БИТВУ")
+            ) { openBattle(battle, spectator = true) },
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(dp(12), dp(6), dp(12), dp(4)) }
+            ).apply { setMargins(dp(12), dp(4), dp(12), dp(3)) }
         )
 
         body.addView(
@@ -614,7 +618,7 @@ class MainActivity : Activity() {
         currentScreen = "mine-empty"
         currentBattleId = null
         val body = compactScreen()
-        body.addView(compactHeader(t("МОЯ БИТВА"), t("Активного растения пока нет")))
+        body.addView(compactHeader(t("МОЁ РАСТЕНИЕ"), t("Активного растения пока нет")))
         val panel = compactCard().apply {
             gravity = Gravity.CENTER
             addView(TextView(this@MainActivity).apply {
@@ -640,10 +644,11 @@ class MainActivity : Activity() {
         showContent(body)
     }
 
-    private fun openBattle(battle: Battle) {
+    private fun openBattle(battle: Battle, spectator: Boolean = false) {
         currentScreen = "battle"
         currentBattleId = battle.id
-        showLoading(t("Открываем арену…"))
+        battleViewMode = if (spectator) "spectator" else "owner"
+        showLoading(if (spectator) t("Открываем арену…") else t("Открываем растение…"))
         async(
             work = {
                 if (api.hasSession()) {
@@ -682,8 +687,14 @@ class MainActivity : Activity() {
         currentScreen = "battle"
         currentBattleId = battle.id
 
+        val spectator = battleViewMode == "spectator"
         val body = compactScreen()
-        body.addView(compactArenaHeader(battle))
+        body.addView(
+            compactArenaHeader(
+                battle,
+                if (spectator) t("АРЕНА") else t("МОЁ РАСТЕНИЕ")
+            )
+        )
 
         body.addView(
             shelfPhoto(battle, compactPhotoHeight(), compact = true),
@@ -694,26 +705,45 @@ class MainActivity : Activity() {
             )
         )
 
-        val mineEntries = battle.entries.filter { it.isMine }
-        var selectedMine: BattleEntry? = null
-        if (mineEntries.isNotEmpty()) {
-            val requested = selectedMineEntryByBattle[battle.id]
-            selectedMine = mineEntries.firstOrNull { it.id == requested } ?: mineEntries.first()
-            selectedMineEntryByBattle[battle.id] = selectedMine.id
-
-            if (mineEntries.size > 1) {
-                body.addView(ownedPlantSelector(battle, mineEntries, selectedMine.id))
+        if (spectator) {
+            if (battle.status == "open") {
+                body.addView(compactJoinRow(battle))
             }
+            body.addView(compactSpectatorActions(battle))
+        } else {
+            val mineEntries = battle.entries.filter { it.isMine }
+            if (mineEntries.isEmpty()) {
+                val message = compactCard().apply {
+                    gravity = Gravity.CENTER
+                    addView(smallText(t("Это растение не привязано к вашему аккаунту.")))
+                    addView(compactPrimaryButton(t("ПЕРЕЙТИ В АРЕНУ")) {
+                        battleViewMode = "spectator"
+                        renderBattle(battle)
+                    })
+                }
+                body.addView(
+                    message,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(dp(12), dp(4), dp(12), dp(8)) }
+                )
+            } else {
+                val requested = selectedMineEntryByBattle[battle.id]
+                val selectedMine = mineEntries.firstOrNull { it.id == requested } ?: mineEntries.first()
+                selectedMineEntryByBattle[battle.id] = selectedMine.id
 
-            body.addView(compactResources(battle, selectedMine))
-            if (battle.status == "growing") {
-                body.addView(compactCommandRow(battle, selectedMine))
+                if (mineEntries.size > 1) {
+                    body.addView(ownedPlantSelector(battle, mineEntries, selectedMine.id))
+                }
+
+                body.addView(compactResources(battle, selectedMine))
+                if (battle.status == "growing") {
+                    body.addView(compactCommandRow(battle, selectedMine))
+                }
             }
-        } else if (battle.status == "open") {
-            body.addView(compactJoinRow(battle))
         }
 
-        body.addView(compactBattleActions(battle, selectedMine))
         showContent(body)
     }
 
@@ -1160,7 +1190,7 @@ class MainActivity : Activity() {
             "🎯 " + battle.predictionTotal,
             if (battle.status == "open") battle.remainingEntries.toString() + t(" мест") else dayLabel(battle)
         ))
-        c.setOnClickListener { openBattle(battle) }
+        c.setOnClickListener { openBattle(battle, spectator = true) }
         return cardWithMargin(c)
     }
 
@@ -1456,22 +1486,23 @@ class MainActivity : Activity() {
             addView(compactPrimaryButton(actionLabel, action))
         }
 
-    private fun compactArenaHeader(battle: Battle): View =
+    private fun compactArenaHeader(battle: Battle, contextLabel: String): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(10), dp(14), dp(8))
+            setPadding(dp(14), dp(8), dp(14), dp(7))
             background = gradientDrawable("#174B34", "#0A1A13")
             val copy = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                addView(bigText(battle.title, 19f).apply {
+                addView(labelText(contextLabel, green))
+                addView(bigText(battle.title, 18f).apply {
                     maxLines = 1
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 })
                 addView(TextView(this@MainActivity).apply {
                     text = battle.plantName + t(" · полка ") + battle.rackId + " · " + dayLabel(battle)
                     setTextColor(muted)
-                    textSize = 11f
+                    textSize = 10f
                     maxLines = 1
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 })
@@ -1587,7 +1618,7 @@ class MainActivity : Activity() {
             })
         }
 
-    private fun compactBattleActions(battle: Battle, selectedEntry: BattleEntry?): View =
+    private fun compactSpectatorActions(battle: Battle): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(9), dp(3), dp(9), dp(6))
@@ -1600,6 +1631,47 @@ class MainActivity : Activity() {
             addView(compactActionButton("☰", t("СОБЫТИЯ")) {
                 showBattleDialog(t("СОБЫТИЯ"), eventFeed(battle))
             })
+        }
+
+    private fun arenaBattles(): List<Battle> =
+        when (arenaFilter) {
+            "open" -> publicBattles.filter { it.status == "open" }
+            "finished" -> publicBattles.filter { it.status in listOf("finished", "cancelled") }
+            else -> publicBattles.filter {
+                it.status in listOf("ready_to_plant", "planting", "growing", "judging")
+            }
+        }
+
+    private fun arenaFilterRow(): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(9), dp(5), dp(9), dp(2))
+            addView(arenaFilterButton("live", "LIVE"))
+            addView(arenaFilterButton("open", t("Набор").uppercase()))
+            addView(arenaFilterButton("finished", t("ЗАВЕРШЕННЫЕ")))
+        }
+
+    private fun arenaFilterButton(filter: String, label: String): View =
+        Button(this).apply {
+            text = label
+            textSize = 9f
+            setTextColor(if (arenaFilter == filter) Color.BLACK else white)
+            backgroundTintList = ColorStateList.valueOf(
+                if (arenaFilter == filter) green else surface2
+            )
+            minHeight = 0
+            minimumHeight = 0
+            setPadding(dp(2), 0, dp(2), 0)
+            setOnClickListener {
+                if (arenaFilter != filter) {
+                    arenaFilter = filter
+                    watchBattleIndex = 0
+                    showWatch()
+                }
+            }
+            layoutParams = LinearLayout.LayoutParams(0, dp(34), 1f).apply {
+                setMargins(dp(3), 0, dp(3), 0)
+            }
         }
 
     private fun battlePager(count: Int): View =
