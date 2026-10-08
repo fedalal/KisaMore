@@ -112,15 +112,6 @@ class MainActivity : Activity() {
             currentScreen = "home"
             showHome()
         })
-        navBar.addView(navButton("🌱", t("Моё растение")) {
-            stopAutoRefresh()
-            val battle = activeMyBattle()
-            if (battle == null) {
-                if (api.hasSession()) showNoBattle() else showLogin()
-            } else {
-                openBattle(battle, spectator = false)
-            }
-        })
         navBar.addView(navButton("👁", t("Арена")) {
             stopAutoRefresh()
             currentScreen = "watch"
@@ -213,104 +204,179 @@ class MainActivity : Activity() {
         currentScreen = "home"
         currentBattleId = null
 
-        val body = compactScreen()
-        body.addView(compactHeader("KISAMORE BATTLE", t("Настоящее растение. Ваши решения.")))
+        val active = activeMyBattle()
+        if (active == null) {
+            showEmptyHome()
+            return
+        }
 
-        val profile = game.profile()
+        val mine = active.entries.firstOrNull { it.isMine }
+        if (mine == null) {
+            showEmptyHome()
+            return
+        }
+
+        val body = compactScreen()
+
         body.addView(
-            compactStatStrip(
-                t("УРОВЕНЬ ") + profile.level,
-                profile.xp.toString() + " XP",
-                "🔥 " + profile.streak + t(" дн.")
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(8), dp(16), dp(7))
+
+                val copy = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(bigText(active.plantName, 22f).apply {
+                        maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = dayLabel(active)
+                        setTextColor(muted)
+                        textSize = 12f
+                    })
+                }
+                addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(statusPill(active.status))
+            }
+        )
+
+        body.addView(
+            shelfPhoto(active, compactPhotoHeight(), compact = true),
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
             )
         )
 
-        val active = activeMyBattle()
-        if (active != null) {
-            body.addView(
-                compactBattlePanel(
-                    active,
-                    label = t("МОЁ РАСТЕНИЕ"),
-                    actionLabel = t("ОТКРЫТЬ МОЁ РАСТЕНИЕ")
-                ) { openBattle(active, spectator = false) },
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                ).apply { setMargins(dp(12), dp(8), dp(12), dp(6)) }
-            )
+        body.addView(compactResources(active, mine))
+
+        if (active.status == "growing") {
+            body.addView(compactCommandRow(active, mine))
         } else {
-            val panel = compactCard().apply {
-                gravity = Gravity.CENTER_VERTICAL
-                addView(bigText(
-                    if (api.hasSession()) t("Выберите следующую битву 🌱")
-                    else t("Станьте игроком 🌱"),
-                    19f
-                ))
-                addView(smallText(
-                    if (api.hasSession()) t("У вас нет активной битвы")
-                    else t("Войдите, чтобы управлять растением")
-                ))
-                addView(compactPrimaryButton(
-                    if (api.hasSession()) t("СМОТРЕТЬ БИТВЫ") else t("ВОЙТИ")
-                ) {
-                    if (api.hasSession()) showWatch() else showLogin()
-                })
-            }
             body.addView(
-                panel,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                ).apply { setMargins(dp(12), dp(8), dp(12), dp(6)) }
+                TextView(this).apply {
+                    text = statusHuman(active.status)
+                    setTextColor(muted)
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setPadding(dp(12), dp(8), dp(12), dp(8))
+                }
             )
         }
 
-        val done = profile.missions.count { it.completed }
-        val mission = compactCard().apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(TextView(this@MainActivity).apply {
-                text = "✓"
-                textSize = 24f
-                setTextColor(if (done == profile.missions.size && profile.missions.isNotEmpty()) green else gold)
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(dp(42), dp(42)))
-            val copy = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(TextView(this@MainActivity).apply {
-                    text = t("ЗАДАНИЯ НА СЕГОДНЯ")
-                    setTextColor(white)
-                    textSize = 13f
-                    setTypeface(typeface, Typeface.BOLD)
+        body.addView(
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(dp(9), dp(3), dp(9), dp(5))
+
+                addView(homeSecondaryButton("🎬", t("Таймлапсы")) {
+                    showBattleDialog(t("ТАЙМЛАПС"), timelapseCard(active))
                 })
-                addView(TextView(this@MainActivity).apply {
-                    text = done.toString() + "/" + profile.missions.size + t(" заданий") +
-                        " · " + profile.missions.filterNot { it.completed }.sumOf { it.reward } + " XP"
-                    setTextColor(muted)
-                    textSize = 12f
+                addView(homeSecondaryButton("☰", t("СОБЫТИЯ")) {
+                    showBattleDialog(t("СОБЫТИЯ"), eventFeed(active))
                 })
             }
-            addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(TextView(this@MainActivity).apply {
-                text = "›"
-                textSize = 26f
-                setTextColor(muted)
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(dp(30), dp(42)))
-            setOnClickListener { showMissionsDialog(profile) }
-        }
-        body.addView(
-            mission,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(dp(12), 0, dp(12), dp(10)) }
         )
 
         showContent(body)
     }
+
+    private fun showEmptyHome() {
+        currentScreen = "home"
+        currentBattleId = null
+
+        val body = compactScreen()
+
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(22), dp(14), dp(22), dp(10))
+
+            addView(bigText(t("Выращивайте настоящее растение удалённо"), 24f).apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                maxLines = 2
+            })
+
+            addView(TextView(this@MainActivity).apply {
+                text = t("Выберите растение, управляйте уходом и наблюдайте за ростом вживую.")
+                setTextColor(muted)
+                textSize = 13f
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                setPadding(0, dp(7), 0, 0)
+            })
+        }
+        body.addView(hero)
+
+        val preview = publicBattles.firstOrNull { it.status == "growing" }
+            ?: publicBattles.firstOrNull { it.status == "open" }
+            ?: publicBattles.firstOrNull()
+
+        if (preview != null) {
+            body.addView(
+                shelfPhoto(preview, compactPhotoHeight(), compact = true),
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
+            )
+        } else {
+            body.addView(
+                TextView(this).apply {
+                    text = "🌱"
+                    textSize = 82f
+                    gravity = Gravity.CENTER
+                },
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
+            )
+        }
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(6), dp(14), dp(8))
+
+            addView(compactPrimaryButton(t("ВЫБРАТЬ РАСТЕНИЕ")) {
+                arenaFilter = "open"
+                watchBattleIndex = 0
+                showWatch()
+            })
+
+            addView(TextView(this@MainActivity).apply {
+                text = t("или смотреть текущие битвы")
+                setTextColor(muted)
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setPadding(0, dp(9), 0, dp(7))
+                setOnClickListener {
+                    arenaFilter = "live"
+                    watchBattleIndex = 0
+                    showWatch()
+                }
+            })
+        }
+        body.addView(actions)
+
+        showContent(body)
+    }
+
+    private fun homeSecondaryButton(icon: String, label: String, action: () -> Unit): View =
+        TextView(this).apply {
+            text = icon + " " + label
+            setTextColor(muted)
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setOnClickListener { action() }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
 
     private fun showWatch() {
         currentScreen = "watch"
