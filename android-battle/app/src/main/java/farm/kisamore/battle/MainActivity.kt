@@ -87,24 +87,6 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
-
-            // Keep app content below the system status bar on edge-to-edge
-            // devices. Add a small visual gap after the safe-area inset.
-            setOnApplyWindowInsetsListener { view, insets ->
-                val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    insets.getInsets(WindowInsets.Type.statusBars()).top
-                } else {
-                    @Suppress("DEPRECATION")
-                    insets.systemWindowInsetTop
-                }
-                view.setPadding(
-                    view.paddingLeft,
-                    topInset + dp(10),
-                    view.paddingRight,
-                    view.paddingBottom
-                )
-                insets
-            }
         }
 
         contentHost = FrameLayout(this).apply {
@@ -159,17 +141,29 @@ class MainActivity : Activity() {
             )
         )
 
-        // Android 15/16 enforces edge-to-edge drawing for modern target SDKs.
-        // Keep all app content below the status bar/cutout and above the
-        // gesture/navigation area instead of letting the header sit underneath
-        // system icons.
+        // Android 15/16 draws modern apps edge-to-edge. Respect the real
+        // status bar/cutout and navigation insets, then leave a small visual
+        // gap above the app header so it never touches the system icons.
         root.setOnApplyWindowInsetsListener { view, insets ->
-            view.setPadding(
-                insets.systemWindowInsetLeft,
-                insets.systemWindowInsetTop + dp(8),
-                insets.systemWindowInsetRight,
-                insets.systemWindowInsetBottom
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val safe = insets.getInsets(
+                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+                )
+                view.setPadding(
+                    safe.left,
+                    safe.top + dp(10),
+                    safe.right,
+                    safe.bottom
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                view.setPadding(
+                    insets.systemWindowInsetLeft,
+                    insets.systemWindowInsetTop + dp(10),
+                    insets.systemWindowInsetRight,
+                    insets.systemWindowInsetBottom
+                )
+            }
             insets
         }
 
