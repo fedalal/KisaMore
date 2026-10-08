@@ -56,6 +56,9 @@ async def get_state():
 
             rack_cfg = runtime.cfg.racks.get(str(r.rack_id)) if runtime.cfg else None
             camera_id = rack_cfg.camera_id if rack_cfg else None
+            camera_ids = list(rack_cfg.camera_ids or []) if rack_cfg else []
+            if camera_id and camera_id not in camera_ids:
+                camera_ids.insert(0, camera_id)
             camera_cfg = runtime.cfg.cameras.get(camera_id) if runtime.cfg and camera_id else None
 
             camera_device = camera_cfg.device if camera_cfg else (rack_cfg.camera_device if rack_cfg else None)
@@ -78,6 +81,7 @@ async def get_state():
                 soil_moisture=soil_moisture,
                 soil_temperature=soil_temperature,
                 camera_id=camera_id,
+                camera_ids=camera_ids,
                 camera_device=camera_device,
                 camera_flip_vertical=camera_flip_vertical,
                 camera_flip_horizontal=camera_flip_horizontal,
