@@ -1,0 +1,11 @@
+<en-US>
+Added nine interface languages: English, Russian, Chinese, German, French, Spanish, Italian, Portuguese and Polish.
+The app now follows the phone language on first launch and includes a manual language selector in Profile.
+Plant names and new-account language preferences follow the selected app language.
+</en-US>
+
+<ru-RU>
+Добавлены девять языков интерфейса: английский, русский, китайский, немецкий, французский, испанский, итальянский, португальский и польский.
+При первом запуске приложение использует язык телефона, а в профиле доступен ручной выбор языка.
+Названия растений и язык нового аккаунта теперь соответствуют выбранному языку приложения.
+</ru-RU>
