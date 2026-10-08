@@ -361,6 +361,7 @@ class MainActivity : Activity() {
                 )
             }
         })
+        form.addView(outlineButton("СОЗДАТЬ АККАУНТ") { showRegister() })
         form.addView(TextView(this).apply {
             text = appVersionLabel()
             setTextColor(muted)
@@ -368,6 +369,90 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, 0)
         })
+        body.addView(cardWithMargin(form))
+        showContent(scroll)
+    }
+
+    private fun showRegister() {
+        stopAutoRefresh()
+        currentScreen = "register"
+        currentBattleId = null
+
+        val scroll = screenScroll()
+        val body = scroll.getChildAt(0) as LinearLayout
+        body.addView(gameHeader("СОЗДАТЬ АККАУНТ", "Начните свою первую битву растений"))
+
+        val form = card()
+        val name = EditText(this).apply {
+            hint = "Имя"
+            setHintTextColor(muted)
+            setTextColor(white)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME
+            backgroundTintList = ColorStateList.valueOf(green)
+        }
+        val email = EditText(this).apply {
+            hint = "Email"
+            setHintTextColor(muted)
+            setTextColor(white)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            backgroundTintList = ColorStateList.valueOf(green)
+        }
+        val password = EditText(this).apply {
+            hint = "Пароль · минимум 5 символов"
+            setHintTextColor(muted)
+            setTextColor(white)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            backgroundTintList = ColorStateList.valueOf(green)
+        }
+        val confirmPassword = EditText(this).apply {
+            hint = "Повторите пароль"
+            setHintTextColor(muted)
+            setTextColor(white)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            backgroundTintList = ColorStateList.valueOf(green)
+        }
+
+        form.addView(name, matchWrap())
+        form.addView(email, matchWrap())
+        form.addView(password, matchWrap())
+        form.addView(confirmPassword, matchWrap())
+        form.addView(space(8))
+        form.addView(smallText("Создавая аккаунт, вы соглашаетесь на обработку данных, необходимую для работы KisaMore Battle."))
+        form.addView(outlineButton("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ") {
+            openPublicPage("/privacy")
+        })
+        form.addView(primaryButton("СОЗДАТЬ АККАУНТ") {
+            val displayName = name.text.toString().trim()
+            val emailValue = email.text.toString().trim()
+            val passwordValue = password.text.toString()
+            val confirmValue = confirmPassword.text.toString()
+
+            when {
+                displayName.isBlank() -> toast("Введите имя")
+                emailValue.isBlank() || !emailValue.contains("@") -> toast("Введите корректный email")
+                passwordValue.length < 5 -> toast("Пароль должен содержать минимум 5 символов")
+                passwordValue != confirmValue -> toast("Пароли не совпадают")
+                else -> {
+                    showLoading("Создаём аккаунт…")
+                    async(
+                        work = { api.register(displayName, emailValue, passwordValue, "ru") },
+                        success = {
+                            game.openToday()
+                            loadAll("home")
+                        }
+                    )
+                }
+            }
+        })
+        form.addView(outlineButton("УЖЕ ЕСТЬ АККАУНТ — ВОЙТИ") { showLogin() })
+        form.addView(TextView(this).apply {
+            text = appVersionLabel()
+            setTextColor(muted)
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, 0)
+        })
+
         body.addView(cardWithMargin(form))
         showContent(scroll)
     }
