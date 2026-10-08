@@ -281,12 +281,34 @@ class CameraCaptureService:
 
         return Path(archive_dir)
 
-    def _save_archive_file(self, jpeg: bytes, filename: str, rack_id: int):
+    @staticmethod
+    def _safe_camera_key(camera_id: str) -> str:
+        value = "".join(
+            ch if ch.isalnum() or ch in ("-", "_") else "_"
+            for ch in str(camera_id or "")
+        ).strip("_")
+        return value or "camera"
+
+    def _save_archive_file(
+        self,
+        jpeg: bytes,
+        filename: str,
+        rack_id: int,
+        camera_id: str,
+        *,
+        primary: bool,
+    ):
         if not runtime.cfg or not runtime.cfg.camera_capture.local_archive_enabled:
             return
 
         day = datetime.now().strftime("%Y-%m-%d")
-        archive_dir = self._archive_dir() / f"rack_{rack_id}" / day
+        camera_key = self._safe_camera_key(camera_id)
+        archive_dir = (
+            self._archive_dir()
+            / f"rack_{rack_id}"
+            / f"camera_{camera_key}"
+            / day
+        )
         archive_dir.mkdir(parents=True, exist_ok=True)
 
         path = archive_dir / filename
@@ -298,16 +320,41 @@ class CameraCaptureService:
         tmp_path = path.with_suffix(path.suffix + ".tmp")
         tmp_path.write_bytes(jpeg)
         tmp_path.replace(path)
-
         print(f"[camera-capture] saved archive {path}")
 
-    def _save_latest_file(self, jpeg: bytes, rack_id: int):
+        # Keep the historical primary-camera archive unchanged. Existing local
+        # and cloud timelapse code reads rack_N/YYYY-MM-DD/*.jpg.
+        if primary:
+            legacy_dir = self._archive_dir() / f"rack_{rack_id}" / day
+            legacy_dir.mkdir(parents=True, exist_ok=True)
+            legacy_path = legacy_dir / filename
+            legacy_tmp = legacy_path.with_suffix(legacy_path.suffix + ".tmp")
+            legacy_tmp.write_bytes(jpeg)
+            legacy_tmp.replace(legacy_path)
+
+    def _save_latest_file(
+        self,
+        jpeg: bytes,
+        rack_id: int,
+        camera_id: str,
+        *,
+        primary: bool,
+    ):
         latest_dir = Path(runtime.cfg.camera_capture.latest_dir or "data/camera_latest")
         latest_dir.mkdir(parents=True, exist_ok=True)
-        path = latest_dir / f"rack_{rack_id}.jpg"
+        camera_key = self._safe_camera_key(camera_id)
+        path = latest_dir / f"rack_{rack_id}__{camera_key}.jpg"
         tmp_path = path.with_suffix(".jpg.tmp")
         tmp_path.write_bytes(jpeg)
         tmp_path.replace(path)
+
+        # The legacy rack_N.jpg always points at the primary camera so every
+        # old consumer continues to work unchanged.
+        if primary:
+            legacy = latest_dir / f"rack_{rack_id}.jpg"
+            legacy_tmp = legacy.with_suffix(".jpg.tmp")
+            legacy_tmp.write_bytes(jpeg)
+            legacy_tmp.replace(legacy)
 
     async def _cleanup_archive_files(self):
         if not runtime.cfg or not runtime.cfg.camera_capture.local_archive_enabled:
@@ -373,48 +420,36 @@ class CameraCaptureService:
         night_capture: bool,
     ) -> None:
         cfg = runtime.cfg.camera_capture
-        camera_id = rack_cfg.camera_id or f"rack_{rack_id}_legacy"
-        camera_cfg = (
-            runtime.cfg.cameras.get(rack_cfg.camera_id)
-            if rack_cfg.camera_id
-            else None
-        )
 
-        if camera_cfg:
-            device = camera_cfg.device.strip()
-            flip_vertical = camera_cfg.flip_vertical
-            flip_horizontal = camera_cfg.flip_horizontal
-            warp_enabled = camera_cfg.warp_enabled
-            warp_points = camera_cfg.warp_points
-            autofocus_enabled = camera_cfg.autofocus_enabled
-            focus_absolute = camera_cfg.focus_absolute
-            white_balance_auto = camera_cfg.white_balance_auto
-            white_balance_temperature = camera_cfg.white_balance_temperature
-            brightness = camera_cfg.brightness
-            contrast = camera_cfg.contrast
-            saturation = camera_cfg.saturation
-            sharpness = camera_cfg.sharpness
-        else:
+        camera_ids = list(rack_cfg.camera_ids or [])
+        if rack_cfg.camera_id and rack_cfg.camera_id not in camera_ids:
+            camera_ids.insert(0, rack_cfg.camera_id)
+        if rack_cfg.camera_id and camera_ids and camera_ids[0] != rack_cfg.camera_id:
+            camera_ids = [rack_cfg.camera_id] + [
+                item for item in camera_ids if item != rack_cfg.camera_id
+            ]
+
+        camera_specs = []
+        for index, camera_id in enumerate(camera_ids):
+            camera_cfg = runtime.cfg.cameras.get(camera_id)
+            if camera_cfg is None:
+                print(
+                    f"[camera-capture] camera config missing: "
+                    f"rack={rack_id}, camera={camera_id}"
+                )
+                continue
+            camera_specs.append((camera_id, camera_cfg, index == 0))
+
+        # Full compatibility with a pre-camera-registry kisamore.yaml.
+        if not camera_specs:
             device = (rack_cfg.camera_device or "").strip()
-            flip_vertical = rack_cfg.camera_flip_vertical
-            flip_horizontal = rack_cfg.camera_flip_horizontal
-            warp_enabled = rack_cfg.camera_warp_enabled
-            warp_points = rack_cfg.camera_warp_points
-            autofocus_enabled = True
-            focus_absolute = None
-            white_balance_auto = True
-            white_balance_temperature = None
-            brightness = None
-            contrast = None
-            saturation = None
-            sharpness = None
-
-        if not device:
-            return
-
-        if not os.path.exists(device):
-            print(f"[camera-capture] camera not found: rack={rack_id}, device={device}")
-            return
+            if not device:
+                return
+            camera_specs.append((
+                f"rack_{rack_id}_legacy",
+                None,
+                True,
+            ))
 
         temporary_light = False
         try:
@@ -431,83 +466,138 @@ class CameraCaptureService:
                 if warmup > 0:
                     print(
                         f"[camera-capture] night rack={rack_id}: "
-                        f"waiting {warmup:.1f}s before frame"
+                        f"waiting {warmup:.1f}s before frames"
                     )
                     await asyncio.sleep(warmup)
 
-            saved_profile = (
-                runtime.camera_profiles.get(camera_id)
-                if runtime.camera_profiles
-                else None
-            )
-            frame_width, frame_height, pixel_format, fps = profile_format(
-                saved_profile,
-                default_width=default_width,
-                default_height=default_height,
-                default_pixelformat="MJPG",
-                default_fps=30,
-            )
-            saved_controls = profile_controls(saved_profile)
+            for camera_id, camera_cfg, primary in camera_specs:
+                if camera_cfg is not None:
+                    device = camera_cfg.device.strip()
+                    flip_vertical = camera_cfg.flip_vertical
+                    flip_horizontal = camera_cfg.flip_horizontal
+                    warp_enabled = camera_cfg.warp_enabled
+                    warp_points = camera_cfg.warp_points
+                    autofocus_enabled = camera_cfg.autofocus_enabled
+                    focus_absolute = camera_cfg.focus_absolute
+                    white_balance_auto = camera_cfg.white_balance_auto
+                    white_balance_temperature = camera_cfg.white_balance_temperature
+                    brightness = camera_cfg.brightness
+                    contrast = camera_cfg.contrast
+                    saturation = camera_cfg.saturation
+                    sharpness = camera_cfg.sharpness
+                else:
+                    device = (rack_cfg.camera_device or "").strip()
+                    flip_vertical = rack_cfg.camera_flip_vertical
+                    flip_horizontal = rack_cfg.camera_flip_horizontal
+                    warp_enabled = rack_cfg.camera_warp_enabled
+                    warp_points = rack_cfg.camera_warp_points
+                    autofocus_enabled = True
+                    focus_absolute = None
+                    white_balance_auto = True
+                    white_balance_temperature = None
+                    brightness = None
+                    contrast = None
+                    saturation = None
+                    sharpness = None
 
-            jpeg = await asyncio.to_thread(
-                capture_one_shot_jpeg,
-                device=device,
-                jpeg_quality=quality,
-                frame_width=frame_width,
-                frame_height=frame_height,
-                pixel_format=pixel_format,
-                fps=fps,
-                flip_vertical=flip_vertical,
-                flip_horizontal=flip_horizontal,
-                warp_enabled=warp_enabled,
-                warp_points=warp_points,
-                autofocus_enabled=autofocus_enabled,
-                focus_absolute=focus_absolute,
-                white_balance_auto=white_balance_auto,
-                white_balance_temperature=white_balance_temperature,
-                brightness=brightness,
-                contrast=contrast,
-                saturation=saturation,
-                sharpness=sharpness,
-                profile_controls=saved_controls or None,
-                focus_ramp=False,
-            )
+                if not device:
+                    continue
+                if not os.path.exists(device):
+                    print(
+                        f"[camera-capture] camera not found: rack={rack_id}, "
+                        f"camera={camera_id}, device={device}"
+                    )
+                    continue
 
-            if not jpeg:
-                print(
-                    f"[camera-capture] no high-resolution frame: "
-                    f"rack={rack_id}, device={device}"
+                saved_profile = (
+                    runtime.camera_profiles.get(camera_id)
+                    if runtime.camera_profiles
+                    else None
                 )
-                return
+                frame_width, frame_height, pixel_format, fps = profile_format(
+                    saved_profile,
+                    default_width=default_width,
+                    default_height=default_height,
+                    default_pixelformat="MJPG",
+                    default_fps=30,
+                )
+                saved_controls = profile_controls(saved_profile)
 
-            now = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"rack_{rack_id}_{now}.jpg"
+                jpeg = await asyncio.to_thread(
+                    capture_one_shot_jpeg,
+                    device=device,
+                    jpeg_quality=quality,
+                    frame_width=frame_width,
+                    frame_height=frame_height,
+                    pixel_format=pixel_format,
+                    fps=fps,
+                    flip_vertical=flip_vertical,
+                    flip_horizontal=flip_horizontal,
+                    warp_enabled=warp_enabled,
+                    warp_points=warp_points,
+                    autofocus_enabled=autofocus_enabled,
+                    focus_absolute=focus_absolute,
+                    white_balance_auto=white_balance_auto,
+                    white_balance_temperature=white_balance_temperature,
+                    brightness=brightness,
+                    contrast=contrast,
+                    saturation=saturation,
+                    sharpness=sharpness,
+                    profile_controls=saved_controls or None,
+                    focus_ramp=False,
+                )
 
-            self._save_latest_file(jpeg, rack_id)
-            self._save_archive_file(jpeg, filename, rack_id)
+                if not jpeg:
+                    print(
+                        f"[camera-capture] no high-resolution frame: "
+                        f"rack={rack_id}, camera={camera_id}, device={device}"
+                    )
+                    continue
 
-            print(
-                f"[camera-capture] frame saved: rack={rack_id}, camera={camera_id}, "
-                f"mode={'night-assisted' if night_capture else 'normal'}, "
-                f"profile={'saved' if saved_profile else 'yaml-fallback'}, "
-                f"requested={frame_width}x{frame_height} {pixel_format}@{fps}, "
-                f"bytes={len(jpeg)}"
-            )
+                now = datetime.now().strftime("%Y%m%d_%H%M%S")
+                camera_key = self._safe_camera_key(camera_id)
+                filename = (
+                    f"rack_{rack_id}_{now}.jpg"
+                    if primary
+                    else f"rack_{rack_id}_{camera_key}_{now}.jpg"
+                )
 
-            if uploader is None:
-                return
-
-            try:
-                result = await asyncio.to_thread(
-                    uploader.upload_jpeg_bytes,
+                self._save_latest_file(
+                    jpeg,
+                    rack_id,
+                    camera_id,
+                    primary=primary,
+                )
+                self._save_archive_file(
                     jpeg,
                     filename,
+                    rack_id,
+                    camera_id,
+                    primary=primary,
                 )
-                print(f"[camera-capture] uploaded {filename}: {result}")
 
-            except Exception as e:
-                self._reset_uploader()
-                self._save_pending_file(jpeg, filename, f"upload failed: {e}")
+                print(
+                    f"[camera-capture] frame saved: rack={rack_id}, "
+                    f"camera={camera_id}, primary={primary}, "
+                    f"mode={'night-assisted' if night_capture else 'normal'}, "
+                    f"profile={'saved' if saved_profile else 'yaml-fallback'}, "
+                    f"requested={frame_width}x{frame_height} {pixel_format}@{fps}, "
+                    f"bytes={len(jpeg)}"
+                )
+
+                if uploader is None:
+                    continue
+
+                try:
+                    result = await asyncio.to_thread(
+                        uploader.upload_jpeg_bytes,
+                        jpeg,
+                        filename,
+                    )
+                    print(f"[camera-capture] uploaded {filename}: {result}")
+                except Exception as e:
+                    self._reset_uploader()
+                    self._save_pending_file(jpeg, filename, f"upload failed: {e}")
 
         finally:
             if temporary_light:
@@ -516,11 +606,7 @@ class CameraCaptureService:
                     try:
                         await asyncio.sleep(after)
                     except asyncio.CancelledError:
-                        # Still restore the relay below before shutdown.
                         pass
-
-                # Shield the restore so service shutdown/cancellation cannot
-                # leave a temporary grow-light pulse permanently ON.
                 await asyncio.shield(self._restore_temporary_light(rack_id))
 
     async def _capture_once(self):
