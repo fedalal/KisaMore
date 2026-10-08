@@ -23,7 +23,7 @@ Native Android client for KisaMore Plant Battle.
 - minSdk: 26
 - compileSdk: 36
 - targetSdk: 36
-- current version: 0.4.2 (versionCode 10)
+- current version: 0.4.3 (versionCode 11)
 
 Google Play publication material is in:
 `../google-play/`
@@ -50,3 +50,10 @@ For a signed Google Play AAB, use the GitHub Actions workflow:
 
 Signing credentials are read only from environment variables / GitHub Actions secrets.
 See `../google-play/signing-setup.md`.
+
+
+## Languages
+
+The Android client supports English, Russian, Chinese, German, French, Spanish,
+Italian, Portuguese and Polish. English is the default fallback; the device language
+is selected automatically on first launch and can be changed from Profile.
