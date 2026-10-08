@@ -285,9 +285,14 @@ async function loadRackPhotos() {
       const photo = item.photo_url
         ? `<a class="camera-image-link" href="${esc(item.photo_url)}" target="_blank" rel="noopener"><img class="camera-image" src="${esc(item.photo_url)}?t=${encodeURIComponent(item.updated_at || Date.now())}" alt="Полка ${esc(item.rack_id)}"></a>`
         : `<div class="camera-empty">Фото ещё не получено</div>`;
+      const cameraLabel = item.camera_name || item.camera_id || "Основная камера";
+      const primaryLabel = item.is_primary ? " · основная" : " · дополнительная";
       return `<article class="camera-card">
         <div class="camera-card-head">
-          <div><h3>Полка ${esc(item.rack_id)}</h3><div class="username">${esc(item.device_name || item.device_id)}</div></div>
+          <div>
+            <h3>Полка ${esc(item.rack_id)} · ${esc(cameraLabel)}</h3>
+            <div class="username">${esc(item.device_name || item.device_id)}${esc(primaryLabel)}</div>
+          </div>
           <span class="badge ${item.has_photo ? "green" : ""}">${item.has_photo ? "Фото получено" : "Нет фото"}</span>
         </div>
         ${photo}
