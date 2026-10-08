@@ -58,7 +58,7 @@ def _get_camera_by_id(camera_id: str) -> CameraHW:
     return cam
 
 
-def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
+def _camera_ids_for_rack(rack_id: int) -> list[str]:
     if not runtime.cfg:
         raise HTTPException(status_code=503, detail="Конфигурация ещё не загружена")
 
@@ -66,12 +66,32 @@ def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
     if not rack_cfg:
         raise HTTPException(status_code=404, detail=f"Полка не найдена: {rack_id}")
 
-    if rack_cfg.camera_id:
-        cam = runtime.cfg.cameras.get(rack_cfg.camera_id)
+    result = list(rack_cfg.camera_ids or [])
+    if rack_cfg.camera_id and rack_cfg.camera_id not in result:
+        result.insert(0, rack_cfg.camera_id)
+    if rack_cfg.camera_id and result and result[0] != rack_cfg.camera_id:
+        result = [rack_cfg.camera_id] + [item for item in result if item != rack_cfg.camera_id]
+    return result
+
+
+def _get_cameras_by_rack(rack_id: int) -> list[tuple[str, CameraHW]]:
+    if not runtime.cfg:
+        raise HTTPException(status_code=503, detail="Конфигурация ещё не загружена")
+
+    rack_cfg = runtime.cfg.racks.get(str(rack_id))
+    if not rack_cfg:
+        raise HTTPException(status_code=404, detail=f"Полка не найдена: {rack_id}")
+
+    result: list[tuple[str, CameraHW]] = []
+    for camera_id in _camera_ids_for_rack(rack_id):
+        cam = runtime.cfg.cameras.get(camera_id)
         if not cam:
-            raise HTTPException(status_code=404, detail=f"Камера полки не найдена: {rack_cfg.camera_id}")
+            raise HTTPException(status_code=404, detail=f"Камера полки не найдена: {camera_id}")
         _validate_device(cam.device)
-        return rack_cfg.camera_id, cam
+        result.append((camera_id, cam))
+
+    if result:
+        return result
 
     # Совместимость со старым config/kisamore.yaml.
     device = (rack_cfg.camera_device or "").strip()
@@ -79,14 +99,32 @@ def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
         raise HTTPException(status_code=404, detail="Для этой полки web камера не указана")
 
     _validate_device(device)
-    return f"rack_{rack_id}_legacy", CameraHW(
-        name=f"Камера полки {rack_id}",
-        device=device,
-        flip_vertical=rack_cfg.camera_flip_vertical,
-        flip_horizontal=rack_cfg.camera_flip_horizontal,
-        warp_enabled=rack_cfg.camera_warp_enabled,
-        warp_points=rack_cfg.camera_warp_points,
-    )
+    return [(
+        f"rack_{rack_id}_legacy",
+        CameraHW(
+            name=f"Камера полки {rack_id}",
+            device=device,
+            flip_vertical=rack_cfg.camera_flip_vertical,
+            flip_horizontal=rack_cfg.camera_flip_horizontal,
+            warp_enabled=rack_cfg.camera_warp_enabled,
+            warp_points=rack_cfg.camera_warp_points,
+        ),
+    )]
+
+
+def _get_camera_by_rack(rack_id: int) -> tuple[str, CameraHW]:
+    return _get_cameras_by_rack(rack_id)[0]
+
+
+def _get_assigned_camera(rack_id: int, camera_id: str) -> CameraHW:
+    cameras = dict(_get_cameras_by_rack(rack_id))
+    cam = cameras.get(camera_id)
+    if cam is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Камера {camera_id} не привязана к полке {rack_id}",
+        )
+    return cam
 
 
 def _capture_camera_frame(camera_id: str, cam: CameraHW, *, corrected: bool) -> bytes:
@@ -141,6 +179,18 @@ def rack_camera_frame(
     return _jpeg_response(_capture_camera_frame(camera_id, cam, corrected=True))
 
 
+@router.get("/rack/{rack_id}/cameras/{camera_id}/frame")
+def rack_named_camera_frame(
+    rack_id: int,
+    camera_id: str,
+    corrected: bool = Query(default=True),
+    t: int | None = Query(default=None),
+):
+    _ = t
+    cam = _get_assigned_camera(rack_id, camera_id)
+    return _jpeg_response(_capture_camera_frame(camera_id, cam, corrected=corrected))
+
+
 @router.get("/camera/{camera_id}/frame")
 def camera_frame(
     camera_id: str,
@@ -170,14 +220,41 @@ def camera_stream_disabled(camera_id: str):
     )
 
 
+@router.get("/rack/{rack_id}/cameras")
+async def rack_cameras(rack_id: int):
+    rows = []
+    cameras = _get_cameras_by_rack(rack_id)
+    for index, (camera_id, cam) in enumerate(cameras):
+        frame_width, frame_height, pixel_format, fps, saved_controls = _capture_settings(camera_id)
+        rows.append({
+            "rack_id": rack_id,
+            "camera_id": camera_id,
+            "camera_name": cam.name,
+            "camera_device": cam.device,
+            "primary": index == 0,
+            "camera_flip_vertical": cam.flip_vertical,
+            "camera_flip_horizontal": cam.flip_horizontal,
+            "camera_warp_enabled": cam.warp_enabled,
+            "camera_warp_points": cam.warp_points,
+            "frame_width": frame_width,
+            "frame_height": frame_height,
+            "pixel_format": pixel_format,
+            "fps": fps,
+            "profile_loaded": bool(saved_controls),
+        })
+    return rows
+
+
 @router.get("/rack/{rack_id}/camera/info")
 async def rack_camera_info(rack_id: int):
     camera_id, cam = _get_camera_by_rack(rack_id)
     frame_width, frame_height, pixel_format, fps, saved_controls = _capture_settings(camera_id)
+    all_camera_ids = [item[0] for item in _get_cameras_by_rack(rack_id)]
 
     return {
         "rack_id": rack_id,
         "camera_id": camera_id,
+        "camera_ids": all_camera_ids,
         "camera_name": cam.name,
         "camera_device": cam.device,
         "camera_flip_vertical": cam.flip_vertical,
