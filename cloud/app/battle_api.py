@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
-from .models import Device, Farm, Plant, User
+from .models import Device, Farm, Plant, RackCameraPhoto, User
 from .security import get_current_user, get_session
 from .config import get_settings
 from .telegram_link import create_telegram_link_token, linked_telegram_user
@@ -52,6 +52,34 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
             .limit(1)
         )
     ).scalar_one_or_none() or "demo-farm"
+    camera_rows = list(
+        (
+            await session.execute(
+                select(RackCameraPhoto)
+                .where(
+                    RackCameraPhoto.device_id == battle.device_id,
+                    RackCameraPhoto.rack_id == battle.rack_id,
+                )
+                .order_by(
+                    RackCameraPhoto.is_primary.desc(),
+                    RackCameraPhoto.camera_id,
+                )
+            )
+        ).scalars().all()
+    )
+    camera_views = [
+        {
+            "camera_id": item.camera_id,
+            "primary": bool(item.is_primary),
+            "captured_at": item.captured_at,
+            "photo_url": (
+                f"/api/v1/public/farms/{farm_slug}/racks/{battle.rack_id}/"
+                f"cameras/{item.camera_id}/photo"
+            ),
+        }
+        for item in camera_rows
+    ]
+
     entries = list(
         (
             await session.execute(
@@ -148,6 +176,7 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "grow_days": plant.grow_days if plant else None,
         "farm_slug": farm_slug,
         "rack_photo_url": f"/api/v1/public/farms/{farm_slug}/racks/{battle.rack_id}/photo",
+        "camera_views": camera_views,
         "entry_price_kisa": battle.entry_price_kisa,
         "max_entries": battle.max_entries,
         "entries_count": len([item for item in entries if item.status in ("active", "finished")]),
