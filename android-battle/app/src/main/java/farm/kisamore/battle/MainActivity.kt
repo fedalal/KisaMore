@@ -450,13 +450,31 @@ class MainActivity : Activity() {
         val actions = GridLayout(this).apply {
             columnCount = 2
             rowCount = 2
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+            useDefaultMargins = false
             setPadding(dp(9), dp(2), dp(9), dp(2))
         }
-        actions.addView(profileActionButton("🌐", AppLanguage.displayName(language.code)) { showLanguageDialog() })
-        actions.addView(profileActionButton("🔒", t("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ")) { openPublicPage("/privacy") })
+
+        fun addProfileAction(index: Int, icon: String, label: String, action: () -> Unit) {
+            val row = index / 2
+            val column = index % 2
+            val button = profileActionButton(icon, label, action)
+            button.layoutParams = GridLayout.LayoutParams(
+                GridLayout.spec(row, 1f),
+                GridLayout.spec(column, 1f)
+            ).apply {
+                width = 0
+                height = 0
+                setMargins(dp(4), dp(4), dp(4), dp(4))
+            }
+            actions.addView(button)
+        }
+
+        addProfileAction(0, "🌐", AppLanguage.displayName(language.code)) { showLanguageDialog() }
+        addProfileAction(1, "🔒", t("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ")) { openPublicPage("/privacy") }
         if (api.hasSession()) {
-            actions.addView(profileActionButton("🗑", t("УДАЛИТЬ АККАУНТ И ДАННЫЕ")) { openPublicPage("/delete-account") })
-            actions.addView(profileActionButton("↪", t("ВЫЙТИ")) {
+            addProfileAction(2, "🗑", t("УДАЛИТЬ АККАУНТ И ДАННЫЕ")) { openPublicPage("/delete-account") }
+            addProfileAction(3, "↪", t("ВЫЙТИ")) {
                 async(
                     work = { api.logout(); true },
                     success = {
@@ -464,10 +482,10 @@ class MainActivity : Activity() {
                         showHome()
                     }
                 )
-            })
+            }
         } else {
-            actions.addView(profileActionButton("🌱", t("СОЗДАТЬ АККАУНТ")) { showRegister() })
-            actions.addView(profileActionButton("→", t("ВОЙТИ")) { showLogin() })
+            addProfileAction(2, "🌱", t("СОЗДАТЬ АККАУНТ")) { showRegister() }
+            addProfileAction(3, "→", t("ВОЙТИ")) { showLogin() }
         }
         body.addView(
             actions,
@@ -1725,22 +1743,20 @@ class MainActivity : Activity() {
             })
         }
 
-    private fun profileActionButton(icon: String, label: String, action: () -> Unit): View =
+    private fun profileActionButton(icon: String, label: String, action: () -> Unit): Button =
         Button(this).apply {
             text = icon + "\n" + label
             textSize = 10f
             maxLines = 2
+            gravity = Gravity.CENTER
             setTextColor(white)
             backgroundTintList = ColorStateList.valueOf(surface2)
             minHeight = 0
             minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(dp(8), dp(4), dp(8), dp(4))
             setOnClickListener { action() }
-            layoutParams = GridLayout.LayoutParams().apply {
-                width = 0
-                height = dp(68)
-                columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                setMargins(dp(3), dp(3), dp(3), dp(3))
-            }
         }
 
     private fun showBattleDialog(title: String, content: View) {
