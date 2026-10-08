@@ -136,7 +136,7 @@ class CloudSyncService:
         self._stop_event = asyncio.Event()
         self._send_lock = asyncio.Lock()
         self._settings: CloudSyncSettings | None = None
-        self._uploaded_photo_mtimes: dict[int, int] = {}
+        self._uploaded_photo_mtimes: dict[str, int] = {}
         self._inventory_baseline: dict | None = None
         self._inventory_pending: dict | None = None
         self._inventory_ack_id: str | None = None
@@ -967,7 +967,14 @@ class CloudSyncService:
         self._acknowledge_inventory(payload)
         return len(payload.get("assignments", []))
 
-    def _send_photo_blocking(self, rack_id: int, path: Path, captured_at: str) -> None:
+    def _send_photo_blocking(
+        self,
+        rack_id: int,
+        camera_id: str,
+        is_primary: bool,
+        path: Path,
+        captured_at: str,
+    ) -> None:
         assert self._settings is not None
         headers = (
             f"Authorization: Bearer {self._settings.device_token}\n"
@@ -995,6 +1002,10 @@ class CloudSyncService:
             f"photo=@{path};type=image/jpeg",
             "--form",
             f"captured_at={captured_at}",
+            "--form",
+            f"camera_id={camera_id}",
+            "--form",
+            f"is_primary={'true' if is_primary else 'false'}",
             "--output",
             os.devnull,
             "--write-out",
@@ -1025,23 +1036,60 @@ class CloudSyncService:
     async def _send_changed_photos(self) -> int:
         if not runtime.cfg or not runtime.cfg.camera_capture.enabled:
             return 0
+
         latest_dir = Path(runtime.cfg.camera_capture.latest_dir or "data/camera_latest")
         sent = 0
         for rack_id in range(1, runtime.cfg.racks_count + 1):
-            path = latest_dir / f"rack_{rack_id}.jpg"
-            try:
-                stat = path.stat()
-            except FileNotFoundError:
+            rack_cfg = runtime.cfg.racks.get(str(rack_id))
+            if rack_cfg is None:
                 continue
-            mtime_ns = stat.st_mtime_ns
-            if self._uploaded_photo_mtimes.get(rack_id) == mtime_ns:
-                continue
-            captured_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
-            await asyncio.to_thread(
-                self._send_photo_blocking, rack_id, path, captured_at
-            )
-            self._uploaded_photo_mtimes[rack_id] = mtime_ns
-            sent += 1
+
+            camera_ids = list(rack_cfg.camera_ids or [])
+            if rack_cfg.camera_id and rack_cfg.camera_id not in camera_ids:
+                camera_ids.insert(0, rack_cfg.camera_id)
+            if rack_cfg.camera_id and camera_ids and camera_ids[0] != rack_cfg.camera_id:
+                camera_ids = [rack_cfg.camera_id] + [
+                    item for item in camera_ids if item != rack_cfg.camera_id
+                ]
+
+            if not camera_ids:
+                # Old config without camera registry: keep the previous transport.
+                camera_ids = [f"rack_{rack_id}_legacy"]
+
+            for index, camera_id in enumerate(camera_ids):
+                is_primary = index == 0
+                camera_key = "".join(
+                    ch if ch.isalnum() or ch in ("-", "_") else "_"
+                    for ch in str(camera_id)
+                ).strip("_") or "camera"
+                path = latest_dir / f"rack_{rack_id}__{camera_key}.jpg"
+                if is_primary and not path.is_file():
+                    path = latest_dir / f"rack_{rack_id}.jpg"
+
+                try:
+                    stat = path.stat()
+                except FileNotFoundError:
+                    continue
+
+                upload_key = f"{rack_id}:{camera_id}"
+                mtime_ns = stat.st_mtime_ns
+                if self._uploaded_photo_mtimes.get(upload_key) == mtime_ns:
+                    continue
+
+                captured_at = datetime.fromtimestamp(
+                    stat.st_mtime,
+                    tz=timezone.utc,
+                ).isoformat()
+                await asyncio.to_thread(
+                    self._send_photo_blocking,
+                    rack_id,
+                    camera_id,
+                    is_primary,
+                    path,
+                    captured_at,
+                )
+                self._uploaded_photo_mtimes[upload_key] = mtime_ns
+                sent += 1
         return sent
 
     async def _run(self) -> None:
