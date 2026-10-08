@@ -42,6 +42,14 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q app cloud/app
 
+      - name: Check camera JavaScript syntax
+        run: |
+          node --check app/static/app.js
+          node --check app/static/camera_frames.js
+          node --check app/static/cameras.js
+          node --check cloud/app/static/admin.js
+          node --check cloud/app/static/battle_site.js
+
       - name: Multi-camera tests
         env:
           PYTHONPATH: .
