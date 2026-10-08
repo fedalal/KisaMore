@@ -12,6 +12,7 @@ import java.net.URL
 class ApiException(message: String, val statusCode: Int = 0) : IOException(message)
 
 class ApiClient(context: Context) {
+    private val appContext = context.applicationContext
     private val prefs = context.getSharedPreferences("kisamore_battle_api", Context.MODE_PRIVATE)
 
     companion object {
@@ -93,6 +94,11 @@ class ApiClient(context: Context) {
         runCatching { request("POST", "/api/v1/auth/logout") }
         sessionCookie = null
         currentUser = null
+    }
+
+    fun updateLanguage(language: String) {
+        val payload = JSONObject().put("language", language)
+        request("PATCH", "/api/v1/auth/me/language", payload.toString())
     }
 
     fun publicBattles(): List<Battle> =
@@ -235,6 +241,15 @@ class ApiClient(context: Context) {
         for (i in 0 until array.length()) add(parseBattle(array.getJSONObject(i)))
     }
 
+    private fun localizedPlantName(obj: JSONObject): String {
+        val names = obj.optJSONObject("plant_names")
+        val code = AppLanguage.currentCode(appContext)
+        return names?.optString(code)?.takeIf { it.isNotBlank() }
+            ?: names?.optString("en")?.takeIf { it.isNotBlank() }
+            ?: names?.optString("ru")?.takeIf { it.isNotBlank() }
+            ?: obj.optString("plant_name", "Plant")
+    }
+
     private fun parseBattle(obj: JSONObject): Battle {
         val entriesJson = obj.optJSONArray("entries") ?: JSONArray()
         val entries = buildList {
@@ -287,7 +302,7 @@ class ApiClient(context: Context) {
             title = obj.optString("title", "Plant Battle"),
             status = obj.optString("status"),
             rackId = obj.optInt("rack_id"),
-            plantName = obj.optString("plant_name", "Plant"),
+            plantName = localizedPlantName(obj),
             growDays = obj.optInt("grow_days"),
             rackPhotoUrl = obj.nullableString("rack_photo_url"),
             waterBudgetMl = obj.optInt("water_budget_ml"),
