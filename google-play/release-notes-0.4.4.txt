@@ -1,0 +1,7 @@
+<en-US>
+Added multiple camera views for plant battles. Players can switch between the primary rack camera and additional camera angles.
+</en-US>
+
+<ru-RU>
+Добавлена поддержка нескольких камер в Битве растений. Теперь можно переключаться между основной камерой полки и дополнительными ракурсами.
+</ru-RU>
