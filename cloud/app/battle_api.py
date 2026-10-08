@@ -161,6 +161,8 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "shade_budget_minutes": battle.shade_budget_minutes,
         "winner_reward_kisa": battle.winner_reward_kisa,
         "winner_entry_id": battle.winner_entry_id,
+        "start_date": battle.start_date,
+        "end_date": battle.end_date,
         "created_at": battle.created_at,
         "filled_at": battle.filled_at,
         "planted_at": battle.planted_at,
