@@ -430,7 +430,7 @@ class CameraCaptureService:
             ]
 
         camera_specs = []
-        for index, camera_id in enumerate(camera_ids):
+        for camera_id in camera_ids:
             camera_cfg = runtime.cfg.cameras.get(camera_id)
             if camera_cfg is None:
                 print(
@@ -438,7 +438,7 @@ class CameraCaptureService:
                     f"rack={rack_id}, camera={camera_id}"
                 )
                 continue
-            camera_specs.append((camera_id, camera_cfg, index == 0))
+            camera_specs.append((camera_id, camera_cfg, not camera_specs))
 
         # Full compatibility with a pre-camera-registry kisamore.yaml.
         if not camera_specs:
