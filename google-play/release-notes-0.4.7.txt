@@ -1,0 +1,3 @@
+<en-US>
+Improved screen spacing on modern Android devices. The interface now respects the status bar, display cutouts and navigation area, keeping headers and controls clear of system UI.
+</en-US>
