@@ -25,7 +25,9 @@ router = APIRouter(prefix="/api/v1", tags=["plant-battles"])
 
 
 class JoinBattleIn(BaseModel):
-    quantity: int = Field(default=1, ge=1, le=6)
+    # Kept in the payload for backward compatibility with existing clients,
+    # but a user may own only one plant in a battle.
+    quantity: int = Field(default=1, ge=1, le=1)
 
 
 class BattleActionIn(BaseModel):
@@ -500,6 +502,23 @@ async def join_battle(
         raise HTTPException(status_code=404, detail="Battle not found")
     if battle.status != "open":
         raise HTTPException(status_code=409, detail="Battle is no longer accepting entries")
+
+    existing_entry = (
+        await session.execute(
+            select(PlantBattleEntry)
+            .where(
+                PlantBattleEntry.battle_id == battle.id,
+                PlantBattleEntry.user_id == user.id,
+                PlantBattleEntry.status.in_(("active", "finished")),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing_entry is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="You already own a plant in this battle",
+        )
 
     telegram_user = (
         await session.execute(
