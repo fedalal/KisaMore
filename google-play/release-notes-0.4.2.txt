@@ -1,0 +1,9 @@
+<en-US>
+Added in-app KisaMore account registration with display name, email and password.
+Added direct access to the privacy policy during registration.
+</en-US>
+
+<ru-RU>
+Добавлена регистрация аккаунта KisaMore прямо в приложении по имени, email и паролю.
+Добавлена ссылка на политику конфиденциальности во время регистрации.
+</ru-RU>
