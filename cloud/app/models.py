@@ -124,6 +124,22 @@ class RackPhoto(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RackCameraPhoto(Base):
+    __tablename__ = "rack_camera_photos"
+    __table_args__ = (UniqueConstraint("device_id", "rack_id", "camera_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"), index=True, nullable=False)
+    rack_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    camera_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    file_path: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(String(40), default="image/jpeg", nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Planting(Base):
     __tablename__ = "plantings"
 
