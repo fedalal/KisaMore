@@ -33,6 +33,7 @@ import kotlin.math.max
 class MainActivity : Activity() {
     private lateinit var api: ApiClient
     private lateinit var game: GameStore
+    private lateinit var language: AppLanguage
     private lateinit var contentHost: FrameLayout
     private lateinit var navBar: LinearLayout
 
@@ -63,6 +64,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        language = AppLanguage(applicationContext)
         api = ApiClient(applicationContext)
         game = GameStore(applicationContext)
         game.openToday()
@@ -100,12 +102,12 @@ class MainActivity : Activity() {
             setBackgroundColor(surface)
         }
 
-        navBar.addView(navButton("🏠", "Главная") {
+        navBar.addView(navButton("🏠", t("Главная")) {
             stopAutoRefresh()
             currentScreen = "home"
             showHome()
         })
-        navBar.addView(navButton("🌱", "Моя битва") {
+        navBar.addView(navButton("🌱", t("Моя битва")) {
             stopAutoRefresh()
             val battle = activeMyBattle()
             if (battle == null) {
@@ -114,12 +116,12 @@ class MainActivity : Activity() {
                 openBattle(battle)
             }
         })
-        navBar.addView(navButton("👁", "Смотреть") {
+        navBar.addView(navButton("👁", t("Смотреть")) {
             stopAutoRefresh()
             currentScreen = "watch"
             showWatch()
         })
-        navBar.addView(navButton("🏅", "Профиль") {
+        navBar.addView(navButton("🏅", t("Профиль")) {
             stopAutoRefresh()
             currentScreen = "profile"
             showProfile()
@@ -149,7 +151,7 @@ class MainActivity : Activity() {
 
     private fun loadAll(target: String) {
         currentScreen = target
-        showLoading("Подключаемся к теплице…")
+        showLoading(t("Подключаемся к теплице…"))
         async(
             work = {
                 val pub = api.publicBattles()
@@ -179,34 +181,34 @@ class MainActivity : Activity() {
         currentBattleId = null
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("KISAMORE BATTLE", "Настоящее растение. Ваши решения."))
+        body.addView(gameHeader("KISAMORE BATTLE", t("Настоящее растение. Ваши решения.")))
 
         val profile = game.profile()
         body.addView(
             statStrip(
                 "LEVEL " + profile.level,
                 profile.xp.toString() + " XP",
-                "🔥 " + profile.streak + " дн."
+                "🔥 " + profile.streak + t(" дн.")
             )
         )
 
         val active = activeMyBattle()
         if (active != null) {
-            body.addView(sectionTitle("ВАША БИТВА", "Продолжить игру"))
+            body.addView(sectionTitle(t("ВАША БИТВА"), t("Продолжить игру")))
             body.addView(battleHeroCard(active, true))
         } else {
-            body.addView(sectionTitle("СЕЙЧАС", if (api.hasSession()) "У вас нет активной битвы" else "Войдите, чтобы управлять растением"))
+            body.addView(sectionTitle(t("СЕЙЧАС"), if (api.hasSession()) t("У вас нет активной битвы") else t("Войдите, чтобы управлять растением")))
             val card = card()
-            card.addView(bigText(if (api.hasSession()) "Выберите следующую битву 🌱" else "Станьте игроком 🌱"))
+            card.addView(bigText(if (api.hasSession()) t("Выберите следующую битву 🌱") else t("Станьте игроком 🌱")))
             card.addView(
                 smallText(
                     if (api.hasSession())
-                        "Пока можно наблюдать за другими участниками, смотреть таймлапсы и делать прогнозы."
+                        t("Пока можно наблюдать за другими участниками, смотреть таймлапсы и делать прогнозы.")
                     else
-                        "Участник получает настоящее растение и ограниченный запас воды, питания и времени без света."
+                        t("Участник получает настоящее растение и ограниченный запас воды, питания и времени без света.")
                 )
             )
-            card.addView(primaryButton(if (api.hasSession()) "СМОТРЕТЬ БИТВЫ" else "ВОЙТИ В ИГРУ") {
+            card.addView(primaryButton(if (api.hasSession()) t("СМОТРЕТЬ БИТВЫ") else t("ВОЙТИ В ИГРУ")) {
                 if (api.hasSession()) {
                     currentScreen = "watch"
                     showWatch()
@@ -217,21 +219,21 @@ class MainActivity : Activity() {
             body.addView(cardWithMargin(card))
         }
 
-        body.addView(sectionTitle("ЗАДАНИЯ НА СЕГОДНЯ", "Короткие действия дают XP"))
+        body.addView(sectionTitle(t("ЗАДАНИЯ НА СЕГОДНЯ"), t("Короткие действия дают XP")))
         body.addView(missionsCard(profile))
 
         val live = publicBattles.firstOrNull { it.status in listOf("growing", "judging", "planting") }
         if (live != null && live.id != active?.id) {
-            body.addView(sectionTitle("LIVE", "За этой битвой можно следить прямо сейчас"))
+            body.addView(sectionTitle("LIVE", t("За этой битвой можно следить прямо сейчас")))
             body.addView(battleHeroCard(live, false))
         }
 
-        body.addView(sectionTitle("ЗАЧЕМ ВОЗВРАЩАТЬСЯ", "Игра продолжается, пока растение растёт"))
+        body.addView(sectionTitle(t("ЗАЧЕМ ВОЗВРАЩАТЬСЯ"), t("Игра продолжается, пока растение растёт")))
         val info = card()
-        info.addView(infoLine("📸", "Новое фото", "Смотрите изменения всей полки каждый день"))
-        info.addView(infoLine("🎯", "Прогнозы", "Угадайте победителя раньше остальных"))
-        info.addView(infoLine("🎬", "Таймлапсы", "Несколько дней роста за несколько секунд"))
-        info.addView(infoLine("🏅", "XP и серии", "Возвращайтесь ежедневно и собирайте достижения"))
+        info.addView(infoLine("📸", t("Новое фото"), t("Смотрите изменения всей полки каждый день")))
+        info.addView(infoLine("🎯", t("Прогнозы"), t("Угадайте победителя раньше остальных")))
+        info.addView(infoLine("🎬", t("Таймлапсы"), t("Несколько дней роста за несколько секунд")))
+        info.addView(infoLine("🏅", t("XP и серии"), t("Возвращайтесь ежедневно и собирайте достижения")))
         body.addView(cardWithMargin(info))
 
         showContent(scroll)
@@ -242,13 +244,13 @@ class MainActivity : Activity() {
         currentBattleId = null
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("LIVE АРЕНА", "Наблюдайте, болейте, делайте прогнозы"))
+        body.addView(gameHeader(t("LIVE АРЕНА"), t("Наблюдайте, болейте, делайте прогнозы")))
 
         if (publicBattles.isEmpty()) {
             val empty = card()
-            empty.addView(bigText("Пока нет активных битв"))
-            empty.addView(smallText("После создания следующей битвы она автоматически появится здесь."))
-            empty.addView(primaryButton("ОБНОВИТЬ") { loadAll("watch") })
+            empty.addView(bigText(t("Пока нет активных битв")))
+            empty.addView(smallText(t("После создания следующей битвы она автоматически появится здесь.")))
+            empty.addView(primaryButton(t("ОБНОВИТЬ")) { loadAll("watch") })
             body.addView(cardWithMargin(empty))
         } else {
             publicBattles.forEach { battle ->
@@ -264,20 +266,20 @@ class MainActivity : Activity() {
         currentBattleId = null
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("ПРОФИЛЬ САДОВОДА", api.currentUser?.displayName ?: "Гость"))
+        body.addView(gameHeader(t("ПРОФИЛЬ САДОВОДА"), api.currentUser?.displayName ?: t("Гость")))
 
         val profile = game.profile()
         val profileCard = card()
-        profileCard.addView(bigText("Уровень " + profile.level))
-        profileCard.addView(smallText(profile.xp.toString() + " XP · серия " + profile.streak + " дней"))
+        profileCard.addView(bigText(t("Уровень ") + profile.level))
+        profileCard.addView(smallText(profile.xp.toString() + t(" XP · серия ") + profile.streak + t(" дней")))
         profileCard.addView(progress(profile.xp % 100, 100))
-        profileCard.addView(smallText("До следующего уровня: " + (100 - profile.xp % 100) + " XP"))
+        profileCard.addView(smallText(t("До следующего уровня: ") + (100 - profile.xp % 100) + " XP"))
         body.addView(cardWithMargin(profileCard))
 
-        body.addView(sectionTitle("ДОСТИЖЕНИЯ", "Открываются за реальные действия"))
+        body.addView(sectionTitle(t("ДОСТИЖЕНИЯ"), t("Открываются за реальные действия")))
         val badges = card()
         if (profile.badges.isEmpty()) {
-            badges.addView(smallText("Первое достижение появится уже сегодня."))
+            badges.addView(smallText(t("Первое достижение появится уже сегодня.")))
         } else {
             profile.badges.forEach { badges.addView(bigText(it, 17f)) }
         }
@@ -285,9 +287,9 @@ class MainActivity : Activity() {
 
         if (api.hasSession()) {
             val account = card()
-            account.addView(bigText(api.currentUser?.displayName ?: "Игрок", 18f))
+            account.addView(bigText(api.currentUser?.displayName ?: t("Игрок"), 18f))
             account.addView(smallText(api.currentUser?.email ?: ""))
-            account.addView(outlineButton("ВЫЙТИ") {
+            account.addView(outlineButton(t("ВЫЙТИ")) {
                 async(
                     work = { api.logout(); true },
                     success = {
@@ -300,24 +302,49 @@ class MainActivity : Activity() {
             body.addView(cardWithMargin(account))
         } else {
             val login = card()
-            login.addView(bigText("Аккаунт не подключён", 18f))
-            login.addView(primaryButton("ВОЙТИ") { showLogin() })
+            login.addView(bigText(t("Аккаунт не подключён"), 18f))
+            login.addView(primaryButton(t("ВОЙТИ")) { showLogin() })
             body.addView(cardWithMargin(login))
         }
 
-        body.addView(sectionTitle("КОНФИДЕНЦИАЛЬНОСТЬ", "Управление данными аккаунта"))
+        body.addView(sectionTitle(t("ЯЗЫК"), t("Язык приложения")))
+        val languageCard = card()
+        languageCard.addView(outlineButton(AppLanguage.displayName(language.code)) {
+            showLanguageDialog()
+        })
+        body.addView(cardWithMargin(languageCard))
+
+        body.addView(sectionTitle(t("КОНФИДЕНЦИАЛЬНОСТЬ"), t("Управление данными аккаунта")))
         val legal = card()
-        legal.addView(outlineButton("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ") {
+        legal.addView(outlineButton(t("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ")) {
             openPublicPage("/privacy")
         })
         if (api.hasSession()) {
-            legal.addView(outlineButton("УДАЛИТЬ АККАУНТ И ДАННЫЕ") {
+            legal.addView(outlineButton(t("УДАЛИТЬ АККАУНТ И ДАННЫЕ")) {
                 openPublicPage("/delete-account")
             })
         }
         body.addView(cardWithMargin(legal))
 
         showContent(scroll)
+    }
+
+    private fun showLanguageDialog() {
+        val options = AppLanguage.supported.map { it.second }.toTypedArray()
+        val selected = AppLanguage.supported.indexOfFirst { it.first == language.code }.coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle(t("Выберите язык"))
+            .setSingleChoiceItems(options, selected) { dialog, which ->
+                val code = AppLanguage.supported[which].first
+                AppLanguage.set(this, code)
+                if (api.hasSession()) {
+                    Thread { runCatching { api.updateLanguage(code) } }.start()
+                }
+                dialog.dismiss()
+                recreate()
+            }
+            .setNegativeButton(t("Отмена"), null)
+            .show()
     }
 
     private fun showLogin() {
@@ -327,7 +354,7 @@ class MainActivity : Activity() {
 
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("ВХОД В BATTLE", "Ваш аккаунт KisaMore"))
+        body.addView(gameHeader(t("ВХОД В BATTLE"), t("Ваш аккаунт KisaMore")))
 
         val form = card()
         val email = EditText(this).apply {
@@ -338,7 +365,7 @@ class MainActivity : Activity() {
             backgroundTintList = ColorStateList.valueOf(green)
         }
         val password = EditText(this).apply {
-            hint = "Пароль"
+            hint = t("Пароль")
             setHintTextColor(muted)
             setTextColor(white)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -347,11 +374,11 @@ class MainActivity : Activity() {
         form.addView(email, matchWrap())
         form.addView(password, matchWrap())
         form.addView(space(10))
-        form.addView(primaryButton("ВОЙТИ") {
+        form.addView(primaryButton(t("ВОЙТИ")) {
             if (email.text.isBlank() || password.text.isBlank()) {
-                toast("Введите email и пароль")
+                toast(t("Введите email и пароль"))
             } else {
-                showLoading("Входим в игру…")
+                showLoading(t("Входим в игру…"))
                 async(
                     work = { api.login(email.text.toString(), password.text.toString()) },
                     success = {
@@ -361,7 +388,7 @@ class MainActivity : Activity() {
                 )
             }
         })
-        form.addView(outlineButton("СОЗДАТЬ АККАУНТ") { showRegister() })
+        form.addView(outlineButton(t("СОЗДАТЬ АККАУНТ")) { showRegister() })
         form.addView(TextView(this).apply {
             text = appVersionLabel()
             setTextColor(muted)
@@ -380,11 +407,11 @@ class MainActivity : Activity() {
 
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("СОЗДАТЬ АККАУНТ", "Начните свою первую битву растений"))
+        body.addView(gameHeader(t("СОЗДАТЬ АККАУНТ"), t("Начните свою первую битву растений")))
 
         val form = card()
         val name = EditText(this).apply {
-            hint = "Имя"
+            hint = t("Имя")
             setHintTextColor(muted)
             setTextColor(white)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME
@@ -398,14 +425,14 @@ class MainActivity : Activity() {
             backgroundTintList = ColorStateList.valueOf(green)
         }
         val password = EditText(this).apply {
-            hint = "Пароль · минимум 5 символов"
+            hint = t("Пароль · минимум 5 символов")
             setHintTextColor(muted)
             setTextColor(white)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             backgroundTintList = ColorStateList.valueOf(green)
         }
         val confirmPassword = EditText(this).apply {
-            hint = "Повторите пароль"
+            hint = t("Повторите пароль")
             setHintTextColor(muted)
             setTextColor(white)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -417,25 +444,25 @@ class MainActivity : Activity() {
         form.addView(password, matchWrap())
         form.addView(confirmPassword, matchWrap())
         form.addView(space(8))
-        form.addView(smallText("Создавая аккаунт, вы соглашаетесь на обработку данных, необходимую для работы KisaMore Battle."))
-        form.addView(outlineButton("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ") {
+        form.addView(smallText(t("Создавая аккаунт, вы соглашаетесь на обработку данных, необходимую для работы KisaMore Battle.")))
+        form.addView(outlineButton(t("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ")) {
             openPublicPage("/privacy")
         })
-        form.addView(primaryButton("СОЗДАТЬ АККАУНТ") {
+        form.addView(primaryButton(t("СОЗДАТЬ АККАУНТ")) {
             val displayName = name.text.toString().trim()
             val emailValue = email.text.toString().trim()
             val passwordValue = password.text.toString()
             val confirmValue = confirmPassword.text.toString()
 
             when {
-                displayName.isBlank() -> toast("Введите имя")
-                emailValue.isBlank() || !emailValue.contains("@") -> toast("Введите корректный email")
-                passwordValue.length < 5 -> toast("Пароль должен содержать минимум 5 символов")
-                passwordValue != confirmValue -> toast("Пароли не совпадают")
+                displayName.isBlank() -> toast(t("Введите имя"))
+                emailValue.isBlank() || !emailValue.contains("@") -> toast(t("Введите корректный email"))
+                passwordValue.length < 5 -> toast(t("Пароль должен содержать минимум 5 символов"))
+                passwordValue != confirmValue -> toast(t("Пароли не совпадают"))
                 else -> {
-                    showLoading("Создаём аккаунт…")
+                    showLoading(t("Создаём аккаунт…"))
                     async(
-                        work = { api.register(displayName, emailValue, passwordValue, "ru") },
+                        work = { api.register(displayName, emailValue, passwordValue, language.code) },
                         success = {
                             game.openToday()
                             loadAll("home")
@@ -444,7 +471,7 @@ class MainActivity : Activity() {
                 }
             }
         })
-        form.addView(outlineButton("УЖЕ ЕСТЬ АККАУНТ — ВОЙТИ") { showLogin() })
+        form.addView(outlineButton(t("УЖЕ ЕСТЬ АККАУНТ — ВОЙТИ")) { showLogin() })
         form.addView(TextView(this).apply {
             text = appVersionLabel()
             setTextColor(muted)
@@ -461,11 +488,11 @@ class MainActivity : Activity() {
         currentScreen = "mine-empty"
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("МОЯ БИТВА", "Активного растения пока нет"))
+        body.addView(gameHeader(t("МОЯ БИТВА"), t("Активного растения пока нет")))
         val c = card()
-        c.addView(bigText("Следующая битва ждёт 🌱"))
-        c.addView(smallText("Выберите открытую битву. После покупки места здесь появятся фото растения, ресурсы и кнопки управления."))
-        c.addView(primaryButton("ВЫБРАТЬ БИТВУ") {
+        c.addView(bigText(t("Следующая битва ждёт 🌱")))
+        c.addView(smallText(t("Выберите открытую битву. После покупки места здесь появятся фото растения, ресурсы и кнопки управления.")))
+        c.addView(primaryButton(t("ВЫБРАТЬ БИТВУ")) {
             currentScreen = "watch"
             showWatch()
         })
@@ -476,7 +503,7 @@ class MainActivity : Activity() {
     private fun openBattle(battle: Battle) {
         currentScreen = "battle"
         currentBattleId = battle.id
-        showLoading("Открываем арену…")
+        showLoading(t("Открываем арену…"))
         async(
             work = {
                 if (api.hasSession()) {
@@ -492,7 +519,7 @@ class MainActivity : Activity() {
 
     private fun refreshBattle(id: String, silent: Boolean) {
         val fallback = (myBattles + publicBattles).firstOrNull { it.id == id } ?: return
-        if (!silent) showLoading("Обновляем арену…")
+        if (!silent) showLoading(t("Обновляем арену…"))
         async(
             work = {
                 if (api.hasSession()) {
@@ -522,16 +549,16 @@ class MainActivity : Activity() {
 
         val mineEntries = battle.entries.filter { it.isMine }
         if (mineEntries.isNotEmpty()) {
-            body.addView(sectionTitle("ВАШИ РАСТЕНИЯ", "Ресурсы скрыты от соперников до финала"))
+            body.addView(sectionTitle(t("ВАШИ РАСТЕНИЯ"), t("Ресурсы скрыты от соперников до финала")))
             mineEntries.forEach { entry ->
                 body.addView(resourceCard(battle, entry))
             }
         } else if (battle.status == "open") {
-            body.addView(sectionTitle("СТАТЬ ИГРОКОМ", "В битве ещё есть места"))
+            body.addView(sectionTitle(t("СТАТЬ ИГРОКОМ"), t("В битве ещё есть места")))
             val join = card()
-            join.addView(bigText("Свободно мест: " + battle.remainingEntries, 18f))
-            join.addView(smallText("После участия вы получите собственный контейнер и сможете управлять его ресурсами."))
-            join.addView(primaryButton(if (api.hasSession()) "ЗАНЯТЬ МЕСТО" else "ВОЙТИ И УЧАСТВОВАТЬ") {
+            join.addView(bigText(t("Свободно мест: ") + battle.remainingEntries, 18f))
+            join.addView(smallText(t("После участия вы получите собственный контейнер и сможете управлять его ресурсами.")))
+            join.addView(primaryButton(if (api.hasSession()) t("ЗАНЯТЬ МЕСТО") else t("ВОЙТИ И УЧАСТВОВАТЬ")) {
                 if (!api.hasSession()) {
                     showLogin()
                 } else {
@@ -541,13 +568,13 @@ class MainActivity : Activity() {
             body.addView(cardWithMargin(join))
         }
 
-        body.addView(sectionTitle("ПРОГНОЗ ЗРИТЕЛЕЙ", "Кто победит в этой битве?"))
+        body.addView(sectionTitle(t("ПРОГНОЗ ЗРИТЕЛЕЙ"), t("Кто победит в этой битве?")))
         body.addView(predictionCard(battle))
 
-        body.addView(sectionTitle("ТАЙМЛАПС", "Рост, который не нужно ждать часами"))
+        body.addView(sectionTitle(t("ТАЙМЛАПС"), t("Рост, который не нужно ждать часами")))
         body.addView(timelapseCard(battle))
 
-        body.addView(sectionTitle("СОБЫТИЯ", "Что происходит прямо сейчас"))
+        body.addView(sectionTitle(t("СОБЫТИЯ"), t("Что происходит прямо сейчас")))
         body.addView(eventFeed(battle))
 
         showContent(scroll)
@@ -567,7 +594,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
         }
         textBlock.addView(bigText(battle.title, 27f))
-        textBlock.addView(smallText(battle.plantName + " · полка " + battle.rackId + " · " + dayLabel(battle)))
+        textBlock.addView(smallText(battle.plantName + t(" · полка ") + battle.rackId + " · " + dayLabel(battle)))
         row.addView(textBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(statusPill(battle.status))
         box.addView(row)
@@ -590,7 +617,7 @@ class MainActivity : Activity() {
         val image = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(surface2)
-            contentDescription = "Фото полки"
+            contentDescription = t("Фото полки")
         }
         frame.addView(
             image,
@@ -610,7 +637,7 @@ class MainActivity : Activity() {
             val entry = battle.entries.firstOrNull { it.slotNumber == slot }
             val mine = entry?.isMine == true
             val cell = TextView(this).apply {
-                text = if (mine) slot.toString() + "  ★ ВЫ" else slot.toString()
+                text = if (mine) slot.toString() + t("  ★ ВЫ") else slot.toString()
                 gravity = Gravity.TOP or Gravity.START
                 setPadding(dp(8), dp(7), dp(4), dp(4))
                 setTextColor(if (mine) gold else white)
@@ -655,22 +682,22 @@ class MainActivity : Activity() {
 
     private fun resourceCard(battle: Battle, entry: BattleEntry): View {
         val c = card()
-        c.addView(bigText("🌱 Контейнер #" + entry.slotNumber, 19f))
-        c.addView(smallText(if (battle.status == "growing") "Вы принимаете решения" else statusHuman(battle.status)))
+        c.addView(bigText(t("🌱 Контейнер #") + entry.slotNumber, 19f))
+        c.addView(smallText(if (battle.status == "growing") t("Вы принимаете решения") else statusHuman(battle.status)))
         c.addView(space(8))
-        c.addView(resourceRow("💧 Вода", battle.waterBudgetMl, entry.waterUsedMl, "мл"))
-        c.addView(resourceRow("🧪 Питание", battle.nutrientBudgetMl, entry.nutrientUsedMl, "мл"))
-        c.addView(resourceRow("🌙 Без света", battle.shadeBudgetMinutes, entry.shadeUsedMinutes, "мин"))
+        c.addView(resourceRow(t("💧 Вода"), battle.waterBudgetMl, entry.waterUsedMl, t("мл")))
+        c.addView(resourceRow(t("🧪 Питание"), battle.nutrientBudgetMl, entry.nutrientUsedMl, t("мл")))
+        c.addView(resourceRow(t("🌙 Без света"), battle.shadeBudgetMinutes, entry.shadeUsedMinutes, t("мин")))
 
         if (battle.status == "growing") {
             c.addView(space(8))
-            c.addView(labelText("ВАШ ХОД", gold))
+            c.addView(labelText(t("ВАШ ХОД"), gold))
             val actions = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
             }
-            actions.addView(commandButton("💧\nПолить") { amountDialog(battle, entry, "water") })
-            actions.addView(commandButton("🧪\nПитание") { amountDialog(battle, entry, "nutrient") })
-            actions.addView(commandButton("🌙\nЗакрыть") { amountDialog(battle, entry, "shade") })
+            actions.addView(commandButton(t("💧\nПолить")) { amountDialog(battle, entry, "water") })
+            actions.addView(commandButton(t("🧪\nПитание")) { amountDialog(battle, entry, "nutrient") })
+            actions.addView(commandButton(t("🌙\nЗакрыть")) { amountDialog(battle, entry, "shade") })
             c.addView(actions)
         }
 
@@ -714,13 +741,13 @@ class MainActivity : Activity() {
                 setPadding(0, dp(4), 0, dp(4))
             }
             row.addView(TextView(this).apply {
-                text = (if (selected) "🌟 " else "🌱 ") + "Контейнер #" + entry.slotNumber
+                text = (if (selected) "🌟 " else "🌱 ") + t("Контейнер #") + entry.slotNumber
                 setTextColor(if (selected) gold else white)
                 textSize = 15f
                 setTypeface(typeface, Typeface.BOLD)
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(TextView(this).apply {
-                text = votes.toString() + " голосов"
+                text = votes.toString() + t(" голосов")
                 setTextColor(muted)
                 textSize = 12f
             })
@@ -728,7 +755,7 @@ class MainActivity : Activity() {
                 if (!api.hasSession()) {
                     showLogin()
                 } else if (battle.status == "finished") {
-                    toast("Прогнозы уже закрыты")
+                    toast(t("Прогнозы уже закрыты"))
                 } else {
                     sendPrediction(battle, entry)
                 }
@@ -736,7 +763,7 @@ class MainActivity : Activity() {
             c.addView(row)
         }
         c.addView(space(7))
-        c.addView(smallText("Можно менять выбор до окончания битвы. Прогноз не влияет на растение."))
+        c.addView(smallText(t("Можно менять выбор до окончания битвы. Прогноз не влияет на растение.")))
         return cardWithMargin(c)
     }
 
@@ -744,15 +771,15 @@ class MainActivity : Activity() {
         val c = card()
         val preferred = battle.mine ?: battle.entries.firstOrNull()
         if (preferred == null) {
-            c.addView(smallText("Таймлапс появится после посадки."))
+            c.addView(smallText(t("Таймлапс появится после посадки.")))
             return cardWithMargin(c)
         }
-        c.addView(bigText("Контейнер #" + preferred.slotNumber, 18f))
+        c.addView(bigText(t("Контейнер #") + preferred.slotNumber, 18f))
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        buttons.addView(actionButton("🎬 24 ЧАСА") {
+        buttons.addView(actionButton(t("🎬 24 ЧАСА")) {
             openVideo(preferred.timelapse24hUrl)
         })
-        buttons.addView(actionButton("🎞 3 ДНЯ") {
+        buttons.addView(actionButton(t("🎞 3 ДНЯ")) {
             openVideo(preferred.timelapse3dUrl)
         })
         c.addView(buttons)
@@ -761,12 +788,12 @@ class MainActivity : Activity() {
 
     private fun eventFeed(battle: Battle): View {
         val c = card()
-        c.addView(eventLine("🌿", "Битва идёт", battle.plantName + " · " + dayLabel(battle)))
+        c.addView(eventLine("🌿", t("Битва идёт"), battle.plantName + " · " + dayLabel(battle)))
         if (battle.predictionTotal > 0) {
-            c.addView(eventLine("🎯", "Зрители спорят о победителе", battle.predictionTotal.toString() + " прогнозов"))
+            c.addView(eventLine("🎯", t("Зрители спорят о победителе"), battle.predictionTotal.toString() + t(" прогнозов")))
         }
         if (battle.status == "open") {
-            c.addView(eventLine("🎟", "Набор участников", "Свободно мест: " + battle.remainingEntries))
+            c.addView(eventLine("🎟", t("Набор участников"), t("Свободно мест: ") + battle.remainingEntries))
         }
         val ownActions = battle.entries.filter { it.isMine }.flatMap { entry ->
             entry.actions.take(5).map { Pair(entry, it) }
@@ -778,30 +805,30 @@ class MainActivity : Activity() {
             c.addView(
                 eventLine(
                     actionIcon(action.kind),
-                    "Ваш ход · контейнер #" + entry.slotNumber,
+                    t("Ваш ход · контейнер #") + entry.slotNumber,
                     actionHuman(action) + " · " + actionStatus(action.status)
                 )
             )
         }
         if (ownActions.isEmpty() && battle.status == "growing") {
-            c.addView(eventLine("⏳", "Следующий ход за вами", "Решите, стоит ли сейчас тратить ресурсы"))
+            c.addView(eventLine("⏳", t("Следующий ход за вами"), t("Решите, стоит ли сейчас тратить ресурсы")))
         }
         return cardWithMargin(c)
     }
 
     private fun sendPrediction(battle: Battle, entry: BattleEntry) {
-        toast("Сохраняем прогноз…")
+        toast(t("Сохраняем прогноз…"))
         async(
             work = { api.predict(battle.id, entry.id) },
             success = { updated ->
                 game.completeMission("predict")
                 replaceBattleInCaches(updated)
                 renderBattle(updated)
-                toast("+10 XP · прогноз сохранён")
+                toast(t("+10 XP · прогноз сохранён"))
             },
             failure = { error ->
                 if (error is ApiException && error.statusCode == 404) {
-                    toast("Для прогнозов нужно обновить Battle API на сервере")
+                    toast(t("Для прогнозов нужно обновить Battle API на сервере"))
                 } else {
                     showError(error)
                 }
@@ -813,7 +840,7 @@ class MainActivity : Activity() {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setTextColor(Color.BLACK)
-            hint = if (kind == "shade") "минуты" else "мл"
+            hint = if (kind == "shade") t("минуты") else t("мл")
         }
         val presets = when (kind) {
             "water" -> intArrayOf(30, 60, 100)
@@ -821,9 +848,9 @@ class MainActivity : Activity() {
             else -> intArrayOf(30, 60, 120)
         }
         val title = when (kind) {
-            "water" -> "💧 Полить растение"
-            "nutrient" -> "🧪 Добавить питание"
-            else -> "🌙 Закрыть от света"
+            "water" -> t("💧 Полить растение")
+            "nutrient" -> t("🧪 Добавить питание")
+            else -> t("🌙 Закрыть от света")
         }
 
         val wrap = LinearLayout(this).apply {
@@ -842,13 +869,13 @@ class MainActivity : Activity() {
 
         AlertDialog.Builder(this)
             .setTitle(title)
-            .setMessage("Это реальная команда. Ресурс будет списан из лимита растения.")
+            .setMessage(t("Это реальная команда. Ресурс будет списан из лимита растения."))
             .setView(wrap)
-            .setNegativeButton("Отмена", null)
-            .setPositiveButton("Отправить") { _, _ ->
+            .setNegativeButton(t("Отмена"), null)
+            .setPositiveButton(t("Отправить")) { _, _ ->
                 val amount = input.text.toString().toIntOrNull() ?: 0
                 if (amount <= 0) {
-                    toast("Укажите количество")
+                    toast(t("Укажите количество"))
                 } else {
                     executeCommand(battle, entry, kind, amount)
                 }
@@ -857,7 +884,7 @@ class MainActivity : Activity() {
     }
 
     private fun executeCommand(battle: Battle, entry: BattleEntry, kind: String, amount: Int) {
-        showLoading("Передаём команду в теплицу…")
+        showLoading(t("Передаём команду в теплицу…"))
         async(
             work = {
                 api.sendAction(battle.id, entry.id, kind, amount)
@@ -867,18 +894,18 @@ class MainActivity : Activity() {
                 game.completeMission("command")
                 replaceBattleInCaches(updated)
                 renderBattle(updated)
-                toast("+15 XP · команда принята")
+                toast(t("+15 XP · команда принята"))
             }
         )
     }
 
     private fun confirmJoin(battle: Battle) {
         AlertDialog.Builder(this)
-            .setTitle("Занять место в битве?")
-            .setMessage("Будет использована стоимость участия в Kisa. После покупки место закрепится за вашим аккаунтом.")
-            .setNegativeButton("Отмена", null)
-            .setPositiveButton("Участвовать") { _, _ ->
-                showLoading("Бронируем растение…")
+            .setTitle(t("Занять место в битве?"))
+            .setMessage(t("Будет использована стоимость участия в Kisa. После покупки место закрепится за вашим аккаунтом."))
+            .setNegativeButton(t("Отмена"), null)
+            .setPositiveButton(t("Участвовать")) { _, _ ->
+                showLoading(t("Бронируем растение…"))
                 async(
                     work = {
                         api.joinBattle(battle.id, 1)
@@ -899,28 +926,28 @@ class MainActivity : Activity() {
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         }.onFailure {
-            toast("Не удалось открыть страницу")
+            toast(t("Не удалось открыть страницу"))
         }
     }
 
     private fun openVideo(path: String?) {
         val url = api.absolute(path)
         if (url.isNullOrBlank()) {
-            toast("Таймлапс пока не готов")
+            toast(t("Таймлапс пока не готов"))
             return
         }
         game.completeMission("video")
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            toast("+5 XP · наблюдение засчитано")
+            toast(t("+5 XP · наблюдение засчитано"))
         }.onFailure {
-            toast("Не удалось открыть видео")
+            toast(t("Не удалось открыть видео"))
         }
     }
 
     private fun battleHeroCard(battle: Battle, mine: Boolean): View {
         val c = card()
-        c.addView(labelText(if (mine) "🎮 ВЫ В ИГРЕ" else "● LIVE", if (mine) gold else green))
+        c.addView(labelText(if (mine) t("🎮 ВЫ В ИГРЕ") else "● LIVE", if (mine) gold else green))
         c.addView(bigText(battle.title, 21f))
         c.addView(smallText(battle.plantName + " · " + dayLabel(battle)))
         c.addView(space(8))
@@ -929,7 +956,7 @@ class MainActivity : Activity() {
             "🎯 " + battle.predictionTotal,
             "🏆 " + battle.winnerRewardKisa + " K"
         ))
-        c.addView(primaryButton(if (mine) "ОТКРЫТЬ АРЕНУ" else "СМОТРЕТЬ LIVE") {
+        c.addView(primaryButton(if (mine) t("ОТКРЫТЬ АРЕНУ") else t("СМОТРЕТЬ LIVE")) {
             openBattle(battle)
         })
         return cardWithMargin(c)
@@ -951,7 +978,7 @@ class MainActivity : Activity() {
             setPadding(dp(10), 0, dp(8), 0)
         }
         names.addView(bigText(battle.title, 18f))
-        names.addView(smallText(battle.plantName + " · полка " + battle.rackId))
+        names.addView(smallText(battle.plantName + t(" · полка ") + battle.rackId))
         top.addView(names, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(statusPill(battle.status))
         c.addView(top)
@@ -959,7 +986,7 @@ class MainActivity : Activity() {
         c.addView(statStrip(
             battle.entriesCount.toString() + "/" + battle.maxEntries + " 🌱",
             "🎯 " + battle.predictionTotal,
-            if (battle.status == "open") battle.remainingEntries.toString() + " мест" else dayLabel(battle)
+            if (battle.status == "open") battle.remainingEntries.toString() + t(" мест") else dayLabel(battle)
         ))
         c.setOnClickListener { openBattle(battle) }
         return cardWithMargin(c)
@@ -986,7 +1013,7 @@ class MainActivity : Activity() {
                 setTypeface(typeface, Typeface.BOLD)
             })
             mid.addView(TextView(this).apply {
-                text = if (mission.completed) "Выполнено" else "+" + mission.reward + " XP"
+                text = if (mission.completed) t("Выполнено") else "+" + mission.reward + " XP"
                 setTextColor(if (mission.completed) green else gold)
                 textSize = 12f
             })
@@ -1000,7 +1027,7 @@ class MainActivity : Activity() {
         }
         val done = profile.missions.count { it.completed }
         c.addView(space(5))
-        c.addView(smallText("Сегодня: " + done + "/" + profile.missions.size + " заданий"))
+        c.addView(smallText(t("Сегодня: ") + done + "/" + profile.missions.size + t(" заданий")))
         return cardWithMargin(c)
     }
 
@@ -1036,11 +1063,11 @@ class MainActivity : Activity() {
         eventLine(icon, title, subtitle)
 
     private fun actionHuman(action: BattleAction): String {
-        val unit = if (action.kind == "shade") " мин" else " мл"
+        val unit = if (action.kind == "shade") t(" мин") else t(" мл")
         return when (action.kind) {
-            "water" -> "Полив " + action.amount + unit
-            "nutrient" -> "Питание " + action.amount + unit
-            "shade" -> "Без света " + action.amount + unit
+            "water" -> t("Полив ") + action.amount + unit
+            "nutrient" -> t("Питание ") + action.amount + unit
+            "shade" -> t("Без света ") + action.amount + unit
             else -> action.kind + " " + action.amount
         }
     }
@@ -1053,9 +1080,9 @@ class MainActivity : Activity() {
     }
 
     private fun actionStatus(status: String): String = when (status) {
-        "pending" -> "ожидает выполнения"
-        "completed" -> "выполнено"
-        "cancelled" -> "отменено"
+        "pending" -> t("ожидает выполнения")
+        "completed" -> t("выполнено")
+        "cancelled" -> t("отменено")
         else -> status
     }
 
@@ -1102,7 +1129,7 @@ class MainActivity : Activity() {
     }
 
     private fun showError(error: Throwable) {
-        val message = error.message ?: "Не удалось связаться с сервером"
+        val message = error.message ?: t("Не удалось связаться с сервером")
         toast(message)
         if (currentScreen == "battle" && currentBattleId != null) {
             val fallback = (myBattles + publicBattles).firstOrNull { it.id == currentBattleId }
@@ -1240,12 +1267,12 @@ class MainActivity : Activity() {
     }
 
     private fun statusHuman(status: String): String = when (status) {
-        "open" -> "Набор"
-        "ready_to_plant" -> "Готово к посадке"
-        "planting" -> "Посадка"
+        "open" -> t("Набор")
+        "ready_to_plant" -> t("Готово к посадке")
+        "planting" -> t("Посадка")
         "growing" -> "Live"
-        "judging" -> "Финал"
-        "finished" -> "Завершено"
+        "judging" -> t("Финал")
+        "finished" -> t("Завершено")
         else -> status
     }
 
@@ -1360,6 +1387,8 @@ class MainActivity : Activity() {
     private fun withAlpha(color: Int, alpha: Int): Int =
         Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 
+    private fun t(source: String): String = language.t(source)
+
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
@@ -1368,15 +1397,15 @@ class MainActivity : Activity() {
         return runCatching {
             val from = OffsetDateTime.parse(planted)
             val days = ChronoUnit.DAYS.between(from, OffsetDateTime.now()).coerceAtLeast(0) + 1
-            if (battle.growDays > 0) "день " + days + "/" + battle.growDays else "день " + days
+            if (battle.growDays > 0) t("день ") + days + "/" + battle.growDays else t("день ") + days
         }.getOrDefault(statusHuman(battle.status))
     }
 
     @Suppress("DEPRECATION")
     private fun appVersionLabel(): String = runCatching {
         val info = packageManager.getPackageInfo(packageName, 0)
-        "Версия " + (info.versionName ?: "?") + " (build " + info.versionCode + ")"
-    }.getOrDefault("Версия ?")
+        t("Версия ") + (info.versionName ?: "?") + " (build " + info.versionCode + ")"
+    }.getOrDefault(t("Версия ?"))
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
