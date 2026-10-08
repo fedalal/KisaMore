@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Dict, Optional, Literal
 import os
 import yaml
@@ -78,8 +78,30 @@ class RackHW(BaseModel):
     water_relay: int = Field(ge=1, le=16)
     sensor_slave_id: Optional[int] = Field(default=None, ge=1, le=247)
 
-    # Новая схема: полка выбирает камеру из общего списка камер.
+    # Основная камера полки. Поле сохраняется для полной обратной совместимости.
     camera_id: Optional[str] = Field(default=None, max_length=64)
+
+    # Все камеры, привязанные к полке. Первая запись всегда основная и совпадает
+    # с camera_id. Старые конфиги только с camera_id автоматически мигрируют.
+    camera_ids: list[str] = Field(default_factory=list, max_length=8)
+
+    @model_validator(mode="after")
+    def normalize_camera_ids(self):
+        primary = (self.camera_id or "").strip() or None
+        normalized: list[str] = []
+        for value in self.camera_ids or []:
+            camera_id = str(value or "").strip()
+            if camera_id and camera_id not in normalized:
+                normalized.append(camera_id)
+
+        if primary:
+            normalized = [primary] + [item for item in normalized if item != primary]
+        elif normalized:
+            primary = normalized[0]
+
+        self.camera_id = primary
+        self.camera_ids = normalized
+        return self
 
     # Старые поля оставлены для совместимости со старым kisamore.yaml.
     # При загрузке конфига они автоматически переносятся в секцию cameras.
@@ -139,6 +161,16 @@ class HWConfig(BaseModel):
             if rack.camera_id is not None:
                 cid = rack.camera_id.strip()
                 rack.camera_id = cid or None
+            rack.camera_ids = [
+                cid for cid in (str(value or "").strip() for value in (rack.camera_ids or []))
+                if cid
+            ]
+            if rack.camera_id:
+                rack.camera_ids = [rack.camera_id] + [
+                    cid for cid in rack.camera_ids if cid != rack.camera_id
+                ]
+            elif rack.camera_ids:
+                rack.camera_id = rack.camera_ids[0]
         return v
 
     @field_validator("cameras")
@@ -259,6 +291,16 @@ def load_config() -> HWConfig:
                 warp_points=rack.camera_warp_points,
             )
             rack.camera_id = camera_id
+            rack.camera_ids = [camera_id]
+            need_save = True
+
+    for rack in cfg.racks.values():
+        normalized_ids = [rack.camera_id] + [
+            cid for cid in rack.camera_ids if cid != rack.camera_id
+        ] if rack.camera_id else list(rack.camera_ids)
+        normalized_ids = [cid for cid in normalized_ids if cid]
+        if rack.camera_ids != normalized_ids:
+            rack.camera_ids = normalized_ids
             need_save = True
 
     for i in range(1, cfg.racks_count + 1):
