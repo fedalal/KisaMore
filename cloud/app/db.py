@@ -150,6 +150,17 @@ def _ensure_telegram_columns(connection) -> None:
         )
 
 
+def _ensure_battle_columns(connection) -> None:
+    _ensure_columns(
+        connection,
+        "plant_battles",
+        {
+            "start_date": "DATE NULL",
+            "end_date": "DATE NULL",
+        },
+    )
+
+
 def _ensure_analytics_columns(connection) -> None:
     for table in ("site_pageviews", "site_registrations"):
         _ensure_columns(connection, table, {"utm_content": "VARCHAR(100) NOT NULL DEFAULT ''"})
@@ -161,4 +172,5 @@ async def create_tables() -> None:
         await connection.run_sync(_ensure_analytics_columns)
         await connection.run_sync(_ensure_plant_columns)
         await connection.run_sync(_ensure_marketplace_columns)
+        await connection.run_sync(_ensure_battle_columns)
         await connection.run_sync(_ensure_telegram_columns)
