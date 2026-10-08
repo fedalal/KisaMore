@@ -152,6 +152,7 @@ class AppLanguage(private val context: Context) {
             "Что происходит прямо сейчас" to arrayOf("What's happening right now", "Was gerade passiert", "Ce qui se passe maintenant", "Qué está pasando ahora", "Cosa sta succedendo ora", "O que está acontecendo agora", "Co dzieje się teraz", "正在发生什么"),
             " · полка " to arrayOf(" · rack ", " · Regal ", " · étagère ", " · estante ", " · scaffale ", " · prateleira ", " · regał ", " · 种植架 "),
             "Фото полки" to arrayOf("Rack photo", "Regalfoto", "Photo de l'étagère", "Foto de la estantería", "Foto dello scaffale", "Foto da prateleira", "Zdjęcie regału", "种植架照片"),
+            "Основная" to arrayOf("Primary", "Primär", "Principale", "Principal", "Principale", "Principal", "Główna", "主摄像头"),
             "  ★ ВЫ" to arrayOf("  ★ YOU", "  ★ DU", "  ★ VOUS", "  ★ TÚ", "  ★ TU", "  ★ VOCÊ", "  ★ TY", "  ★ 你"),
             "🌱 Контейнер #" to arrayOf("🌱 Container #", "🌱 Behälter #", "🌱 Bac #", "🌱 Contenedor #", "🌱 Contenitore #", "🌱 Recipiente #", "🌱 Pojemnik #", "🌱 容器 #"),
             "Вы принимаете решения" to arrayOf("You make the decisions", "Du triffst die Entscheidungen", "Vous prenez les décisions", "Tú tomas las decisiones", "Decidi tu", "Você toma as decisões", "To ty podejmujesz decyzje", "由你做决定"),
