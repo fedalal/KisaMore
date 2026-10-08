@@ -662,21 +662,65 @@ class MainActivity : Activity() {
             )
         )
 
-        async(
-            work = { api.loadBitmap(api.absolute(battle.rackPhotoUrl)) },
-            success = { bitmap -> if (bitmap != null) image.setImageBitmap(bitmap) },
-            failure = { }
-        )
+        val views = if (battle.cameraViews.isNotEmpty()) {
+            battle.cameraViews
+        } else {
+            battle.rackPhotoUrl?.let {
+                listOf(CameraView("primary", true, it))
+            } ?: emptyList()
+        }
 
-        return FrameLayout(this).apply {
+        fun loadCamera(view: CameraView) {
+            async(
+                work = { api.loadBitmap(api.absolute(view.photoUrl)) },
+                success = { bitmap -> if (bitmap != null) image.setImageBitmap(bitmap) },
+                failure = { }
+            )
+        }
+
+        val primaryView = views.firstOrNull { it.primary } ?: views.firstOrNull()
+        if (primaryView != null) loadCamera(primaryView)
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(8), dp(16), dp(4))
             addView(
                 frame,
-                FrameLayout.LayoutParams(
+                LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(260)
                 )
             )
+
+            if (views.size > 1) {
+                val cameraRow = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(0, dp(6), 0, 0)
+                }
+                views.forEachIndexed { index, view ->
+                    cameraRow.addView(
+                        Button(this@MainActivity).apply {
+                            text = if (view.primary) {
+                                "★ " + t("Основная")
+                            } else {
+                                "📷 " + (index + 1)
+                            }
+                            textSize = 11f
+                            setTextColor(white)
+                            backgroundTintList = ColorStateList.valueOf(surface2)
+                            setOnClickListener { loadCamera(view) }
+                        },
+                        LinearLayout.LayoutParams(
+                            0,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            1f
+                        ).apply {
+                            setMargins(dp(2), 0, dp(2), 0)
+                        }
+                    )
+                }
+                addView(cameraRow)
+            }
         }
     }
 
