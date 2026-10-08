@@ -1,0 +1,7 @@
+<en-US>
+Redesigned the main tabs for one-screen use. Home, My Battle, Watch and Profile are now compact dashboards without long vertical scrolling. Secondary details open in focused dialogs.
+</en-US>
+
+<ru-RU>
+Переработан интерфейс основных вкладок. Главная, Моя битва, Смотреть и Профиль теперь сделаны как компактные экраны без длинной вертикальной прокрутки. Второстепенная информация открывается отдельно.
+</ru-RU>
