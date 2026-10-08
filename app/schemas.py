@@ -41,6 +41,7 @@ class RackStateOut(BaseModel):
     soil_temperature: Optional[float] = None
 
     camera_id: Optional[str] = None
+    camera_ids: List[str] = Field(default_factory=list)
     camera_device: Optional[str] = None
     camera_flip_vertical: bool = False
     camera_flip_horizontal: bool = False
@@ -61,6 +62,7 @@ class RackHWOut(BaseModel):
     water_relay: int
     sensor_slave_id: Optional[int] = None
     camera_id: Optional[str] = None
+    camera_ids: List[str] = Field(default_factory=list)
 
     camera_device: Optional[str] = None
     camera_flip_vertical: bool = False
