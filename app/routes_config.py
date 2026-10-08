@@ -55,12 +55,21 @@ async def set_config(payload: HWConfig):
         add(rack.light_relay, f"Стеллаж {rid} — Свет")
         add(rack.water_relay, f"Стеллаж {rid} — Полив")
 
-    # Проверка: если у полки выбрана camera_id, такая камера должна существовать.
+    # Проверка: все камеры, назначенные полке, должны существовать.
     for rack_id, rack in payload.racks.items():
-        if rack.camera_id and rack.camera_id not in payload.cameras:
+        assigned = list(rack.camera_ids or [])
+        if rack.camera_id and rack.camera_id not in assigned:
+            assigned.insert(0, rack.camera_id)
+        for camera_id in assigned:
+            if camera_id not in payload.cameras:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Для стеллажа {rack_id} выбрана несуществующая камера: {camera_id}",
+                )
+        if rack.camera_id and assigned and assigned[0] != rack.camera_id:
             raise HTTPException(
                 status_code=400,
-                detail=f"Для стеллажа {rack_id} выбрана несуществующая камера: {rack.camera_id}",
+                detail=f"Основная камера стеллажа {rack_id} должна быть первой в camera_ids",
             )
 
     dups = {k: v for k, v in used.items() if len(v) > 1}
