@@ -59,6 +59,7 @@ class AppLanguage(private val context: Context) {
 
         private val rows: Map<String, Array<String>> = mapOf(
             "Главная" to arrayOf("Home", "Start", "Accueil", "Inicio", "Home", "Início", "Główna", "首页"),
+            "УРОВЕНЬ " to arrayOf("LEVEL ", "LEVEL ", "NIVEAU ", "NIVEL ", "LIVELLO ", "NÍVEL ", "POZIOM ", "等级 "),
             "Моя битва" to arrayOf("My Battle", "Mein Battle", "Ma bataille", "Mi batalla", "La mia battaglia", "Minha batalha", "Moja bitwa", "我的对战"),
             "Смотреть" to arrayOf("Watch", "Ansehen", "Regarder", "Ver", "Guarda", "Assistir", "Oglądaj", "观看"),
             "Профиль" to arrayOf("Profile", "Profil", "Profil", "Perfil", "Profilo", "Perfil", "Profil", "个人资料"),
