@@ -46,7 +46,6 @@ class MainActivity : Activity() {
     private var watchBattleIndex = 0
     private var arenaFilter = "live"
     private var battleViewMode = "owner"
-    private val selectedMineEntryByBattle = mutableMapOf<String, String>()
 
     private val handler = Handler(Looper.getMainLooper())
     private val autoRefresh = object : Runnable {
@@ -777,14 +776,8 @@ class MainActivity : Activity() {
                     ).apply { setMargins(dp(12), dp(4), dp(12), dp(8)) }
                 )
             } else {
-                val requested = selectedMineEntryByBattle[battle.id]
-                val selectedMine = mineEntries.firstOrNull { it.id == requested } ?: mineEntries.first()
-                selectedMineEntryByBattle[battle.id] = selectedMine.id
-
-                if (mineEntries.size > 1) {
-                    body.addView(ownedPlantSelector(battle, mineEntries, selectedMine.id))
-                }
-
+                // A user can own only one plant in a battle.
+                val selectedMine = mineEntries.first()
                 body.addView(compactResources(battle, selectedMine))
                 if (battle.status == "growing") {
                     body.addView(compactCommandRow(battle, selectedMine))
@@ -1628,25 +1621,6 @@ class MainActivity : Activity() {
             }
         }
 
-    private fun ownedPlantSelector(
-        battle: Battle,
-        entries: List<BattleEntry>,
-        selectedId: String
-    ): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(10), dp(2), dp(10), 0)
-            entries.forEach { entry ->
-                addView(compactMiniButton(
-                    (if (entry.id == selectedId) "★ " else "") + "#" + entry.slotNumber
-                ) {
-                    selectedMineEntryByBattle[battle.id] = entry.id
-                    renderBattle(battle)
-                }, LinearLayout.LayoutParams(0, dp(34), 1f).apply {
-                    setMargins(dp(2), 0, dp(2), 0)
-                })
-            }
-        }
 
     private fun compactJoinRow(battle: Battle): View =
         LinearLayout(this).apply {
