@@ -170,6 +170,8 @@
           </div>
           <form id="battleCreateForm" class="battle-create-grid">
             <label class="wide">Название<input id="battleTitle" value="Битва растений" maxlength="180" required></label>
+            <label>Дата начала<input id="battleStartDate" type="date"></label>
+            <label>Дата окончания<input id="battleEndDate" type="date"></label>
             <label>Полка<select id="battleRack" required></select></label>
             <label>Растение<select id="battlePlant" required></select></label>
             <label>Цена участия, Kisa<input id="battlePrice" type="number" min="0" value="20" required></label>
@@ -289,6 +291,23 @@
     </main>
   </div>
 
+  <dialog id="battleEditDialog">
+    <form id="battleEditForm" class="dialog-card">
+      <div class="dialog-head">
+        <div><h3>Изменить битву</h3><p>Название и плановые даты соревнования.</p></div>
+        <button type="button" class="icon-button" data-close-dialog="battleEditDialog">×</button>
+      </div>
+      <input id="battleEditId" type="hidden">
+      <label>Название<input id="battleEditTitle" maxlength="180" required></label>
+      <label>Дата начала<input id="battleEditStartDate" type="date"></label>
+      <label>Дата окончания<input id="battleEditEndDate" type="date"></label>
+      <div class="dialog-actions">
+        <button type="button" data-close-dialog="battleEditDialog">Отмена</button>
+        <button type="submit" class="primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="giftDialog">
     <form id="giftForm" method="dialog" class="dialog-card">
       <div class="dialog-head"><div><h3>Подарить Kisa</h3><p id="giftUserName"></p></div><button type="button" class="icon-button" data-close-dialog="giftDialog">×</button></div>
@@ -340,7 +359,7 @@
 
   <div id="toast" class="toast"></div>
   <script src="/static/admin.js?v=20261001-1" defer></script>
-  <script src="/static/admin_battles.js?v=20260930-1" defer></script>
+  <script src="/static/admin_battles.js?v=20261008-1" defer></script>
   <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
   <script src="/static/admin_seeds.js?v=20260910-1" defer></script>
