@@ -186,7 +186,7 @@ class MainActivity : Activity() {
         val profile = game.profile()
         body.addView(
             statStrip(
-                "LEVEL " + profile.level,
+                t("УРОВЕНЬ ") + profile.level,
                 profile.xp.toString() + " XP",
                 "🔥 " + profile.streak + t(" дн.")
             )
