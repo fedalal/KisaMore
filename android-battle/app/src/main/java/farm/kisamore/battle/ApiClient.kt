@@ -289,6 +289,20 @@ class ApiClient(context: Context) {
             }
         }
 
+        val cameraViewsJson = obj.optJSONArray("camera_views") ?: JSONArray()
+        val cameraViews = buildList {
+            for (i in 0 until cameraViewsJson.length()) {
+                val item = cameraViewsJson.optJSONObject(i) ?: continue
+                add(
+                    CameraView(
+                        cameraId = item.optString("camera_id"),
+                        primary = item.optBoolean("primary", false),
+                        photoUrl = item.nullableString("photo_url")
+                    )
+                )
+            }
+        }
+
         val predictionCounts = mutableMapOf<String, Int>()
         val counts = obj.optJSONObject("prediction_counts") ?: JSONObject()
         val keys = counts.keys()
@@ -305,6 +319,7 @@ class ApiClient(context: Context) {
             plantName = localizedPlantName(obj),
             growDays = obj.optInt("grow_days"),
             rackPhotoUrl = obj.nullableString("rack_photo_url"),
+            cameraViews = cameraViews,
             waterBudgetMl = obj.optInt("water_budget_ml"),
             nutrientBudgetMl = obj.optInt("nutrient_budget_ml"),
             shadeBudgetMinutes = obj.optInt("shade_budget_minutes"),
