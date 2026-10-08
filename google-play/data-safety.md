@@ -74,3 +74,19 @@ under the current Google Play Data safety definitions.
 - Advertising data
 - Device advertising ID
 - Crash analytics SDK data
+
+
+## Account creation and deletion
+
+The Android app now allows account creation using:
+- display name;
+- email address;
+- password.
+
+In Play Console, declare the account creation method as:
+**Username and password**.
+
+The app provides a readily discoverable account deletion path from Profile to:
+https://kisamore.farm/delete-account
+
+The external deletion resource remains available even after the app is uninstalled.
