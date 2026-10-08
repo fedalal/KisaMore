@@ -9,7 +9,7 @@ This directory contains the technical and Play Console material for publishing
 - Package / applicationId: **farm.kisamore.battle**
 - App type: **Game**
 - Suggested category: **Simulation**
-- Current Play-ready version: **0.4.2 (versionCode 10)**
+- Current Play-ready version: **0.4.3 (versionCode 11)**
 - Minimum Android: **Android 8.0 / API 26**
 - Target Android: **Android 16 / API 36**
 - Website: **https://kisamore.farm**
