@@ -283,8 +283,8 @@ class MqttPhotoConsumer:
         payload_camera_id = str(done.get("camera_id") or camera_id).strip()
         if not payload_camera_id or len(payload_camera_id) > 80:
             raise ValueError("invalid MQTT photo camera id")
-        if not legacy_topic and payload_camera_id != camera_id:
-            raise ValueError("MQTT photo camera id mismatch")
+        # The topic uses a transport-safe camera key while the done payload
+        # carries the canonical configured camera_id.
         camera_id = payload_camera_id
         is_primary = True if legacy_topic else bool(done.get("is_primary", False))
 
