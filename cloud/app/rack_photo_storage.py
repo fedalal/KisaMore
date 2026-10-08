@@ -49,6 +49,56 @@ def slot_latest_path(
     )
 
 
+def safe_camera_id(camera_id: str) -> str:
+    value = "".join(
+        ch if ch.isalnum() or ch in ("-", "_") else "_"
+        for ch in str(camera_id or "")
+    ).strip("_")
+    return value or "camera"
+
+
+def camera_photo_dir(
+    photo_dir: str | Path,
+    device_id: str,
+    camera_id: str,
+) -> Path:
+    return device_photo_dir(photo_dir, device_id) / "cameras" / safe_camera_id(camera_id)
+
+
+def rack_camera_latest_path(
+    photo_dir: str | Path,
+    device_id: str,
+    rack_id: int,
+    camera_id: str,
+    *,
+    primary: bool = False,
+) -> Path:
+    if primary:
+        return rack_latest_path(photo_dir, device_id, rack_id)
+    return camera_photo_dir(photo_dir, device_id, camera_id) / "latest" / f"rack_{int(rack_id)}.jpg"
+
+
+def slot_camera_latest_path(
+    photo_dir: str | Path,
+    device_id: str,
+    rack_id: int,
+    camera_id: str,
+    slot_number: int,
+    *,
+    primary: bool = False,
+) -> Path:
+    if primary:
+        return slot_latest_path(photo_dir, device_id, rack_id, slot_number)
+    slot = int(slot_number)
+    if slot < 1 or slot > SLOT_COUNT:
+        raise ValueError("slot_number must be 1..6")
+    return (
+        camera_photo_dir(photo_dir, device_id, camera_id)
+        / "latest"
+        / f"rack_{int(rack_id)}_slot_{slot}.jpg"
+    )
+
+
 def _aware_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
@@ -165,6 +215,87 @@ def store_rack_photo(
         for slot_number in range(1, SLOT_COUNT + 1):
             crop = image.crop(_slot_box(width, height, slot_number))
             target = slot_latest_path(photo_dir, device_id, rack_id, slot_number)
+            _atomic_save_jpeg(crop, target)
+            slot_paths[slot_number] = target
+
+    return StoredRackPhoto(
+        latest_path=latest,
+        archive_path=archive,
+        slot_paths=slot_paths,
+        width=width,
+        height=height,
+    )
+
+
+def store_rack_camera_photo(
+    *,
+    photo_dir: str | Path,
+    device_id: str,
+    rack_id: int,
+    camera_id: str,
+    is_primary: bool,
+    captured_at: datetime,
+    content: bytes,
+) -> StoredRackPhoto:
+    """Store one camera view for a rack.
+
+    Primary views intentionally use the historical rack paths so existing
+    public URLs, notifications and timelapses keep working. Secondary views are
+    isolated by camera_id and get their own six derived container crops.
+    """
+    if is_primary:
+        return store_rack_photo(
+            photo_dir=photo_dir,
+            device_id=device_id,
+            rack_id=rack_id,
+            captured_at=captured_at,
+            content=content,
+        )
+
+    from PIL import Image, ImageOps
+
+    captured = _aware_utc(captured_at)
+    digest = hashlib.sha256(content).hexdigest()
+    root = camera_photo_dir(photo_dir, device_id, camera_id)
+
+    with Image.open(BytesIO(content)) as source:
+        source.load()
+        image = ImageOps.exif_transpose(source).convert("RGB")
+        width, height = image.size
+        if width < 2 or height < 3:
+            raise ValueError("rack photo is too small to split into six slots")
+
+        latest = rack_camera_latest_path(
+            photo_dir,
+            device_id,
+            rack_id,
+            camera_id,
+            primary=False,
+        )
+        _atomic_write(latest, content)
+
+        archive_dir = (
+            root
+            / "archive"
+            / f"rack_{int(rack_id)}"
+            / captured.strftime("%Y-%m-%d")
+        )
+        archive_name = f"{captured.strftime('%H%M%S_%f')}_{digest[:10]}.jpg"
+        archive = archive_dir / archive_name
+        if not archive.exists():
+            _atomic_write(archive, content)
+
+        slot_paths: dict[int, Path] = {}
+        for slot_number in range(1, SLOT_COUNT + 1):
+            crop = image.crop(_slot_box(width, height, slot_number))
+            target = slot_camera_latest_path(
+                photo_dir,
+                device_id,
+                rack_id,
+                camera_id,
+                slot_number,
+                primary=False,
+            )
             _atomic_save_jpeg(crop, target)
             slot_paths[slot_number] = target
 
