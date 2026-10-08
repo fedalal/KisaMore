@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -28,6 +28,8 @@ class CreateBattleIn(BaseModel):
     rack_id: int = Field(ge=1, le=16)
     plant_id: str = Field(min_length=1, max_length=36)
     title: str = Field(default="Битва растений", min_length=2, max_length=180)
+    start_date: date | None = None
+    end_date: date | None = None
     entry_price_kisa: int = Field(default=20, ge=0, le=1_000_000)
     water_budget_ml: int = Field(default=1000, ge=0, le=100_000)
     nutrient_budget_ml: int = Field(default=100, ge=0, le=100_000)
@@ -41,6 +43,12 @@ class RejectActionIn(BaseModel):
 
 class WinnerIn(BaseModel):
     entry_id: str = Field(min_length=1, max_length=36)
+
+
+class UpdateBattleIn(BaseModel):
+    title: str = Field(min_length=2, max_length=180)
+    start_date: date | None = None
+    end_date: date | None = None
 
 
 def _plant_name(plant: Plant) -> str:
@@ -100,6 +108,8 @@ async def _serialize(session: AsyncSession, battle: PlantBattle) -> dict:
         "shade_budget_minutes": battle.shade_budget_minutes,
         "winner_reward_kisa": battle.winner_reward_kisa,
         "winner_entry_id": battle.winner_entry_id,
+        "start_date": battle.start_date,
+        "end_date": battle.end_date,
         "created_at": battle.created_at,
         "filled_at": battle.filled_at,
         "planted_at": battle.planted_at,
@@ -304,12 +314,17 @@ async def create_battle(
     except SeedUnavailable as exc:
         raise HTTPException(status_code=409, detail="Not enough seeds for six battle containers") from exc
 
+    if payload.start_date and payload.end_date and payload.end_date < payload.start_date:
+        raise HTTPException(status_code=422, detail="End date cannot be earlier than start date")
+
     battle = PlantBattle(
         id=str(uuid4()),
         device_id=payload.device_id,
         rack_id=payload.rack_id,
         plant_id=payload.plant_id,
         title=payload.title.strip(),
+        start_date=payload.start_date,
+        end_date=payload.end_date,
         status="open",
         entry_price_kisa=payload.entry_price_kisa,
         max_entries=6,
@@ -333,6 +348,56 @@ async def create_battle(
                 "rack_id": battle.rack_id,
                 "plant_id": battle.plant_id,
                 "entry_price_kisa": battle.entry_price_kisa,
+                "title": battle.title,
+                "start_date": battle.start_date.isoformat() if battle.start_date else None,
+                "end_date": battle.end_date.isoformat() if battle.end_date else None,
+            },
+        )
+    )
+    await session.commit()
+    return await _serialize(session, battle)
+
+
+@router.patch("/{battle_id}")
+async def update_battle(
+    battle_id: str,
+    payload: UpdateBattleIn,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    battle = (
+        await session.execute(
+            select(PlantBattle).where(PlantBattle.id == battle_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if battle is None:
+        raise HTTPException(status_code=404, detail="Battle not found")
+    if payload.start_date and payload.end_date and payload.end_date < payload.start_date:
+        raise HTTPException(status_code=422, detail="End date cannot be earlier than start date")
+
+    old = {
+        "title": battle.title,
+        "start_date": battle.start_date.isoformat() if battle.start_date else None,
+        "end_date": battle.end_date.isoformat() if battle.end_date else None,
+    }
+    battle.title = payload.title.strip()
+    battle.start_date = payload.start_date
+    battle.end_date = payload.end_date
+    battle.updated_at = datetime.now(timezone.utc)
+
+    session.add(
+        AdminAuditLog(
+            admin_user_id=admin.id,
+            action="update_plant_battle",
+            target_type="plant_battle",
+            target_id=battle.id,
+            details={
+                "before": old,
+                "after": {
+                    "title": battle.title,
+                    "start_date": battle.start_date.isoformat() if battle.start_date else None,
+                    "end_date": battle.end_date.isoformat() if battle.end_date else None,
+                },
             },
         )
     )
