@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from .config import get_settings
 from .db import SessionLocal
-from .models import RackPhoto
+from .models import RackPhoto, RackCameraPhoto, RackCurrent
 from .rack_photo_storage import SLOT_COUNT, slot_latest_path, store_rack_photo
 
 
@@ -54,6 +54,50 @@ async def backfill_rack_photo_derivatives() -> None:
 
             photo.file_path = str(stored.latest_path)
             photo.size_bytes = len(content)
+            migrated += 1
+
+        # Mirror every legacy primary rack photo into the camera-aware table.
+        # Use the latest telemetry camera_id when available.
+        legacy_photos = (await session.execute(select(RackPhoto))).scalars().all()
+        for photo in legacy_photos:
+            exists = (
+                await session.execute(
+                    select(RackCameraPhoto.id).where(
+                        RackCameraPhoto.device_id == photo.device_id,
+                        RackCameraPhoto.rack_id == photo.rack_id,
+                        RackCameraPhoto.is_primary.is_(True),
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+            if exists is not None:
+                continue
+
+            current = (
+                await session.execute(
+                    select(RackCurrent).where(
+                        RackCurrent.device_id == photo.device_id,
+                        RackCurrent.rack_id == photo.rack_id,
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+            camera_id = (
+                str(current.camera_id).strip()
+                if current is not None and current.camera_id
+                else "primary"
+            )
+            session.add(
+                RackCameraPhoto(
+                    device_id=photo.device_id,
+                    rack_id=photo.rack_id,
+                    camera_id=camera_id,
+                    is_primary=True,
+                    file_path=photo.file_path,
+                    content_type=photo.content_type,
+                    size_bytes=photo.size_bytes,
+                    captured_at=photo.captured_at,
+                    updated_at=photo.updated_at,
+                )
+            )
             migrated += 1
 
         if migrated:
