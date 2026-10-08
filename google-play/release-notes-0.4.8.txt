@@ -1,0 +1,7 @@
+<en-US>
+Simplified the app around a single plant per battle. Home now shows your plant, live camera view, remaining resources and care controls. If you do not own a plant yet, Home focuses on one clear action: choose a plant.
+</en-US>
+
+<ru-RU>
+Главная страница упрощена вокруг одного растения. Если растение уже куплено, сразу показываются фото, ресурсы и управление. Если растения нет — одна основная кнопка выбора растения.
+</ru-RU>
