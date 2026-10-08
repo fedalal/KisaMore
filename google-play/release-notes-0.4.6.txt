@@ -1,0 +1,7 @@
+<en-US>
+My Plant and Arena are now clearly separated. My Plant is focused on controlling your own plant and resources, while Arena is dedicated to watching battles, predictions, timelapses and events. Arena also includes Live, Open and Finished filters.
+</en-US>
+
+<ru-RU>
+Вкладки «Моё растение» и «Арена» теперь чётко разделены. «Моё растение» предназначено для управления своим растением и ресурсами, а «Арена» — для просмотра битв, прогнозов, таймлапсов и событий.
+</ru-RU>
