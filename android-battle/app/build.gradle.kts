@@ -11,8 +11,8 @@ android {
         applicationId = "farm.kisamore.battle"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.4.5"
+        versionCode = 14
+        versionName = "0.4.6"
     }
 
     val uploadStoreFile = System.getenv("KISAMORE_UPLOAD_STORE_FILE")
