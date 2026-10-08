@@ -146,7 +146,10 @@ function toggleCameraPreviews(cameraId){
 
 function deleteCamera(cameraId){
   const usedBy = Object.entries(cfgState.racks || {})
-    .filter(([_, rack]) => rack.camera_id === cameraId)
+    .filter(([_, rack]) => (
+      rack.camera_id === cameraId ||
+      (Array.isArray(rack.camera_ids) && rack.camera_ids.includes(cameraId))
+    ))
     .map(([rackId]) => rackId);
 
   if(usedBy.length){
