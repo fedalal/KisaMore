@@ -23,6 +23,12 @@ data class BattleEntry(
     val certificateUrl: String?
 )
 
+data class CameraView(
+    val cameraId: String,
+    val primary: Boolean,
+    val photoUrl: String?
+)
+
 data class Battle(
     val id: String,
     val title: String,
@@ -31,6 +37,7 @@ data class Battle(
     val plantName: String,
     val growDays: Int,
     val rackPhotoUrl: String?,
+    val cameraViews: List<CameraView>,
     val waterBudgetMl: Int,
     val nutrientBudgetMl: Int,
     val shadeBudgetMinutes: Int,
