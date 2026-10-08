@@ -158,7 +158,23 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
+
+        // Android 15/16 enforces edge-to-edge drawing for modern target SDKs.
+        // Keep all app content below the status bar/cutout and above the
+        // gesture/navigation area instead of letting the header sit underneath
+        // system icons.
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            view.setPadding(
+                insets.systemWindowInsetLeft,
+                insets.systemWindowInsetTop + dp(8),
+                insets.systemWindowInsetRight,
+                insets.systemWindowInsetBottom
+            )
+            insets
+        }
+
         setContentView(root)
+        root.requestApplyInsets()
     }
 
     private fun navButton(icon: String, label: String, action: () -> Unit): View {
