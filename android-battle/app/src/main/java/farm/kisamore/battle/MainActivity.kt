@@ -44,6 +44,8 @@ class MainActivity : Activity() {
     private var currentScreen = "home"
     private val avatarRequestCode = 4201
     private var currentBattleId: String? = null
+    private val selectedBattleCamera = mutableMapOf<String, String>()
+    private val selectedActivityPeriod = mutableMapOf<String, Int>()
 
     private val handler = Handler(Looper.getMainLooper())
     private val autoRefresh = object : Runnable {
@@ -156,8 +158,8 @@ class MainActivity : Activity() {
         tabs.filter { it.third != "history" || api.hasSession() }
             .forEach { (label, icon, destination) ->
             val active = when (destination) {
-                "plant" -> currentScreen in listOf("battle", "no_battle", "login")
-                "watch" -> currentScreen in listOf("home", "watch")
+                "plant" -> currentScreen in listOf("no_battle", "login")
+                "watch" -> currentScreen in listOf("home", "watch", "battle")
                 else -> currentScreen == destination
             }
             navBar.addView(BattleBottomTab(this, label, icon, active) {
@@ -683,43 +685,99 @@ class MainActivity : Activity() {
     private fun renderBattle(battle: Battle) {
         currentScreen = "battle"
         currentBattleId = battle.id
-
-        val scroll = screenScroll()
-        val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(arenaHeader(battle))
-        body.addView(shelfPhoto(battle))
-
-        val mineEntries = battle.entries.filter { it.isMine }
-        if (mineEntries.isNotEmpty()) {
-            body.addView(sectionTitle("ВАШИ РАСТЕНИЯ", "Ресурсы скрыты от соперников до финала"))
-            mineEntries.forEach { entry ->
-                body.addView(resourceCard(battle, entry))
+        val candidates = (myBattles + publicBattles + battle)
+            .distinctBy { it.id }
+            .filter { it.status != "finished" || it.id == battle.id }
+            .sortedWith(compareByDescending<Battle> { it.mine != null }.thenBy { it.title })
+        val screen = BattleArenaScreen(
+            host = this,
+            api = api,
+            battle = battle,
+            choices = candidates,
+            cameraPreference = selectedBattleCamera[battle.id],
+            initialPeriod = selectedActivityPeriod[battle.id] ?: 3,
+            onBattle = { chosen -> if (chosen.id != battle.id) openBattle(chosen) },
+            onCamera = { cameraId ->
+                selectedBattleCamera[battle.id] = cameraId
+                renderBattle(battle)
+            },
+            onPeriod = { days -> selectedActivityPeriod[battle.id] = days },
+            onCommand = { entry, kind -> amountDialog(battle, entry, kind) },
+            onVideo = { path -> showArenaTimelapse(path) },
+            onJournal = { actions -> showActionJournal(actions) },
+            onPredict = { entry ->
+                if (api.hasSession()) sendPrediction(battle, entry) else showLogin()
+            },
+            onJoin = {
+                if (api.hasSession()) confirmJoin(battle) else showLogin()
             }
-        } else if (battle.status == "open") {
-            body.addView(sectionTitle("СТАТЬ ИГРОКОМ", "В битве ещё есть места"))
-            val join = card()
-            join.addView(bigText("Свободно мест: " + battle.remainingEntries, 18f))
-            join.addView(smallText("После участия вы получите собственный контейнер и сможете управлять его ресурсами."))
-            join.addView(primaryButton(if (api.hasSession()) "ЗАНЯТЬ МЕСТО" else "ВОЙТИ И УЧАСТВОВАТЬ") {
-                if (!api.hasSession()) {
-                    showLogin()
-                } else {
-                    confirmJoin(battle)
-                }
-            })
-            body.addView(cardWithMargin(join))
+        )
+        showContent(screen)
+        addNavigation()
+    }
+
+    private fun showArenaTimelapse(path: String?) {
+        val url = api.absolute(path)
+        if (url.isNullOrBlank()) {
+            toast("Таймлапс пока не готов")
+            return
         }
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val box = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val player = android.widget.VideoView(this).apply {
+            setOnErrorListener { _, _, _ ->
+                toast("Не удалось воспроизвести таймлапс")
+                dialog.dismiss()
+                true
+            }
+            setOnPreparedListener { it.isLooping = false; start() }
+        }
+        box.addView(player, FrameLayout.LayoutParams(-1, -1))
+        val close = TextView(this).apply {
+            text = "✕"
+            textSize = 27f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setOnClickListener { dialog.dismiss() }
+        }
+        box.addView(close, FrameLayout.LayoutParams(dp(52), dp(52), Gravity.TOP or Gravity.END))
+        dialog.setOnDismissListener { player.stopPlayback() }
+        dialog.setContentView(box)
+        dialog.show()
+        game.completeMission("video")
+        player.setVideoURI(Uri.parse(url))
+        player.requestFocus()
+    }
 
-        body.addView(sectionTitle("ПРОГНОЗ ЗРИТЕЛЕЙ", "Кто победит в этой битве?"))
-        body.addView(predictionCard(battle))
-
-        body.addView(sectionTitle("ТАЙМЛАПС", "Рост, который не нужно ждать часами"))
-        body.addView(timelapseCard(battle))
-
-        body.addView(sectionTitle("СОБЫТИЯ", "Что происходит прямо сейчас"))
-        body.addView(eventFeed(battle))
-
-        showContent(scroll)
+    private fun showActionJournal(actions: List<BattleAction>) {
+        val sorted = actions.sortedByDescending { it.completedAt ?: it.requestedAt ?: "" }
+        val panel = ScrollView(this)
+        val rows = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(8), dp(18), dp(14))
+        }
+        panel.addView(rows)
+        if (sorted.isEmpty()) rows.addView(TextView(this).apply {
+            text = "Команд пока нет"
+            setPadding(0, dp(12), 0, dp(12))
+        })
+        sorted.forEach { a ->
+            val date = (a.completedAt ?: a.requestedAt).orEmpty().take(16).replace('T', ' ')
+            rows.addView(TextView(this).apply {
+                text = date + "   " + actionHuman(a) + "\n" + actionStatus(a.status)
+                textSize = 13f
+                setTextColor(Color.BLACK)
+                setPadding(0, dp(11), 0, dp(11))
+            })
+            rows.addView(View(this).apply {
+                setBackgroundColor(Color.parseColor("#E1E9E1"))
+            }, LinearLayout.LayoutParams(-1, dp(1)))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Все действия · " + sorted.size)
+            .setView(panel)
+            .setPositiveButton("Закрыть", null)
+            .show()
     }
 
     private fun arenaHeader(battle: Battle): View {
