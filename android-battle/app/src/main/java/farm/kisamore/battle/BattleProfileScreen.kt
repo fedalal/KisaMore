@@ -52,17 +52,18 @@ class BattleProfileScreen(
     }
 
     private fun populate() {
-        weighted(profileCard(), 102f)
+        // Natural content heights instead of weights filling the screen.
+        addView(profileCard(), LayoutParams(-1, -2))
         gap()
-        weighted(statsRow(), 73f)
+        addView(statsRow(), LayoutParams(-1, dp(if (shortScreen) 62 else 70)))
         gap()
-        weighted(plantCard(), 93f)
+        addView(plantCard(), LayoutParams(-1, -2))
         gap()
-        weighted(rewardsCard(), 55f)
+        addView(rewardsCard(), LayoutParams(-1, -2))
         gap()
-        weighted(historyCard(), 72f)
+        addView(historyCard(), LayoutParams(-1, -2))
         gap()
-        weighted(settingsCard(), 133f)
+        addView(settingsCard(), LayoutParams(-1, -2))
     }
 
     private fun profileCard(): View {
@@ -189,44 +190,15 @@ class BattleProfileScreen(
     private fun rewardsCard(): View {
         val card = card(if (shortScreen) 9 else 12)
         card.addView(heading("Награды", "Все награды  ›") { showRewards() },
-            LayoutParams(-1, dp(26)))
-        if (profile.badges.isEmpty()) {
-            card.addView(text("Наград пока нет", 14f, secondary).apply {
-                gravity = Gravity.CENTER_VERTICAL
-            }, LayoutParams(-1, 0, 1f))
-            return card
-        }
-        val tiles = row().apply { setPadding(0, dp(2), 0, 0) }
-        val earned = profile.badges.firstOrNull()
-        val data = listOf(
-            Triple("✿", earned ?: "Пока нет", if (earned == null) "Достижения" else "Получено"),
-            Triple("▦", "QR-диплом", "За участие"),
-            Triple("◈", "20 Kisa", "За победу")
-        )
-        data.forEachIndexed { index, item ->
-            val tile = column().apply {
-                gravity = Gravity.CENTER
-                background = rounded(if (index == 0 && earned != null) pale else bg, 12)
-                setPadding(dp(3), dp(3), dp(3), dp(3))
-                setOnClickListener { showRewards() }
-            }
-            tile.addView(text(item.first, if (shortScreen) 19f else 22f,
-                if (index == 2) Color.parseColor("#BE9658") else accent, true).apply {
-                gravity = Gravity.CENTER
-            })
-            tile.addView(text(item.second, if (shortScreen) 10f else 11f, ink, true, true).apply {
-                gravity = Gravity.CENTER
-            })
-            if (!shortScreen) {
-                tile.addView(text(item.third, 10f, secondary, single = true).apply {
-                    gravity = Gravity.CENTER
-                })
-            }
-            tiles.addView(tile, LayoutParams(0, -1, 1f).apply {
-                if (index < data.lastIndex) rightMargin = dp(5)
-            })
-        }
-        card.addView(tiles, LayoutParams(-1, 0, 1f))
+            LayoutParams(-1, dp(27)))
+        val earned = profile.badges
+        card.addView(text(
+            if (earned.isEmpty()) "Наград пока нет" else earned.take(2).joinToString(" · "),
+            14f, if (earned.isEmpty()) secondary else accent, single = true
+        ).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(5), 0, 0, 0)
+        }, LayoutParams(-1, dp(26)))
         return card
     }
 
@@ -239,7 +211,7 @@ class BattleProfileScreen(
             card.addView(text("Пока нет завершённых битв", 13f, secondary).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(6), 0, 0, 0)
-            }, LayoutParams(-1, 0, 1f))
+            }, LayoutParams(-1, dp(30)))
         } else {
             finished.take(2).forEach { battle ->
                 val row = row().apply {
@@ -254,7 +226,7 @@ class BattleProfileScreen(
                 copy.addView(text("Завершена", 10f, secondary))
                 row.addView(copy, LayoutParams(0, -2, 1f))
                 row.addView(text("›", 17f, secondary))
-                card.addView(row, LayoutParams(-1, 0, 1f).apply { bottomMargin = dp(2) })
+                card.addView(row, LayoutParams(-1, dp(36)).apply { bottomMargin = dp(2) })
             }
         }
         return card
@@ -282,7 +254,7 @@ class BattleProfileScreen(
             line.addView(text(item.first, 16f, secondary), LayoutParams(dp(31), -2))
             line.addView(text(item.second, if (shortScreen) 14f else 15f, ink), LayoutParams(0, -2, 1f))
             line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
-            card.addView(line, LayoutParams(-1, 0, 1f))
+            card.addView(line, LayoutParams(-1, dp(if (shortScreen) 32 else 37)))
         }
         return card
     }
