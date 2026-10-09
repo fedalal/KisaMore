@@ -134,11 +134,24 @@ class MainActivity : Activity() {
         ) "#1B2A22" else "#FFFFFF"))
         val english = getSharedPreferences("battle_settings", MODE_PRIVATE)
             .getString("language", "ru") == "en"
+        val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
+            .getString("language", "ru") ?: "ru"
+        val navLabels = mapOf(
+            "ru" to listOf("Моё растение", "Битва", "История", "Профиль"),
+            "en" to listOf("My plant", "Battle", "History", "Profile"),
+            "zh" to listOf("我的植物", "对战", "历史", "个人"),
+            "de" to listOf("Meine Pflanze", "Kampf", "Verlauf", "Profil"),
+            "fr" to listOf("Ma plante", "Bataille", "Historique", "Profil"),
+            "es" to listOf("Mi planta", "Batalla", "Historial", "Perfil"),
+            "it" to listOf("La mia pianta", "Sfida", "Cronologia", "Profilo"),
+            "pt" to listOf("Minha planta", "Batalha", "Histórico", "Perfil"),
+            "pl" to listOf("Moja roślina", "Bitwa", "Historia", "Profil")
+        )[language] ?: listOf("My plant", "Battle", "History", "Profile")
         val tabs = listOf(
-            Triple(if (english) "My plant" else "Моё растение", "plant", "plant"),
-            Triple(if (english) "Battle" else "Битва", "battle", "watch"),
-            Triple(if (english) "History" else "История", "history", "history"),
-            Triple(if (english) "Profile" else "Профиль", "profile", "profile")
+            Triple(navLabels[0], "plant", "plant"),
+            Triple(navLabels[1], "battle", "watch"),
+            Triple(navLabels[2], "history", "history"),
+            Triple(navLabels[3], "profile", "profile")
         )
         tabs.forEach { (label, icon, destination) ->
             val active = when (destination) {
