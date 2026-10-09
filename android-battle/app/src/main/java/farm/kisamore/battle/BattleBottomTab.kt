@@ -99,6 +99,37 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
             "help" -> {canvas.drawCircle(12f,12f,9f,p);canvas.drawArc(8f,5f,16f,14f,195f,210f,false,p);canvas.drawLine(12f,13f,12f,16f,p);canvas.drawPoint(12f,19f,p)}
             "chevron" -> {canvas.drawLine(9f,6f,15f,12f,p);canvas.drawLine(15f,12f,9f,18f,p)}
             "camera" -> {canvas.drawRoundRect(3f,7f,21f,19f,2f,2f,p);canvas.drawCircle(12f,13f,4f,p);canvas.drawLine(6f,7f,9f,4f,p);canvas.drawLine(9f,4f,15f,4f,p)}
+            "logout" -> {
+                canvas.drawLine(3f, 3f, 10f, 3f, p)
+                canvas.drawLine(3f, 3f, 3f, 21f, p)
+                canvas.drawLine(3f, 21f, 10f, 21f, p)
+                canvas.drawLine(10f, 12f, 21f, 12f, p)
+                canvas.drawLine(16f, 7f, 21f, 12f, p)
+                canvas.drawLine(16f, 17f, 21f, 12f, p)
+            }
+            "coins" -> {
+                canvas.drawCircle(16f, 8f, 6f, p)
+                canvas.drawArc(2f, 10f, 14f, 22f, 25f, 290f, false, p)
+                canvas.drawLine(16f, 5f, 16f, 11f, p)
+            }
+            "qr-code" -> {
+                canvas.drawRoundRect(3f, 3f, 8f, 8f, 1f, 1f, p)
+                canvas.drawRoundRect(16f, 3f, 21f, 8f, 1f, 1f, p)
+                canvas.drawRoundRect(3f, 16f, 8f, 21f, 1f, 1f, p)
+                canvas.drawLine(12f, 3f, 12f, 9f, p)
+                canvas.drawLine(12f, 12f, 17f, 12f, p)
+                canvas.drawLine(16f, 16f, 16f, 21f, p)
+                canvas.drawLine(16f, 16f, 21f, 16f, p)
+                canvas.drawLine(21f, 21f, 21f, 21f, p)
+            }
+            "award" -> {
+                canvas.drawCircle(12f, 8f, 6f, p)
+                val ribbon = Path().apply {
+                    moveTo(8.5f, 13f); lineTo(7f, 21f); lineTo(12f, 18f)
+                    lineTo(17f, 21f); lineTo(15.5f, 13f)
+                }
+                canvas.drawPath(ribbon, p)
+            }
             "history" -> {
                 canvas.drawCircle(12f, 12f, 9f, p)
                 canvas.drawLine(12f, 6f, 12f, 12f, p)
