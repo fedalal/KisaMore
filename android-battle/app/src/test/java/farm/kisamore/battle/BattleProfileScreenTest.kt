@@ -22,8 +22,12 @@ class BattleProfileScreenTest {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val screen = createProfile(activity)
         assertTrue("Profile must not be a blank view", screen.childCount >= 7)
-        assertEquals("Профиль", (screen.getChildAt(0) as TextView).text.toString())
-        assertTrue("Photo section must exist", screen.getChildAt(2).visibility == View.VISIBLE)
+        assertTrue("No redundant title", !containsLabel(screen, "Профиль"))
+        assertTrue("Empty rewards clearly labeled", containsLabel(screen, "Наград пока нет"))
+        assertTrue("Plant header is plural", containsLabel(screen, "Мои растения"))
+        assertTrue("Help setting exists", containsLabel(screen, "Помощь"))
+        assertTrue("Server setting removed", !containsLabel(screen, "Сервер"))
+        assertTrue("Photo section must exist", screen.getChildAt(0).visibility == View.VISIBLE)
     }
 
     @Test
@@ -42,14 +46,14 @@ class BattleProfileScreenTest {
         screen.draw(Canvas(picture))
         // Robolectric can omit software bitmap pixels depending on graphics mode.
         // Assert actual laid-out card dimensions, not a particular pixel color.
-        assertTrue("Profile card should have positive height", screen.getChildAt(2).measuredHeight > 0)
-        assertTrue("Stats must be laid out", screen.getChildAt(4).measuredHeight > 0)
-        assertTrue("Plant card must be laid out", screen.getChildAt(6).measuredHeight > 0)
-        assertTrue("Rewards should be visible", screen.getChildAt(8).measuredHeight > 0)
-        assertTrue("History should be visible", screen.getChildAt(10).measuredHeight > 0)
-        assertTrue("Settings should be visible", screen.getChildAt(12).measuredHeight > 0)
-        assertTrue("Settings must fit above bottom navigation", screen.getChildAt(12).bottom <= height)
-        val settings = screen.getChildAt(12) as android.view.ViewGroup
+        assertTrue("Profile card should have positive height", screen.getChildAt(0).measuredHeight > 0)
+        assertTrue("Stats must be laid out", screen.getChildAt(2).measuredHeight > 0)
+        assertTrue("Plant card must be laid out", screen.getChildAt(4).measuredHeight > 0)
+        assertTrue("Rewards should be visible", screen.getChildAt(6).measuredHeight > 0)
+        assertTrue("History should be visible", screen.getChildAt(8).measuredHeight > 0)
+        assertTrue("Settings should be visible", screen.getChildAt(10).measuredHeight > 0)
+        assertTrue("Settings must fit above bottom navigation", screen.getChildAt(10).bottom <= height)
+        val settings = screen.getChildAt(10) as android.view.ViewGroup
         assertTrue("Last settings row must fit within the card",
             settings.getChildAt(settings.childCount - 1).bottom <= settings.height)
         val notificationLabel = findLabel(settings, "Уведомления")
@@ -69,6 +73,9 @@ class BattleProfileScreenTest {
         assertEquals(icon.layoutParams.width, icon.layoutParams.height)
         assertTrue(icon.layoutParams.width > 0)
     }
+
+    private fun containsLabel(view: View, label: String): Boolean =
+        runCatching { findLabel(view, label) }.isSuccess
 
     private fun findLabel(view: View, label: String): TextView {
         if (view is TextView && view.text.toString() == label) return view
