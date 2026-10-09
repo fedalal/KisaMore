@@ -33,14 +33,19 @@ class BattleProfileScreen(
     private val onPlant: () -> Unit,
     private val onHistory: () -> Unit,
     private val onRegion: () -> Unit,
-    private val onLogout: () -> Unit
+    private val onLogout: () -> Unit,
+    private val onThemeChanged: () -> Unit = {},
+    private val onLanguageChanged: () -> Unit = {}
 ) : LinearLayout(host) {
-    private val ink = Color.parseColor("#1A1C1A")
-    private val secondary = Color.parseColor("#6B7268")
-    private val accent = Color.parseColor("#4A7C59")
-    private val olive = Color.parseColor("#8B9A7D")
-    private val pale = Color.parseColor("#E8F0E8")
-    private val bg = Color.parseColor("#F8F9F6")
+    private val night = host.getSharedPreferences("battle_settings", 0).getBoolean("dark_mode", false)
+    private val english = host.getSharedPreferences("battle_settings", 0).getString("language", "ru") == "en"
+    private fun tr(ru: String, en: String) = if (english) en else ru
+    private val ink = Color.parseColor(if (night) "#F2F6F2" else "#1A1C1A")
+    private val secondary = Color.parseColor(if (night) "#ACB8AD" else "#6B7268")
+    private val accent = Color.parseColor(if (night) "#8CC89E" else "#4A7C59")
+    private val olive = Color.parseColor(if (night) "#9AB99B" else "#8B9A7D")
+    private val pale = Color.parseColor(if (night) "#273E2F" else "#E8F0E8")
+    private val bg = Color.parseColor(if (night) "#101A14" else "#F8F9F6")
     private val shortScreen = resources.configuration.screenHeightDp < 715
     private val padding = if (shortScreen) 9 else 12
     private val gapSize = if (shortScreen) 3 else 5
@@ -109,9 +114,9 @@ class BattleProfileScreen(
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(14), 0, 0, 0)
         }
-        details.addView(text(user?.displayName ?: "Гость", if (shortScreen) 20f else 23f, ink, true, true))
-        details.addView(text(user?.email ?: "Войдите в аккаунт", 12f, secondary, single = true))
-        details.addView(text(if (user == null) "Войти" else "Изменить фото", 13f, accent).apply {
+        details.addView(text(user?.displayName ?: tr("Гость", "Guest"), if (shortScreen) 20f else 23f, ink, true, true))
+        details.addView(text(user?.email ?: tr("Войдите в аккаунт", "Sign in to your account"), 12f, secondary, single = true))
+        details.addView(text(if (user == null) tr("Войти", "Sign in") else tr("Изменить фото", "Change photo"), 13f, accent).apply {
             setPadding(0, dp(4), 0, 0)
             setOnClickListener { changePhoto() }
         })
@@ -134,9 +139,9 @@ class BattleProfileScreen(
     private fun statsRow(): View {
         val row = row()
         val values = listOf(
-            Triple("battle", "Битв", if (user == null) "0" else serverProfile?.battleCount?.toString() ?: "—"),
-            Triple("trophy", "Побед", if (user == null) "0" else serverProfile?.winCount?.toString() ?: "—"),
-            Triple("chart", "Рейтинг", if (user == null) "0" else serverProfile?.ratingPoints?.toString() ?: "—")
+            Triple("battle", tr("Битв", "Battles"), if (user == null) "0" else serverProfile?.battleCount?.toString() ?: "—"),
+            Triple("trophy", tr("Побед", "Wins"), if (user == null) "0" else serverProfile?.winCount?.toString() ?: "—"),
+            Triple("chart", tr("Рейтинг", "Rating"), if (user == null) "0" else serverProfile?.ratingPoints?.toString() ?: "—")
         )
         values.forEachIndexed { i, item ->
             val box = card(if (shortScreen) 7 else 10).apply {
@@ -181,11 +186,11 @@ class BattleProfileScreen(
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(11), 0, dp(5), 0)
         }
-        info.addView(text("Мои растения", if (shortScreen) 16f else 18f, ink, true, true))
-        info.addView(text(battle?.plantName ?: "Пока нет растения", 13f, secondary, single = true))
+        info.addView(text(tr("Мои растения", "My plants"), if (shortScreen) 16f else 18f, ink, true, true))
+        info.addView(text(battle?.plantName ?: tr("Пока нет растения", "No plant yet"), 13f, secondary, single = true))
         info.addView(text(
-            if (battle == null) "Выбрать битву" else
-                if (battle.status == "growing") "Растёт" else "Участие в битве",
+            if (battle == null) tr("Выбрать битву", "Choose a battle") else
+                if (battle.status == "growing") tr("Растёт", "Growing") else tr("Участие в битве", "Participating"),
             11f, accent, single = true
         ))
         card.addView(info, LayoutParams(0, -2, 1f))
@@ -195,12 +200,12 @@ class BattleProfileScreen(
 
     private fun rewardsCard(): View {
         val card = card(if (shortScreen) 9 else 12)
-        card.addView(heading("Награды", "Все награды  ›") { showRewards() },
+        card.addView(heading(tr("Награды", "Rewards"), tr("Все награды  ›", "All rewards  ›")) { showRewards() },
             LayoutParams(-1, dp(26)))
         val recent = serverProfile?.rewards?.take(3).orEmpty()
         if (recent.isEmpty()) {
-            card.addView(text(if (user == null) "Наград пока нет" else
-                if (serverProfile == null) "Нет данных о наградах" else "Наград пока нет",
+            card.addView(text(if (user == null) tr("Наград пока нет", "No rewards yet") else
+                if (serverProfile == null) tr("Нет данных о наградах", "Rewards unavailable") else tr("Наград пока нет", "No rewards yet"),
                 13f, secondary), LayoutParams(-1, dp(23)))
         } else {
             val cells = row().apply { gravity = Gravity.CENTER_VERTICAL }
@@ -224,12 +229,12 @@ class BattleProfileScreen(
 
     private fun historyCard(): View {
         val card = card(if (shortScreen) 7 else 10)
-        card.addView(heading("История битв", "Все битвы  ›") { onHistory() },
+        card.addView(heading(tr("История битв", "Battle history"), tr("Все битвы  ›", "All battles  ›")) { onHistory() },
             LayoutParams(-1, dp(26)))
         val finished = battles.filter { it.status == "finished" &&
             (serverProfile?.finishedBattleIds?.contains(it.id) == true) }
         if (finished.isEmpty()) {
-            card.addView(text("Пока нет завершённых битв", 13f, secondary).apply {
+            card.addView(text(tr("Пока нет завершённых битв", "No finished battles yet"), 13f, secondary).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(6), 0, 0, 0)
             }, LayoutParams(-1, dp(30)))
@@ -255,13 +260,13 @@ class BattleProfileScreen(
 
     private fun settingsCard(): View {
         val card = card(if (shortScreen) 6 else 9)
-        card.addView(heading("Настройки", "") { settingsDialog() },
+        card.addView(heading(tr("Настройки", "Settings"), "") { settingsDialog() },
             LayoutParams(-1, dp(22)))
         val options = listOf(
-            Triple("bell", "Уведомления", "›"),
-            Triple("moon", "Тёмная тема", ""),
-            Triple("globe", "Язык", "Русский ›"),
-            Triple("help", "Помощь", "›")
+            Triple("bell", tr("Уведомления", "Notifications"), "›"),
+            Triple("moon", tr("Тёмная тема", "Dark theme"), ""),
+            Triple("globe", tr("Язык", "Language"), if (english) "English ›" else "Русский ›"),
+            Triple("help", tr("Помощь", "Help"), "›")
         )
         options.forEachIndexed { i, item ->
             val line = row().apply {
@@ -279,7 +284,7 @@ class BattleProfileScreen(
                     setOnCheckedChangeListener { _, enabled ->
                         host.getSharedPreferences("battle_settings", 0).edit()
                             .putBoolean("dark_mode", enabled).apply()
-                        settingAction(1)
+                        onThemeChanged()
                     }
                 })
             } else line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
@@ -315,15 +320,18 @@ class BattleProfileScreen(
                     putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
                 })
             } catch (_: Exception) { }
-            1 -> AlertDialog.Builder(host)
-                .setMessage("Выбор сохранён. Тёмная тема будет применена после включения общей темы приложения.")
-                .setPositiveButton("Понятно", null).show()
+            1 -> {
+                val prefs = host.getSharedPreferences("battle_settings", 0)
+                prefs.edit().putBoolean("dark_mode", !prefs.getBoolean("dark_mode", false)).apply()
+                onThemeChanged()
+            }
             2 -> AlertDialog.Builder(host).setTitle("Язык приложения")
                 .setSingleChoiceItems(arrayOf("Русский", "English"),
                     if (host.getSharedPreferences("battle_settings", 0).getString("language", "ru") == "ru") 0 else 1) { dialog, which ->
                     host.getSharedPreferences("battle_settings", 0).edit()
                         .putString("language", if (which == 0) "ru" else "en").apply()
                     dialog.dismiss()
+                    onLanguageChanged()
                 }.setNegativeButton("Отмена", null).show()
             3 -> showHelp()
         }
@@ -412,7 +420,7 @@ class BattleProfileScreen(
 
     private fun card(pad: Int): LinearLayout = column().apply {
         setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
-        background = rounded(Color.WHITE, 19)
+        background = rounded(Color.parseColor(if (night) "#1B2A22" else "#FFFFFF"), 19)
         elevation = dp(1).toFloat()
     }
 
