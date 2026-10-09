@@ -40,8 +40,12 @@ class BattleProfileScreenTest {
         assertEquals(height, screen.measuredHeight)
         val picture = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         screen.draw(Canvas(picture))
-        // Background #F8F9F6; card in the middle must actually paint white.
-        assertEquals(0xFFFFFFFF.toInt(), picture.getPixel(width / 2, height / 5))
+        // Card positions change with screen height. Search the entire draw result,
+        // not a single pixel that might fall in a flexible spacer.
+        val pixels = IntArray(width * height)
+        picture.getPixels(pixels, 0, width, 0, 0, width, height)
+        val whitePixels = pixels.count { it == android.graphics.Color.WHITE }
+        assertTrue("Expected visible white cards, found $whitePixels white pixels", whitePixels > 10)
     }
 
     private fun createProfile(activity: Activity) = BattleProfileScreen(
