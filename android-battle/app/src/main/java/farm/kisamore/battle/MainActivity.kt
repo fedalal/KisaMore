@@ -310,6 +310,8 @@ class MainActivity : Activity() {
         showContent(scroll)
     }
 
+    private var cachedServerProfile: PlayerBattleProfile? = null
+
     private fun showProfile() {
         currentScreen = "profile"
         currentBattleId = null
@@ -317,32 +319,43 @@ class MainActivity : Activity() {
         val avatar = user?.id?.let {
             getSharedPreferences("battle_profile_photos", MODE_PRIVATE).getString("avatar_" + it, null)
         }
-        showContent(BattleProfileScreen(
-            this,
-            user,
-            game.profile(),
-            myBattles,
-            avatar,
-            onChangePhoto = { pickProfilePhoto() },
-            onLogin = { showLogin() },
-            onPlant = {
-                val battle = activeMyBattle()
-                if (battle != null) openBattle(battle) else showNoBattle()
-                addNavigation()
-            },
-            onHistory = { showBattleHistory(); addNavigation() },
-            onRegion = {
-                api.setRegion(!api.isRussianServer())
-                loadAll("profile")
-            },
-            onLogout = {
-                async(work = { api.logout(); true }, success = {
-                    myBattles = emptyList()
-                    showProfile()
-                })
-            }
-        ))
-        addNavigation()
+        fun render(server: PlayerBattleProfile?) {
+            if (currentScreen != "profile") return
+            showContent(BattleProfileScreen(
+                this, user, game.profile(), myBattles, avatar, server,
+                onChangePhoto = { pickProfilePhoto() },
+                onLogin = { showLogin() },
+                onPlant = {
+                    val battle = activeMyBattle()
+                    if (battle != null) openBattle(battle) else showNoBattle()
+                    addNavigation()
+                },
+                onHistory = { showBattleHistory(); addNavigation() },
+                onRegion = {
+                    api.setRegion(!api.isRussianServer())
+                    loadAll("profile")
+                },
+                onLogout = {
+                    async(work = { api.logout(); true }, success = {
+                        myBattles = emptyList()
+                        cachedServerProfile = null
+                        showProfile()
+                    })
+                }
+            ))
+            addNavigation()
+        }
+        render(if (user == null) null else cachedServerProfile)
+        if (user != null) {
+            async(work = { api.myBattleProfile() }, success = {
+                cachedServerProfile = it
+                render(it)
+            }, failure = {
+                cachedServerProfile = null
+                render(null)
+                toast("Не удалось загрузить статистику профиля")
+            })
+        }
     }
 
     private fun showLogin() {
