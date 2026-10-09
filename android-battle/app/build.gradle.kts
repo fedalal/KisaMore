@@ -11,8 +11,8 @@ android {
         applicationId = "farm.kisamore.battle"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "0.6.6"
+        versionCode = 22
+        versionName = "0.6.7"
     }
 
     testOptions {
@@ -30,6 +30,7 @@ android {
 }
 
 dependencies {
+    implementation("com.google.zxing:core:3.5.3")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
 }
