@@ -17,11 +17,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * One-screen Profile. Builds ALL children synchronously in init.
- *
- * There are intentionally no onSizeChanged/onMeasure callbacks that remove/re-add
- * children: they caused an empty profile on some physical Android devices.
- * The content is a fixed-size set of compact rows with flexible empty gaps.
+ * The profile is intentionally one screen without scrolling. Cards SHARE the
+ * available height using layout weights; only small fixed gaps separate them.
+ * No view rebuilding during layout, and no weighted spacers between cards.
  */
 class BattleProfileScreen(
     private val host: Activity,
@@ -36,247 +34,336 @@ class BattleProfileScreen(
     private val onRegion: () -> Unit,
     private val onLogout: () -> Unit
 ) : LinearLayout(host) {
-    private val ink = Color.rgb(26, 28, 26)
-    private val secondary = Color.rgb(107, 114, 104)
-    private val accent = Color.rgb(74, 124, 89)
-    private val pale = Color.rgb(231, 240, 230)
-    private val condensed = resources.configuration.screenHeightDp < 690
-    private val small = resources.configuration.screenHeightDp < 510
+    private val ink = Color.parseColor("#1A1C1A")
+    private val secondary = Color.parseColor("#6B7268")
+    private val accent = Color.parseColor("#4A7C59")
+    private val olive = Color.parseColor("#8B9A7D")
+    private val pale = Color.parseColor("#E8F0E8")
+    private val bg = Color.parseColor("#F8F9F6")
+    private val shortScreen = resources.configuration.screenHeightDp < 715
+    private val padding = if (shortScreen) 10 else 14
+    private val gapSize = if (shortScreen) 5 else 8
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(Color.rgb(248, 249, 246))
-        setPadding(dp(16), dp(if (small) 6 else 12), dp(16), dp(if (small) 6 else 12))
-        // Build visible content ONCE during construction, before attachment.
+        setBackgroundColor(bg)
+        setPadding(dp(16), dp(8), dp(16), dp(8))
         populate()
     }
 
     private fun populate() {
-        val title = txt("Профиль", if (small) 24f else 27f, ink, true).apply {
+        val title = text("Профиль", if (shortScreen) 25f else 29f, ink, true).apply {
             gravity = Gravity.CENTER_VERTICAL
         }
-        block(title, if (small) 32 else 42)
-        flexibleGap()
-
-        block(profileCard(), if (small) 70 else if (condensed) 81 else 98)
-        flexibleGap()
-
-        block(statCards(), if (small) 54 else if (condensed) 62 else 75)
-        flexibleGap()
-
-        block(plantCard(), if (small) 66 else if (condensed) 78 else 92)
-        flexibleGap()
-
-        block(summaryCard("Награды",
-            profile.badges.take(2).joinToString(" · ").ifBlank { "Награды появятся после участия" }) {
-            val body = if (profile.badges.isEmpty()) "Наград пока нет." else profile.badges.joinToString("\n• ", "• ")
-            AlertDialog.Builder(host).setTitle("Награды").setMessage(body)
-                .setPositiveButton("Закрыть", null).show()
-        }, if (small) 48 else if (condensed) 55 else 70)
-        flexibleGap()
-
-        val recent = battles.firstOrNull { it.status == "finished" }
-        block(summaryCard("История битв",
-            recent?.let { it.plantName + " · Завершена" } ?: "Завершённых битв пока нет", onHistory),
-            if (small) 48 else if (condensed) 55 else 70)
-        flexibleGap()
-
-        block(summaryCard("Настройки", if (small) "Нажмите для открытия" else "Уведомления · Язык · Сервер") {
-            showSettings()
-        }, if (small) 48 else if (condensed) 55 else 70)
+        weighted(title, 37f)
+        gap()
+        weighted(profileCard(), 100f)
+        gap()
+        weighted(statsRow(), 78f)
+        gap()
+        weighted(plantCard(), 96f)
+        gap()
+        weighted(rewardsCard(), 118f)
+        gap()
+        weighted(historyCard(), 108f)
+        gap()
+        weighted(settingsCard(), 170f)
     }
 
     private fun profileCard(): View {
-        val card = card(if (small) 8 else 12).apply {
+        val card = card(padding).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val dimension = if (small) 49 else if (condensed) 58 else 72
-        val avatarLayer = FrameLayout(host)
-        val photo = ImageView(host).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            background = round(pale, dimension / 2)
-            clipToOutline = true
-            setImageResource(android.R.drawable.ic_menu_myplaces)
-            contentDescription = "Загрузить фотографию"
-            setOnClickListener { changeAvatar() }
-        }
-        if (!avatarUri.isNullOrBlank()) setUserPhoto(photo, avatarUri)
-        avatarLayer.addView(photo, FrameLayout.LayoutParams(dp(dimension), dp(dimension)))
-        avatarLayer.addView(txt("⌾", 17f, Color.WHITE, true).apply {
+        val avatarSize = if (shortScreen) 62 else 73
+        val avatarHolder = FrameLayout(host)
+        avatarHolder.addView(text(
+            user?.displayName?.firstOrNull()?.uppercaseChar()?.toString() ?: "K",
+            if (shortScreen) 27f else 32f, accent, true
+        ).apply {
             gravity = Gravity.CENTER
-            background = round(accent, 16)
-            setOnClickListener { changeAvatar() }
-        }, FrameLayout.LayoutParams(dp(23), dp(23), Gravity.BOTTOM or Gravity.END))
-        card.addView(avatarLayer, LayoutParams(dp(dimension), dp(dimension)))
+            background = rounded(pale, avatarSize / 2)
+            setOnClickListener { changePhoto() }
+        }, FrameLayout.LayoutParams(dp(avatarSize), dp(avatarSize)))
 
-        val copy = LinearLayout(host).apply {
-            orientation = VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(13), 0, 0, 0)
+        if (!avatarUri.isNullOrBlank()) {
+            val portrait = ImageView(host).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = rounded(pale, avatarSize / 2)
+                clipToOutline = true
+                contentDescription = "Изменить фотографию"
+                setOnClickListener { changePhoto() }
+            }
+            if (loadAvatar(portrait, avatarUri)) {
+                avatarHolder.addView(portrait, FrameLayout.LayoutParams(dp(avatarSize), dp(avatarSize)))
+            }
         }
-        copy.addView(txt(user?.displayName ?: "Гость", if (small) 17f else 20f, ink, true, true))
-        copy.addView(txt(user?.email ?: "Войдите в аккаунт", 11f, secondary, single = true))
-        copy.addView(txt(if (user == null) "Войти" else "Изменить фото", 13f, accent).apply {
-            setPadding(0, dp(5), 0, 0)
-            setOnClickListener { changeAvatar() }
+
+        avatarHolder.addView(text("◎", 15f, Color.WHITE, true).apply {
+            gravity = Gravity.CENTER
+            background = rounded(accent, 20)
+            setOnClickListener { changePhoto() }
+            contentDescription = "Загрузить фотографию"
+        }, FrameLayout.LayoutParams(dp(23), dp(23), Gravity.END or Gravity.BOTTOM))
+        card.addView(avatarHolder, LayoutParams(dp(avatarSize), dp(avatarSize)))
+
+        val details = column().apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, 0, 0)
+        }
+        details.addView(text(user?.displayName ?: "Гость", if (shortScreen) 20f else 23f, ink, true, true))
+        details.addView(text(user?.email ?: "Войдите в аккаунт", 12f, secondary, single = true))
+        details.addView(text(if (user == null) "Войти" else "Изменить фото", 13f, accent).apply {
+            setPadding(0, dp(4), 0, 0)
+            setOnClickListener { changePhoto() }
         })
-        card.addView(copy, LayoutParams(0, -2, 1f))
+        profile.badges.firstOrNull()?.let { badge ->
+            details.addView(text("♛  " + badge, 11f, accent, single = true).apply {
+                background = rounded(pale, 15)
+                setPadding(dp(7), dp(3), dp(7), dp(3))
+            }, LayoutParams(-2, -2).apply { topMargin = dp(4) })
+        }
+        card.addView(details, LayoutParams(0, -2, 1f))
         return card
     }
 
-    private fun statCards(): View {
-        val row = LinearLayout(host).apply { orientation = HORIZONTAL }
+    private fun statsRow(): View {
+        val row = row()
+        val finished = battles.count { it.status == "finished" }
         val values = listOf(
             Triple("⚔", "Битв", battles.size.toString()),
             Triple("✦", "Уровень", profile.level.toString()),
-            Triple("◷", "Завершено", battles.count { it.status == "finished" }.toString())
+            Triple("◷", "Финиш", finished.toString())
         )
-        values.forEachIndexed { index, item ->
-            val box = card(if (small) 6 else 9).apply {
+        values.forEachIndexed { i, item ->
+            val box = card(if (shortScreen) 7 else 10).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            box.addView(txt(item.first, if (small) 14f else 18f, accent).apply {
+            box.addView(text(item.first, 18f, olive).apply {
+                background = rounded(bg, 12)
                 gravity = Gravity.CENTER
-            }, LayoutParams(dp(if (small) 19 else 26), -1))
-            val copy = LinearLayout(host).apply { orientation = VERTICAL }
-            copy.addView(txt(item.second, if (small) 9f else 11f, secondary, single = true))
-            copy.addView(txt(item.third, if (small) 17f else 22f, ink, true))
-            box.addView(copy, LayoutParams(0, -2, 1f))
+            }, LayoutParams(dp(if (shortScreen) 23 else 30), dp(if (shortScreen) 33 else 38)))
+            val valuesColumn = column().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(6), 0, 0, 0)
+            }
+            valuesColumn.addView(text(item.second, if (shortScreen) 10f else 11f, secondary, single = true))
+            valuesColumn.addView(text(item.third, if (shortScreen) 20f else 24f, ink, true))
+            box.addView(valuesColumn, LayoutParams(0, -2, 1f))
             row.addView(box, LayoutParams(0, -1, 1f).apply {
-                if (index < 2) rightMargin = dp(6)
+                if (i < values.lastIndex) rightMargin = dp(6)
             })
         }
         return row
     }
 
     private fun plantCard(): View {
-        val card = card(if (small) 8 else 12).apply {
+        val card = card(padding).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            isClickable = true
             setOnClickListener { onPlant() }
         }
         val battle = battles.firstOrNull { it.mine != null && it.status != "finished" }
-        val dimension = if (small) 49 else if (condensed) 54 else 64
-        val image = ImageView(host).apply {
-            background = round(pale, 12)
-            clipToOutline = true
+        val dimension = if (shortScreen) 53 else 66
+        val thumb = ImageView(host).apply {
+            background = rounded(pale, 12)
             scaleType = ImageView.ScaleType.CENTER_CROP
+            clipToOutline = true
             setImageResource(android.R.drawable.ic_menu_gallery)
         }
-        card.addView(image, LayoutParams(dp(dimension), dp(dimension)))
-        battle?.rackPhotoUrl?.let { loadPlantPhoto(image, it) }
+        card.addView(thumb, LayoutParams(dp(dimension), dp(dimension)))
+        battle?.rackPhotoUrl?.let { loadPlantPhoto(thumb, it) }
 
-        val labels = LinearLayout(host).apply {
-            orientation = VERTICAL
+        val info = column().apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(10), 0, dp(5), 0)
+            setPadding(dp(11), 0, dp(5), 0)
         }
-        labels.addView(txt("Моё растение", if (small) 13f else 16f, ink, true, true))
-        labels.addView(txt(battle?.plantName ?: "Пока нет растения", if (small) 11f else 13f, secondary, single = true))
-        if (!small && battle != null)
-            labels.addView(txt(if (battle.status == "growing") "Растёт" else "Участие в битве", 11f, accent))
-        card.addView(labels, LayoutParams(0, -2, 1f))
-        card.addView(txt("›", 24f, secondary))
+        info.addView(text("Моё растение", if (shortScreen) 16f else 18f, ink, true, true))
+        info.addView(text(battle?.plantName ?: "Пока нет растения", 13f, secondary, single = true))
+        info.addView(text(
+            if (battle == null) "Выбрать битву" else
+                if (battle.status == "growing") "Растёт" else "Участие в битве",
+            11f, accent, single = true
+        ))
+        card.addView(info, LayoutParams(0, -2, 1f))
+        card.addView(text("›", 24f, secondary))
         return card
     }
 
-    private fun summaryCard(name: String, summary: String, action: () -> Unit): View {
-        val card = card(if (small) 7 else 10).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            isClickable = true
-            setOnClickListener { action() }
-        }
-        val heading = LinearLayout(host).apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        heading.addView(txt(name, if (small) 13f else 16f, ink, true), LayoutParams(0, -2, 1f))
-        heading.addView(txt("›", 18f, secondary))
-        card.addView(heading)
-        if (!small) card.addView(txt(summary, 11f, secondary, single = true))
-        return card
-    }
-
-    private fun showSettings() {
-        val names = mutableListOf("Уведомления", "Тёмная тема (скоро)", "Язык: Русский", "Переключить сервер")
-        if (user != null) names.add("Выйти")
-        AlertDialog.Builder(host).setTitle("Настройки").setItems(names.toTypedArray()) { _, index ->
-            when (index) {
-                0 -> try {
-                    host.startActivity(Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
-                        putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
-                    })
-                } catch (_: Exception) { }
-                1 -> AlertDialog.Builder(host).setMessage("Тёмная тема пока недоступна.")
-                    .setPositiveButton("Понятно", null).show()
-                2 -> AlertDialog.Builder(host).setMessage("Сейчас доступен русский язык.")
-                    .setPositiveButton("Понятно", null).show()
-                3 -> onRegion()
-                4 -> AlertDialog.Builder(host).setTitle("Выйти из аккаунта?")
-                    .setNegativeButton("Отмена", null)
-                    .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
+    private fun rewardsCard(): View {
+        val card = card(if (shortScreen) 9 else 12)
+        card.addView(heading("Награды", "Все награды  ›") { showRewards() },
+            LayoutParams(-1, dp(26)))
+        val tiles = row().apply { setPadding(0, dp(3), 0, 0) }
+        val earned = profile.badges.firstOrNull()
+        val data = listOf(
+            Triple("✿", earned ?: "Пока нет", if (earned == null) "Достижения" else "Получено"),
+            Triple("▦", "QR-диплом", "За участие"),
+            Triple("◈", "20 Kisa", "За победу")
+        )
+        data.forEachIndexed { index, item ->
+            val tile = column().apply {
+                gravity = Gravity.CENTER
+                background = rounded(if (index == 0 && earned != null) pale else bg, 12)
+                setPadding(dp(3), dp(3), dp(3), dp(3))
+                setOnClickListener { showRewards() }
             }
-        }.setNegativeButton("Закрыть", null).show()
+            tile.addView(text(item.first, if (shortScreen) 19f else 22f,
+                if (index == 2) Color.parseColor("#BE9658") else accent, true).apply {
+                gravity = Gravity.CENTER
+            })
+            tile.addView(text(item.second, if (shortScreen) 10f else 11f, ink, true, true).apply {
+                gravity = Gravity.CENTER
+            })
+            if (!shortScreen) {
+                tile.addView(text(item.third, 10f, secondary, single = true).apply {
+                    gravity = Gravity.CENTER
+                })
+            }
+            tiles.addView(tile, LayoutParams(0, -1, 1f).apply {
+                if (index < data.lastIndex) rightMargin = dp(5)
+            })
+        }
+        card.addView(tiles, LayoutParams(-1, 0, 1f))
+        return card
     }
 
-    private fun changeAvatar() {
+    private fun historyCard(): View {
+        val card = card(if (shortScreen) 9 else 12)
+        card.addView(heading("История битв", "Все битвы  ›") { onHistory() },
+            LayoutParams(-1, dp(26)))
+        val finished = battles.filter { it.status == "finished" }
+        if (finished.isEmpty()) {
+            card.addView(text("Пока нет завершённых битв", 13f, secondary).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(6), 0, 0, 0)
+            }, LayoutParams(-1, 0, 1f))
+        } else {
+            finished.take(2).forEach { battle ->
+                val row = row().apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(7), dp(1), dp(7), dp(1))
+                    background = rounded(bg, 11)
+                    setOnClickListener { onHistory() }
+                }
+                row.addView(text("✿", 16f, olive), LayoutParams(dp(24), -2))
+                val copy = column()
+                copy.addView(text(battle.plantName, 13f, ink, true, true))
+                copy.addView(text("Завершена", 10f, secondary))
+                row.addView(copy, LayoutParams(0, -2, 1f))
+                row.addView(text("›", 17f, secondary))
+                card.addView(row, LayoutParams(-1, 0, 1f).apply { bottomMargin = dp(2) })
+            }
+        }
+        return card
+    }
+
+    private fun settingsCard(): View {
+        val card = card(if (shortScreen) 9 else 12)
+        card.addView(heading("Настройки", "•••") { settingsDialog() },
+            LayoutParams(-1, dp(24)))
+        val options = listOf(
+            Triple("♧", "Уведомления", "›"),
+            Triple("◐", "Тёмная тема", "›"),
+            Triple("◎", "Язык", "Русский ›"),
+            Triple("⇄", "Сервер", "›")
+        )
+        options.forEachIndexed { i, item ->
+            val line = row().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(24)
+                if (i < 3) {
+                    background = rounded(if (i % 2 == 0) Color.WHITE else bg, 8)
+                }
+                setOnClickListener { settingAction(i) }
+            }
+            line.addView(text(item.first, 15f, secondary), LayoutParams(dp(28), -2))
+            line.addView(text(item.second, 12f, ink), LayoutParams(0, -2, 1f))
+            line.addView(text(item.third, 11f, secondary))
+            card.addView(line, LayoutParams(-1, 0, 1f))
+        }
+        return card
+    }
+
+    private fun heading(left: String, right: String, onClick: () -> Unit): View = row().apply {
+        gravity = Gravity.CENTER_VERTICAL
+        addView(text(left, if (shortScreen) 15f else 17f, ink, true),
+            LayoutParams(0, -2, 1f))
+        addView(text(right, 11f, secondary).apply { setOnClickListener { onClick() } })
+    }
+
+    private fun showRewards() {
+        val trophies = profile.badges
+        val actual = if (trophies.isEmpty()) "Наград пока нет." else
+            trophies.joinToString("\n• ", "• ")
+        AlertDialog.Builder(host).setTitle("Мои награды")
+            .setMessage(actual + "\n\nПосле участия доступен QR-диплом, за победу — 20 Kisa.")
+            .setPositiveButton("Закрыть", null).show()
+    }
+
+    private fun settingAction(index: Int) {
+        when (index) {
+            0 -> try {
+                host.startActivity(Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
+                    putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
+                })
+            } catch (_: Exception) { }
+            1 -> AlertDialog.Builder(host).setMessage("Тёмная тема пока не реализована.")
+                .setPositiveButton("Понятно", null).show()
+            2 -> AlertDialog.Builder(host).setMessage("Сейчас доступен русский язык.")
+                .setPositiveButton("Понятно", null).show()
+            3 -> onRegion()
+        }
+    }
+
+    private fun settingsDialog() {
+        val options = mutableListOf("Уведомления", "Тёмная тема", "Язык", "Переключить сервер")
+        if (user != null) options.add("Выйти")
+        AlertDialog.Builder(host).setTitle("Настройки")
+            .setItems(options.toTypedArray()) { _, i ->
+                if (i == 4 && user != null) {
+                    AlertDialog.Builder(host).setTitle("Выйти из аккаунта?")
+                        .setNegativeButton("Отмена", null)
+                        .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
+                } else settingAction(i)
+            }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun changePhoto() {
         if (user == null) onLogin() else onChangePhoto()
     }
 
-    private fun setUserPhoto(image: ImageView, value: String) {
-        try {
+    private fun loadAvatar(image: ImageView, value: String): Boolean {
+        return try {
             val uri = Uri.parse(value)
-            val bitmap = host.contentResolver.openInputStream(uri)?.use {
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            host.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, bounds)
-                val maxSide = maxOf(bounds.outHeight, bounds.outWidth)
-                var sample = 1
-                while (maxSide / sample > 400) sample *= 2
-                host.contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = sample })
-                }
+            }
+            var factor = 1
+            while (maxOf(bounds.outHeight, bounds.outWidth) / factor > 500) factor *= 2
+            val bitmap = host.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = factor })
             }
             if (bitmap != null) image.setImageBitmap(bitmap)
-        } catch (_: Exception) {
-            // The local image was moved or permissions changed; leave default avatar.
-        }
+            bitmap != null
+        } catch (_: Exception) { false }
     }
 
-    private fun loadPlantPhoto(target: ImageView, url: String) {
+    private fun loadPlantPhoto(image: ImageView, url: String) {
         val api = ApiClient(host.applicationContext)
         val resolved = api.absolute(url) ?: return
         Thread {
             val bitmap = runCatching { api.loadBitmap(resolved) }.getOrNull()
             if (bitmap != null) host.runOnUiThread {
-                if (!host.isFinishing && !host.isDestroyed && target.isAttachedToWindow)
-                    target.setImageBitmap(bitmap)
+                if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) image.setImageBitmap(bitmap)
             }
         }.start()
     }
 
-    private fun block(view: View, heightDp: Int) {
-        addView(view, LayoutParams(-1, dp(heightDp)))
-    }
-
-    private fun flexibleGap() {
-        addView(View(host), LayoutParams(1, 0, 1f))
-    }
-
-    private fun card(pad: Int) = LinearLayout(host).apply {
-        orientation = VERTICAL
-        setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
-        background = round(Color.WHITE, 18)
-    }
-
-    private fun txt(
-        value: String,
-        size: Float,
-        color: Int,
-        bold: Boolean = false,
-        single: Boolean = false
+    private fun text(
+        value: String, size: Float, color: Int, bold: Boolean = false, single: Boolean = false
     ) = TextView(host).apply {
         text = value
         textSize = size
@@ -289,10 +376,24 @@ class BattleProfileScreen(
         }
     }
 
-    private fun round(color: Int, radius: Int) = GradientDrawable().apply {
+    private fun card(pad: Int): LinearLayout = column().apply {
+        setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
+        background = rounded(Color.WHITE, 19)
+        elevation = dp(1).toFloat()
+    }
+
+    private fun column() = LinearLayout(host).apply { orientation = VERTICAL }
+    private fun row() = LinearLayout(host).apply { orientation = HORIZONTAL }
+
+    private fun weighted(view: View, relative: Float) {
+        addView(view, LayoutParams(-1, 0, relative))
+    }
+    private fun gap() {
+        addView(View(host), LayoutParams(1, dp(gapSize)))
+    }
+    private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {
         setColor(color)
         cornerRadius = dp(radius).toFloat()
     }
-
-    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 }
