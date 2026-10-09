@@ -272,7 +272,7 @@ class BattleProfileScreen(
         options.forEachIndexed { i, item ->
             val line = row().apply {
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(30)
+                minimumHeight = dp(if (shortScreen) 18 else 24)
                 if (i < 3) {
                     background = rounded(if (i % 2 == 0) Color.WHITE else bg, 8)
                 }
