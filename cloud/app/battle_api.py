@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
+from .account_preferences_api import AccountAchievement
 from .models import Device, Farm, Plant, RackCameraPhoto, User
 from .security import get_current_user, get_session
 from .config import get_settings
@@ -398,7 +399,19 @@ async def my_battle_profile(
     ).all())
     finished = [(entry, battle) for entry, battle in entries if battle.status == "finished"]
     wins = sum(1 for entry, _ in finished if entry.is_winner)
-    rewards = []
+    # First authenticated profile visit earns one permanent starter award.
+    milestone = await session.get(AccountAchievement, (user.id, "first_step"))
+    if milestone is None:
+        milestone = AccountAchievement(
+            user_id=user.id, code="first_step", earned_at=datetime.now(timezone.utc)
+        )
+        session.add(milestone)
+        await session.commit()
+    rewards = [{
+        "id": f"first_step:{user.id}", "code": "first_step",
+        "title": "Первый шаг", "icon": "sprout",
+        "earned_at": milestone.earned_at.isoformat(),
+    }]
     history = []
     for entry, battle in finished:
         earned = (battle.finished_at or entry.created_at).isoformat()
