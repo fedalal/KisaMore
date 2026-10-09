@@ -27,6 +27,7 @@ class BattleProfileScreen(
     private val profile: GameProfile,
     private val battles: List<Battle>,
     private val avatarUri: String?,
+    private val serverProfile: PlayerBattleProfile?,
     private val onChangePhoto: () -> Unit,
     private val onLogin: () -> Unit,
     private val onPlant: () -> Unit,
@@ -95,12 +96,13 @@ class BattleProfileScreen(
             }
         }
 
-        avatarHolder.addView(icon("camera", 15, Color.WHITE).apply {
-            gravity = Gravity.CENTER
+        avatarHolder.addView(FrameLayout(host).apply {
             background = rounded(accent, 20)
+            addView(icon("camera", 18, Color.WHITE),
+                FrameLayout.LayoutParams(dp(18), dp(18), Gravity.CENTER))
             setOnClickListener { changePhoto() }
             contentDescription = "Загрузить фотографию"
-        }, FrameLayout.LayoutParams(dp(23), dp(23), Gravity.END or Gravity.BOTTOM))
+        }, FrameLayout.LayoutParams(dp(25), dp(25), Gravity.END or Gravity.BOTTOM))
         card.addView(avatarHolder, LayoutParams(dp(avatarSize), dp(avatarSize)))
 
         val details = column().apply {
@@ -120,26 +122,29 @@ class BattleProfileScreen(
             }, LayoutParams(-2, -2).apply { topMargin = dp(4) })
         }
         card.addView(details, LayoutParams(0, -2, 1f))
+        if (user != null) {
+            card.addView(icon("logout", 22, secondary).apply {
+                contentDescription = "Выйти из профиля"
+                setOnClickListener { confirmLogout() }
+            }, LayoutParams(dp(26), dp(28)))
+        }
         return card
     }
 
     private fun statsRow(): View {
         val row = row()
-        // The current battle API does not expose winner identity; do not guess victories.
-        val victories = 0
         val values = listOf(
-            Triple("battle", "Битв", battles.size.toString()),
-            Triple("trophy", "Побед", victories.toString()),
-            Triple("chart", "Рейтинг", "0")
+            Triple("battle", "Битв", if (user == null) "0" else serverProfile?.battleCount?.toString() ?: "—"),
+            Triple("trophy", "Побед", if (user == null) "0" else serverProfile?.winCount?.toString() ?: "—"),
+            Triple("chart", "Рейтинг", if (user == null) "0" else serverProfile?.ratingPoints?.toString() ?: "—")
         )
         values.forEachIndexed { i, item ->
             val box = card(if (shortScreen) 7 else 10).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            box.addView(icon(item.first, if (shortScreen) 19 else 23, olive).apply {
-                background = rounded(bg, 10)
-            }, LayoutParams(dp(if (shortScreen) 25 else 30), dp(if (shortScreen) 30 else 36)))
+            box.addView(icon(item.first, if (shortScreen) 19 else 23, olive),
+                LayoutParams(dp(if (shortScreen) 25 else 30), dp(if (shortScreen) 30 else 36)))
             val valuesColumn = column().apply {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(6), 0, 0, 0)
@@ -169,7 +174,8 @@ class BattleProfileScreen(
             setImageResource(android.R.drawable.ic_menu_gallery)
         }
         card.addView(thumb, LayoutParams(dp(dimension), dp(dimension)))
-        battle?.rackPhotoUrl?.let { loadPlantPhoto(thumb, it) }
+        // Slot-specific cropped image; never show the whole rack in the plant card.
+        battle?.mine?.photoUrl?.let { loadPlantPhoto(thumb, it) }
 
         val info = column().apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -190,15 +196,29 @@ class BattleProfileScreen(
     private fun rewardsCard(): View {
         val card = card(if (shortScreen) 9 else 12)
         card.addView(heading("Награды", "Все награды  ›") { showRewards() },
-            LayoutParams(-1, dp(27)))
-        val earned = profile.badges
-        card.addView(text(
-            if (earned.isEmpty()) "Наград пока нет" else earned.take(2).joinToString(" · "),
-            14f, if (earned.isEmpty()) secondary else accent, single = true
-        ).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(5), 0, 0, 0)
-        }, LayoutParams(-1, dp(26)))
+            LayoutParams(-1, dp(26)))
+        val recent = serverProfile?.rewards?.take(3).orEmpty()
+        if (recent.isEmpty()) {
+            card.addView(text(if (user == null) "Наград пока нет" else
+                if (serverProfile == null) "Нет данных о наградах" else "Наград пока нет",
+                13f, secondary), LayoutParams(-1, dp(23)))
+        } else {
+            val cells = row().apply { gravity = Gravity.CENTER_VERTICAL }
+            recent.forEach { reward ->
+                val cell = column().apply { gravity = Gravity.CENTER_HORIZONTAL }
+                cell.addView(icon(when (reward.icon) {
+                    "coins" -> "coins"
+                    "qr-code" -> "qr-code"
+                    else -> "award"
+                }, 25, accent), LayoutParams(dp(28), dp(28)))
+                cell.addView(text(reward.title, 10f, ink, single = true).apply {
+                    gravity = Gravity.CENTER
+                }, LayoutParams(-1, dp(18)))
+                cell.setOnClickListener { showRewards() }
+                cells.addView(cell, LayoutParams(0, -2, 1f))
+            }
+            card.addView(cells, LayoutParams(-1, -2))
+        }
         return card
     }
 
@@ -206,7 +226,8 @@ class BattleProfileScreen(
         val card = card(if (shortScreen) 7 else 10)
         card.addView(heading("История битв", "Все битвы  ›") { onHistory() },
             LayoutParams(-1, dp(26)))
-        val finished = battles.filter { it.status == "finished" }
+        val finished = battles.filter { it.status == "finished" &&
+            (serverProfile?.finishedBattleIds?.contains(it.id) == true) }
         if (finished.isEmpty()) {
             card.addView(text("Пока нет завершённых битв", 13f, secondary).apply {
                 gravity = Gravity.CENTER_VERTICAL
@@ -238,7 +259,7 @@ class BattleProfileScreen(
             LayoutParams(-1, dp(22)))
         val options = listOf(
             Triple("bell", "Уведомления", "›"),
-            Triple("moon", "Тёмная тема", "›"),
+            Triple("moon", "Тёмная тема", ""),
             Triple("globe", "Язык", "Русский ›"),
             Triple("help", "Помощь", "›")
         )
@@ -246,14 +267,22 @@ class BattleProfileScreen(
             val line = row().apply {
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(if (shortScreen) 26 else 37)
-                if (i < 3) {
-                    background = rounded(if (i % 2 == 0) Color.WHITE else bg, 8)
-                }
+                // All settings rows share the same background.
                 setOnClickListener { settingAction(i) }
             }
             line.addView(icon(item.first, 22, secondary), LayoutParams(dp(31), dp(23)))
             line.addView(text(item.second, if (shortScreen) 14f else 15f, ink), LayoutParams(0, -2, 1f))
-            line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
+            if (i == 1) {
+                line.addView(android.widget.Switch(host).apply {
+                    isChecked = host.getSharedPreferences("battle_settings", 0)
+                        .getBoolean("dark_mode", false)
+                    setOnCheckedChangeListener { _, enabled ->
+                        host.getSharedPreferences("battle_settings", 0).edit()
+                            .putBoolean("dark_mode", enabled).apply()
+                        settingAction(1)
+                    }
+                })
+            } else line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
             card.addView(line, LayoutParams(-1, dp(if (shortScreen) 27 else 39)))
         }
         return card
@@ -271,9 +300,9 @@ class BattleProfileScreen(
     }
 
     private fun showRewards() {
-        val trophies = profile.badges
+        val trophies = serverProfile?.rewards.orEmpty()
         val actual = if (trophies.isEmpty()) "Наград пока нет." else
-            trophies.joinToString("\n• ", "• ")
+            trophies.joinToString("\n• ", "• ") { it.title }
         AlertDialog.Builder(host).setTitle("Мои награды")
             .setMessage(actual + "\n\nПосле участия доступен QR-диплом, за победу — 20 Kisa.")
             .setPositiveButton("Закрыть", null).show()
@@ -286,10 +315,16 @@ class BattleProfileScreen(
                     putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
                 })
             } catch (_: Exception) { }
-            1 -> AlertDialog.Builder(host).setMessage("Тёмная тема пока не реализована.")
+            1 -> AlertDialog.Builder(host)
+                .setMessage("Выбор сохранён. Тёмная тема будет применена после включения общей темы приложения.")
                 .setPositiveButton("Понятно", null).show()
-            2 -> AlertDialog.Builder(host).setMessage("Сейчас доступен русский язык.")
-                .setPositiveButton("Понятно", null).show()
+            2 -> AlertDialog.Builder(host).setTitle("Язык приложения")
+                .setSingleChoiceItems(arrayOf("Русский", "English"),
+                    if (host.getSharedPreferences("battle_settings", 0).getString("language", "ru") == "ru") 0 else 1) { dialog, which ->
+                    host.getSharedPreferences("battle_settings", 0).edit()
+                        .putString("language", if (which == 0) "ru" else "en").apply()
+                    dialog.dismiss()
+                }.setNegativeButton("Отмена", null).show()
             3 -> showHelp()
         }
     }
@@ -321,6 +356,12 @@ class BattleProfileScreen(
                         .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
                 } else settingAction(i)
             }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun confirmLogout() {
+        AlertDialog.Builder(host).setTitle("Выйти из профиля?")
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
     }
 
     private fun changePhoto() {
