@@ -100,11 +100,11 @@ class MainActivity : Activity() {
         navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(2), dp(8), dp(2))
+            setPadding(dp(8), 0, dp(8), 0)
             setBackgroundColor(Color.WHITE)
         }
         addNavigation()
-        root.addView(navBar, LinearLayout.LayoutParams(-1, dp(56)))
+        root.addView(navBar, LinearLayout.LayoutParams(-1, dp(48)))
         // Android 15+ draws app content behind system bars. Inset the entire
         // layout (including bottom tabs) explicitly to protect header and labels.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
