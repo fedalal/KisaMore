@@ -153,7 +153,8 @@ class MainActivity : Activity() {
             Triple(navLabels[2], "history", "history"),
             Triple(navLabels[3], "profile", "profile")
         )
-        tabs.forEach { (label, icon, destination) ->
+        tabs.filter { it.third != "history" || api.hasSession() }
+            .forEach { (label, icon, destination) ->
             val active = when (destination) {
                 "plant" -> currentScreen in listOf("battle", "no_battle", "login")
                 "watch" -> currentScreen in listOf("home", "watch")
@@ -178,18 +179,40 @@ class MainActivity : Activity() {
     }
 
     private fun showBattleHistory() {
+        if (!api.hasSession()) {
+            showLogin()
+            return
+        }
         currentScreen = "history"
-        val scroll = screenScroll()
-        val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("История", "Ваши битвы"))
-        val past = myBattles.filter { it.status == "finished" }
-        if (past.isEmpty()) {
-            val note = card()
-            note.addView(bigText("История пока пуста", 18f))
-            note.addView(smallText("Завершённые битвы появятся здесь."))
-            body.addView(cardWithMargin(note))
-        } else past.forEach { body.addView(battleListCard(it)) }
-        showContent(scroll)
+        fun render() {
+            if (currentScreen != "history") return
+            showContent(BattleHistoryScreen(
+                this, myBattles, api,
+                onViewBattle = { openBattle(it) },
+                onPhoto = { showHistoryPhoto(it) },
+                onVideo = { openVideo(it) },
+                onCertificate = { url ->
+                    try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                    catch (_: Exception) { toast("Не удалось открыть диплом") }
+                },
+                onCurrentBattle = {
+                    val battle = activeMyBattle()
+                    if (battle != null) openBattle(battle) else showWatch()
+                    addNavigation()
+                }
+            ))
+            addNavigation()
+        }
+        render()
+        async(work = { api.myBattles() }, success = {
+            myBattles = it
+            render()
+        }, failure = { toast("Не удалось обновить историю битв") })
+    }
+
+    private fun showHistoryPhoto(battle: Battle) {
+        // The same fullscreen viewer is used from the profile and history.
+        showFullPlantPhoto(battle)
     }
 
     private fun pickProfilePhoto() {
