@@ -384,16 +384,19 @@ class MainActivity : Activity() {
         render(if (user == null) null else cachedServerProfile)
         if (user != null) {
             async(work = {
-                try { api.myBattleProfile() }
+                // Refresh ownership, single-slot photos and completed battles together.
+                val freshBattles = api.myBattles()
+                val profileResponse = try { api.myBattleProfile() }
                 catch (error: ApiException) {
                     if (error.statusCode != 404) throw error
-                    // A server without the new profile endpoint still exposes
-                    // authenticated participant results in /battles/me.
-                    fallbackBattleProfile(myBattles)
+                    // Older VPS supports /battles/me without a profile endpoint.
+                    fallbackBattleProfile(freshBattles)
                 }
+                Pair(freshBattles, profileResponse)
             }, success = {
-                cachedServerProfile = it
-                render(it)
+                myBattles = it.first
+                cachedServerProfile = it.second
+                render(it.second)
             }, failure = {
                 cachedServerProfile = null
                 render(null)
