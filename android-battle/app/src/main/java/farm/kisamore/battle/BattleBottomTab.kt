@@ -22,14 +22,18 @@ class BattleBottomTab(
         orientation = VERTICAL
         gravity = Gravity.CENTER
         val tint = Color.parseColor(if (selected) "#24683C" else "#7B827A")
-        addView(BattleTabGlyph(context, icon, tint), LayoutParams(px(26), px(27)))
+        // Square artwork; always 20x20 dp, never scaled to fill a tall tab.
+        addView(BattleTabGlyph(context, icon, tint), LayoutParams(px(20), px(20)))
         addView(TextView(context).apply {
             text = title
             textSize = 10f
+            includeFontPadding = false
             setTextColor(tint)
             gravity = Gravity.CENTER
             maxLines = 1
-        }, LayoutParams(-1, px(19)))
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(0, px(3), 0, 0)
+        }, LayoutParams(-1, px(17)))
         isClickable = true
         isFocusable = true
         contentDescription = title
@@ -50,7 +54,9 @@ private class BattleTabGlyph(context: Context, private val glyph: String, privat
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.save()
-        canvas.scale(width / 24f, height / 24f)
+        val scale = minOf(width, height) / 24f
+        canvas.translate((width - 24f * scale) / 2f, (height - 24f * scale) / 2f)
+        canvas.scale(scale, scale)
         when (glyph) {
             "plant" -> {
                 val leaf = Path().apply {
