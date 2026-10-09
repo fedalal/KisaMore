@@ -482,6 +482,7 @@ class BattleProfileScreen(
                 host.runOnUiThread {
                     if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) {
                         image.setImageBitmap(bitmap)
+                        image.visibility = View.VISIBLE
                     }
                 }
             }
