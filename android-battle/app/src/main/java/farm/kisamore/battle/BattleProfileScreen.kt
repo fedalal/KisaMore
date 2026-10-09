@@ -42,7 +42,7 @@ class BattleProfileScreen(
     private val bg = Color.parseColor("#F8F9F6")
     private val shortScreen = resources.configuration.screenHeightDp < 715
     private val padding = if (shortScreen) 10 else 14
-    private val gapSize = if (shortScreen) 5 else 8
+    private val gapSize = if (shortScreen) 4 else 6
 
     init {
         orientation = VERTICAL
@@ -55,19 +55,19 @@ class BattleProfileScreen(
         val title = text("Профиль", if (shortScreen) 25f else 29f, ink, true).apply {
             gravity = Gravity.CENTER_VERTICAL
         }
-        weighted(title, 37f)
+        weighted(title, 34f)
         gap()
-        weighted(profileCard(), 100f)
+        weighted(profileCard(), 97f)
         gap()
-        weighted(statsRow(), 78f)
+        weighted(statsRow(), 73f)
         gap()
-        weighted(plantCard(), 96f)
+        weighted(plantCard(), 93f)
         gap()
-        weighted(rewardsCard(), 118f)
+        weighted(rewardsCard(), 108f)
         gap()
-        weighted(historyCard(), 108f)
+        weighted(historyCard(), 67f)
         gap()
-        weighted(settingsCard(), 170f)
+        weighted(settingsCard(), 126f)
     }
 
     private fun profileCard(): View {
@@ -230,7 +230,7 @@ class BattleProfileScreen(
     }
 
     private fun historyCard(): View {
-        val card = card(if (shortScreen) 9 else 12)
+        val card = card(if (shortScreen) 7 else 10)
         card.addView(heading("История битв", "Все битвы  ›") { onHistory() },
             LayoutParams(-1, dp(26)))
         val finished = battles.filter { it.status == "finished" }
@@ -260,7 +260,7 @@ class BattleProfileScreen(
     }
 
     private fun settingsCard(): View {
-        val card = card(if (shortScreen) 9 else 12)
+        val card = card(if (shortScreen) 7 else 10)
         card.addView(heading("Настройки", "•••") { settingsDialog() },
             LayoutParams(-1, dp(24)))
         val options = listOf(
@@ -272,15 +272,15 @@ class BattleProfileScreen(
         options.forEachIndexed { i, item ->
             val line = row().apply {
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(24)
+                minimumHeight = dp(30)
                 if (i < 3) {
                     background = rounded(if (i % 2 == 0) Color.WHITE else bg, 8)
                 }
                 setOnClickListener { settingAction(i) }
             }
-            line.addView(text(item.first, 15f, secondary), LayoutParams(dp(28), -2))
-            line.addView(text(item.second, 12f, ink), LayoutParams(0, -2, 1f))
-            line.addView(text(item.third, 11f, secondary))
+            line.addView(text(item.first, 16f, secondary), LayoutParams(dp(31), -2))
+            line.addView(text(item.second, if (shortScreen) 14f else 15f, ink), LayoutParams(0, -2, 1f))
+            line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
             card.addView(line, LayoutParams(-1, 0, 1f))
         }
         return card
