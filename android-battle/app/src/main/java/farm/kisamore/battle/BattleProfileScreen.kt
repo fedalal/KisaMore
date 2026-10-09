@@ -27,7 +27,7 @@ class BattleProfileScreen(
     private val profile: GameProfile,
     private val battles: List<Battle>,
     private val avatarUri: String?,
-    private val serverProfile: PlayerBattleProfile?,
+    private val serverProfile: PlayerBattleProfile? = null,
     private val onChangePhoto: () -> Unit,
     private val onLogin: () -> Unit,
     private val onPlant: () -> Unit,
