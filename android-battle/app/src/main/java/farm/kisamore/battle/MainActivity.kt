@@ -500,15 +500,25 @@ class MainActivity : Activity() {
         }
         form.addView(email, matchWrap())
         form.addView(password, matchWrap())
+        val loginError = TextView(this).apply {
+            setTextColor(danger)
+            textSize = 13f
+            visibility = View.GONE
+            setPadding(0, dp(8), 0, dp(4))
+        }
+        form.addView(loginError, matchWrap())
         form.addView(space(10))
-        form.addView(primaryButton("ВОЙТИ") {
+        val loginButton = primaryButton("ВОЙТИ") {
             if (email.text.isBlank() || password.text.isBlank()) {
-                toast("Введите email и пароль")
+                loginError.text = "Введите email и пароль"
+                loginError.visibility = View.VISIBLE
             } else {
-                showLoading("Входим в игру…")
+                loginError.visibility = View.GONE
+                val enteredEmail = email.text.toString()
+                val enteredPassword = password.text.toString()
                 async(
                     work = {
-                        val loggedIn = api.login(email.text.toString(), password.text.toString())
+                        val loggedIn = api.login(enteredEmail, enteredPassword)
                         val preferences = runCatching { api.fetchPreferences() }.getOrNull()
                         Pair(loggedIn, preferences)
                     },
@@ -517,10 +527,25 @@ class MainActivity : Activity() {
                         accountPrefsLoadedFor = null
                         if (it.second != null) applyRemotePreferences(it.second!!)
                         loadAll("home")
+                    },
+                    failure = { error ->
+                        // Keep the form, email and password fields in place.
+                        if (currentScreen == "login") {
+                            loginError.text = when (error) {
+                                is ApiException -> when (error.statusCode) {
+                                    401 -> "Неверный email или пароль"
+                                    429 -> "Слишком много попыток. Попробуйте позже"
+                                    else -> "Ошибка входа: " + (error.message ?: "HTTP " + error.statusCode)
+                                }
+                                else -> "Нет соединения с сервером. Проверьте интернет"
+                            }
+                            loginError.visibility = View.VISIBLE
+                        }
                     }
                 )
             }
-        })
+        }
+        form.addView(loginButton)
         form.addView(smallText("Сервер: " + api.baseUrl))
         body.addView(cardWithMargin(form))
         showContent(scroll)
