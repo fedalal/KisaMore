@@ -1,11 +1,19 @@
 package farm.kisamore.battle
 
+data class BattleCamera(
+    val cameraId: String,
+    val isPrimary: Boolean,
+    val photoUrl: String?,
+    val capturedAt: String?
+)
+
 data class BattleAction(
     val id: String,
     val kind: String,
     val amount: Int,
     val status: String,
-    val requestedAt: String?
+    val requestedAt: String?,
+    val completedAt: String? = null
 )
 
 data class BattleEntry(
@@ -20,6 +28,7 @@ data class BattleEntry(
     val actions: List<BattleAction>,
     val timelapse24hUrl: String?,
     val timelapse3dUrl: String?,
+    val timelapseFullUrl: String? = null,
     val certificateUrl: String?,
     val photoUrl: String?,
     val isWinner: Boolean = false,
@@ -34,6 +43,7 @@ data class Battle(
     val plantName: String,
     val growDays: Int,
     val rackPhotoUrl: String?,
+    val cameraViews: List<BattleCamera> = emptyList(),
     val waterBudgetMl: Int,
     val nutrientBudgetMl: Int,
     val shadeBudgetMinutes: Int,
