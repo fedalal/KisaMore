@@ -53,6 +53,12 @@ class BattleProfileScreenTest {
         assertTrue("History should be visible", screen.getChildAt(8).measuredHeight > 0)
         assertTrue("Settings should be visible", screen.getChildAt(10).measuredHeight > 0)
         assertTrue("Settings must fit above bottom navigation", screen.getChildAt(10).bottom <= height)
+        assertTrue("Natural-height rewards card should remain compact",
+            screen.getChildAt(6).measuredHeight <= 100 * activity.resources.displayMetrics.density)
+        assertTrue("Natural-height history card should remain compact",
+            screen.getChildAt(8).measuredHeight <= 105 * activity.resources.displayMetrics.density)
+        assertTrue("Content should no longer stretch to entire height",
+            screen.getChildAt(10).bottom < height - 24 * activity.resources.displayMetrics.density)
         val settings = screen.getChildAt(10) as android.view.ViewGroup
         assertTrue("Last settings row must fit within the card",
             settings.getChildAt(settings.childCount - 1).bottom <= settings.height)
