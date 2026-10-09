@@ -43,7 +43,37 @@ class BattleProfileScreen(
     private val night = host.getSharedPreferences("battle_settings", 0).getBoolean("dark_mode", false)
     private val languageCode = host.getSharedPreferences("battle_settings", 0).getString("language", "ru") ?: "ru"
     private val english = host.getSharedPreferences("battle_settings", 0).getString("language", "ru") == "en"
-    private fun tr(ru: String, en: String) = if (english) en else ru
+    private val translations: Map<String, Map<String, String>> = mapOf(
+            "Гость" to mapOf("en" to "Guest", "zh" to "访客", "de" to "Gast", "fr" to "Invité", "es" to "Invitado", "it" to "Ospite", "pt" to "Visitante", "pl" to "Gość"),
+            "Войдите в аккаунт" to mapOf("en" to "Sign in to your account", "zh" to "登录账号", "de" to "Bitte anmelden", "fr" to "Connectez-vous", "es" to "Inicia sesión", "it" to "Accedi al tuo account", "pt" to "Entre na sua conta", "pl" to "Zaloguj się"),
+            "Войти" to mapOf("en" to "Sign in", "zh" to "登录", "de" to "Anmelden", "fr" to "Connexion", "es" to "Entrar", "it" to "Accedi", "pt" to "Entrar", "pl" to "Zaloguj się"),
+            "Изменить фото" to mapOf("en" to "Change photo", "zh" to "更换照片", "de" to "Foto ändern", "fr" to "Changer la photo", "es" to "Cambiar foto", "it" to "Cambia foto", "pt" to "Alterar foto", "pl" to "Zmień zdjęcie"),
+            "Битв" to mapOf("en" to "Battles", "zh" to "对战", "de" to "Kämpfe", "fr" to "Batailles", "es" to "Batallas", "it" to "Sfide", "pt" to "Batalhas", "pl" to "Bitwy"),
+            "Побед" to mapOf("en" to "Wins", "zh" to "胜利", "de" to "Siege", "fr" to "Victoires", "es" to "Victorias", "it" to "Vittorie", "pt" to "Vitórias", "pl" to "Zwycięstwa"),
+            "Рейтинг" to mapOf("en" to "Rating", "zh" to "积分", "de" to "Punkte", "fr" to "Classement", "es" to "Puntos", "it" to "Punteggio", "pt" to "Pontos", "pl" to "Ranking"),
+            "Мои растения" to mapOf("en" to "My plants", "zh" to "我的植物", "de" to "Meine Pflanzen", "fr" to "Mes plantes", "es" to "Mis plantas", "it" to "Le mie piante", "pt" to "Minhas plantas", "pl" to "Moje rośliny"),
+            "Пока нет растения" to mapOf("en" to "No plant yet", "zh" to "暂无植物", "de" to "Noch keine Pflanze", "fr" to "Aucune plante", "es" to "Sin plantas", "it" to "Nessuna pianta", "pt" to "Sem plantas", "pl" to "Brak roślin"),
+            "Выбрать битву" to mapOf("en" to "Choose a battle", "zh" to "选择对战", "de" to "Kampf auswählen", "fr" to "Choisir une bataille", "es" to "Elegir batalla", "it" to "Scegli una sfida", "pt" to "Escolher batalha", "pl" to "Wybierz bitwę"),
+            "Растёт" to mapOf("en" to "Growing", "zh" to "生长中", "de" to "Wächst", "fr" to "En croissance", "es" to "Creciendo", "it" to "In crescita", "pt" to "Crescendo", "pl" to "Rośnie"),
+            "Участие в битве" to mapOf("en" to "Participating", "zh" to "参与中", "de" to "Teilnahme", "fr" to "Participation", "es" to "Participando", "it" to "In gara", "pt" to "Participando", "pl" to "Uczestniczy"),
+            "Награды" to mapOf("en" to "Rewards", "zh" to "奖励", "de" to "Auszeichnungen", "fr" to "Récompenses", "es" to "Recompensas", "it" to "Premi", "pt" to "Recompensas", "pl" to "Nagrody"),
+            "Все награды  ›" to mapOf("en" to "All rewards  ›", "zh" to "全部奖励  ›", "de" to "Alle Auszeichnungen  ›", "fr" to "Récompenses  ›", "es" to "Ver todas  ›", "it" to "Tutti i premi  ›", "pt" to "Todas  ›", "pl" to "Wszystkie  ›"),
+            "История битв" to mapOf("en" to "Battle history", "zh" to "对战历史", "de" to "Kampfverlauf", "fr" to "Historique", "es" to "Historial", "it" to "Cronologia", "pt" to "Histórico", "pl" to "Historia bitew"),
+            "Все битвы  ›" to mapOf("en" to "All battles  ›", "zh" to "全部对战  ›", "de" to "Alle Kämpfe  ›", "fr" to "Toutes  ›", "es" to "Todas  ›", "it" to "Tutte  ›", "pt" to "Todas  ›", "pl" to "Wszystkie  ›"),
+            "Пока нет завершённых битв" to mapOf("en" to "No finished battles yet", "zh" to "暂无已完成对战", "de" to "Noch keine beendeten Kämpfe", "fr" to "Aucune bataille terminée", "es" to "No hay batallas finalizadas", "it" to "Nessuna sfida conclusa", "pt" to "Nenhuma batalha concluída", "pl" to "Brak zakończonych bitew"),
+            "Наград пока нет" to mapOf("en" to "No rewards yet", "zh" to "暂无奖励", "de" to "Noch keine Auszeichnungen", "fr" to "Aucune récompense", "es" to "Sin recompensas", "it" to "Nessun premio", "pt" to "Sem recompensas", "pl" to "Brak nagród"),
+            "Нет данных о наградах" to mapOf("en" to "Rewards unavailable", "zh" to "无法加载奖励", "de" to "Auszeichnungen nicht verfügbar", "fr" to "Récompenses indisponibles", "es" to "Premios no disponibles", "it" to "Premi non disponibili", "pt" to "Recompensas indisponíveis", "pl" to "Nagrody niedostępne"),
+            "Настройки" to mapOf("en" to "Settings", "zh" to "设置", "de" to "Einstellungen", "fr" to "Paramètres", "es" to "Ajustes", "it" to "Impostazioni", "pt" to "Configurações", "pl" to "Ustawienia"),
+            "Уведомления" to mapOf("en" to "Notifications", "zh" to "通知", "de" to "Benachrichtigungen", "fr" to "Notifications", "es" to "Notificaciones", "it" to "Notifiche", "pt" to "Notificações", "pl" to "Powiadomienia"),
+            "Тёмная тема" to mapOf("en" to "Dark theme", "zh" to "深色模式", "de" to "Dunkles Design", "fr" to "Thème sombre", "es" to "Tema oscuro", "it" to "Tema scuro", "pt" to "Tema escuro", "pl" to "Ciemny motyw"),
+            "Язык" to mapOf("en" to "Language", "zh" to "语言", "de" to "Sprache", "fr" to "Langue", "es" to "Idioma", "it" to "Lingua", "pt" to "Idioma", "pl" to "Język"),
+            "Помощь" to mapOf("en" to "Help", "zh" to "帮助", "de" to "Hilfe", "fr" to "Aide", "es" to "Ayuda", "it" to "Aiuto", "pt" to "Ajuda", "pl" to "Pomoc"),
+    )
+    private fun tr(ru: String, en: String): String = when (languageCode) {
+        "ru" -> ru
+        "en" -> en
+        else -> translations[ru]?.get(languageCode) ?: en
+    }
     private val ink = Color.parseColor(if (night) "#F2F6F2" else "#1A1C1A")
     private val secondary = Color.parseColor(if (night) "#ACB8AD" else "#6B7268")
     private val accent = Color.parseColor(if (night) "#8CC89E" else "#4A7C59")
