@@ -3,6 +3,8 @@ package farm.kisamore.battle
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
+import java.io.ByteArrayOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -78,6 +80,41 @@ class ApiClient(context: Context) {
         currentUser = null
     }
 
+
+    private val supportedLanguages = listOf("en","ru","zh","de","fr","es","it","pt","pl")
+
+    fun fetchPreferences(): JSONObject =
+        JSONObject(request("GET", "/api/v1/account/preferences"))
+
+    fun savePreferences(language: String? = null, dark: Boolean? = null): JSONObject {
+        val payload = JSONObject()
+        if (language != null) {
+            require(language in supportedLanguages) { "Unsupported language" }
+            payload.put("language", language)
+        }
+        if (dark != null) payload.put("theme", if (dark) "dark" else "light")
+        return JSONObject(request("PATCH", "/api/v1/account/preferences", payload.toString()))
+    }
+
+    fun uploadAvatar(content: ByteArray, mimeType: String): JSONObject {
+        require(content.isNotEmpty() && content.size <= 2_097_152) { "Фотография не должна превышать 2 МБ" }
+        val connection = URL(baseUrl + "/api/v1/account/avatar").openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"
+            connection.connectTimeout = 12_000
+            connection.readTimeout = 25_000
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", mimeType)
+            sessionCookie?.let { connection.setRequestProperty("Cookie", it) }
+            connection.outputStream.use { it.write(content) }
+            val code = connection.responseCode
+            val response = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) throw ApiException("Ошибка загрузки фото (HTTP $code)", code)
+            return JSONObject(response)
+        } finally { connection.disconnect() }
+    }
+
     fun publicBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/public/battles")))
 
@@ -141,6 +178,9 @@ class ApiClient(context: Context) {
             connection.connectTimeout = 10_000
             connection.readTimeout = 20_000
             connection.setRequestProperty("Accept", "image/*")
+            if (url.startsWith(baseUrl + "/")) sessionCookie?.let {
+                connection.setRequestProperty("Cookie", it)
+            }
             connection.inputStream.use { BitmapFactory.decodeStream(it) }
         } catch (_: Exception) {
             null
