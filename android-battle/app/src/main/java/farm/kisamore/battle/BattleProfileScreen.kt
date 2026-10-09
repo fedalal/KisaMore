@@ -35,9 +35,13 @@ class BattleProfileScreen(
     private val onRegion: () -> Unit,
     private val onLogout: () -> Unit,
     private val onThemeChanged: () -> Unit = {},
-    private val onLanguageChanged: () -> Unit = {}
+    private val onLanguageChanged: () -> Unit = {},
+    private val onPreferenceChanged: (String?, Boolean?) -> Unit = { _, _ -> }
 ) : LinearLayout(host) {
+    private val languageCodes = arrayOf("en", "ru", "zh", "de", "fr", "es", "it", "pt", "pl")
+    private val languageNames = arrayOf("English", "Русский", "中文", "Deutsch", "Français", "Español", "Italiano", "Português", "Polski")
     private val night = host.getSharedPreferences("battle_settings", 0).getBoolean("dark_mode", false)
+    private val languageCode = host.getSharedPreferences("battle_settings", 0).getString("language", "ru") ?: "ru"
     private val english = host.getSharedPreferences("battle_settings", 0).getString("language", "ru") == "en"
     private fun tr(ru: String, en: String) = if (english) en else ru
     private val ink = Color.parseColor(if (night) "#F2F6F2" else "#1A1C1A")
@@ -96,7 +100,10 @@ class BattleProfileScreen(
                 contentDescription = "Изменить фотографию"
                 setOnClickListener { changePhoto() }
             }
-            if (loadAvatar(portrait, avatarUri)) {
+            if (avatarUri.startsWith("http")) {
+                loadRemoteAvatar(portrait, avatarUri)
+                avatarHolder.addView(portrait, FrameLayout.LayoutParams(dp(avatarSize), dp(avatarSize)))
+            } else if (loadAvatar(portrait, avatarUri)) {
                 avatarHolder.addView(portrait, FrameLayout.LayoutParams(dp(avatarSize), dp(avatarSize)))
             }
         }
@@ -265,7 +272,7 @@ class BattleProfileScreen(
         val options = listOf(
             Triple("bell", tr("Уведомления", "Notifications"), "›"),
             Triple("moon", tr("Тёмная тема", "Dark theme"), ""),
-            Triple("globe", tr("Язык", "Language"), if (english) "English ›" else "Русский ›"),
+            Triple("globe", tr("Язык", "Language"), languageNames[languageCodes.indexOf(languageCode).coerceAtLeast(0)] + " ›"),
             Triple("help", tr("Помощь", "Help"), "›")
         )
         options.forEachIndexed { i, item ->
@@ -284,6 +291,7 @@ class BattleProfileScreen(
                     setOnCheckedChangeListener { _, enabled ->
                         host.getSharedPreferences("battle_settings", 0).edit()
                             .putBoolean("dark_mode", enabled).apply()
+                        onPreferenceChanged(null, enabled)
                         onThemeChanged()
                     }
                 })
@@ -323,14 +331,17 @@ class BattleProfileScreen(
             1 -> {
                 val prefs = host.getSharedPreferences("battle_settings", 0)
                 prefs.edit().putBoolean("dark_mode", !prefs.getBoolean("dark_mode", false)).apply()
+                onPreferenceChanged(null, prefs.getBoolean("dark_mode", false))
                 onThemeChanged()
             }
             2 -> AlertDialog.Builder(host).setTitle("Язык приложения")
-                .setSingleChoiceItems(arrayOf("Русский", "English"),
-                    if (host.getSharedPreferences("battle_settings", 0).getString("language", "ru") == "ru") 0 else 1) { dialog, which ->
+                .setSingleChoiceItems(languageNames,
+                    languageCodes.indexOf(languageCode).coerceAtLeast(0)) { dialog, which ->
+                    val code = languageCodes[which]
                     host.getSharedPreferences("battle_settings", 0).edit()
-                        .putString("language", if (which == 0) "ru" else "en").apply()
+                        .putString("language", code).apply()
                     dialog.dismiss()
+                    onPreferenceChanged(code, null)
                     onLanguageChanged()
                 }.setNegativeButton("Отмена", null).show()
             3 -> showHelp()
@@ -374,6 +385,16 @@ class BattleProfileScreen(
 
     private fun changePhoto() {
         if (user == null) onLogin() else onChangePhoto()
+    }
+
+    private fun loadRemoteAvatar(image: ImageView, value: String) {
+        val api = ApiClient(host.applicationContext)
+        Thread {
+            val bitmap = runCatching { api.loadBitmap(value) }.getOrNull()
+            if (bitmap != null) host.runOnUiThread {
+                if (!host.isFinishing && !host.isDestroyed) image.setImageBitmap(bitmap)
+            }
+        }.start()
     }
 
     private fun loadAvatar(image: ImageView, value: String): Boolean {
