@@ -379,6 +379,61 @@ async def create_telegram_link(
     }
 
 
+@router.get("/battles/profile")
+async def my_battle_profile(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Authenticated battle stats, earned rewards and finished battle history."""
+    entries = list((
+        await session.execute(
+            select(PlantBattleEntry, PlantBattle)
+            .join(PlantBattle, PlantBattle.id == PlantBattleEntry.battle_id)
+            .where(
+                PlantBattleEntry.user_id == user.id,
+                PlantBattleEntry.status.in_(("active", "finished")),
+            )
+            .order_by(PlantBattleEntry.created_at.desc())
+        )
+    ).all())
+    finished = [(entry, battle) for entry, battle in entries if battle.status == "finished"]
+    wins = sum(1 for entry, _ in finished if entry.is_winner)
+    rewards = []
+    history = []
+    for entry, battle in finished:
+        earned = (battle.finished_at or entry.created_at).isoformat()
+        plant = await session.get(Plant, battle.plant_id)
+        history.append({
+            "battle_id": battle.id, "entry_id": entry.id, "title": battle.title,
+            "plant_name": _plant_name(plant) if plant else "Plant",
+            "finished_at": battle.finished_at.isoformat() if battle.finished_at else None,
+            "is_winner": bool(entry.is_winner),
+            "certificate_url": f"/api/v1/battle-certificate/{entry.id}",
+        })
+        if entry.is_winner:
+            rewards.extend([
+                {"id": f"winner:{entry.id}", "code": "best_gardener",
+                 "title": "Лучший садовод", "icon": "award", "earned_at": earned},
+                {"id": f"kisa:{entry.id}", "code": "winner_kisa",
+                 "title": f"{battle.winner_reward_kisa} Kisa",
+                 "icon": "coins", "earned_at": earned},
+            ])
+        rewards.append({
+            "id": f"certificate:{entry.id}", "code": "certificate",
+            "title": "QR-диплом", "icon": "qr-code", "earned_at": earned,
+            "url": f"/api/v1/battle-certificate/{entry.id}",
+        })
+    rewards.sort(key=lambda item: item["earned_at"], reverse=True)
+    return {
+        "battle_count": len({battle.id for _, battle in entries}),
+        "win_count": wins,
+        "rating_points": len(finished) * 10 + wins * 100,
+        "rating_rule": "10 points per finished entry + 100 per victory",
+        "rewards": rewards,
+        "history": history,
+    }
+
+
 @router.get("/public/battles")
 async def list_public_battles(
     session: AsyncSession = Depends(get_session),
