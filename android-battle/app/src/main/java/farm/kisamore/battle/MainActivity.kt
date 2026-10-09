@@ -315,6 +315,35 @@ class MainActivity : Activity() {
         showContent(scroll)
     }
 
+    private fun fallbackBattleProfile(battles: List<Battle>): PlayerBattleProfile {
+        val finished = battles.filter { it.status == "finished" }
+        val completedEntries = finished.flatMap { battle ->
+            battle.entries.filter { it.isMine }.map { entry -> Pair(battle, entry) }
+        }
+        val wins = completedEntries.count { (_, entry) -> entry.isWinner }
+        val rewards = completedEntries.flatMap { (battle, entry) ->
+            val earned = battle.finishedAt ?: battle.createdAt ?: ""
+            buildList {
+                if (entry.isWinner) {
+                    add(ServerReward("winner:" + entry.id, "Лучший садовод", "award", earned, null))
+                    add(ServerReward("kisa:" + entry.id,
+                        battle.winnerRewardKisa.toString() + " Kisa", "coins", earned, null))
+                }
+                if (entry.certificateUrl != null) {
+                    add(ServerReward("diploma:" + entry.id,
+                        "QR-диплом", "qr-code", earned, entry.certificateUrl))
+                }
+            }
+        }.sortedByDescending { it.earnedAt }
+        return PlayerBattleProfile(
+            battleCount = battles.distinctBy { it.id }.size,
+            winCount = wins,
+            ratingPoints = completedEntries.size * 10 + wins * 100,
+            rewards = rewards,
+            finishedBattleIds = finished.map { it.id }
+        )
+    }
+
     private var cachedServerProfile: PlayerBattleProfile? = null
 
     private fun showProfile() {
@@ -354,7 +383,15 @@ class MainActivity : Activity() {
         }
         render(if (user == null) null else cachedServerProfile)
         if (user != null) {
-            async(work = { api.myBattleProfile() }, success = {
+            async(work = {
+                try { api.myBattleProfile() }
+                catch (error: ApiException) {
+                    if (error.statusCode != 404) throw error
+                    // A server without the new profile endpoint still exposes
+                    // authenticated participant results in /battles/me.
+                    fallbackBattleProfile(myBattles)
+                }
+            }, success = {
                 cachedServerProfile = it
                 render(it)
             }, failure = {
