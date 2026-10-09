@@ -106,8 +106,28 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
                 canvas.drawPath(bell, p); canvas.drawArc(10f, 18f, 14f, 23f, 0f, 180f, false, p)
             }
             "moon" -> {val moon=Path().apply {moveTo(19f, 15f); cubicTo(13f, 18f, 6f, 11f, 9f, 4f); cubicTo(-1f, 10f, 6f, 26f, 19f, 15f); close()}; canvas.drawPath(moon,p)}
-            "globe" -> {canvas.drawCircle(12f,12f,9f,p);canvas.drawOval(7f,3f,17f,21f,p);canvas.drawLine(3f,12f,21f,12f,p)}
-            "help" -> {canvas.drawCircle(12f,12f,9f,p);canvas.drawArc(8f,5f,16f,14f,195f,210f,false,p);canvas.drawLine(12f,13f,12f,16f,p);canvas.drawPoint(12f,19f,p)}
+            "globe" -> {
+                // Lucide "languages" official vector
+                canvas.drawLine(5f, 8f, 11f, 14f, p)
+                val translated = Path().apply { moveTo(4f,14f); lineTo(10f,8f); lineTo(12f,5f) }
+                canvas.drawPath(translated,p)
+                canvas.drawLine(2f,5f,14f,5f,p)
+                canvas.drawLine(7f,2f,8f,2f,p)
+                val letterA=Path().apply {moveTo(22f,22f);lineTo(17f,12f);lineTo(12f,22f)}
+                canvas.drawPath(letterA,p)
+                canvas.drawLine(14f,18f,20f,18f,p)
+            }
+            "help" -> {
+                // Lucide "circle-question-mark" official vector
+                canvas.drawCircle(12f,12f,10f,p)
+                val question=Path().apply {
+                    moveTo(9.09f,9f)
+                    cubicTo(9.5f,6.9f,13.5f,6.1f,14.92f,10f)
+                    cubicTo(14.92f,12f,11.92f,13f,11.92f,13f)
+                }
+                canvas.drawPath(question,p)
+                canvas.drawPoint(12f,17f,p)
+            }
             "chevron" -> {canvas.drawLine(9f,6f,15f,12f,p);canvas.drawLine(15f,12f,9f,18f,p)}
             "camera" -> {canvas.drawRoundRect(3f,7f,21f,19f,2f,2f,p);canvas.drawCircle(12f,13f,4f,p);canvas.drawLine(6f,7f,9f,4f,p);canvas.drawLine(9f,4f,15f,4f,p)}
             "logout" -> {
