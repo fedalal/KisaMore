@@ -404,6 +404,30 @@ class MainActivity : Activity() {
         accountPrefsLoadedFor = api.currentUser?.id
     }
 
+    private fun showFullPlantPhoto(battle: Battle) {
+        val entry = battle.mine ?: return
+        val photoUrl = api.absolute(entry.photoUrl) ?: return
+        val dialogImage = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(android.graphics.Color.BLACK)
+            contentDescription = "Нажмите, чтобы посмотреть таймлапс"
+            PhotoFrameCache.showPrevious(this, photoUrl)
+        }
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(dialogImage)
+        dialogImage.setOnClickListener {
+            dialog.dismiss()
+            openVideo(entry.timelapse24hUrl ?: entry.timelapse3dUrl)
+        }
+        dialog.show()
+        async(work = { api.loadBitmap(photoUrl) }, success = { image ->
+            if (image != null) {
+                PhotoFrameCache.remember(photoUrl, image)
+                if (dialog.isShowing) dialogImage.setImageBitmap(image)
+            }
+        }, failure = {})
+    }
+
     private fun showProfile() {
         currentScreen = "profile"
         currentBattleId = null
@@ -424,6 +448,7 @@ class MainActivity : Activity() {
                     if (battle != null) openBattle(battle) else showNoBattle()
                     addNavigation()
                 },
+                onPlantPhoto = { battle -> showFullPlantPhoto(battle) },
                 onHistory = { showBattleHistory(); addNavigation() },
                 onRegion = {
                     api.setRegion(!api.isRussianServer())
