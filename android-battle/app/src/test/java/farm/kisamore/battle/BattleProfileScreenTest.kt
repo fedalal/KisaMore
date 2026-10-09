@@ -49,6 +49,12 @@ class BattleProfileScreenTest {
         assertTrue("History should be visible", screen.getChildAt(10).measuredHeight > 0)
         assertTrue("Settings should be visible", screen.getChildAt(12).measuredHeight > 0)
         assertTrue("Settings must fit above bottom navigation", screen.getChildAt(12).bottom <= height)
+        val settings = screen.getChildAt(12) as android.view.ViewGroup
+        assertTrue("Last settings row must fit within the card",
+            settings.getChildAt(settings.childCount - 1).bottom <= settings.height)
+        val notificationLabel = findLabel(settings, "Уведомления")
+        assertTrue("Settings labels should be at least 14sp",
+            notificationLabel.textSize / activity.resources.displayMetrics.scaledDensity >= 13.8f)
         // No huge flexible spacers: only a few dp between sections.
         assertTrue("Profile gap is unexpectedly large",
             screen.getChildAt(1).measuredHeight <= 16 * activity.resources.displayMetrics.density)
@@ -62,6 +68,17 @@ class BattleProfileScreenTest {
         val icon = tab.getChildAt(0)
         assertEquals(icon.layoutParams.width, icon.layoutParams.height)
         assertTrue(icon.layoutParams.width > 0)
+    }
+
+    private fun findLabel(view: View, label: String): TextView {
+        if (view is TextView && view.text.toString() == label) return view
+        if (view is android.view.ViewGroup) {
+            for (index in 0 until view.childCount) {
+                val found = runCatching { findLabel(view.getChildAt(index), label) }.getOrNull()
+                if (found != null) return found
+            }
+        }
+        throw IllegalArgumentException("Label missing: " + label)
     }
 
     private fun createProfile(activity: Activity) = BattleProfileScreen(
