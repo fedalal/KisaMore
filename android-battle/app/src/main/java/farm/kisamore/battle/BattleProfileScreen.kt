@@ -41,7 +41,7 @@ class BattleProfileScreen(
     private val pale = Color.parseColor("#E8F0E8")
     private val bg = Color.parseColor("#F8F9F6")
     private val shortScreen = resources.configuration.screenHeightDp < 715
-    private val padding = if (shortScreen) 10 else 14
+    private val padding = if (shortScreen) 9 else 12
     private val gapSize = if (shortScreen) 3 else 5
 
     init {
@@ -53,17 +53,17 @@ class BattleProfileScreen(
 
     private fun populate() {
         // Natural content heights instead of weights filling the screen.
-        addView(profileCard(), LayoutParams(-1, -2))
+        addView(profileCard(), LayoutParams(-1, dp(if (shortScreen) 82 else 99)))
         gap()
-        addView(statsRow(), LayoutParams(-1, dp(if (shortScreen) 56 else 64)))
+        addView(statsRow(), LayoutParams(-1, dp(if (shortScreen) 52 else 58)))
         gap()
-        addView(plantCard(), LayoutParams(-1, -2))
+        addView(plantCard(), LayoutParams(-1, dp(if (shortScreen) 83 else 99)))
         gap()
-        addView(rewardsCard(), LayoutParams(-1, -2))
+        addView(rewardsCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 99)))
         gap()
-        addView(historyCard(), LayoutParams(-1, -2))
+        addView(historyCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 99)))
         gap()
-        addView(settingsCard(), LayoutParams(-1, -2))
+        addView(settingsCard(), LayoutParams(-1, dp(if (shortScreen) 149 else 209)))
     }
 
     private fun profileCard(): View {
@@ -95,7 +95,7 @@ class BattleProfileScreen(
             }
         }
 
-        avatarHolder.addView(text("◎", 15f, Color.WHITE, true).apply {
+        avatarHolder.addView(icon("camera", 15, Color.WHITE).apply {
             gravity = Gravity.CENTER
             background = rounded(accent, 20)
             setOnClickListener { changePhoto() }
@@ -125,21 +125,20 @@ class BattleProfileScreen(
 
     private fun statsRow(): View {
         val row = row()
-        val finished = battles.count { it.status == "finished" }
+        val victories = battles.count { it.status == "finished" && (it.winnerEntryId != null) && it.entries.any { entry -> entry.isMine && entry.id == it.winnerEntryId } }
         val values = listOf(
-            Triple("⚔", "Битв", battles.size.toString()),
-            Triple("✦", "Уровень", profile.level.toString()),
-            Triple("◷", "Финиш", finished.toString())
+            Triple("battle", "Битв", battles.size.toString()),
+            Triple("trophy", "Побед", victories.toString()),
+            Triple("chart", "Рейтинг", "0")
         )
         values.forEachIndexed { i, item ->
             val box = card(if (shortScreen) 7 else 10).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            box.addView(text(item.first, 18f, olive).apply {
-                background = rounded(bg, 12)
-                gravity = Gravity.CENTER
-            }, LayoutParams(dp(if (shortScreen) 23 else 30), dp(if (shortScreen) 33 else 38)))
+            box.addView(icon(item.first, if (shortScreen) 19 else 23, olive).apply {
+                background = rounded(bg, 10)
+            }, LayoutParams(dp(if (shortScreen) 25 else 30), dp(if (shortScreen) 30 else 36)))
             val valuesColumn = column().apply {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(6), 0, 0, 0)
@@ -183,7 +182,7 @@ class BattleProfileScreen(
             11f, accent, single = true
         ))
         card.addView(info, LayoutParams(0, -2, 1f))
-        card.addView(text("›", 24f, secondary))
+        card.addView(icon("chevron", 18, secondary), LayoutParams(dp(18), dp(18)))
         return card
     }
 
@@ -237,26 +236,30 @@ class BattleProfileScreen(
         card.addView(heading("Настройки", "") { settingsDialog() },
             LayoutParams(-1, dp(22)))
         val options = listOf(
-            Triple("♧", "Уведомления", "›"),
-            Triple("◐", "Тёмная тема", "›"),
-            Triple("◎", "Язык", "Русский ›"),
-            Triple("?", "Помощь", "›")
+            Triple("bell", "Уведомления", "›"),
+            Triple("moon", "Тёмная тема", "›"),
+            Triple("globe", "Язык", "Русский ›"),
+            Triple("help", "Помощь", "›")
         )
         options.forEachIndexed { i, item ->
             val line = row().apply {
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(if (shortScreen) 18 else 24)
+                minimumHeight = dp(if (shortScreen) 26 else 37)
                 if (i < 3) {
                     background = rounded(if (i % 2 == 0) Color.WHITE else bg, 8)
                 }
                 setOnClickListener { settingAction(i) }
             }
-            line.addView(text(item.first, 16f, secondary), LayoutParams(dp(31), -2))
+            line.addView(icon(item.first, 22, secondary), LayoutParams(dp(31), dp(23)))
             line.addView(text(item.second, if (shortScreen) 14f else 15f, ink), LayoutParams(0, -2, 1f))
             line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
-            card.addView(line, LayoutParams(-1, dp(if (shortScreen) 27 else 33)))
+            card.addView(line, LayoutParams(-1, dp(if (shortScreen) 27 else 39)))
         }
         return card
+    }
+
+    private fun icon(glyph: String, size: Int, color: Int): View = BattleTabGlyph(host, glyph, color).apply {
+        contentDescription = glyph
     }
 
     private fun heading(left: String, right: String, onClick: () -> Unit): View = row().apply {
