@@ -272,7 +272,8 @@ class ApiClient(context: Context) {
                                 kind = action.optString("kind"),
                                 amount = action.optInt("amount"),
                                 status = action.optString("status"),
-                                requestedAt = action.nullableString("requested_at")
+                                requestedAt = action.nullableString("requested_at"),
+                                completedAt = action.nullableString("completed_at")
                             )
                         )
                     }
@@ -290,6 +291,7 @@ class ApiClient(context: Context) {
                         actions = actions,
                         timelapse24hUrl = item.nullableString("timelapse_24h_url"),
                         timelapse3dUrl = item.nullableString("timelapse_3d_url"),
+                        timelapseFullUrl = item.nullableString("timelapse_full_url"),
                         certificateUrl = item.nullableString("certificate_url"),
                         photoUrl = if (obj.optString("farm_slug").isBlank()) null else
                             "/api/v1/public/farms/" + obj.optString("farm_slug") +
@@ -310,6 +312,19 @@ class ApiClient(context: Context) {
             predictionCounts[key] = counts.optInt(key)
         }
 
+        val cameraViewsJson = obj.optJSONArray("camera_views") ?: JSONArray()
+        val cameras = buildList {
+            for (i in 0 until cameraViewsJson.length()) {
+                val row = cameraViewsJson.getJSONObject(i)
+                add(BattleCamera(
+                    cameraId = row.optString("camera_id"),
+                    isPrimary = row.optBoolean("primary"),
+                    photoUrl = row.nullableString("photo_url"),
+                    capturedAt = row.nullableString("captured_at")
+                ))
+            }
+        }
+
         return Battle(
             id = obj.optString("id"),
             title = obj.optString("title", "Plant Battle"),
@@ -318,6 +333,7 @@ class ApiClient(context: Context) {
             plantName = obj.optString("plant_name", "Plant"),
             growDays = obj.optInt("grow_days"),
             rackPhotoUrl = obj.nullableString("rack_photo_url"),
+            cameraViews = cameras,
             waterBudgetMl = obj.optInt("water_budget_ml"),
             nutrientBudgetMl = obj.optInt("nutrient_budget_ml"),
             shadeBudgetMinutes = obj.optInt("shade_budget_minutes"),
