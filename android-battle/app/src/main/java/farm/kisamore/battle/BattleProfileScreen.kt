@@ -261,6 +261,10 @@ class BattleProfileScreen(
             }.setNegativeButton("Закрыть", null).show()
     }
 
+    private fun photoAction() {
+        if (user == null) onLogin() else onChangePhoto()
+    }
+
     private fun loadAvatar(image: ImageView, value: String) {
         try {
             val uri = Uri.parse(value)
@@ -279,7 +283,7 @@ class BattleProfileScreen(
     }
 
     private fun fetchPlantPhoto(image: ImageView, url: String) {
-        val absolute = if (url.startsWith("https://")) url else return
+        val absolute = ApiClient(host.applicationContext).absolute(url) ?: return
         Thread {
             val bitmap = runCatching { ApiClient(host.applicationContext).loadBitmap(absolute) }.getOrNull()
             if (bitmap != null) host.runOnUiThread {
