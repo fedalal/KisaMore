@@ -386,10 +386,14 @@ class BattleProfileScreen(
 
     private fun showHelp() {
         AlertDialog.Builder(host)
-            .setTitle("Помощь")
-            .setMessage("Нужна помощь с KisaMore Battle? Напишите в службу поддержки.")
+            .setTitle("О проекте KisaMore Battle")
+            .setMessage("KisaMore Battle — соревнование по выращиванию настоящих растений. " +
+                "У каждого участника свой контейнер, ограниченные ресурсы воды, питания " +
+                "и управления освещением. Следите за ростом по фотографиям и таймлапсам, " +
+                "принимайте решения и соревнуйтесь за награды.\\n\\n" +
+                "У вас есть вопрос или предложение? Свяжитесь с командой проекта.")
             .setNegativeButton("Закрыть", null)
-            .setPositiveButton("Написать") { _, _ ->
+            .setPositiveButton("Задать вопрос") { _, _ ->
                 val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@kisamore.farm"))
                 try {
                     host.startActivity(intent)
