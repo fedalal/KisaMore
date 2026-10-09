@@ -125,7 +125,8 @@ class BattleProfileScreen(
 
     private fun statsRow(): View {
         val row = row()
-        val victories = battles.count { it.status == "finished" && (it.winnerEntryId != null) && it.entries.any { entry -> entry.isMine && entry.id == it.winnerEntryId } }
+        // The current battle API does not expose winner identity; do not guess victories.
+        val victories = 0
         val values = listOf(
             Triple("battle", "Битв", battles.size.toString()),
             Triple("trophy", "Побед", victories.toString()),
