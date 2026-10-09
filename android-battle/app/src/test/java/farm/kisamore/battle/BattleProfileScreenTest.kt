@@ -45,6 +45,14 @@ class BattleProfileScreenTest {
         assertTrue("Profile card should have positive height", screen.getChildAt(2).measuredHeight > 0)
         assertTrue("Stats must be laid out", screen.getChildAt(4).measuredHeight > 0)
         assertTrue("Plant card must be laid out", screen.getChildAt(6).measuredHeight > 0)
+        assertTrue("Rewards should be visible", screen.getChildAt(8).measuredHeight > 0)
+        assertTrue("History should be visible", screen.getChildAt(10).measuredHeight > 0)
+        assertTrue("Settings should be visible", screen.getChildAt(12).measuredHeight > 0)
+        assertTrue("Settings must fit above bottom navigation", screen.getChildAt(12).bottom <= height)
+        // No huge flexible spacers: only a few dp between sections.
+        assertTrue("Profile gap is unexpectedly large",
+            screen.getChildAt(1).measuredHeight <= 16 * activity.resources.displayMetrics.density)
+
     }
 
     @Test
