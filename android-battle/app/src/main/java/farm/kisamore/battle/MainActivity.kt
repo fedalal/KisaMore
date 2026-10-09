@@ -194,9 +194,33 @@ class MainActivity : Activity() {
             val uri = data?.data ?: return
             try {
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val userId = api.currentUser?.id ?: return
                 getSharedPreferences("battle_profile_photos", MODE_PRIVATE).edit()
-                    .putString("avatar_" + (api.currentUser?.id ?: return), uri.toString()).apply()
-                showProfile()
+                    .putString("avatar_" + userId, uri.toString()).apply()
+                // Convert to a compact JPEG for the server's 2 MB upload limit.
+                val bitmap = contentResolver.openInputStream(uri)?.use {
+                    android.graphics.BitmapFactory.decodeStream(it)
+                } ?: throw IllegalStateException("Не удалось прочитать фотографию")
+                val compressed = java.io.ByteArrayOutputStream()
+                var quality = 85
+                val width = bitmap.width
+                val height = bitmap.height
+                val factor = minOf(1.0, 768.0 / maxOf(width, height))
+                val sized = if (factor < 1.0)
+                    android.graphics.Bitmap.createScaledBitmap(bitmap, (width * factor).toInt().coerceAtLeast(1),
+                        (height * factor).toInt().coerceAtLeast(1), true) else bitmap
+                do {
+                    compressed.reset()
+                    sized.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, compressed)
+                    quality -= 10
+                } while (compressed.size() > 2_097_152 && quality >= 30)
+                val upload = compressed.toByteArray()
+                async(work = { api.uploadAvatar(upload, "image/jpeg") }, success = {
+                    showProfile()
+                }, failure = {
+                    toast("Фото сохранено на телефоне, но не синхронизировано: " + it.message)
+                    showProfile()
+                })
             } catch (e: Exception) {
                 toast("Не удалось сохранить фотографию: " + (e.message ?: "ошибка"))
             }
@@ -346,13 +370,34 @@ class MainActivity : Activity() {
 
     private var cachedServerProfile: PlayerBattleProfile? = null
 
+    private var accountAvatarUrl: String? = null
+    private var accountPrefsLoadedFor: String? = null
+
+    private fun syncPreference(language: String?, dark: Boolean?) {
+        if (!api.hasSession()) return
+        async(work = { api.savePreferences(language, dark) }, success = {
+            applyRemotePreferences(it)
+        }, failure = { toast("Не удалось сохранить настройки на сервере") })
+    }
+
+    private fun applyRemotePreferences(data: org.json.JSONObject) {
+        getSharedPreferences("battle_settings", MODE_PRIVATE).edit()
+            .putString("language", data.optString("language", "ru"))
+            .putBoolean("dark_mode", data.optString("theme", "light") == "dark")
+            .apply()
+        accountAvatarUrl = api.absolute(data.optString("avatar_url").takeIf { it.isNotBlank() })
+        accountPrefsLoadedFor = api.currentUser?.id
+    }
+
     private fun showProfile() {
         currentScreen = "profile"
         currentBattleId = null
         val user = api.currentUser
-        val avatar = user?.id?.let {
+        val localAvatar = user?.id?.let {
             getSharedPreferences("battle_profile_photos", MODE_PRIVATE).getString("avatar_" + it, null)
         }
+        val avatar = if (user != null && accountPrefsLoadedFor == user.id)
+            accountAvatarUrl ?: localAvatar else localAvatar
         fun render(server: PlayerBattleProfile?) {
             if (currentScreen != "profile") return
             showContent(BattleProfileScreen(
@@ -373,11 +418,14 @@ class MainActivity : Activity() {
                     async(work = { api.logout(); true }, success = {
                         myBattles = emptyList()
                         cachedServerProfile = null
+                        accountAvatarUrl = null
+                        accountPrefsLoadedFor = null
                         showProfile()
                     })
                 },
                 onThemeChanged = { showProfile() },
-                onLanguageChanged = { showProfile() }
+                onLanguageChanged = { showProfile() },
+                onPreferenceChanged = { language, dark -> syncPreference(language, dark) }
             ))
             addNavigation()
         }
@@ -386,17 +434,23 @@ class MainActivity : Activity() {
             async(work = {
                 // Refresh ownership, single-slot photos and completed battles together.
                 val freshBattles = api.myBattles()
+                val preferences = runCatching { api.fetchPreferences() }.getOrNull()
                 val profileResponse = try { api.myBattleProfile() }
                 catch (error: ApiException) {
                     if (error.statusCode != 404) throw error
                     // Older VPS supports /battles/me without a profile endpoint.
                     fallbackBattleProfile(freshBattles)
                 }
-                Pair(freshBattles, profileResponse)
+                Triple(freshBattles, profileResponse, preferences)
             }, success = {
                 myBattles = it.first
                 cachedServerProfile = it.second
-                render(it.second)
+                if (it.third != null && accountPrefsLoadedFor != user.id) {
+                    applyRemotePreferences(it.third!!)
+                    showProfile()
+                } else {
+                    render(it.second)
+                }
             }, failure = {
                 cachedServerProfile = null
                 render(null)
@@ -441,6 +495,7 @@ class MainActivity : Activity() {
                     work = { api.login(email.text.toString(), password.text.toString()) },
                     success = {
                         game.openToday()
+                        accountPrefsLoadedFor = null
                         loadAll("home")
                     }
                 )
