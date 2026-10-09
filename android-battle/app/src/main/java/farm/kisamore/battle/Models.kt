@@ -20,7 +20,8 @@ data class BattleEntry(
     val actions: List<BattleAction>,
     val timelapse24hUrl: String?,
     val timelapse3dUrl: String?,
-    val certificateUrl: String?
+    val certificateUrl: String?,
+    val photoUrl: String?
 )
 
 data class Battle(
@@ -69,4 +70,20 @@ data class GameProfile(
     val streak: Int,
     val missions: List<DailyMission>,
     val badges: List<String>
+)
+
+data class ServerReward(
+    val id: String,
+    val title: String,
+    val icon: String,
+    val earnedAt: String,
+    val url: String?
+)
+
+data class PlayerBattleProfile(
+    val battleCount: Int,
+    val winCount: Int,
+    val ratingPoints: Int,
+    val rewards: List<ServerReward>,
+    val finishedBattleIds: List<String>
 )
