@@ -346,6 +346,68 @@ async def create_telegram_link(
     }
 
 
+@router.get("/battles/profile")
+async def my_battle_profile(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Profile statistics and rewards; only authenticated user's entries."""
+    rows = list((
+        await session.execute(
+            select(PlantBattleEntry, PlantBattle)
+            .join(PlantBattle, PlantBattle.id == PlantBattleEntry.battle_id)
+            .where(
+                PlantBattleEntry.user_id == user.id,
+                PlantBattleEntry.status.in_(("active", "finished")),
+            )
+            .order_by(PlantBattleEntry.created_at.desc())
+        )
+    ).all())
+    battle_count = len({battle.id for entry, battle in rows})
+    finished = [(entry, battle) for entry, battle in rows if battle.status == "finished"]
+    victories = sum(1 for entry, battle in finished if entry.is_winner)
+    # Simple, explicitly defined points metric, not a global leaderboard position.
+    rating = len(finished) * 10 + victories * 100
+    rewards = []
+    for entry, battle in finished:
+        date = (battle.finished_at or entry.created_at).isoformat()
+        if entry.is_winner:
+            rewards.append({
+                "id": f"winner:{entry.id}", "code": "best_gardener",
+                "title": "Лучший садовод", "icon": "award", "earned_at": date,
+            })
+            rewards.append({
+                "id": f"reward:{entry.id}", "code": "winner_kisa",
+                "title": f"{battle.winner_reward_kisa} Kisa", "icon": "coins",
+                "earned_at": date,
+            })
+        rewards.append({
+            "id": f"certificate:{entry.id}", "code": "certificate",
+            "title": "QR-диплом", "icon": "qr-code", "earned_at": date,
+            "url": f"/api/v1/battle-certificate/{entry.id}",
+        })
+    rewards.sort(key=lambda reward: reward["earned_at"], reverse=True)
+    return {
+        "battle_count": battle_count,
+        "win_count": victories,
+        "rating_points": rating,
+        "rating_rule": "10 points per finished entry + 100 per victory",
+        "rewards": rewards,
+        "history": [
+            {
+                "battle_id": battle.id, "entry_id": entry.id,
+                "title": battle.title, "plant_name": _plant_name(
+                    await session.get(Plant, battle.plant_id)
+                ),
+                "finished_at": battle.finished_at.isoformat() if battle.finished_at else None,
+                "is_winner": bool(entry.is_winner),
+                "certificate_url": f"/api/v1/battle-certificate/{entry.id}",
+            }
+            for entry, battle in finished
+        ],
+    }
+
+
 @router.get("/public/battles")
 async def list_public_battles(
     session: AsyncSession = Depends(get_session),
