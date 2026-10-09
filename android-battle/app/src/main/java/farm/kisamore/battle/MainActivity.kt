@@ -10,6 +10,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
+import android.view.WindowInsets
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
@@ -103,9 +105,26 @@ class MainActivity : Activity() {
         }
         addNavigation()
         root.addView(navBar, LinearLayout.LayoutParams(-1, dp(56)))
+        // Android 15+ draws app content behind system bars. Inset the entire
+        // layout (including bottom tabs) explicitly to protect header and labels.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+            root.setOnApplyWindowInsetsListener { view, insets ->
+                val bars = insets.getInsets(
+                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+                )
+                view.setPadding(0, bars.top, 0, bars.bottom)
+                insets
+            }
+        } else {
+            window.statusBarColor = Color.parseColor("#F8F9F6")
+            window.navigationBarColor = Color.WHITE
+        }
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         setContentView(root)
-        window.navigationBarColor = Color.WHITE
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
     }
 
     private fun addNavigation() {
