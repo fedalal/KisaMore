@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.res.ColorStateList
 import android.content.Intent
+import android.provider.DocumentsContract
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -39,6 +40,7 @@ class MainActivity : Activity() {
     private var publicBattles: List<Battle> = emptyList()
     private var myBattles: List<Battle> = emptyList()
     private var currentScreen = "home"
+    private val avatarRequestCode = 4201
     private var currentBattleId: String? = null
 
     private val handler = Handler(Looper.getMainLooper())
@@ -96,54 +98,84 @@ class MainActivity : Activity() {
         navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(6), dp(6), dp(6), dp(8))
-            setBackgroundColor(surface)
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+            setBackgroundColor(Color.WHITE)
         }
-
-        navBar.addView(navButton("🏠", "Главная") {
-            stopAutoRefresh()
-            currentScreen = "home"
-            showHome()
-        })
-        navBar.addView(navButton("🌱", "Моя битва") {
-            stopAutoRefresh()
-            val battle = activeMyBattle()
-            if (battle == null) {
-                if (api.hasSession()) showNoBattle() else showLogin()
-            } else {
-                openBattle(battle)
-            }
-        })
-        navBar.addView(navButton("👁", "Смотреть") {
-            stopAutoRefresh()
-            currentScreen = "watch"
-            showWatch()
-        })
-        navBar.addView(navButton("🏅", "Профиль") {
-            stopAutoRefresh()
-            currentScreen = "profile"
-            showProfile()
-        })
-
-        root.addView(
-            navBar,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
+        addNavigation()
+        root.addView(navBar, LinearLayout.LayoutParams(-1, dp(66)))
         setContentView(root)
+        window.navigationBarColor = Color.WHITE
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
     }
 
-    private fun navButton(icon: String, label: String, action: () -> Unit): View {
-        return TextView(this).apply {
-            text = icon + "\n" + label
-            gravity = Gravity.CENTER
-            setTextColor(white)
-            textSize = 11f
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(0, dp(52), 1f)
+    private fun addNavigation() {
+        navBar.removeAllViews()
+        val tabs = listOf(
+            Triple("Моё растение", "plant", "plant"),
+            Triple("Битва", "battle", "watch"),
+            Triple("История", "history", "history"),
+            Triple("Профиль", "profile", "profile")
+        )
+        tabs.forEach { (label, icon, destination) ->
+            val active = when (destination) {
+                "plant" -> currentScreen in listOf("battle", "no_battle", "login")
+                "watch" -> currentScreen in listOf("home", "watch")
+                else -> currentScreen == destination
+            }
+            navBar.addView(BattleBottomTab(this, label, icon, active) {
+                stopAutoRefresh()
+                when (destination) {
+                    "plant" -> {
+                        val mine = activeMyBattle()
+                        if (mine == null) {
+                            if (api.hasSession()) showNoBattle() else showLogin()
+                        } else openBattle(mine)
+                    }
+                    "watch" -> { currentScreen = "watch"; showWatch() }
+                    "history" -> { currentScreen = "history"; showBattleHistory() }
+                    "profile" -> { currentScreen = "profile"; showProfile() }
+                }
+                addNavigation()
+            }, LinearLayout.LayoutParams(0, -1, 1f))
+        }
+    }
+
+    private fun showBattleHistory() {
+        currentScreen = "history"
+        val scroll = screenScroll()
+        val body = scroll.getChildAt(0) as LinearLayout
+        body.addView(gameHeader("История", "Ваши битвы"))
+        val past = myBattles.filter { it.status == "finished" }
+        if (past.isEmpty()) {
+            val note = card()
+            note.addView(bigText("История пока пуста", 18f))
+            note.addView(smallText("Завершённые битвы появятся здесь."))
+            body.addView(cardWithMargin(note))
+        } else past.forEach { body.addView(battleListCard(it)) }
+        showContent(scroll)
+    }
+
+    private fun pickProfilePhoto() {
+        if (!api.hasSession()) { showLogin(); return }
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+        }
+        startActivityForResult(intent, avatarRequestCode)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == avatarRequestCode && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                getSharedPreferences("battle_profile_photos", MODE_PRIVATE).edit()
+                    .putString("avatar_" + (api.currentUser?.id ?: return), uri.toString()).apply()
+                showProfile()
+            } catch (e: Exception) {
+                toast("Не удалось сохранить фотографию: " + (e.message ?: "ошибка"))
+            }
         }
     }
 
@@ -262,61 +294,36 @@ class MainActivity : Activity() {
     private fun showProfile() {
         currentScreen = "profile"
         currentBattleId = null
-        val scroll = screenScroll()
-        val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("ПРОФИЛЬ САДОВОДА", api.currentUser?.displayName ?: "Гость"))
-
-        val profile = game.profile()
-        val profileCard = card()
-        profileCard.addView(bigText("Уровень " + profile.level))
-        profileCard.addView(smallText(profile.xp.toString() + " XP · серия " + profile.streak + " дней"))
-        profileCard.addView(progress(profile.xp % 100, 100))
-        profileCard.addView(smallText("До следующего уровня: " + (100 - profile.xp % 100) + " XP"))
-        body.addView(cardWithMargin(profileCard))
-
-        body.addView(sectionTitle("ДОСТИЖЕНИЯ", "Открываются за реальные действия"))
-        val badges = card()
-        if (profile.badges.isEmpty()) {
-            badges.addView(smallText("Первое достижение появится уже сегодня."))
-        } else {
-            profile.badges.forEach { badges.addView(bigText(it, 17f)) }
+        val user = api.currentUser
+        val avatar = user?.id?.let {
+            getSharedPreferences("battle_profile_photos", MODE_PRIVATE).getString("avatar_" + it, null)
         }
-        body.addView(cardWithMargin(badges))
-
-        body.addView(sectionTitle("СЕРВЕР", "Можно переключиться между российским и глобальным"))
-        val serverCard = card()
-        serverCard.addView(bigText(if (api.isRussianServer()) "🇷🇺 RU сервер" else "🌍 GLOBAL сервер", 18f))
-        serverCard.addView(smallText(api.baseUrl))
-        serverCard.addView(outlineButton("ПЕРЕКЛЮЧИТЬ СЕРВЕР") {
-            api.setRegion(!api.isRussianServer())
-            Toast.makeText(this, "Сервер: " + api.baseUrl, Toast.LENGTH_SHORT).show()
-            loadAll("profile")
-        })
-        body.addView(cardWithMargin(serverCard))
-
-        if (api.hasSession()) {
-            val account = card()
-            account.addView(bigText(api.currentUser?.displayName ?: "Игрок", 18f))
-            account.addView(smallText(api.currentUser?.email ?: ""))
-            account.addView(outlineButton("ВЫЙТИ") {
-                async(
-                    work = { api.logout(); true },
-                    success = {
-                        myBattles = emptyList()
-                        currentScreen = "home"
-                        showHome()
-                    }
-                )
-            })
-            body.addView(cardWithMargin(account))
-        } else {
-            val login = card()
-            login.addView(bigText("Аккаунт не подключён", 18f))
-            login.addView(primaryButton("ВОЙТИ") { showLogin() })
-            body.addView(cardWithMargin(login))
-        }
-
-        showContent(scroll)
+        showContent(BattleProfileScreen(
+            this,
+            user,
+            game.profile(),
+            myBattles,
+            avatar,
+            onChangePhoto = { pickProfilePhoto() },
+            onLogin = { showLogin() },
+            onPlant = {
+                val battle = activeMyBattle()
+                if (battle != null) openBattle(battle) else showNoBattle()
+                addNavigation()
+            },
+            onHistory = { showBattleHistory(); addNavigation() },
+            onRegion = {
+                api.setRegion(!api.isRussianServer())
+                loadAll("profile")
+            },
+            onLogout = {
+                async(work = { api.logout(); true }, success = {
+                    myBattles = emptyList()
+                    showProfile()
+                })
+            }
+        ))
+        addNavigation()
     }
 
     private fun showLogin() {
