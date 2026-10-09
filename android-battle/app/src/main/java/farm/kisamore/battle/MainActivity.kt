@@ -507,10 +507,15 @@ class MainActivity : Activity() {
             } else {
                 showLoading("Входим в игру…")
                 async(
-                    work = { api.login(email.text.toString(), password.text.toString()) },
+                    work = {
+                        val loggedIn = api.login(email.text.toString(), password.text.toString())
+                        val preferences = runCatching { api.fetchPreferences() }.getOrNull()
+                        Pair(loggedIn, preferences)
+                    },
                     success = {
                         game.openToday()
                         accountPrefsLoadedFor = null
+                        if (it.second != null) applyRemotePreferences(it.second!!)
                         loadAll("home")
                     }
                 )
