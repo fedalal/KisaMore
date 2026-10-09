@@ -546,7 +546,8 @@ class MainActivity : Activity() {
             }
         }
         form.addView(loginButton)
-        form.addView(smallText("Сервер: " + api.baseUrl))
+        val appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+        form.addView(smallText("KisaMore Battle · v" + appVersion))
         body.addView(cardWithMargin(form))
         showContent(scroll)
     }
