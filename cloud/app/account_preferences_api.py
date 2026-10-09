@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,14 @@ class AccountPreferences(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), primary_key=True)
     theme: Mapped[str] = mapped_column(String(12), default="light", nullable=False)
     avatar_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
+class AccountAchievement(Base):
+    """Server-persisted one-time milestones; does not depend on phone storage."""
+    __tablename__ = "account_achievements"
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), primary_key=True)
+    code: Mapped[str] = mapped_column(String(48), primary_key=True)
+    earned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class PreferencesPatch(BaseModel):
