@@ -22,8 +22,8 @@ class BattleBottomTab(
         orientation = VERTICAL
         gravity = Gravity.CENTER
         val tint = Color.parseColor(if (selected) "#24683C" else "#7B827A")
-        // Square artwork; always 20x20 dp, never scaled to fill a tall tab.
-        addView(BattleTabGlyph(context, icon, tint), LayoutParams(px(20), px(20)))
+        // Square artwork; always 19x19 dp, never scaled to fill a tall tab.
+        addView(BattleTabGlyph(context, icon, tint), LayoutParams(px(19), px(19)))
         addView(TextView(context).apply {
             text = title
             textSize = 10f
@@ -32,8 +32,8 @@ class BattleBottomTab(
             gravity = Gravity.CENTER
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(0, px(3), 0, 0)
-        }, LayoutParams(-1, px(17)))
+            setPadding(0, px(2), 0, 0)
+        }, LayoutParams(-1, px(16)))
         isClickable = true
         isFocusable = true
         contentDescription = title
