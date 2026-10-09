@@ -21,7 +21,9 @@ data class BattleEntry(
     val timelapse24hUrl: String?,
     val timelapse3dUrl: String?,
     val certificateUrl: String?,
-    val photoUrl: String?
+    val photoUrl: String?,
+    val isWinner: Boolean = false,
+    val badge: String? = null
 )
 
 data class Battle(
@@ -44,7 +46,9 @@ data class Battle(
     val entries: List<BattleEntry>,
     val predictionTotal: Int,
     val predictionCounts: Map<String, Int>,
-    val myPredictionEntryId: String?
+    val myPredictionEntryId: String?,
+    val winnerEntryId: String? = null,
+    val finishedAt: String? = null
 ) {
     val mine: BattleEntry?
         get() = entries.firstOrNull { it.isMine }
