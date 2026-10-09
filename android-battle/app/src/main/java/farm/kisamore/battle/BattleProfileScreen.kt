@@ -1,200 +1,335 @@
 package farm.kisamore.battle
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
-import android.net.Uri
-import android.graphics.Color
 import android.graphics.BitmapFactory
-import android.graphics.drawable.GradientDrawable
+import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
-import android.app.AlertDialog
+import java.util.Locale
 
+/**
+ * Compact, single-screen Profile. This is deliberately NOT a ScrollView:
+ * details are available by tapping their summary cards instead of stacking long sections.
+ * Profile dimensions adapt to the actual available view height (excluding status/nav bars).
+ */
 class BattleProfileScreen(
     private val host: Activity,
     private val user: UserInfo?,
     private val profile: GameProfile,
     private val battles: List<Battle>,
-    avatarUri: String?,
+    private val avatarUri: String?,
     private val onChangePhoto: () -> Unit,
     private val onLogin: () -> Unit,
     private val onPlant: () -> Unit,
     private val onHistory: () -> Unit,
     private val onRegion: () -> Unit,
     private val onLogout: () -> Unit
-) : ScrollView(host) {
+) : LinearLayout(host) {
     private val bg = Color.parseColor("#F8F9F6")
     private val ink = Color.parseColor("#1A1C1A")
-    private val secondary = Color.parseColor("#6B7268")
-    private val accent = Color.parseColor("#4A7C59")
-    private val soft = Color.parseColor("#E9F1E8")
-    private val body = LinearLayout(host).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(20), dp(26), dp(20), dp(30))
-    }
+    private val muted = Color.parseColor("#6B7268")
+    private val green = Color.parseColor("#4A7C59")
+    private val pale = Color.parseColor("#E7F0E6")
+    private var lastHeightDp = -1
+    private var compact = false
+    private var tiny = false
+
     init {
+        orientation = VERTICAL
         setBackgroundColor(bg)
-        addView(body, LayoutParams(-1, -2))
-        body.addView(txt("Профиль", 30f, ink, true))
-        space(18)
-        val top = card()
-        val line = row()
-        val photo = ImageView(host).apply {
+        setPadding(dp(16), dp(8), dp(16), dp(8))
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (h <= 0) return
+        val heightDp = (h / resources.displayMetrics.density).toInt()
+        if (heightDp == lastHeightDp) return
+        lastHeightDp = heightDp
+        compact = heightDp < 605
+        tiny = heightDp < 465
+        render()
+    }
+
+    private fun render() {
+        removeAllViews()
+        val titleHeight = if (tiny) 30 else if (compact) 33 else 38
+        val heroHeight = if (tiny) 70 else if (compact) 80 else 95
+        val statsHeight = if (tiny) 53 else if (compact) 61 else 72
+        val plantHeight = if (tiny) 64 else if (compact) 72 else 88
+        val awardsHeight = if (tiny) 54 else if (compact) 62 else 77
+        val historyHeight = if (tiny) 54 else if (compact) 62 else 78
+        val settingsHeight = if (tiny) 45 else if (compact) 51 else 62
+
+        val title = label("Профиль", if (compact) 25f else 29f, ink, bold = true)
+        title.gravity = Gravity.CENTER_VERTICAL
+        fixed(title, titleHeight)
+        gap()
+        fixed(profileCard(heroHeight), heroHeight)
+        gap()
+        fixed(statCards(statsHeight), statsHeight)
+        gap()
+        fixed(plantCard(plantHeight), plantHeight)
+        gap()
+        fixed(awardsCard(awardsHeight), awardsHeight)
+        gap()
+        fixed(historyCard(historyHeight), historyHeight)
+        gap()
+        fixed(settingsCard(settingsHeight), settingsHeight)
+    }
+
+    private fun profileCard(height: Int): View {
+        val box = surface(if (compact) 9 else 13)
+        box.orientation = HORIZONTAL
+        box.gravity = Gravity.CENTER_VERTICAL
+        val avatarSize = if (tiny) 48 else if (compact) 57 else 67
+        val avatarFrame = FrameLayout(host)
+        val image = ImageView(host).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = rounded(soft, 44)
+            background = shape(pale, avatarSize / 2)
             clipToOutline = true
             setImageResource(android.R.drawable.ic_menu_myplaces)
-            contentDescription = "Изменить фото"
-            setOnClickListener { if (user == null) onLogin() else onChangePhoto() }
+            contentDescription = "Изменить фотографию"
+            setOnClickListener { photoAction() }
         }
-        if (avatarUri != null) {
-            try {
-                host.contentResolver.openInputStream(Uri.parse(avatarUri))?.use {
-                    BitmapFactory.decodeStream(it)?.let { bitmap -> photo.setImageBitmap(bitmap) }
-                }
-            } catch (_: Exception) {}
+        if (avatarUri != null) loadAvatar(image, avatarUri)
+        avatarFrame.addView(image, FrameLayout.LayoutParams(dp(avatarSize), dp(avatarSize)))
+        val camera = label("⌾", 17f, Color.WHITE, bold = true).apply {
+            gravity = Gravity.CENTER
+            background = shape(green, 20)
+            contentDescription = "Загрузить фото"
+            setOnClickListener { photoAction() }
         }
-        line.addView(photo, LinearLayout.LayoutParams(dp(86), dp(86)))
+        avatarFrame.addView(camera, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.BOTTOM or Gravity.RIGHT))
+        box.addView(avatarFrame, LayoutParams(dp(avatarSize), dp(avatarSize)))
+
         val info = LinearLayout(host).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), 0, 0, 0)
+            orientation = VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
         }
-        info.addView(txt(user?.displayName ?: "Гость", 22f, ink, true))
-        info.addView(txt(user?.email ?: "Войдите в аккаунт", 12f, secondary))
-        info.addView(txt(if (user == null) "Войти" else "◉  Изменить фото", 14f, accent).apply {
-            setPadding(0, dp(10), 0, dp(8))
-            setOnClickListener { if (user == null) onLogin() else onChangePhoto() }
-        })
-        profile.badges.firstOrNull()?.let { info.addView(pill("✦  " + it)) }
-        line.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(line)
-        body.addView(top)
-        space(14)
-        val stats = row()
-        listOf(
+        info.addView(label(user?.displayName ?: "Гость", if (compact) 18f else 20f, ink, bold = true, single = true))
+        info.addView(label(user?.email ?: "Войдите в аккаунт", 11f, muted, single = true))
+        val photoLink = label(if (user == null) "Войти" else "Изменить фото", if (tiny) 11f else 13f, green)
+        photoLink.setPadding(0, dp(if (tiny) 3 else 6), 0, 0)
+        photoLink.setOnClickListener { photoAction() }
+        info.addView(photoLink)
+        box.addView(info, LayoutParams(0, -2, 1f))
+        return box
+    }
+
+    private fun statCards(height: Int): View {
+        val group = LinearLayout(host).apply { orientation = HORIZONTAL }
+        val completed = battles.count { it.status == "finished" }
+        val values = listOf(
             Triple("⚔", "Битв", battles.size.toString()),
-            Triple("★", "Уровень", profile.level.toString()),
-            Triple("◷", "Завершено", battles.count { it.status == "finished" }.toString())
-        ).forEachIndexed { index, item ->
-            val tile = card(dp(12))
-            tile.addView(txt(item.first, 20f, accent))
-            tile.addView(txt(item.second, 12f, secondary))
-            tile.addView(txt(item.third, 23f, ink, true))
-            stats.addView(tile, LinearLayout.LayoutParams(0, -2, 1f).apply {
-                if (index < 2) rightMargin = dp(7)
+            Triple("✦", "Уровень", profile.level.toString()),
+            Triple("◷", "Завершено", completed.toString())
+        )
+        values.forEachIndexed { index, item ->
+            val tile = surface(if (compact) 8 else 10).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val symbol = label(item.first, if (compact) 17f else 20f, green)
+            symbol.gravity = Gravity.CENTER
+            tile.addView(symbol, LayoutParams(dp(if (tiny) 21 else 28), -1))
+            val textGroup = LinearLayout(host).apply { orientation = VERTICAL }
+            textGroup.addView(label(item.second, if (tiny) 10f else 11f, muted, single = true))
+            textGroup.addView(label(item.third, if (compact) 18f else 22f, ink, bold = true))
+            tile.addView(textGroup, LayoutParams(0, -2, 1f))
+            group.addView(tile, LayoutParams(0, -1, 1f).apply {
+                if (index != values.lastIndex) rightMargin = dp(7)
             })
         }
-        body.addView(stats)
-        space(18)
-        val plant = card()
-        plant.addView(heading("Моё растение", "›", onPlant))
-        insideSpace(plant)
-        val active = battles.firstOrNull { it.mine != null && it.status != "finished" }
-        if (active == null) {
-            plant.addView(txt("Пока нет активного растения", 15f, secondary))
-            plant.addView(txt("Выберите битву, чтобы начать выращивание", 12f, secondary))
-        } else {
-            plant.addView(txt(active.plantName, 18f, ink, true))
-            plant.addView(txt(active.title, 13f, secondary))
-            plant.addView(pill(if (active.status == "growing") "🌱  Растёт" else "🌱  Участие"))
-        }
-        plant.setOnClickListener { onPlant() }
-        body.addView(plant)
-        space(18)
-        val achievements = card()
-        achievements.addView(heading("Награды", "", null))
-        insideSpace(achievements)
-        if (profile.badges.isEmpty()) {
-            achievements.addView(txt("Пока нет наград. Первые появятся за участие.", 14f, secondary))
-        } else {
-            profile.badges.forEach {
-                achievements.addView(txt("✦  " + it, 15f, accent).apply {
-                    background = rounded(soft, 14)
-                    setPadding(dp(12), dp(10), dp(12), dp(10))
-                }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
-            }
-        }
-        achievements.addView(txt("Уровень " + profile.level + " · " + profile.xp + " XP", 12f, secondary))
-        body.addView(achievements)
-        space(18)
-        val history = card()
-        history.addView(heading("История битв", "Все битвы  ›", onHistory))
-        insideSpace(history)
-        val completed = battles.filter { it.status == "finished" }
-        if (completed.isEmpty()) history.addView(txt("Завершённых битв пока нет", 14f, secondary))
-        completed.take(2).forEach {
-            val item = row().apply { gravity = Gravity.CENTER_VERTICAL }
-            val names = LinearLayout(host).apply { orientation = LinearLayout.VERTICAL }
-            names.addView(txt(it.plantName, 16f, ink, true))
-            names.addView(txt(it.title + " · Завершена", 12f, secondary))
-            item.addView(names, LinearLayout.LayoutParams(0, -2, 1f))
-            item.addView(txt("›", 22f, secondary))
-            history.addView(item, LinearLayout.LayoutParams(-1, dp(58)))
-        }
-        body.addView(history)
-        space(18)
-        val settings = card()
-        settings.addView(heading("Настройки", "", null))
-        setting(settings, "♧", "Уведомления", "›") {
-            try {
-                val intent = Intent("android.settings.APP_NOTIFICATION_SETTINGS")
-                intent.putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
-                host.startActivity(intent)
-            } catch (_: Exception) {}
-        }
-        setting(settings, "◐", "Тёмная тема", "Скоро", null)
-        setting(settings, "◎", "Язык", "Русский", null)
-        setting(settings, "⇄", "Сервер", "›", onRegion)
-        if (user != null) setting(settings, "↪", "Выйти", "›") {
-            AlertDialog.Builder(host).setTitle("Выйти из аккаунта?")
-                .setNegativeButton("Отмена", null)
-                .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
-        }
-        body.addView(settings)
+        return group
     }
-    private fun heading(label: String, right: String, click: (() -> Unit)?): View = row().apply {
-        gravity = Gravity.CENTER_VERTICAL
-        addView(txt(label, 20f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
-        addView(txt(right, 13f, secondary).apply {
-            if (click != null) setOnClickListener { click() }
-        })
-    }
-    private fun setting(parent: LinearLayout, icon: String, label: String, value: String, action: (() -> Unit)?) {
-        parent.addView(row().apply {
+
+    private fun plantCard(height: Int): View {
+        val box = surface(if (compact) 9 else 13).apply {
+            orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(54)
-            addView(txt(icon, 21f, accent), LinearLayout.LayoutParams(dp(37), -2))
-            addView(txt(label, 15f, ink), LinearLayout.LayoutParams(0, -2, 1f))
-            addView(txt(value, 12f, secondary))
-            if (action != null) setOnClickListener { action() }
-        })
+            setOnClickListener { onPlant() }
+        }
+        val battle = battles.firstOrNull { it.mine != null && it.status != "finished" }
+        val size = height - (if (compact) 18 else 26)
+        val thumbnail = ImageView(host).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP // never stretch plant photographs
+            background = shape(pale, 12)
+            clipToOutline = true
+            setImageResource(android.R.drawable.ic_menu_gallery)
+        }
+        box.addView(thumbnail, LayoutParams(dp(size), dp(size)))
+        battle?.rackPhotoUrl?.let { url -> fetchPlantPhoto(thumbnail, url) }
+        val text = LinearLayout(host).apply {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(11), 0, dp(3), 0)
+        }
+        text.addView(label("Моё растение", if (tiny) 13f else 15f, ink, bold = true, single = true))
+        text.addView(label(battle?.plantName ?: "Пока нет растения", if (tiny) 12f else 14f, muted, single = true))
+        if (!tiny && battle != null) {
+            text.addView(label(if (battle.status == "growing") "Растёт" else "Участвует в битве", 11f, green, single = true))
+        }
+        box.addView(text, LayoutParams(0, -2, 1f))
+        box.addView(label("›", 22f, muted))
+        return box
     }
-    private fun card(p: Int = dp(17)) = LinearLayout(host).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(p, p, p, p)
-        background = rounded(Color.WHITE, 20)
+
+    private fun awardsCard(height: Int): View {
+        val box = surface(if (compact) 8 else 12)
+        box.gravity = Gravity.CENTER_VERTICAL
+        val heading = horizontal()
+        heading.addView(label("Награды", if (tiny) 14f else 16f, ink, bold = true), LayoutParams(0, -2, 1f))
+        heading.addView(label("Все  ›", 11f, muted))
+        box.addView(heading)
+        val badges = profile.badges
+        val summary = if (badges.isEmpty()) "Пока нет наград" else badges.take(2).joinToString("  ·  ")
+        box.addView(label(summary, if (tiny) 11f else 12f, if (badges.isEmpty()) muted else green, single = true))
+        box.setOnClickListener {
+            AlertDialog.Builder(host)
+                .setTitle("Награды")
+                .setMessage(if (badges.isEmpty()) "Награды появятся после участия в битвах." else badges.joinToString("\n• ", "• "))
+                .setPositiveButton("Закрыть", null).show()
+        }
+        return box
     }
-    private fun row() = LinearLayout(host).apply { orientation = LinearLayout.HORIZONTAL }
-    private fun txt(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(host).apply {
+
+    private fun historyCard(height: Int): View {
+        val box = surface(if (compact) 8 else 12)
+        box.gravity = Gravity.CENTER_VERTICAL
+        val heading = horizontal()
+        heading.addView(label("История битв", if (tiny) 14f else 16f, ink, bold = true), LayoutParams(0, -2, 1f))
+        heading.addView(label("Все  ›", 11f, muted))
+        box.addView(heading)
+        val recent = battles.firstOrNull { it.status == "finished" }
+        box.addView(label(
+            if (recent == null) "Завершённых битв пока нет" else recent.plantName + " · Завершена",
+            if (tiny) 11f else 12f, muted, single = true
+        ))
+        box.setOnClickListener { onHistory() }
+        return box
+    }
+
+    private fun settingsCard(height: Int): View {
+        val box = surface(if (compact) 8 else 12).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val info = LinearLayout(host).apply { orientation = VERTICAL }
+        info.addView(label("Настройки", if (tiny) 14f else 16f, ink, bold = true))
+        if (!tiny) info.addView(label("Уведомления · Язык · Сервер", 11f, muted, single = true))
+        box.addView(info, LayoutParams(0, -2, 1f))
+        box.addView(label("›", 23f, muted))
+        box.setOnClickListener { settingsDialog() }
+        return box
+    }
+
+    private fun settingsDialog() {
+        val items = mutableListOf("Уведомления", "Тёмная тема (скоро)", "Язык: Русский", "Переключить сервер")
+        if (user != null) items.add("Выйти из аккаунта")
+        AlertDialog.Builder(host).setTitle("Настройки")
+            .setItems(items.toTypedArray()) { _, index ->
+                when (index) {
+                    0 -> {
+                        try {
+                            val intent = Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
+                                putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
+                            }
+                            host.startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                    1 -> AlertDialog.Builder(host).setMessage("Тёмная тема появится в следующем обновлении.")
+                        .setPositiveButton("Понятно", null).show()
+                    2 -> AlertDialog.Builder(host).setMessage("Сейчас доступен русский язык.")
+                        .setPositiveButton("Понятно", null).show()
+                    3 -> onRegion()
+                    4 -> AlertDialog.Builder(host).setTitle("Выйти из аккаунта?")
+                        .setNegativeButton("Отмена", null)
+                        .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
+                }
+            }.setNegativeButton("Закрыть", null).show()
+    }
+
+    private fun loadAvatar(image: ImageView, value: String) {
+        try {
+            val uri = Uri.parse(value)
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            host.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            val large = maxOf(options.outWidth, options.outHeight)
+            var sample = 1
+            while (large / sample > 512) sample *= 2
+            val bitmap = host.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+            }
+            if (bitmap != null) image.setImageBitmap(bitmap)
+        } catch (_: Exception) {
+            // A missing/deleted photo gracefully reverts to the default avatar.
+        }
+    }
+
+    private fun fetchPlantPhoto(image: ImageView, url: String) {
+        val absolute = if (url.startsWith("https://")) url else return
+        Thread {
+            val bitmap = runCatching { ApiClient(host.applicationContext).loadBitmap(absolute) }.getOrNull()
+            if (bitmap != null) host.runOnUiThread {
+                if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) image.setImageBitmap(bitmap)
+            }
+        }.start()
+    }
+
+    private fun surface(padding: Int): LinearLayout = LinearLayout(host).apply {
+        orientation = VERTICAL
+        setPadding(dp(padding), dp(padding), dp(padding), dp(padding))
+        background = shape(Color.WHITE, if (compact) 17 else 20)
+    }
+
+    private fun horizontal() = LinearLayout(host).apply {
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+    }
+
+    private fun label(
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean = false,
+        single: Boolean = false
+    ) = TextView(host).apply {
         text = value
         textSize = size
         setTextColor(color)
+        includeFontPadding = false
         if (bold) setTypeface(typeface, Typeface.BOLD)
+        if (single) {
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+        }
     }
-    private fun pill(s: String) = txt(s, 13f, accent).apply {
-        background = rounded(soft, 18)
-        setPadding(dp(11), dp(6), dp(11), dp(6))
+
+    private fun fixed(view: View, height: Int) {
+        addView(view, LayoutParams(-1, dp(height)))
     }
-    private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {
+
+    // Weighted gaps consume all remaining space; card heights never grow / stretch.
+    private fun gap() {
+        addView(View(host), LayoutParams(1, 0, 1f))
+    }
+
+    private fun shape(color: Int, radius: Int) = GradientDrawable().apply {
         setColor(color)
         cornerRadius = dp(radius).toFloat()
     }
-    private fun space(h: Int) { body.addView(View(host), LinearLayout.LayoutParams(1, dp(h))) }
-    private fun insideSpace(parent: LinearLayout) { parent.addView(View(host), LinearLayout.LayoutParams(1, dp(12))) }
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }
