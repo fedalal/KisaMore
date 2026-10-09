@@ -83,8 +83,13 @@ class BattleProfileScreen(
         val scale = (available.toFloat() / baseHeights.sum().toFloat())
             .coerceIn(0.72f, 1f)
         val heights = baseHeights.map { (it * scale).toInt() }
-        val (titleHeight, heroHeight, statsHeight, plantHeight,
-            awardsHeight, historyHeight, settingsHeight) = heights
+        val titleHeight = heights[0]
+        val heroHeight = heights[1]
+        val statsHeight = heights[2]
+        val plantHeight = heights[3]
+        val awardsHeight = heights[4]
+        val historyHeight = heights[5]
+        val settingsHeight = heights[6]
 
         val title = label("Профиль", if (compact) 25f else 29f, ink, bold = true)
         title.gravity = Gravity.CENTER_VERTICAL
