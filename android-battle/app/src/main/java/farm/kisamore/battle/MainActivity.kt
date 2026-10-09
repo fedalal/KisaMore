@@ -706,11 +706,20 @@ class MainActivity : Activity() {
             )
         )
 
-        async(
-            work = { api.loadBitmap(api.absolute(battle.rackPhotoUrl)) },
-            success = { bitmap -> if (bitmap != null) image.setImageBitmap(bitmap) },
-            failure = { }
-        )
+        val photoUrl = api.absolute(battle.rackPhotoUrl)
+        if (photoUrl != null) {
+            PhotoFrameCache.showPrevious(image, photoUrl)
+            async(
+                work = { api.loadBitmap(photoUrl) },
+                success = { bitmap ->
+                    if (bitmap != null) {
+                        PhotoFrameCache.remember(photoUrl, bitmap)
+                        if (image.isAttachedToWindow) image.setImageBitmap(bitmap)
+                    }
+                },
+                failure = { }
+            )
+        }
 
         return FrameLayout(this).apply {
             setPadding(dp(16), dp(8), dp(16), dp(4))
