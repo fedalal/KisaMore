@@ -131,6 +131,7 @@ class BattleProfileScreen(
                 setOnClickListener { changePhoto() }
             }
             if (avatarUri.startsWith("http")) {
+                PhotoFrameCache.showPrevious(portrait, avatarUri)
                 loadRemoteAvatar(portrait, avatarUri)
                 avatarHolder.addView(portrait, FrameLayout.LayoutParams(dp(avatarSize), dp(avatarSize)))
             } else if (loadAvatar(portrait, avatarUri)) {
@@ -426,8 +427,11 @@ class BattleProfileScreen(
         val api = ApiClient(host.applicationContext)
         Thread {
             val bitmap = runCatching { api.loadBitmap(value) }.getOrNull()
-            if (bitmap != null) host.runOnUiThread {
-                if (!host.isFinishing && !host.isDestroyed) image.setImageBitmap(bitmap)
+            if (bitmap != null) {
+                PhotoFrameCache.remember(value, bitmap)
+                host.runOnUiThread {
+                    if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) image.setImageBitmap(bitmap)
+                }
             }
         }.start()
     }
@@ -444,7 +448,10 @@ class BattleProfileScreen(
             val bitmap = host.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = factor })
             }
-            if (bitmap != null) image.setImageBitmap(bitmap)
+            if (bitmap != null) {
+                image.setImageBitmap(bitmap)
+                PhotoFrameCache.remember(value, bitmap)
+            }
             bitmap != null
         } catch (_: Exception) { false }
     }
