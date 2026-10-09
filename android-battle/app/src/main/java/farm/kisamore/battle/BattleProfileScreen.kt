@@ -48,6 +48,11 @@ class BattleProfileScreen(
         orientation = VERTICAL
         setBackgroundColor(bg)
         setPadding(dp(16), dp(8), dp(16), dp(8))
+        // Always populate the profile immediately. A view can be attached with the
+        // same measured size or before the first size-change callback is delivered.
+        tiny = true
+        compact = true
+        render()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -63,13 +68,23 @@ class BattleProfileScreen(
 
     private fun render() {
         removeAllViews()
-        val titleHeight = if (tiny) 30 else if (compact) 33 else 38
-        val heroHeight = if (tiny) 70 else if (compact) 80 else 95
-        val statsHeight = if (tiny) 53 else if (compact) 61 else 72
-        val plantHeight = if (tiny) 64 else if (compact) 72 else 88
-        val awardsHeight = if (tiny) 54 else if (compact) 62 else 77
-        val historyHeight = if (tiny) 54 else if (compact) 62 else 78
-        val settingsHeight = if (tiny) 45 else if (compact) 51 else 62
+        // Keep the entire view visible even on shorter displays or with larger
+        // system bars. The bottom navigation is outside this view.
+        val baseHeights = intArrayOf(
+            if (tiny) 30 else if (compact) 33 else 38,
+            if (tiny) 70 else if (compact) 80 else 95,
+            if (tiny) 53 else if (compact) 61 else 72,
+            if (tiny) 64 else if (compact) 72 else 88,
+            if (tiny) 54 else if (compact) 62 else 77,
+            if (tiny) 54 else if (compact) 62 else 78,
+            if (tiny) 45 else if (compact) 51 else 62
+        )
+        val available = if (lastHeightDp > 0) lastHeightDp - 16 else 400
+        val scale = (available.toFloat() / baseHeights.sum().toFloat())
+            .coerceIn(0.72f, 1f)
+        val heights = baseHeights.map { (it * scale).toInt() }
+        val (titleHeight, heroHeight, statsHeight, plantHeight,
+            awardsHeight, historyHeight, settingsHeight) = heights
 
         val title = label("Профиль", if (compact) 25f else 29f, ink, bold = true)
         title.gravity = Gravity.CENTER_VERTICAL
