@@ -217,7 +217,12 @@ class BattleProfileScreen(
         }
         card.addView(thumb, LayoutParams(dp(dimension), dp(dimension)))
         // Slot-specific cropped image; never show the whole rack in the plant card.
-        battle?.mine?.photoUrl?.let { loadPlantPhoto(thumb, it) }
+        battle?.mine?.photoUrl?.let { url ->
+            ApiClient(host.applicationContext).absolute(url)?.let { resolved ->
+                PhotoFrameCache.showPrevious(thumb, resolved)
+            }
+            loadPlantPhoto(thumb, url)
+        }
 
         val info = column().apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -447,10 +452,16 @@ class BattleProfileScreen(
     private fun loadPlantPhoto(image: ImageView, url: String) {
         val api = ApiClient(host.applicationContext)
         val resolved = api.absolute(url) ?: return
+        PhotoFrameCache.showPrevious(image, resolved)
         Thread {
             val bitmap = runCatching { api.loadBitmap(resolved) }.getOrNull()
-            if (bitmap != null) host.runOnUiThread {
-                if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) image.setImageBitmap(bitmap)
+            if (bitmap != null) {
+                PhotoFrameCache.remember(resolved, bitmap)
+                host.runOnUiThread {
+                    if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) {
+                        image.setImageBitmap(bitmap)
+                    }
+                }
             }
         }.start()
     }
