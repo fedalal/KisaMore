@@ -98,11 +98,11 @@ class MainActivity : Activity() {
         navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(5), dp(8), dp(5))
+            setPadding(dp(8), dp(2), dp(8), dp(2))
             setBackgroundColor(Color.WHITE)
         }
         addNavigation()
-        root.addView(navBar, LinearLayout.LayoutParams(-1, dp(66)))
+        root.addView(navBar, LinearLayout.LayoutParams(-1, dp(56)))
         setContentView(root)
         window.navigationBarColor = Color.WHITE
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
