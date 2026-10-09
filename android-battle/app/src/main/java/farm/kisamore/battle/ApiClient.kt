@@ -232,7 +232,9 @@ class ApiClient(context: Context) {
                         photoUrl = if (obj.optString("farm_slug").isBlank()) null else
                             "/api/v1/public/farms/" + obj.optString("farm_slug") +
                             "/racks/" + obj.optInt("rack_id") +
-                            "/slots/" + item.optInt("slot_number") + "/photo"
+                            "/slots/" + item.optInt("slot_number") + "/photo",
+                        isWinner = item.optBoolean("is_winner", false),
+                        badge = item.nullableString("badge")
                     )
                 )
             }
@@ -266,7 +268,9 @@ class ApiClient(context: Context) {
             entries = entries,
             predictionTotal = obj.optInt("prediction_total"),
             predictionCounts = predictionCounts,
-            myPredictionEntryId = obj.nullableString("my_prediction_entry_id")
+            myPredictionEntryId = obj.nullableString("my_prediction_entry_id"),
+            winnerEntryId = obj.nullableString("winner_entry_id"),
+            finishedAt = obj.nullableString("finished_at")
         )
     }
 }
