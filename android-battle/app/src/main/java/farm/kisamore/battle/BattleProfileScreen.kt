@@ -52,22 +52,17 @@ class BattleProfileScreen(
     }
 
     private fun populate() {
-        val title = text("Профиль", if (shortScreen) 25f else 29f, ink, true).apply {
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        weighted(title, 34f)
-        gap()
-        weighted(profileCard(), 97f)
+        weighted(profileCard(), 102f)
         gap()
         weighted(statsRow(), 73f)
         gap()
         weighted(plantCard(), 93f)
         gap()
-        weighted(rewardsCard(), 108f)
+        weighted(rewardsCard(), 55f)
         gap()
-        weighted(historyCard(), 67f)
+        weighted(historyCard(), 72f)
         gap()
-        weighted(settingsCard(), 126f)
+        weighted(settingsCard(), 133f)
     }
 
     private fun profileCard(): View {
@@ -179,7 +174,7 @@ class BattleProfileScreen(
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(11), 0, dp(5), 0)
         }
-        info.addView(text("Моё растение", if (shortScreen) 16f else 18f, ink, true, true))
+        info.addView(text("Мои растения", if (shortScreen) 16f else 18f, ink, true, true))
         info.addView(text(battle?.plantName ?: "Пока нет растения", 13f, secondary, single = true))
         info.addView(text(
             if (battle == null) "Выбрать битву" else
@@ -195,7 +190,13 @@ class BattleProfileScreen(
         val card = card(if (shortScreen) 9 else 12)
         card.addView(heading("Награды", "Все награды  ›") { showRewards() },
             LayoutParams(-1, dp(26)))
-        val tiles = row().apply { setPadding(0, dp(3), 0, 0) }
+        if (profile.badges.isEmpty()) {
+            card.addView(text("Наград пока нет", 14f, secondary).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }, LayoutParams(-1, 0, 1f))
+            return card
+        }
+        val tiles = row().apply { setPadding(0, dp(2), 0, 0) }
         val earned = profile.badges.firstOrNull()
         val data = listOf(
             Triple("✿", earned ?: "Пока нет", if (earned == null) "Достижения" else "Получено"),
@@ -261,13 +262,13 @@ class BattleProfileScreen(
 
     private fun settingsCard(): View {
         val card = card(if (shortScreen) 7 else 10)
-        card.addView(heading("Настройки", "•••") { settingsDialog() },
+        card.addView(heading("Настройки", "") { settingsDialog() },
             LayoutParams(-1, dp(24)))
         val options = listOf(
             Triple("♧", "Уведомления", "›"),
             Triple("◐", "Тёмная тема", "›"),
             Triple("◎", "Язык", "Русский ›"),
-            Triple("⇄", "Сервер", "›")
+            Triple("?", "Помощь", "›")
         )
         options.forEachIndexed { i, item ->
             val line = row().apply {
@@ -313,12 +314,28 @@ class BattleProfileScreen(
                 .setPositiveButton("Понятно", null).show()
             2 -> AlertDialog.Builder(host).setMessage("Сейчас доступен русский язык.")
                 .setPositiveButton("Понятно", null).show()
-            3 -> onRegion()
+            3 -> showHelp()
         }
     }
 
+    private fun showHelp() {
+        AlertDialog.Builder(host)
+            .setTitle("Помощь")
+            .setMessage("Нужна помощь с KisaMore Battle? Напишите в службу поддержки.")
+            .setNegativeButton("Закрыть", null)
+            .setPositiveButton("Написать") { _, _ ->
+                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@kisamore.farm"))
+                try {
+                    host.startActivity(intent)
+                } catch (_: Exception) {
+                    AlertDialog.Builder(host).setMessage("Email: support@kisamore.farm")
+                        .setPositiveButton("Понятно", null).show()
+                }
+            }.show()
+    }
+
     private fun settingsDialog() {
-        val options = mutableListOf("Уведомления", "Тёмная тема", "Язык", "Переключить сервер")
+        val options = mutableListOf("Уведомления", "Тёмная тема", "Язык", "Помощь")
         if (user != null) options.add("Выйти")
         AlertDialog.Builder(host).setTitle("Настройки")
             .setItems(options.toTypedArray()) { _, i ->
