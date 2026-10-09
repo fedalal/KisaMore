@@ -263,6 +263,7 @@ class BattleProfileScreen(
                 cell.addView(icon(when (reward.icon) {
                     "coins" -> "coins"
                     "qr-code" -> "qr-code"
+                    "sprout" -> "plant"
                     else -> "award"
                 }, 25, accent), LayoutParams(dp(28), dp(28)))
                 cell.addView(text(reward.title, 10f, ink, single = true).apply {
