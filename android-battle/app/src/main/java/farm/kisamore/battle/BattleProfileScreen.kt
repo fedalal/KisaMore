@@ -15,12 +15,13 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import java.util.Locale
 
 /**
- * Compact, single-screen Profile. This is deliberately NOT a ScrollView:
- * details are available by tapping their summary cards instead of stacking long sections.
- * Profile dimensions adapt to the actual available view height (excluding status/nav bars).
+ * One-screen Profile. Builds ALL children synchronously in init.
+ *
+ * There are intentionally no onSizeChanged/onMeasure callbacks that remove/re-add
+ * children: they caused an empty profile on some physical Android devices.
+ * The content is a fixed-size set of compact rows with flexible empty gaps.
  */
 class BattleProfileScreen(
     private val host: Activity,
@@ -35,295 +36,242 @@ class BattleProfileScreen(
     private val onRegion: () -> Unit,
     private val onLogout: () -> Unit
 ) : LinearLayout(host) {
-    private val bg = Color.parseColor("#F8F9F6")
-    private val ink = Color.parseColor("#1A1C1A")
-    private val muted = Color.parseColor("#6B7268")
-    private val green = Color.parseColor("#4A7C59")
-    private val pale = Color.parseColor("#E7F0E6")
-    private var lastHeightDp = -1
-    private var compact = false
-    private var tiny = false
+    private val ink = Color.rgb(26, 28, 26)
+    private val secondary = Color.rgb(107, 114, 104)
+    private val accent = Color.rgb(74, 124, 89)
+    private val pale = Color.rgb(231, 240, 230)
+    private val condensed = resources.configuration.screenHeightDp < 690
+    private val small = resources.configuration.screenHeightDp < 510
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(bg)
-        setPadding(dp(16), dp(8), dp(16), dp(8))
-        // Always populate the profile immediately. A view can be attached with the
-        // same measured size or before the first size-change callback is delivered.
-        tiny = true
-        compact = true
-        render()
+        setBackgroundColor(Color.rgb(248, 249, 246))
+        setPadding(dp(16), dp(if (small) 6 else 12), dp(16), dp(if (small) 6 else 12))
+        // Build visible content ONCE during construction, before attachment.
+        populate()
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        if (h <= 0) return
-        val heightDp = (h / resources.displayMetrics.density).toInt()
-        if (heightDp == lastHeightDp) return
-        lastHeightDp = heightDp
-        compact = heightDp < 605
-        tiny = heightDp < 465
-        render()
-    }
-
-    private fun render() {
-        removeAllViews()
-        // Keep the entire view visible even on shorter displays or with larger
-        // system bars. The bottom navigation is outside this view.
-        val baseHeights = intArrayOf(
-            if (tiny) 30 else if (compact) 33 else 38,
-            if (tiny) 70 else if (compact) 80 else 95,
-            if (tiny) 53 else if (compact) 61 else 72,
-            if (tiny) 64 else if (compact) 72 else 88,
-            if (tiny) 54 else if (compact) 62 else 77,
-            if (tiny) 54 else if (compact) 62 else 78,
-            if (tiny) 45 else if (compact) 51 else 62
-        )
-        val available = if (lastHeightDp > 0) lastHeightDp - 16 else 400
-        val scale = (available.toFloat() / baseHeights.sum().toFloat())
-            .coerceIn(0.72f, 1f)
-        val heights = baseHeights.map { (it * scale).toInt() }
-        val titleHeight = heights[0]
-        val heroHeight = heights[1]
-        val statsHeight = heights[2]
-        val plantHeight = heights[3]
-        val awardsHeight = heights[4]
-        val historyHeight = heights[5]
-        val settingsHeight = heights[6]
-
-        val title = label("Профиль", if (compact) 25f else 29f, ink, bold = true)
-        title.gravity = Gravity.CENTER_VERTICAL
-        fixed(title, titleHeight)
-        gap()
-        fixed(profileCard(heroHeight), heroHeight)
-        gap()
-        fixed(statCards(statsHeight), statsHeight)
-        gap()
-        fixed(plantCard(plantHeight), plantHeight)
-        gap()
-        fixed(awardsCard(awardsHeight), awardsHeight)
-        gap()
-        fixed(historyCard(historyHeight), historyHeight)
-        gap()
-        fixed(settingsCard(settingsHeight), settingsHeight)
-    }
-
-    private fun profileCard(height: Int): View {
-        val box = surface(if (compact) 9 else 13)
-        box.orientation = HORIZONTAL
-        box.gravity = Gravity.CENTER_VERTICAL
-        val avatarSize = if (tiny) 48 else if (compact) 57 else 67
-        val avatarFrame = FrameLayout(host)
-        val image = ImageView(host).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            background = shape(pale, avatarSize / 2)
-            clipToOutline = true
-            setImageResource(android.R.drawable.ic_menu_myplaces)
-            contentDescription = "Изменить фотографию"
-            setOnClickListener { photoAction() }
-        }
-        if (avatarUri != null) loadAvatar(image, avatarUri)
-        avatarFrame.addView(image, FrameLayout.LayoutParams(dp(avatarSize), dp(avatarSize)))
-        val camera = label("⌾", 17f, Color.WHITE, bold = true).apply {
-            gravity = Gravity.CENTER
-            background = shape(green, 20)
-            contentDescription = "Загрузить фото"
-            setOnClickListener { photoAction() }
-        }
-        avatarFrame.addView(camera, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.BOTTOM or Gravity.RIGHT))
-        box.addView(avatarFrame, LayoutParams(dp(avatarSize), dp(avatarSize)))
-
-        val info = LinearLayout(host).apply {
-            orientation = VERTICAL
-            setPadding(dp(12), 0, 0, 0)
+    private fun populate() {
+        val title = txt("Профиль", if (small) 24f else 27f, ink, true).apply {
             gravity = Gravity.CENTER_VERTICAL
         }
-        info.addView(label(user?.displayName ?: "Гость", if (compact) 18f else 20f, ink, bold = true, single = true))
-        info.addView(label(user?.email ?: "Войдите в аккаунт", 11f, muted, single = true))
-        val photoLink = label(if (user == null) "Войти" else "Изменить фото", if (tiny) 11f else 13f, green)
-        photoLink.setPadding(0, dp(if (tiny) 3 else 6), 0, 0)
-        photoLink.setOnClickListener { photoAction() }
-        info.addView(photoLink)
-        box.addView(info, LayoutParams(0, -2, 1f))
-        return box
+        block(title, if (small) 32 else 42)
+        flexibleGap()
+
+        block(profileCard(), if (small) 70 else if (condensed) 81 else 98)
+        flexibleGap()
+
+        block(statCards(), if (small) 54 else if (condensed) 62 else 75)
+        flexibleGap()
+
+        block(plantCard(), if (small) 66 else if (condensed) 78 else 92)
+        flexibleGap()
+
+        block(summaryCard("Награды",
+            profile.badges.take(2).joinToString(" · ").ifBlank { "Награды появятся после участия" }) {
+            val body = if (profile.badges.isEmpty()) "Наград пока нет." else profile.badges.joinToString("\n• ", "• ")
+            AlertDialog.Builder(host).setTitle("Награды").setMessage(body)
+                .setPositiveButton("Закрыть", null).show()
+        }, if (small) 48 else if (condensed) 55 else 70)
+        flexibleGap()
+
+        val recent = battles.firstOrNull { it.status == "finished" }
+        block(summaryCard("История битв",
+            recent?.let { it.plantName + " · Завершена" } ?: "Завершённых битв пока нет", onHistory),
+            if (small) 48 else if (condensed) 55 else 70)
+        flexibleGap()
+
+        block(summaryCard("Настройки", if (small) "Нажмите для открытия" else "Уведомления · Язык · Сервер") {
+            showSettings()
+        }, if (small) 48 else if (condensed) 55 else 70)
     }
 
-    private fun statCards(height: Int): View {
-        val group = LinearLayout(host).apply { orientation = HORIZONTAL }
-        val completed = battles.count { it.status == "finished" }
+    private fun profileCard(): View {
+        val card = card(if (small) 8 else 12).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val dimension = if (small) 49 else if (condensed) 58 else 72
+        val avatarLayer = FrameLayout(host)
+        val photo = ImageView(host).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = round(pale, dimension / 2)
+            clipToOutline = true
+            setImageResource(android.R.drawable.ic_menu_myplaces)
+            contentDescription = "Загрузить фотографию"
+            setOnClickListener { changeAvatar() }
+        }
+        if (!avatarUri.isNullOrBlank()) setUserPhoto(photo, avatarUri)
+        avatarLayer.addView(photo, FrameLayout.LayoutParams(dp(dimension), dp(dimension)))
+        avatarLayer.addView(txt("⌾", 17f, Color.WHITE, true).apply {
+            gravity = Gravity.CENTER
+            background = round(accent, 16)
+            setOnClickListener { changeAvatar() }
+        }, FrameLayout.LayoutParams(dp(23), dp(23), Gravity.BOTTOM or Gravity.END))
+        card.addView(avatarLayer, LayoutParams(dp(dimension), dp(dimension)))
+
+        val copy = LinearLayout(host).apply {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(13), 0, 0, 0)
+        }
+        copy.addView(txt(user?.displayName ?: "Гость", if (small) 17f else 20f, ink, true, true))
+        copy.addView(txt(user?.email ?: "Войдите в аккаунт", 11f, secondary, single = true))
+        copy.addView(txt(if (user == null) "Войти" else "Изменить фото", 13f, accent).apply {
+            setPadding(0, dp(5), 0, 0)
+            setOnClickListener { changeAvatar() }
+        })
+        card.addView(copy, LayoutParams(0, -2, 1f))
+        return card
+    }
+
+    private fun statCards(): View {
+        val row = LinearLayout(host).apply { orientation = HORIZONTAL }
         val values = listOf(
             Triple("⚔", "Битв", battles.size.toString()),
             Triple("✦", "Уровень", profile.level.toString()),
-            Triple("◷", "Завершено", completed.toString())
+            Triple("◷", "Завершено", battles.count { it.status == "finished" }.toString())
         )
         values.forEachIndexed { index, item ->
-            val tile = surface(if (compact) 8 else 10).apply {
+            val box = card(if (small) 6 else 9).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            val symbol = label(item.first, if (compact) 17f else 20f, green)
-            symbol.gravity = Gravity.CENTER
-            tile.addView(symbol, LayoutParams(dp(if (tiny) 21 else 28), -1))
-            val textGroup = LinearLayout(host).apply { orientation = VERTICAL }
-            textGroup.addView(label(item.second, if (tiny) 10f else 11f, muted, single = true))
-            textGroup.addView(label(item.third, if (compact) 18f else 22f, ink, bold = true))
-            tile.addView(textGroup, LayoutParams(0, -2, 1f))
-            group.addView(tile, LayoutParams(0, -1, 1f).apply {
-                if (index != values.lastIndex) rightMargin = dp(7)
+            box.addView(txt(item.first, if (small) 14f else 18f, accent).apply {
+                gravity = Gravity.CENTER
+            }, LayoutParams(dp(if (small) 19 else 26), -1))
+            val copy = LinearLayout(host).apply { orientation = VERTICAL }
+            copy.addView(txt(item.second, if (small) 9f else 11f, secondary, single = true))
+            copy.addView(txt(item.third, if (small) 17f else 22f, ink, true))
+            box.addView(copy, LayoutParams(0, -2, 1f))
+            row.addView(box, LayoutParams(0, -1, 1f).apply {
+                if (index < 2) rightMargin = dp(6)
             })
         }
-        return group
+        return row
     }
 
-    private fun plantCard(height: Int): View {
-        val box = surface(if (compact) 9 else 13).apply {
+    private fun plantCard(): View {
+        val card = card(if (small) 8 else 12).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
             setOnClickListener { onPlant() }
         }
         val battle = battles.firstOrNull { it.mine != null && it.status != "finished" }
-        val size = height - (if (compact) 18 else 26)
-        val thumbnail = ImageView(host).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP // never stretch plant photographs
-            background = shape(pale, 12)
+        val dimension = if (small) 49 else if (condensed) 54 else 64
+        val image = ImageView(host).apply {
+            background = round(pale, 12)
             clipToOutline = true
+            scaleType = ImageView.ScaleType.CENTER_CROP
             setImageResource(android.R.drawable.ic_menu_gallery)
         }
-        box.addView(thumbnail, LayoutParams(dp(size), dp(size)))
-        battle?.rackPhotoUrl?.let { url -> fetchPlantPhoto(thumbnail, url) }
-        val text = LinearLayout(host).apply {
+        card.addView(image, LayoutParams(dp(dimension), dp(dimension)))
+        battle?.rackPhotoUrl?.let { loadPlantPhoto(image, it) }
+
+        val labels = LinearLayout(host).apply {
             orientation = VERTICAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(11), 0, dp(3), 0)
+            setPadding(dp(10), 0, dp(5), 0)
         }
-        text.addView(label("Моё растение", if (tiny) 13f else 15f, ink, bold = true, single = true))
-        text.addView(label(battle?.plantName ?: "Пока нет растения", if (tiny) 12f else 14f, muted, single = true))
-        if (!tiny && battle != null) {
-            text.addView(label(if (battle.status == "growing") "Растёт" else "Участвует в битве", 11f, green, single = true))
-        }
-        box.addView(text, LayoutParams(0, -2, 1f))
-        box.addView(label("›", 22f, muted))
-        return box
+        labels.addView(txt("Моё растение", if (small) 13f else 16f, ink, true, true))
+        labels.addView(txt(battle?.plantName ?: "Пока нет растения", if (small) 11f else 13f, secondary, single = true))
+        if (!small && battle != null)
+            labels.addView(txt(if (battle.status == "growing") "Растёт" else "Участие в битве", 11f, accent))
+        card.addView(labels, LayoutParams(0, -2, 1f))
+        card.addView(txt("›", 24f, secondary))
+        return card
     }
 
-    private fun awardsCard(height: Int): View {
-        val box = surface(if (compact) 8 else 12)
-        box.gravity = Gravity.CENTER_VERTICAL
-        val heading = horizontal()
-        heading.addView(label("Награды", if (tiny) 14f else 16f, ink, bold = true), LayoutParams(0, -2, 1f))
-        heading.addView(label("Все  ›", 11f, muted))
-        box.addView(heading)
-        val badges = profile.badges
-        val summary = if (badges.isEmpty()) "Пока нет наград" else badges.take(2).joinToString("  ·  ")
-        box.addView(label(summary, if (tiny) 11f else 12f, if (badges.isEmpty()) muted else green, single = true))
-        box.setOnClickListener {
-            AlertDialog.Builder(host)
-                .setTitle("Награды")
-                .setMessage(if (badges.isEmpty()) "Награды появятся после участия в битвах." else badges.joinToString("\n• ", "• "))
-                .setPositiveButton("Закрыть", null).show()
+    private fun summaryCard(name: String, summary: String, action: () -> Unit): View {
+        val card = card(if (small) 7 else 10).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            setOnClickListener { action() }
         }
-        return box
-    }
-
-    private fun historyCard(height: Int): View {
-        val box = surface(if (compact) 8 else 12)
-        box.gravity = Gravity.CENTER_VERTICAL
-        val heading = horizontal()
-        heading.addView(label("История битв", if (tiny) 14f else 16f, ink, bold = true), LayoutParams(0, -2, 1f))
-        heading.addView(label("Все  ›", 11f, muted))
-        box.addView(heading)
-        val recent = battles.firstOrNull { it.status == "finished" }
-        box.addView(label(
-            if (recent == null) "Завершённых битв пока нет" else recent.plantName + " · Завершена",
-            if (tiny) 11f else 12f, muted, single = true
-        ))
-        box.setOnClickListener { onHistory() }
-        return box
-    }
-
-    private fun settingsCard(height: Int): View {
-        val box = surface(if (compact) 8 else 12).apply {
+        val heading = LinearLayout(host).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val info = LinearLayout(host).apply { orientation = VERTICAL }
-        info.addView(label("Настройки", if (tiny) 14f else 16f, ink, bold = true))
-        if (!tiny) info.addView(label("Уведомления · Язык · Сервер", 11f, muted, single = true))
-        box.addView(info, LayoutParams(0, -2, 1f))
-        box.addView(label("›", 23f, muted))
-        box.setOnClickListener { settingsDialog() }
-        return box
+        heading.addView(txt(name, if (small) 13f else 16f, ink, true), LayoutParams(0, -2, 1f))
+        heading.addView(txt("›", 18f, secondary))
+        card.addView(heading)
+        if (!small) card.addView(txt(summary, 11f, secondary, single = true))
+        return card
     }
 
-    private fun settingsDialog() {
-        val items = mutableListOf("Уведомления", "Тёмная тема (скоро)", "Язык: Русский", "Переключить сервер")
-        if (user != null) items.add("Выйти из аккаунта")
-        AlertDialog.Builder(host).setTitle("Настройки")
-            .setItems(items.toTypedArray()) { _, index ->
-                when (index) {
-                    0 -> {
-                        try {
-                            val intent = Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
-                                putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
-                            }
-                            host.startActivity(intent)
-                        } catch (_: Exception) {}
-                    }
-                    1 -> AlertDialog.Builder(host).setMessage("Тёмная тема появится в следующем обновлении.")
-                        .setPositiveButton("Понятно", null).show()
-                    2 -> AlertDialog.Builder(host).setMessage("Сейчас доступен русский язык.")
-                        .setPositiveButton("Понятно", null).show()
-                    3 -> onRegion()
-                    4 -> AlertDialog.Builder(host).setTitle("Выйти из аккаунта?")
-                        .setNegativeButton("Отмена", null)
-                        .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
-                }
-            }.setNegativeButton("Закрыть", null).show()
+    private fun showSettings() {
+        val names = mutableListOf("Уведомления", "Тёмная тема (скоро)", "Язык: Русский", "Переключить сервер")
+        if (user != null) names.add("Выйти")
+        AlertDialog.Builder(host).setTitle("Настройки").setItems(names.toTypedArray()) { _, index ->
+            when (index) {
+                0 -> try {
+                    host.startActivity(Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
+                        putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
+                    })
+                } catch (_: Exception) { }
+                1 -> AlertDialog.Builder(host).setMessage("Тёмная тема пока недоступна.")
+                    .setPositiveButton("Понятно", null).show()
+                2 -> AlertDialog.Builder(host).setMessage("Сейчас доступен русский язык.")
+                    .setPositiveButton("Понятно", null).show()
+                3 -> onRegion()
+                4 -> AlertDialog.Builder(host).setTitle("Выйти из аккаунта?")
+                    .setNegativeButton("Отмена", null)
+                    .setPositiveButton("Выйти") { _, _ -> onLogout() }.show()
+            }
+        }.setNegativeButton("Закрыть", null).show()
     }
 
-    private fun photoAction() {
+    private fun changeAvatar() {
         if (user == null) onLogin() else onChangePhoto()
     }
 
-    private fun loadAvatar(image: ImageView, value: String) {
+    private fun setUserPhoto(image: ImageView, value: String) {
         try {
             val uri = Uri.parse(value)
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            host.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-            val large = maxOf(options.outWidth, options.outHeight)
-            var sample = 1
-            while (large / sample > 512) sample *= 2
             val bitmap = host.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeStream(it, null, bounds)
+                val maxSide = maxOf(bounds.outHeight, bounds.outWidth)
+                var sample = 1
+                while (maxSide / sample > 400) sample *= 2
+                host.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                }
             }
             if (bitmap != null) image.setImageBitmap(bitmap)
         } catch (_: Exception) {
-            // A missing/deleted photo gracefully reverts to the default avatar.
+            // The local image was moved or permissions changed; leave default avatar.
         }
     }
 
-    private fun fetchPlantPhoto(image: ImageView, url: String) {
-        val absolute = ApiClient(host.applicationContext).absolute(url) ?: return
+    private fun loadPlantPhoto(target: ImageView, url: String) {
+        val api = ApiClient(host.applicationContext)
+        val resolved = api.absolute(url) ?: return
         Thread {
-            val bitmap = runCatching { ApiClient(host.applicationContext).loadBitmap(absolute) }.getOrNull()
+            val bitmap = runCatching { api.loadBitmap(resolved) }.getOrNull()
             if (bitmap != null) host.runOnUiThread {
-                if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) image.setImageBitmap(bitmap)
+                if (!host.isFinishing && !host.isDestroyed && target.isAttachedToWindow)
+                    target.setImageBitmap(bitmap)
             }
         }.start()
     }
 
-    private fun surface(padding: Int): LinearLayout = LinearLayout(host).apply {
+    private fun block(view: View, heightDp: Int) {
+        addView(view, LayoutParams(-1, dp(heightDp)))
+    }
+
+    private fun flexibleGap() {
+        addView(View(host), LayoutParams(1, 0, 1f))
+    }
+
+    private fun card(pad: Int) = LinearLayout(host).apply {
         orientation = VERTICAL
-        setPadding(dp(padding), dp(padding), dp(padding), dp(padding))
-        background = shape(Color.WHITE, if (compact) 17 else 20)
+        setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
+        background = round(Color.WHITE, 18)
     }
 
-    private fun horizontal() = LinearLayout(host).apply {
-        orientation = HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-    }
-
-    private fun label(
+    private fun txt(
         value: String,
         size: Float,
         color: Int,
@@ -341,16 +289,7 @@ class BattleProfileScreen(
         }
     }
 
-    private fun fixed(view: View, height: Int) {
-        addView(view, LayoutParams(-1, dp(height)))
-    }
-
-    // Weighted gaps consume all remaining space; card heights never grow / stretch.
-    private fun gap() {
-        addView(View(host), LayoutParams(1, 0, 1f))
-    }
-
-    private fun shape(color: Int, radius: Int) = GradientDrawable().apply {
+    private fun round(color: Int, radius: Int) = GradientDrawable().apply {
         setColor(color)
         cornerRadius = dp(radius).toFloat()
     }
