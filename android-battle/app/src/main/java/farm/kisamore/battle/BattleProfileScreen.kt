@@ -215,8 +215,9 @@ class BattleProfileScreen(
             background = rounded(pale, 12)
             scaleType = ImageView.ScaleType.CENTER_CROP
             clipToOutline = true
-            setImageResource(android.R.drawable.ic_menu_gallery)
+            // No placeholder icon: keep this empty until a real photo arrives.
         }
+        thumb.visibility = View.GONE
         card.addView(thumb, LayoutParams(dp(dimension * 2), dp(dimension)))
         if (battle != null) {
             thumb.isClickable = true
@@ -226,7 +227,10 @@ class BattleProfileScreen(
         // Slot-specific cropped image; never show the whole rack in the plant card.
         battle?.mine?.photoUrl?.let { url ->
             ApiClient(host.applicationContext).absolute(url)?.let { resolved ->
-                PhotoFrameCache.showPrevious(thumb, resolved)
+                if (PhotoFrameCache.current(resolved) != null) {
+                    PhotoFrameCache.showPrevious(thumb, resolved)
+                    thumb.visibility = View.VISIBLE
+                }
             }
             loadPlantPhoto(thumb, url)
         }
@@ -441,7 +445,7 @@ class BattleProfileScreen(
             if (bitmap != null) {
                 PhotoFrameCache.remember(value, bitmap)
                 host.runOnUiThread {
-                    if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) image.setImageBitmap(bitmap)
+                    if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) { image.setImageBitmap(bitmap); image.visibility = View.VISIBLE }
                 }
             }
         }.start()
