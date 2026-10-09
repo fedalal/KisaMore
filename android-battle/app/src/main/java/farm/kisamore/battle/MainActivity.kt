@@ -216,6 +216,8 @@ class MainActivity : Activity() {
                 } while (compressed.size() > 2_097_152 && quality >= 30)
                 val upload = compressed.toByteArray()
                 async(work = { api.uploadAvatar(upload, "image/jpeg") }, success = {
+                    accountPrefsLoadedFor = null
+                    accountAvatarUrl = null
                     showProfile()
                 }, failure = {
                     toast("Фото сохранено на телефоне, но не синхронизировано: " + it.message)
