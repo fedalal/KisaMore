@@ -84,6 +84,36 @@ class ApiClient(context: Context) {
     fun myBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/battles/me")))
 
+    fun myBattleProfile(): PlayerBattleProfile {
+        val json = JSONObject(request("GET", "/api/v1/battles/profile"))
+        val awardRows = json.optJSONArray("rewards") ?: JSONArray()
+        val rewards = buildList {
+            for (i in 0 until awardRows.length()) {
+                val row = awardRows.getJSONObject(i)
+                add(ServerReward(
+                    id = row.optString("id"),
+                    title = row.optString("title"),
+                    icon = row.optString("icon"),
+                    earnedAt = row.optString("earned_at"),
+                    url = row.nullableString("url")
+                ))
+            }
+        }
+        val histories = json.optJSONArray("history") ?: JSONArray()
+        val ids = buildList {
+            for (i in 0 until histories.length()) {
+                add(histories.getJSONObject(i).optString("battle_id"))
+            }
+        }
+        return PlayerBattleProfile(
+            battleCount = json.optInt("battle_count"),
+            winCount = json.optInt("win_count"),
+            ratingPoints = json.optInt("rating_points"),
+            rewards = rewards,
+            finishedBattleIds = ids
+        )
+    }
+
     fun authenticatedBattle(id: String): Battle =
         parseBattle(JSONObject(request("GET", "/api/v1/battles/$id")))
 
@@ -198,7 +228,11 @@ class ApiClient(context: Context) {
                         actions = actions,
                         timelapse24hUrl = item.nullableString("timelapse_24h_url"),
                         timelapse3dUrl = item.nullableString("timelapse_3d_url"),
-                        certificateUrl = item.nullableString("certificate_url")
+                        certificateUrl = item.nullableString("certificate_url"),
+                        photoUrl = if (obj.optString("farm_slug").isBlank()) null else
+                            "/api/v1/public/farms/" + obj.optString("farm_slug") +
+                            "/racks/" + obj.optInt("rack_id") +
+                            "/slots/" + item.optInt("slot_number") + "/photo"
                     )
                 )
             }
