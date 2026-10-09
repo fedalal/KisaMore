@@ -42,12 +42,12 @@ class BattleProfileScreen(
     private val bg = Color.parseColor("#F8F9F6")
     private val shortScreen = resources.configuration.screenHeightDp < 715
     private val padding = if (shortScreen) 10 else 14
-    private val gapSize = if (shortScreen) 4 else 6
+    private val gapSize = if (shortScreen) 3 else 5
 
     init {
         orientation = VERTICAL
         setBackgroundColor(bg)
-        setPadding(dp(16), dp(8), dp(16), dp(8))
+        setPadding(dp(16), dp(6), dp(16), dp(6))
         populate()
     }
 
@@ -55,7 +55,7 @@ class BattleProfileScreen(
         // Natural content heights instead of weights filling the screen.
         addView(profileCard(), LayoutParams(-1, -2))
         gap()
-        addView(statsRow(), LayoutParams(-1, dp(if (shortScreen) 62 else 70)))
+        addView(statsRow(), LayoutParams(-1, dp(if (shortScreen) 56 else 64)))
         gap()
         addView(plantCard(), LayoutParams(-1, -2))
         gap()
@@ -71,7 +71,7 @@ class BattleProfileScreen(
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val avatarSize = if (shortScreen) 62 else 73
+        val avatarSize = if (shortScreen) 56 else 68
         val avatarHolder = FrameLayout(host)
         avatarHolder.addView(text(
             user?.displayName?.firstOrNull()?.uppercaseChar()?.toString() ?: "K",
@@ -161,7 +161,7 @@ class BattleProfileScreen(
             setOnClickListener { onPlant() }
         }
         val battle = battles.firstOrNull { it.mine != null && it.status != "finished" }
-        val dimension = if (shortScreen) 53 else 66
+        val dimension = if (shortScreen) 48 else 60
         val thumb = ImageView(host).apply {
             background = rounded(pale, 12)
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -233,9 +233,9 @@ class BattleProfileScreen(
     }
 
     private fun settingsCard(): View {
-        val card = card(if (shortScreen) 7 else 10)
+        val card = card(if (shortScreen) 6 else 9)
         card.addView(heading("Настройки", "") { settingsDialog() },
-            LayoutParams(-1, dp(24)))
+            LayoutParams(-1, dp(22)))
         val options = listOf(
             Triple("♧", "Уведомления", "›"),
             Triple("◐", "Тёмная тема", "›"),
@@ -254,7 +254,7 @@ class BattleProfileScreen(
             line.addView(text(item.first, 16f, secondary), LayoutParams(dp(31), -2))
             line.addView(text(item.second, if (shortScreen) 14f else 15f, ink), LayoutParams(0, -2, 1f))
             line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
-            card.addView(line, LayoutParams(-1, dp(if (shortScreen) 32 else 37)))
+            card.addView(line, LayoutParams(-1, dp(if (shortScreen) 27 else 33)))
         }
         return card
     }
