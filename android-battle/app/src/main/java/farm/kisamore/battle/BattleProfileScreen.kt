@@ -101,7 +101,7 @@ class BattleProfileScreen(
             }
         }
 
-        avatarHolder.addView(FrameLayout(host).apply {
+        if (user != null) avatarHolder.addView(FrameLayout(host).apply {
             background = rounded(accent, 20)
             addView(icon("camera", 18, Color.WHITE),
                 FrameLayout.LayoutParams(dp(18), dp(18), Gravity.CENTER))
