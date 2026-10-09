@@ -107,15 +107,15 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
             }
             "moon" -> {val moon=Path().apply {moveTo(19f, 15f); cubicTo(13f, 18f, 6f, 11f, 9f, 4f); cubicTo(-1f, 10f, 6f, 26f, 19f, 15f); close()}; canvas.drawPath(moon,p)}
             "globe" -> {
-                // Lucide "languages" official vector
-                canvas.drawLine(5f, 8f, 11f, 14f, p)
-                val translated = Path().apply { moveTo(4f,14f); lineTo(10f,8f); lineTo(12f,5f) }
-                canvas.drawPath(translated,p)
-                canvas.drawLine(2f,5f,14f,5f,p)
-                canvas.drawLine(7f,2f,8f,2f,p)
-                val letterA=Path().apply {moveTo(22f,22f);lineTo(17f,12f);lineTo(12f,22f)}
-                canvas.drawPath(letterA,p)
-                canvas.drawLine(14f,18f,20f,18f,p)
+                // Lucide globe: standard spherical earth with longitude and latitude.
+                canvas.drawCircle(12f, 12f, 10f, p)
+                val meridian = Path().apply {
+                    moveTo(12f, 2f)
+                    cubicTo(5.5f, 6f, 5.5f, 18f, 12f, 22f)
+                    cubicTo(18.5f, 18f, 18.5f, 6f, 12f, 2f)
+                }
+                canvas.drawPath(meridian, p)
+                canvas.drawLine(2f, 12f, 22f, 12f, p)
             }
             "help" -> {
                 // Lucide "circle-question-mark" official vector
