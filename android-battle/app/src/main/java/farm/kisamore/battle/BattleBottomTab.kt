@@ -68,15 +68,26 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
                 canvas.drawLine(5f, 22f, 17f, 9f, p)
             }
             "battle" -> {
-                val sword = Path().apply {
-                    moveTo(3f, 3f); lineTo(5.2f, 3f); lineTo(16.5f, 14.3f)
-                    moveTo(7.4f, 7.4f); lineTo(3f, 3f); lineTo(3f, 5.2f)
-                    moveTo(16f, 16f); lineTo(20f, 20f); moveTo(19f, 21f); lineTo(21f, 19f)
-                    moveTo(14.8f, 6.2f); lineTo(17.4f, 3.6f); lineTo(21f, 3f); lineTo(21f, 5.2f); lineTo(17.8f, 8.4f)
+                // Official Lucide "swords" geometry (24x24) as in Figma.
+                val left = Path().apply {
                     moveTo(13f, 19f); lineTo(19f, 13f)
-                    moveTo(9f, 15f); lineTo(4f, 20f); moveTo(5f, 21f); lineTo(3f, 19f)
+                    moveTo(14.5f, 17.5f); lineTo(3.586f, 6.586f)
+                    cubicTo(3.211f, 6.211f, 3f, 5.702f, 3f, 5.172f)
+                    lineTo(3f, 3f); lineTo(5.172f, 3f)
+                    cubicTo(5.702f, 3f, 6.211f, 3.211f, 6.586f, 3.586f)
+                    lineTo(17.5f, 14.5f)
+                    moveTo(14.828f, 6.172f); lineTo(17.414f, 3.586f)
+                    cubicTo(17.789f, 3.211f, 18.298f, 3f, 18.828f, 3f)
+                    lineTo(21f, 3f); lineTo(21f, 5.172f)
+                    cubicTo(21f, 5.702f, 20.789f, 6.211f, 20.414f, 6.586f)
+                    lineTo(17.828f, 9.172f)
+                    moveTo(16f, 16f); lineTo(20f, 20f)
+                    moveTo(19f, 21f); lineTo(21f, 19f)
+                    moveTo(5f, 14f); lineTo(9f, 18f)
+                    moveTo(5f, 21f); lineTo(3f, 19f)
+                    moveTo(7.5f, 16.5f); lineTo(4f, 20f)
                 }
-                canvas.drawPath(sword, p)
+                canvas.drawPath(left, p)
             }
             "trophy" -> {
                 canvas.drawRoundRect(7f, 3f, 17f, 15f, 2f, 2f, p)
