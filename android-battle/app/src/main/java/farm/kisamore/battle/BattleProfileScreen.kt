@@ -31,6 +31,7 @@ class BattleProfileScreen(
     private val onChangePhoto: () -> Unit,
     private val onLogin: () -> Unit,
     private val onPlant: () -> Unit,
+    private val onPlantPhoto: (Battle) -> Unit = {},
     private val onHistory: () -> Unit,
     private val onRegion: () -> Unit,
     private val onLogout: () -> Unit,
@@ -216,7 +217,12 @@ class BattleProfileScreen(
             clipToOutline = true
             setImageResource(android.R.drawable.ic_menu_gallery)
         }
-        card.addView(thumb, LayoutParams(dp(dimension), dp(dimension)))
+        card.addView(thumb, LayoutParams(dp(dimension * 2), dp(dimension)))
+        if (battle != null) {
+            thumb.isClickable = true
+            thumb.contentDescription = "Открыть фотографию растения"
+            thumb.setOnClickListener { onPlantPhoto(battle) }
+        }
         // Slot-specific cropped image; never show the whole rack in the plant card.
         battle?.mine?.photoUrl?.let { url ->
             ApiClient(host.applicationContext).absolute(url)?.let { resolved ->
