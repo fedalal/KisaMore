@@ -66,6 +66,7 @@ internal class BattleArenaScreen(
         ?: cameras.firstOrNull { it.isPrimary } ?: cameras.first()
     private val mine = battle.mine
     private var chartPeriod = initialPeriod.coerceIn(1, 7)
+    private var chartTarget: BattleActivityChart? = null
 
     private fun color(hex: String) = Color.parseColor(hex)
     private fun round(fill: Int, radius: Int, stroke: Int? = null): GradientDrawable =
@@ -153,7 +154,6 @@ internal class BattleArenaScreen(
 
     init {
         isFillViewport = true
-        fillViewport = true
         setBackgroundColor(back)
         isVerticalScrollBarEnabled = false
         val body = column().apply { setPadding(dp(16), dp(4), dp(16), dp(8)) }
@@ -217,9 +217,14 @@ internal class BattleArenaScreen(
         if (mine != null) {
             body.addView(labelHeader("МОИ РЕСУРСЫ", 6))
             body.addView(resources(mine), LinearLayout.LayoutParams(-1, dp(117)))
-            body.addView(labelHeader("ПОСЛЕДНИЕ ДЕЙСТВИЯ", 6).also {
-                // The journal link is drawn in a separate row below.
-            })
+            val actionHeader = row()
+            actionHeader.addView(label("ПОСЛЕДНИЕ ДЕЙСТВИЯ", 11f, true),
+                LinearLayout.LayoutParams(0, dp(25), 1f))
+            actionHeader.addView(label("Все ›", 11f, true, green).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener { onJournal(mine.actions) }
+            }, LinearLayout.LayoutParams(-2, dp(25)))
+            body.addView(actionHeader, spacedTop(5))
             body.addView(journal(mine.actions), LinearLayout.LayoutParams(-1, dp(90)))
             body.addView(chartHeader(), spacedTop(7))
             val chartCard = FrameLayout(host).apply {
@@ -235,7 +240,6 @@ internal class BattleArenaScreen(
         }
     }
 
-    private var chartTarget: BattleActivityChart? = null
     private fun photoPanel(): View {
         val frame = FrameLayout(host).apply {
             background = round(color("#1E3025"), 13)
