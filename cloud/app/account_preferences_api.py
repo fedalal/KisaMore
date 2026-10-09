@@ -89,9 +89,9 @@ async def upload_avatar(
     data = await request.body()
     if len(data) > 2_097_152 or len(data) < 32:
         raise HTTPException(413, "Avatar must be 2 MB or less")
-    if data.startswith(b"\\xff\\xd8\\xff"):
+    if data.startswith(bytes.fromhex("ffd8ff")):
         ext = ".jpg"
-    elif data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+    elif data.startswith(bytes.fromhex("89504e470d0a1a0a")):
         ext = ".png"
     elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         ext = ".webp"
