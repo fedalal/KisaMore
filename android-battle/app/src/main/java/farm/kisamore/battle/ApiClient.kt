@@ -15,9 +15,18 @@ class ApiException(message: String, val statusCode: Int = 0) : IOException(messa
 
 class ApiClient(context: Context) {
     private val prefs = context.getSharedPreferences("kisamore_battle_api", Context.MODE_PRIVATE)
+    private val primaryHost = "https://kisamore.farm"
+    private val backupHost = "https://ru.kisamore.farm"
+
+    init {
+        if (!prefs.getBoolean("primary_host_migrated", false)) {
+            prefs.edit().putString("base_url", primaryHost)
+                .putBoolean("primary_host_migrated", true).apply()
+        }
+    }
 
     var baseUrl: String
-        get() = prefs.getString("base_url", "https://ru.kisamore.farm") ?: "https://ru.kisamore.farm"
+        get() = prefs.getString("base_url", primaryHost) ?: primaryHost
         private set(value) = prefs.edit().putString("base_url", value.trimEnd('/')).apply()
 
     private var sessionCookie: String?
@@ -190,7 +199,20 @@ class ApiClient(context: Context) {
     }
 
     private fun request(method: String, path: String, body: String? = null): String {
-        val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
+        val host = baseUrl
+        return try {
+            requestOnHost(host, method, path, body)
+        } catch (error: IOException) {
+            // HTTP failures (including bad credentials) must never cause failover.
+            if (error is ApiException || host != primaryHost) throw error
+            val response = requestOnHost(backupHost, method, path, body)
+            baseUrl = backupHost
+            response
+        }
+    }
+
+    private fun requestOnHost(host: String, method: String, path: String, body: String?): String {
+        val connection = URL(host + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
             connection.connectTimeout = 12_000
