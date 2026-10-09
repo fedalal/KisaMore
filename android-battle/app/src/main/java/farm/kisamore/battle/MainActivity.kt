@@ -407,23 +407,49 @@ class MainActivity : Activity() {
     private fun showFullPlantPhoto(battle: Battle) {
         val entry = battle.mine ?: return
         val photoUrl = api.absolute(entry.photoUrl) ?: return
-        val dialogImage = ImageView(this).apply {
+        val videoUrl = api.absolute(entry.timelapse24hUrl ?: entry.timelapse3dUrl)
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val container = FrameLayout(this).apply { setBackgroundColor(android.graphics.Color.BLACK) }
+        val imageView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setBackgroundColor(android.graphics.Color.BLACK)
             contentDescription = "Нажмите, чтобы посмотреть таймлапс"
             PhotoFrameCache.showPrevious(this, photoUrl)
         }
-        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-        dialog.setContentView(dialogImage)
-        dialogImage.setOnClickListener {
-            dialog.dismiss()
-            openVideo(entry.timelapse24hUrl ?: entry.timelapse3dUrl)
+        container.addView(imageView, FrameLayout.LayoutParams(-1, -1))
+        val player = android.widget.VideoView(this).apply {
+            visibility = View.GONE
+            setOnCompletionListener {
+                visibility = View.GONE
+                imageView.visibility = View.VISIBLE
+            }
+            setOnErrorListener { _, _, _ ->
+                visibility = View.GONE
+                imageView.visibility = View.VISIBLE
+                toast("Не удалось воспроизвести таймлапс")
+                true
+            }
         }
+        container.addView(player, FrameLayout.LayoutParams(-1, -1))
+        imageView.setOnClickListener {
+            if (videoUrl.isNullOrBlank()) {
+                toast("Таймлапс пока не готов")
+            } else {
+                imageView.visibility = View.GONE
+                player.visibility = View.VISIBLE
+                player.setVideoURI(Uri.parse(videoUrl))
+                player.setOnPreparedListener { mp ->
+                    mp.isLooping = false
+                    player.start()
+                }
+            }
+        }
+        dialog.setOnDismissListener { player.stopPlayback() }
+        dialog.setContentView(container)
         dialog.show()
         async(work = { api.loadBitmap(photoUrl) }, success = { image ->
             if (image != null) {
                 PhotoFrameCache.remember(photoUrl, image)
-                if (dialog.isShowing) dialogImage.setImageBitmap(image)
+                if (dialog.isShowing) imageView.setImageBitmap(image)
             }
         }, failure = {})
     }
