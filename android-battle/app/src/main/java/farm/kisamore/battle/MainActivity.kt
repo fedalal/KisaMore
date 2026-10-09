@@ -129,11 +129,16 @@ class MainActivity : Activity() {
 
     private fun addNavigation() {
         navBar.removeAllViews()
+        navBar.setBackgroundColor(Color.parseColor(if (
+            getSharedPreferences("battle_settings", MODE_PRIVATE).getBoolean("dark_mode", false)
+        ) "#1B2A22" else "#FFFFFF"))
+        val english = getSharedPreferences("battle_settings", MODE_PRIVATE)
+            .getString("language", "ru") == "en"
         val tabs = listOf(
-            Triple("Моё растение", "plant", "plant"),
-            Triple("Битва", "battle", "watch"),
-            Triple("История", "history", "history"),
-            Triple("Профиль", "profile", "profile")
+            Triple(if (english) "My plant" else "Моё растение", "plant", "plant"),
+            Triple(if (english) "Battle" else "Битва", "battle", "watch"),
+            Triple(if (english) "History" else "История", "history", "history"),
+            Triple(if (english) "Profile" else "Профиль", "profile", "profile")
         )
         tabs.forEach { (label, icon, destination) ->
             val active = when (destination) {
@@ -341,7 +346,9 @@ class MainActivity : Activity() {
                         cachedServerProfile = null
                         showProfile()
                     })
-                }
+                },
+                onThemeChanged = { showProfile() },
+                onLanguageChanged = { showProfile() }
             ))
             addNavigation()
         }
