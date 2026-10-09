@@ -23,7 +23,7 @@ class BattleBottomTab(
         gravity = Gravity.CENTER
         val tint = Color.parseColor(if (selected) "#24683C" else "#7B827A")
         // Square artwork; always 19x19 dp, never scaled to fill a tall tab.
-        addView(BattleTabGlyph(context, icon, tint), LayoutParams(px(19), px(19)))
+        addView(BattleTabGlyph(context, icon, tint), LayoutParams(px(23), px(23)))
         addView(TextView(context).apply {
             text = title
             textSize = 10f
@@ -43,7 +43,7 @@ class BattleBottomTab(
 }
 
 /** Vector icons drawn in code: no emoji, fonts or drawable dependencies. */
-private class BattleTabGlyph(context: Context, private val glyph: String, private val tint: Int) : View(context) {
+internal class BattleTabGlyph(context: Context, private val glyph: String, private val tint: Int) : View(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = tint
         strokeWidth = 2.1f
@@ -68,13 +68,37 @@ private class BattleTabGlyph(context: Context, private val glyph: String, privat
                 canvas.drawLine(5f, 22f, 17f, 9f, p)
             }
             "battle" -> {
-                canvas.drawLine(5f, 3f, 19f, 19f, p)
-                canvas.drawLine(19f, 3f, 5f, 19f, p)
-                canvas.drawLine(3f, 17f, 8f, 22f, p)
-                canvas.drawLine(21f, 17f, 16f, 22f, p)
-                canvas.drawLine(5f, 21f, 9f, 17f, p)
-                canvas.drawLine(19f, 21f, 15f, 17f, p)
+                val sword = Path().apply {
+                    moveTo(3f, 3f); lineTo(5.2f, 3f); lineTo(16.5f, 14.3f)
+                    moveTo(7.4f, 7.4f); lineTo(3f, 3f); lineTo(3f, 5.2f)
+                    moveTo(16f, 16f); lineTo(20f, 20f); moveTo(19f, 21f); lineTo(21f, 19f)
+                    moveTo(14.8f, 6.2f); lineTo(17.4f, 3.6f); lineTo(21f, 3f); lineTo(21f, 5.2f); lineTo(17.8f, 8.4f)
+                    moveTo(13f, 19f); lineTo(19f, 13f)
+                    moveTo(9f, 15f); lineTo(4f, 20f); moveTo(5f, 21f); lineTo(3f, 19f)
+                }
+                canvas.drawPath(sword, p)
             }
+            "trophy" -> {
+                canvas.drawRoundRect(7f, 3f, 17f, 15f, 2f, 2f, p)
+                canvas.drawArc(3f, 5f, 10f, 14f, 90f, 190f, false, p)
+                canvas.drawArc(14f, 5f, 21f, 14f, 260f, 190f, false, p)
+                canvas.drawLine(12f, 15f, 12f, 20f, p)
+                canvas.drawLine(7f, 21f, 17f, 21f, p)
+            }
+            "chart" -> {
+                canvas.drawRoundRect(3f, 13f, 7f, 21f, 1f, 1f, p)
+                canvas.drawRoundRect(10f, 9f, 14f, 21f, 1f, 1f, p)
+                canvas.drawRoundRect(17f, 3f, 21f, 21f, 1f, 1f, p)
+            }
+            "bell" -> {
+                val bell = Path().apply {moveTo(6f, 9f); cubicTo(6f, 1f, 18f, 1f, 18f, 9f); lineTo(18f, 16f); lineTo(21f, 19f); lineTo(3f, 19f); lineTo(6f, 16f); close()}
+                canvas.drawPath(bell, p); canvas.drawArc(10f, 18f, 14f, 23f, 0f, 180f, false, p)
+            }
+            "moon" -> {val moon=Path().apply {moveTo(19f, 15f); cubicTo(13f, 18f, 6f, 11f, 9f, 4f); cubicTo(-1f, 10f, 6f, 26f, 19f, 15f); close()}; canvas.drawPath(moon,p)}
+            "globe" -> {canvas.drawCircle(12f,12f,9f,p);canvas.drawOval(7f,3f,17f,21f,p);canvas.drawLine(3f,12f,21f,12f,p)}
+            "help" -> {canvas.drawCircle(12f,12f,9f,p);canvas.drawArc(8f,5f,16f,14f,195f,210f,false,p);canvas.drawLine(12f,13f,12f,16f,p);canvas.drawPoint(12f,19f,p)}
+            "chevron" -> {canvas.drawLine(9f,6f,15f,12f,p);canvas.drawLine(15f,12f,9f,18f,p)}
+            "camera" -> {canvas.drawRoundRect(3f,7f,21f,19f,2f,2f,p);canvas.drawCircle(12f,13f,4f,p);canvas.drawLine(6f,7f,9f,4f,p);canvas.drawLine(9f,4f,15f,4f,p)}
             "history" -> {
                 canvas.drawCircle(12f, 12f, 9f, p)
                 canvas.drawLine(12f, 6f, 12f, 12f, p)
