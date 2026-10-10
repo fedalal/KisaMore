@@ -8,7 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import get_settings
-from .models import Device, Farm, Planting, RackSlot
+from .models import Device, Farm, Planting, RackSlot, RackCameraPhoto
+from .battle_models import PlantBattle
+from .camera_timelapse_service import camera_battle_timelapse_path
 from .security import get_session
 from .timelapse_service import planting_timelapse_path, slot_timelapse_path
 
@@ -90,3 +92,39 @@ async def public_planting_timelapse(
         raise HTTPException(status_code=404, detail="Planting not found")
 
     return _video_response(planting_timelapse_path(get_settings().photo_dir, planting_id))
+
+
+@router.get("/public/battles/{battle_id}/cameras/{camera_id}/timelapse/{period}")
+async def public_battle_camera_timelapse(
+    battle_id: str,
+    camera_id: str,
+    period: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Play the WHOLE shelf from the selected camera, never another camera's file."""
+    if period not in ("24h", "3d", "full"):
+        raise HTTPException(status_code=404, detail="Unknown timelapse period")
+    row = (
+        await session.execute(
+            select(PlantBattle, RackCameraPhoto)
+            .join(Device, Device.id == PlantBattle.device_id)
+            .join(Farm, Farm.id == Device.farm_id)
+            .join(
+                RackCameraPhoto,
+                (RackCameraPhoto.device_id == PlantBattle.device_id)
+                & (RackCameraPhoto.rack_id == PlantBattle.rack_id)
+                & (RackCameraPhoto.camera_id == camera_id),
+            )
+            .where(
+                PlantBattle.id == battle_id,
+                Farm.is_public.is_(True),
+                Device.is_active.is_(True),
+            )
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Battle camera not found")
+    return _video_response(
+        camera_battle_timelapse_path(get_settings().photo_dir, battle_id, camera_id, period)
+    )
