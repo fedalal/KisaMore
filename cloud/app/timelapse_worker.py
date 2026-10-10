@@ -8,7 +8,9 @@ from sqlalchemy import or_, select
 
 from .config import get_settings
 from .db import SessionLocal, create_tables, engine
-from .models import Planting, RackSlot
+from .models import Planting, RackSlot, RackCameraPhoto
+from .battle_models import PlantBattle
+from .camera_timelapse_service import generate_camera_battle_timelapse
 from .timelapse_service import (
     PERIODS,
     ensure_planting_final_photo,
@@ -195,6 +197,71 @@ async def run_once() -> None:
             except Exception:
                 failed += 1
                 logger.exception("Could not generate full timelapse for planting %s", planting.id)
+
+    # Public Battle viewer plays whole-rack footage for the selected camera,
+    # not a container crop. Every published camera has its own archive and
+    # per-battle video files. Finished battles retain a final full timelapse.
+    async with SessionLocal() as session:
+        battle_rows = (
+            await session.execute(
+                select(PlantBattle).where(
+                    PlantBattle.planted_at.is_not(None),
+                    PlantBattle.status.in_(("growing", "judging", "planting", "finished")),
+                    or_(
+                        PlantBattle.status != "finished",
+                        PlantBattle.finished_at >= now - timedelta(days=14),
+                    ),
+                )
+            )
+        ).scalars().all()
+        camera_rows = (
+            await session.execute(select(RackCameraPhoto))
+        ).scalars().all()
+    cameras_by_rack: dict[tuple[str, int], list[RackCameraPhoto]] = {}
+    for camera in camera_rows:
+        cameras_by_rack.setdefault((camera.device_id, camera.rack_id), []).append(camera)
+
+    for battle in battle_rows:
+        planted_at = _aware(battle.planted_at)
+        if planted_at is None:
+            continue
+        finished = battle.status == "finished"
+        end_at = min(now, _aware(battle.finished_at) or now) if finished else now
+        if end_at < planted_at:
+            continue
+        for camera in cameras_by_rack.get((battle.device_id, battle.rack_id), []):
+            for period in ("24h", "3d", "full"):
+                # Old rolling videos remain untouched after the battle ends.
+                if finished and period != "full":
+                    continue
+                start_at = planted_at
+                if period != "full":
+                    rolling_start, _ = period_window(period, end_at)
+                    start_at = max(start_at, rolling_start)
+                try:
+                    output = await asyncio.to_thread(
+                        generate_camera_battle_timelapse,
+                        photo_dir=settings.photo_dir,
+                        device_id=battle.device_id,
+                        rack_id=battle.rack_id,
+                        camera_id=camera.camera_id,
+                        is_primary=bool(camera.is_primary),
+                        battle_id=battle.id,
+                        period=period,
+                        start_at=start_at,
+                        end_at=end_at,
+                        final=finished,
+                    )
+                    if output is None:
+                        skipped += 1
+                    else:
+                        generated += 1
+                except Exception:
+                    failed += 1
+                    logger.exception(
+                        "Camera timelapse failed: battle=%s rack=%s camera=%s period=%s",
+                        battle.id, battle.rack_id, camera.camera_id, period,
+                    )
 
     logger.info(
         "Timelapse pass complete: plantings=%s active_positions=%s generated_or_current=%s skipped=%s failed=%s",
