@@ -44,6 +44,7 @@ class MainActivity : Activity() {
     private var currentScreen = "home"
     private val avatarRequestCode = 4201
     private var currentBattleId: String? = null
+    private var lastSelectedBattleId: String? = null
     private val selectedBattleCamera = mutableMapOf<String, String>()
     private val selectedActivityPeriod = mutableMapOf<String, Int>()
 
@@ -171,7 +172,7 @@ class MainActivity : Activity() {
                             if (api.hasSession()) showNoBattle() else showLogin()
                         } else openBattle(mine)
                     }
-                    "watch" -> { currentScreen = "watch"; showWatch() }
+                    "watch" -> showWatch()
                     "history" -> { currentScreen = "history"; showBattleHistory() }
                     "profile" -> { currentScreen = "profile"; showProfile() }
                 }
@@ -358,25 +359,28 @@ class MainActivity : Activity() {
     }
 
     private fun showWatch() {
-        currentScreen = "watch"
-        currentBattleId = null
-        val scroll = screenScroll()
-        val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("LIVE АРЕНА", "Наблюдайте, болейте, делайте прогнозы"))
-
-        if (publicBattles.isEmpty()) {
-            val empty = card()
-            empty.addView(bigText("Пока нет активных битв"))
-            empty.addView(smallText("После создания следующей битвы она автоматически появится здесь."))
-            empty.addView(primaryButton("ОБНОВИТЬ") { loadAll("watch") })
-            body.addView(cardWithMargin(empty))
+        // The Battle tab is the arena itself, not the legacy LIVE ARENA list.
+        // Remember the last selection; otherwise prefer the user's own battle.
+        val available = (myBattles + publicBattles)
+            .distinctBy { it.id }
+            .filter { it.status != "finished" && it.status != "cancelled" }
+        val selected = available.firstOrNull { it.id == lastSelectedBattleId }
+            ?: available.firstOrNull { it.mine != null }
+            ?: available.firstOrNull()
+        if (selected != null) {
+            openBattle(selected)
         } else {
-            publicBattles.forEach { battle ->
-                body.addView(battleListCard(battle))
-            }
+            currentScreen = "watch"
+            currentBattleId = null
+            val scroll = screenScroll()
+            val body = scroll.getChildAt(0) as LinearLayout
+            val c = card()
+            c.addView(bigText("Пока нет доступных битв"))
+            c.addView(smallText("Когда появится новая битва, она будет доступна здесь."))
+            c.addView(primaryButton("ОБНОВИТЬ") { loadAll("watch") })
+            body.addView(cardWithMargin(c))
+            showContent(scroll)
         }
-
-        showContent(scroll)
     }
 
     private fun fallbackBattleProfile(battles: List<Battle>): PlayerBattleProfile {
@@ -645,6 +649,7 @@ class MainActivity : Activity() {
     }
 
     private fun openBattle(battle: Battle) {
+        lastSelectedBattleId = battle.id
         currentScreen = "battle"
         currentBattleId = battle.id
         showLoading("Открываем арену…")
@@ -683,6 +688,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderBattle(battle: Battle) {
+        lastSelectedBattleId = battle.id
         currentScreen = "battle"
         currentBattleId = battle.id
         val candidates = (myBattles + publicBattles + battle)
