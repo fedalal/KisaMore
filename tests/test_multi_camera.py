@@ -94,3 +94,54 @@ def test_primary_photo_keeps_legacy_paths_and_secondary_is_isolated(tmp_path):
             primary=False,
         )
         assert secondary.slot_paths[slot_number].is_file()
+
+
+
+def test_battle_camera_archives_and_video_paths_are_isolated(tmp_path):
+    from datetime import timedelta
+    from cloud.app.camera_timelapse_service import (
+        camera_archive_frames,
+        camera_battle_timelapse_path,
+        generate_camera_battle_timelapse,
+    )
+    import pytest
+
+    captured = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    for camera_id, is_primary in (("camera_1", True), ("camera_2", False)):
+        store_rack_camera_photo(
+            photo_dir=tmp_path,
+            device_id="test-pi",
+            rack_id=1,
+            camera_id=camera_id,
+            is_primary=is_primary,
+            captured_at=captured,
+            content=_jpeg(),
+        )
+    start, end = captured - timedelta(minutes=1), captured + timedelta(minutes=1)
+    p1 = camera_archive_frames(tmp_path, "test-pi", 1, "camera_1", True, start, end)
+    p2 = camera_archive_frames(tmp_path, "test-pi", 1, "camera_2", False, start, end)
+    assert len(p1) == len(p2) == 1
+    assert p1[0] != p2[0]
+    assert "cameras" not in str(p1[0])
+    assert "camera_2" in str(p2[0])
+    assert camera_battle_timelapse_path(tmp_path, "battle_a", "camera_1", "24h") != (
+        camera_battle_timelapse_path(tmp_path, "battle_a", "camera_2", "24h")
+    )
+    assert camera_battle_timelapse_path(tmp_path, "battle_a", "camera_1", "full") != (
+        camera_battle_timelapse_path(tmp_path, "battle_b", "camera_1", "full")
+    )
+    with pytest.raises(ValueError):
+        camera_battle_timelapse_path(tmp_path, "battle_a", "../invalid", "24h")
+    with pytest.raises(ValueError):
+        camera_battle_timelapse_path(tmp_path, "battle_a", "camera_1", "wrong")
+    assert generate_camera_battle_timelapse(
+        photo_dir=tmp_path,
+        device_id="test-pi",
+        rack_id=1,
+        camera_id="camera_2",
+        is_primary=False,
+        battle_id="battle_a",
+        period="24h",
+        start_at=start,
+        end_at=end,
+    ) is None  # Not enough source images: no fake video
