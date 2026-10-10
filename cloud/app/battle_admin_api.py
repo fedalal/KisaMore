@@ -49,12 +49,6 @@ class WinnerIn(BaseModel):
     entry_id: str = Field(min_length=1, max_length=36)
 
 
-class SiteKisaCreditIn(BaseModel):
-    email: str = Field(min_length=5, max_length=320)
-    amount: int = Field(ge=1, le=100_000)
-    reason: str = Field(min_length=3, max_length=500)
-
-
 class UpdateBattleIn(BaseModel):
     title: str = Field(min_length=2, max_length=180)
     start_date: date | None = None
@@ -233,38 +227,6 @@ async def admin_participant_avatar(
     return FileResponse(image, media_type=mime, headers={
         "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
     })
-
-
-@router.post("/site-kisa-credit")
-async def credit_site_kisa(
-    payload: SiteKisaCreditIn,
-    admin: User = Depends(get_admin_user),
-    session: AsyncSession = Depends(get_session),
-):
-    """Manual, audited admin credit. No fake online payments or anonymous minting."""
-    email = payload.email.strip().lower()
-    user = (await session.execute(
-        select(User).where(func.lower(User.email) == email).with_for_update()
-    )).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="Website user not found")
-    wallet, tg = await locked_wallet(session, user.id)
-    wallet.balance += payload.amount
-    record_wallet_change(
-        session, user_id=user.id, telegram_user=tg, wallet=wallet,
-        amount=payload.amount, kind="admin_gift", reference_type="site_admin",
-        reference_id=admin.id,
-        details={"reason": payload.reason, "admin_email": admin.email},
-    )
-    session.add(AdminAuditLog(
-        admin_user_id=admin.id, action="site_kisa_credit",
-        target_type="user", target_id=user.id,
-        details={"amount": payload.amount, "reason": payload.reason,
-                 "balance_after": wallet.balance, "telegram_linked": tg is not None},
-    ))
-    await session.commit()
-    return {"ok": True, "balance": wallet.balance,
-            "name": user.display_name, "email": user.email}
 
 
 @router.get("/options")

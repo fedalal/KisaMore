@@ -4,7 +4,7 @@ const qsa = (s) => [...document.querySelectorAll(s)];
 const titles = {
   analytics: ["Посещаемость", "Посетители, реклама и регистрации сайта"],
   overview: ["Обзор", "Состояние KisaMore"],
-  users: ["Пользователи", "Telegram-пользователи и баланс Kisa"],
+  users: ["Пользователи", "Аккаунты сайта и Telegram · начисление Kisa"],
   promotions: ["Акции", "Автоматические бонусы Kisa для новых и существующих пользователей"],
   rentals: ["Заявки на аренду", "Подтверждение контейнеров и выбранных растений"],
   cameras: ["Камеры / Фото полок", "Последние кадры, полученные с Raspberry Pi"],
@@ -138,7 +138,7 @@ function selectSection(name) {
 async function loadOverview() {
   const data = await api("/api/v1/admin/overview");
   const cards = [
-    ["Пользователи", data.telegram_users],
+    ["Пользователи", data.total_users ?? data.telegram_users],
     ["Kisa в кошельках", kisa(data.total_kisa)],
     ["Активные растения", data.active_plantings],
     ["Комментарии", data.published_comments],
@@ -150,45 +150,69 @@ async function loadOverview() {
 
 async function loadUsers() {
   const query = qs("#userSearch").value.trim();
-  const rows = await api(`/api/v1/admin/telegram-users?q=${encodeURIComponent(query)}`);
-  qs("#usersBody").innerHTML = rows.length ? rows.map((user) => {
-    const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ") || "Без имени";
-    const username = user.username ? `@${user.username}` : "—";
-    return `<tr>
-      <td><div class="user-name">${esc(fullName)}</div><div class="username">${esc(username)}</div></td>
-      <td>${esc(user.telegram_user_id)}</td>
-      <td>${esc(user.language_code || "—")}</td>
-      <td class="balance">${esc(kisa(user.balance))}</td>
-      <td>${esc(fmtDate(user.created_at))}</td>
-      <td><button class="gift-button" data-user-id="${user.id}" data-user-name="${esc(fullName)}">Подарить Kisa</button></td>
-    </tr>`;
-  }).join("") : `<tr><td colspan="6" class="muted">Пользователи не найдены.</td></tr>`;
+  const body = qs("#usersBody");
+  const summary = qs("#usersSummary");
+  try {
+    const rows = await api("/api/v1/admin/users?q=" + encodeURIComponent(query));
+    summary.textContent = rows.length + " пользователей";
+    body.innerHTML = rows.length ? rows.map((user) => {
+      const name = user.name || "Без имени";
+      const source = user.kind === "telegram" ? "Telegram"
+        : user.telegram_linked ? "Сайт + Telegram" : "Сайт";
+      const username = user.telegram_username
+        ? "@" + String(user.telegram_username).replace(/^@/, "") : "—";
+      const telegram = user.telegram_id
+        ? esc(username) + '<div class="username">ID: ' + esc(user.telegram_id) + "</div>" : "—";
+      const status = user.is_active ? "" : '<div class="username">Неактивный аккаунт</div>';
+      return '<tr><td><div class="user-name">' + esc(name) + '</div>' +
+        '<div class="username">' + esc(source) +
+        (user.role === "admin" ? " · Администратор" : "") + '</div>' + status + '</td>' +
+        '<td>' + (user.email ? esc(user.email) : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + telegram + '</td>' +
+        '<td>' + esc(user.language || "—") + '</td>' +
+        '<td class="balance">' + esc(kisa(user.balance)) + '</td>' +
+        '<td>' + esc(fmtDate(user.created_at)) + '</td>' +
+        '<td><button class="gift-button" data-kind="' + esc(user.kind) +
+        '" data-user-id="' + esc(user.id) + '" data-user-name="' + esc(name) +
+        '">Начислить Kisa</button></td></tr>';
+    }).join("") : '<tr><td colspan="7" class="muted">Пользователи не найдены.</td></tr>';
 
-  qsa(".gift-button").forEach((button) => button.addEventListener("click", () => {
-    qs("#giftUserId").value = button.dataset.userId;
-    qs("#giftUserName").textContent = button.dataset.userName;
-    qs("#giftAmount").value = "100";
-    qs("#giftReason").value = "";
-    qs("#giftDialog").showModal();
-  }));
+    qsa(".gift-button").forEach((button) => button.addEventListener("click", () => {
+      qs("#giftUserId").value = button.dataset.userId;
+      qs("#giftUserKind").value = button.dataset.kind;
+      qs("#giftUserName").textContent = button.dataset.userName;
+      qs("#giftAmount").value = "20";
+      qs("#giftReason").value = "";
+      qs("#giftDialog").showModal();
+    }));
+  } catch (error) {
+    summary.textContent = "";
+    body.innerHTML = '<tr><td colspan="7" class="muted">Ошибка загрузки пользователей: ' +
+      esc(error.message) + '</td></tr>';
+  }
 }
 
 async function submitGift(event) {
   event.preventDefault();
-  const id = Number(qs("#giftUserId").value);
+  const id = qs("#giftUserId").value;
+  const kind = qs("#giftUserKind").value;
   const amount = Number(qs("#giftAmount").value);
   const reason = qs("#giftReason").value.trim();
+  const button = qs('#giftForm button[type="submit"]');
+  button.disabled = true;
   try {
-    const result = await api(`/api/v1/admin/telegram-users/${id}/gift-kisa`, {
-      method: "POST",
-      body: JSON.stringify({ amount, reason }),
-    });
+    const result = await api(
+      "/api/v1/admin/users/" + encodeURIComponent(kind) + "/" + encodeURIComponent(id) + "/gift-kisa",
+      { method: "POST", body: JSON.stringify({ amount, reason }) }
+    );
     qs("#giftDialog").close();
-    toast(`Начислено ${kisa(amount)}. Новый баланс: ${kisa(result.balance)}`);
+    toast("Начислено " + kisa(amount) + ". Новый баланс: " + kisa(result.balance));
     await loadUsers();
     await loadOverview();
   } catch (error) {
-    toast(`Ошибка: ${error.message}`);
+    toast("Ошибка: " + error.message);
+  } finally {
+    button.disabled = false;
   }
 }
 

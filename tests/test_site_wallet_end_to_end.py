@@ -74,13 +74,41 @@ async def check_after_join(battle_id, website_id):
 async def prepare_telegram(website_id):
     async with SessionLocal() as db:
         tg = TelegramUser(telegram_user_id=9998776655, first_name="Web Customer",
-                          is_active=True, language_code="en")
+                          username="webcustomer_2026", is_active=True, language_code="en")
         db.add(tg)
         await db.flush()
         db.add(WalletAccount(user_id=tg.id, balance=13))
         token, _ = await create_telegram_link_token(db, user_id=website_id)
         await db.commit()
         return tg.id, token
+
+
+async def prepare_orphan_telegram():
+    async with SessionLocal() as db:
+        tg = TelegramUser(
+            telegram_user_id=9998776644, first_name="Telegram only",
+            username="telegramonly_2026", is_active=True, language_code="ru"
+        )
+        db.add(tg)
+        await db.flush()
+        db.add(WalletAccount(user_id=tg.id, balance=7))
+        await db.commit()
+        return tg.id
+
+
+async def verify_orphan_telegram_wallet(tg_id):
+    async with SessionLocal() as db:
+        tg = await db.get(TelegramUser, tg_id)
+        assert tg.marketplace_user_id is None
+        wallet = (await db.execute(select(WalletAccount).where(
+            WalletAccount.user_id == tg_id
+        ))).scalar_one()
+        assert wallet.balance == 20
+        transaction = (await db.execute(select(WalletTransaction).where(
+            WalletTransaction.user_id == tg_id,
+            WalletTransaction.kind == "admin_gift",
+        ))).scalar_one()
+        assert transaction.amount == 13 and transaction.balance_after == 20
 
 
 async def check_telegram_transfer(tg_id, website_id, entry_id):
@@ -149,9 +177,9 @@ def main():
         assert balance.status_code == 200 and balance.json()["balance"] == 0
         assert balance.json()["telegram_linked"] is False
 
-        forbidden = client.post("/api/v1/admin/battles/site-kisa-credit", json={
-            "email": "new-buyer@example.org", "amount": 500,
-            "reason": "Unauthorized attempt"
+        assert client.get("/api/v1/admin/users").status_code == 403
+        forbidden = client.post(f"/api/v1/admin/users/site/{website_id}/gift-kisa", json={
+            "amount": 500, "reason": "Unauthorized attempt"
         })
         assert forbidden.status_code == 403
         first = client.post(f"/api/v1/battles/{battle_id}/join", json={"quantity": 1})
@@ -160,9 +188,32 @@ def main():
         client.post("/api/v1/auth/login", json={
             "email": "kisa-admin@example.org", "password": "strong-test-pass",
         }).raise_for_status()
-        gift = client.post("/api/v1/admin/battles/site-kisa-credit", json={
-            "email": "new-buyer@example.org", "amount": 50,
-            "reason": "Test manual settled invoice",
+        website_rows = client.get("/api/v1/admin/users")
+        assert website_rows.status_code == 200
+        assert len(website_rows.json()) == 2
+        assert {row["kind"] for row in website_rows.json()} == {"site"}
+        assert any(row["email"] == "new-buyer@example.org" for row in website_rows.json())
+        assert len(client.get("/api/v1/admin/users?q=new-buyer%40example.org").json()) == 1
+
+        orphan_tg = asyncio.run(prepare_orphan_telegram())
+        all_rows = client.get("/api/v1/admin/users")
+        assert all_rows.status_code == 200
+        assert len(all_rows.json()) == 3
+        telegram_only = next(row for row in all_rows.json() if row["kind"] == "telegram")
+        assert telegram_only["id"] == str(orphan_tg)
+        assert telegram_only["email"] is None and telegram_only["balance"] == 7
+        assert len(client.get("/api/v1/admin/users?q=%40telegramonly_2026").json()) == 1
+        assert len(client.get("/api/v1/admin/users?q=9998776644").json()) == 1
+        telegram_gift = client.post(f"/api/v1/admin/users/telegram/{orphan_tg}/gift-kisa", json={
+            "amount": 13, "reason": "Test Telegram admin credit",
+        })
+        assert telegram_gift.status_code == 200 and telegram_gift.json()["balance"] == 20
+        asyncio.run(verify_orphan_telegram_wallet(orphan_tg))
+        assert client.post(f"/api/v1/admin/users/invalid/{orphan_tg}/gift-kisa",
+                           json={"amount": 1, "reason": "No"}).status_code == 404
+
+        gift = client.post(f"/api/v1/admin/users/site/{website_id}/gift-kisa", json={
+            "amount": 50, "reason": "Test manual settled invoice",
         })
         assert gift.status_code == 200 and gift.json()["balance"] == 50, gift.text
 
@@ -196,6 +247,22 @@ def main():
                 await db.commit()
 
         asyncio.run(link())
+        # A formerly Telegram-only profile is not duplicated after linking.
+        client.post("/api/v1/auth/login", json={
+            "email": "kisa-admin@example.org", "password": "strong-test-pass",
+        }).raise_for_status()
+        linked_rows = client.get("/api/v1/admin/users").json()
+        assert len(linked_rows) == 3
+        linked = next(row for row in linked_rows if row["id"] == website_id)
+        assert linked["kind"] == "site" and linked["telegram_linked"] is True
+        assert linked["telegram_id"] == 9998776655 and linked["balance"] == 63
+        assert len(client.get("/api/v1/admin/users?q=%40webcustomer_2026").json()) == 1
+        assert client.post(f"/api/v1/admin/users/telegram/{tg_id}/gift-kisa", json={
+            "amount": 5, "reason": "Must use linked website account"
+        }).status_code == 409
+        client.post("/api/v1/auth/login", json={
+            "email": "new-buyer@example.org", "password": "buyer-strong-pass",
+        }).raise_for_status()
         balance = client.get("/api/v1/account/kisa-wallet")
         assert balance.status_code == 200
         assert balance.json()["balance"] == 63 and balance.json()["telegram_linked"] is True
@@ -208,7 +275,7 @@ def main():
         assert paid.status_code == 201 and paid.json()["balance"] == 53, paid.text
         assert client.get("/api/v1/account/kisa-wallet").json()["balance"] == 53
         asyncio.run(check_linked_join(second_battle, tg_id, website_id))
-        print("PASS: no-Telegram wallet, admin permissions, grant, paid join, duplicate prevention, refund, account linking and linked-wallet purchase")
+        print("PASS: unified site+Telegram listing, search, credit by type, access permissions, paid join, refund, deduplication and linking")
 
 
 if __name__ == "__main__":

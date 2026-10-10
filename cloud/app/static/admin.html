@@ -74,10 +74,11 @@
       <section id="section-users" class="section">
         <div class="panel">
           <div class="panel-head">
-            <div><h2>Telegram-пользователи</h2><p>Баланс, язык и регистрационные данные.</p></div>
-            <div class="search-row"><input id="userSearch" placeholder="Имя, @username или Telegram ID"><button id="userSearchButton">Найти</button></div>
+            <div><h2>Все пользователи</h2><p>Аккаунты сайта и Telegram, включая связанные профили. Один человек с привязанным Telegram отображается одной строкой.</p></div>
+            <div class="search-row"><input id="userSearch" placeholder="Имя, email, @username или Telegram ID"><button id="userSearchButton">Найти</button></div>
           </div>
-          <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Telegram ID</th><th>Язык</th><th>Баланс</th><th>Регистрация</th><th></th></tr></thead><tbody id="usersBody"></tbody></table></div>
+          <p id="usersSummary" class="muted" style="margin:0 0 12px"></p>
+          <div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Email</th><th>Telegram</th><th>Язык</th><th>Баланс</th><th>Регистрация</th><th>Действия</th></tr></thead><tbody id="usersBody"></tbody></table></div>
         </div>
       </section>
 
@@ -163,20 +164,6 @@
       </section>
 
       <section id="section-battles" class="section">
-        <div class="panel" style="margin-bottom:18px">
-          <div class="panel-head">
-            <div><h2>Кошелёк сайта · Kisa</h2>
-              <p>Ручное зачисление средств зарегистрированному пользователю. Каждое начисление записывается в журнал аудита. Онлайн-эквайринг будет подключён отдельно.</p>
-            </div>
-          </div>
-          <form id="siteKisaCreditForm" class="battle-create-grid">
-            <label class="wide">Email пользователя<input id="siteKisaEmail" type="email" autocomplete="off" required></label>
-            <label>Количество Kisa<input id="siteKisaAmount" type="number" min="1" max="100000" value="20" required></label>
-            <label class="wide">Основание зачисления<input id="siteKisaReason" maxlength="500" minlength="3" placeholder="Например: ручная оплата по счёту №..." required></label>
-            <div style="display:flex;align-items:end"><button class="primary" type="submit">Зачислить Kisa</button></div>
-          </form>
-          <p id="siteKisaCreditMessage" role="status" style="margin:12px 0 0"></p>
-        </div>
         <div class="panel">
           <div class="panel-head">
             <div><h2>Создать Битву растений</h2><p>Выберите целую свободную полку. Все 6 контейнеров будут зарезервированы для соревнования и исключены из обычной аренды.</p></div>
@@ -324,8 +311,8 @@
 
   <dialog id="giftDialog">
     <form id="giftForm" method="dialog" class="dialog-card">
-      <div class="dialog-head"><div><h3>Подарить Kisa</h3><p id="giftUserName"></p></div><button type="button" class="icon-button" data-close-dialog="giftDialog">×</button></div>
-      <input id="giftUserId" type="hidden">
+      <div class="dialog-head"><div><h3>Начислить Kisa</h3><p id="giftUserName"></p></div><button type="button" class="icon-button" data-close-dialog="giftDialog">×</button></div>
+      <input id="giftUserId" type="hidden"><input id="giftUserKind" type="hidden">
       <label>Количество Kisa (Ⓚ)<input id="giftAmount" type="number" min="1" max="1000000" value="100" required></label>
       <label>Причина<textarea id="giftReason" rows="3" maxlength="300" placeholder="Например: подарок за участие в тестировании" required></textarea></label>
       <div class="dialog-actions"><button type="button" data-close-dialog="giftDialog">Отмена</button><button type="submit" class="primary">Начислить</button></div>
@@ -372,8 +359,8 @@
   </dialog>
 
   <div id="toast" class="toast"></div>
-  <script src="/static/admin.js?v=20261008-2" defer></script>
-  <script src="/static/admin_battles.js?v=20261010-6" defer></script>
+  <script src="/static/admin.js?v=20261010-8" defer></script>
+  <script src="/static/admin_battles.js?v=20261010-8" defer></script>
   <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
   <script src="/static/admin_seeds.js?v=20260910-1" defer></script>

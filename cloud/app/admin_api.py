@@ -16,7 +16,7 @@ from .config import get_settings
 from .models import Allocation, Plant, Planting, RackPhoto, RackSlot, User
 from .security import get_admin_user, get_session
 from .telegram.models import SocialComment, TelegramRentalRequest, TelegramUser, WalletAccount, WalletTransaction
-from .site_wallet import SiteWallet
+from .site_wallet import SiteWallet, locked_wallet, record_wallet_change
 from .telegram.plant_sos import TelegramPlantSosReport
 from .timelapse_service import generate_slot_timelapse, planting_timelapse_path
 
@@ -69,6 +69,12 @@ async def overview(
     session: AsyncSession = Depends(get_session),
 ):
     telegram_users = int((await session.execute(select(func.count(TelegramUser.id)))).scalar_one() or 0)
+    website_users = int((await session.execute(select(func.count(User.id)))).scalar_one() or 0)
+    linked_telegram_users = int((await session.execute(
+        select(func.count(TelegramUser.id))
+        .where(TelegramUser.marketplace_user_id.is_not(None))
+    )).scalar_one() or 0)
+    total_users = website_users + telegram_users - linked_telegram_users
     telegram_kisa = int((await session.execute(select(func.coalesce(func.sum(WalletAccount.balance), 0)))).scalar_one() or 0)
     website_kisa = int((await session.execute(select(func.coalesce(func.sum(SiteWallet.balance), 0)))).scalar_one() or 0)
     total_kisa = telegram_kisa + website_kisa
@@ -78,12 +84,157 @@ async def overview(
     sos_open = int((await session.execute(select(func.count(TelegramPlantSosReport.id)).where(TelegramPlantSosReport.status.in_(("new", "open"))))).scalar_one() or 0)
     return {
         "telegram_users": telegram_users,
+        "website_users": website_users,
+        "total_users": total_users,
         "total_kisa": total_kisa,
         "active_plantings": active_plantings,
         "published_comments": comments,
         "rental_requests": rental_requests,
         "sos_open": sos_open,
     }
+
+
+@router.get("/users")
+async def all_users(
+    q: str = "",
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """All distinct accounts: website users (including linked Telegram) plus
+    Telegram-only users. Contacts and wallet balances are admin-only data.
+    """
+    website_rows = (await session.execute(
+        select(User, TelegramUser, SiteWallet, WalletAccount)
+        .outerjoin(TelegramUser, TelegramUser.marketplace_user_id == User.id)
+        .outerjoin(SiteWallet, SiteWallet.user_id == User.id)
+        .outerjoin(WalletAccount, WalletAccount.user_id == TelegramUser.id)
+        .order_by(User.created_at.desc())
+    )).all()
+    telegram_rows = (await session.execute(
+        select(TelegramUser, WalletAccount)
+        .outerjoin(WalletAccount, WalletAccount.user_id == TelegramUser.id)
+        .where(TelegramUser.marketplace_user_id.is_(None))
+        .order_by(TelegramUser.created_at.desc())
+    )).all()
+
+    rows = []
+    for user, tg, site_wallet, tg_wallet in website_rows:
+        rows.append({
+            "kind": "site",
+            "id": user.id,
+            "name": user.display_name,
+            "email": user.email,
+            "telegram_id": tg.telegram_user_id if tg else None,
+            "telegram_username": tg.username if tg else None,
+            "telegram_linked": tg is not None,
+            "language": user.preferred_language,
+            "role": user.role,
+            "is_active": user.is_active,
+            "balance": int(tg_wallet.balance if tg_wallet else 0) if tg else int(
+                site_wallet.balance if site_wallet else 0
+            ),
+            "created_at": user.created_at,
+        })
+    for tg, wallet in telegram_rows:
+        rows.append({
+            "kind": "telegram",
+            "id": str(tg.id),
+            "name": " ".join(part for part in (tg.first_name, tg.last_name) if part)
+            or (f"@{tg.username}" if tg.username else f"Telegram {tg.telegram_user_id}"),
+            "email": None,
+            "telegram_id": tg.telegram_user_id,
+            "telegram_username": tg.username,
+            "telegram_linked": False,
+            "language": tg.language_code,
+            "role": "customer",
+            "is_active": tg.is_active,
+            "balance": int(wallet.balance if wallet else 0),
+            "created_at": tg.created_at,
+        })
+    term = q.strip().lower().lstrip("@")
+    if term:
+        rows = [
+            row for row in rows
+            if any(term in str(value or "").lower() for value in (
+                row["name"], row["email"], row["telegram_id"],
+                row["telegram_username"], row["id"],
+            ))
+        ]
+    rows.sort(key=lambda item: (item["created_at"], item["kind"], str(item["id"])), reverse=True)
+    return rows
+
+
+@router.post("/users/{kind}/{account_id}/gift-kisa")
+async def gift_kisa_to_account(
+    kind: str,
+    account_id: str,
+    payload: KisaGiftIn,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """One audited Kisa grant action for either website or Telegram-only users."""
+    if kind == "site":
+        website = (await session.execute(
+            select(User).where(User.id == account_id).with_for_update()
+        )).scalar_one_or_none()
+        if website is None:
+            raise HTTPException(status_code=404, detail="Website account not found")
+        wallet, linked_tg = await locked_wallet(session, website.id)
+        wallet.balance += payload.amount
+        record_wallet_change(
+            session, user_id=website.id, telegram_user=linked_tg,
+            wallet=wallet, amount=payload.amount, kind="admin_gift",
+            reference_type="admin", reference_id=admin.id,
+            details={"reason": payload.reason, "admin_email": admin.email},
+        )
+        target_type, target_id = "user", website.id
+    elif kind == "telegram":
+        if not account_id.isdecimal():
+            raise HTTPException(status_code=404, detail="Telegram account not found")
+        tg = (await session.execute(
+            select(TelegramUser)
+            .where(TelegramUser.id == int(account_id))
+            .with_for_update()
+        )).scalar_one_or_none()
+        if tg is None:
+            raise HTTPException(status_code=404, detail="Telegram account not found")
+        if tg.marketplace_user_id:
+            raise HTTPException(
+                status_code=409,
+                detail="This Telegram account is linked; use its website account",
+            )
+        wallet = (await session.execute(
+            select(WalletAccount)
+            .where(WalletAccount.user_id == tg.id)
+            .with_for_update()
+        )).scalar_one_or_none()
+        if wallet is None:
+            wallet = WalletAccount(user_id=tg.id, balance=0)
+            session.add(wallet)
+            await session.flush()
+        wallet.balance += payload.amount
+        record_wallet_change(
+            session, user_id="", telegram_user=tg, wallet=wallet,
+            amount=payload.amount, kind="admin_gift",
+            reference_type="admin", reference_id=admin.id,
+            details={"reason": payload.reason, "admin_email": admin.email},
+        )
+        target_type, target_id = "telegram_user", str(tg.id)
+    else:
+        raise HTTPException(status_code=404, detail="Unknown account type")
+
+    session.add(AdminAuditLog(
+        admin_user_id=admin.id,
+        action="gift_kisa",
+        target_type=target_type,
+        target_id=target_id,
+        details={
+            "amount": payload.amount, "reason": payload.reason,
+            "balance_after": int(wallet.balance), "account_kind": kind,
+        },
+    ))
+    await session.commit()
+    return {"ok": True, "balance": int(wallet.balance)}
 
 
 @router.get("/telegram-users")

@@ -12,28 +12,6 @@
     }
   };
 
-  document.getElementById("siteKisaCreditForm")?.addEventListener("submit",async function(ev){
-    ev.preventDefault();
-    const button=ev.currentTarget.querySelector('button[type="submit"]');
-    const feedback=document.getElementById("siteKisaCreditMessage");
-    button.disabled=true;feedback.textContent="";
-    try{
-      const result=await api("/api/v1/admin/battles/site-kisa-credit",{
-        method:"POST",
-        body:JSON.stringify({
-          email:document.getElementById("siteKisaEmail").value.trim(),
-          amount:Number(document.getElementById("siteKisaAmount").value),
-          reason:document.getElementById("siteKisaReason").value.trim()
-        })
-      });
-      feedback.textContent="Зачислено. "+result.name+" ("+result.email+"): Ⓚ "+result.balance;
-      toast("Баланс обновлён: Ⓚ "+result.balance);
-      document.getElementById("siteKisaReason").value="";
-    }catch(err){
-      feedback.textContent="Ошибка: "+err.message;
-    }finally{button.disabled=false}
-  });
-
   var form=document.getElementById("battleCreateForm");
   var rack=document.getElementById("battleRack");
   var plant=document.getElementById("battlePlant");
