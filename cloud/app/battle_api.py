@@ -94,7 +94,10 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         (
             await session.execute(
                 select(PlantBattleEntry)
-                .where(PlantBattleEntry.battle_id == battle.id)
+                .where(
+                    PlantBattleEntry.battle_id == battle.id,
+                    PlantBattleEntry.status.in_(("active", "finished")),
+                )
                 .order_by(PlantBattleEntry.slot_number)
             )
         ).scalars().all()

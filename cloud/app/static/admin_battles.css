@@ -17,3 +17,6 @@ a.battle-participant-telegram:hover{text-decoration:underline}
 .battle-admin-entry button{padding:5px 8px;font-size:11px}
 @media(max-width:900px){.battle-create-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.battle-create-grid{grid-template-columns:1fr}.battle-create-grid .wide{grid-column:auto}.battle-admin-entries{min-width:280px}.battle-participant-resources{padding-left:0}}
+
+.battle-admin-entry-refunded{opacity:.65;background:#f0f2f0}
+.battle-admin-entry-refunded .battle-participant-slot{min-width:0}

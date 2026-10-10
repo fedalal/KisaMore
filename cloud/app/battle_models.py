@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .models import Base
@@ -48,8 +48,20 @@ class PlantBattle(Base):
 
 class PlantBattleEntry(Base):
     __tablename__ = "plant_battle_entries"
+    # Refunded/cancelled entries stay in the ledger, but they must not occupy
+    # a container or prevent another user from buying the freed slot.
+    # One participant can have only one active/finished entry per battle.
     __table_args__ = (
-        UniqueConstraint("battle_id", "slot_number", name="uq_plant_battle_slot"),
+        Index(
+            "uq_plant_battle_occupied_slot", "battle_id", "slot_number", unique=True,
+            postgresql_where=text("status IN ('active','finished')"),
+            sqlite_where=text("status IN ('active','finished')"),
+        ),
+        Index(
+            "uq_plant_battle_active_user", "battle_id", "user_id", unique=True,
+            postgresql_where=text("status IN ('active','finished')"),
+            sqlite_where=text("status IN ('active','finished')"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

@@ -67,9 +67,11 @@
   }
 
   function entryHtml(b,e){
-    var winner=b.status==="judging"
+    var current=e.status==="active"||e.status==="finished";
+    var winner=b.status==="judging"&&current
       ? '<button class="battle-winner primary" data-battle="'+esc(b.id)+'" data-entry="'+esc(e.id)+'">🏆 Победитель</button>'
       : (e.is_winner?"🏆 Лучший садовод":"");
+    var archived=e.status==="refunded"?" · Возврат Kisa":e.status==="cancelled"?" · Отменено":"";
     var name=e.user_name||"Пользователь";
     var icon=e.user_avatar_url
       ? '<img class="battle-participant-avatar" src="'+esc(e.user_avatar_url)+'" alt="" loading="lazy" decoding="async">'
@@ -83,9 +85,9 @@
       ? '<a class="battle-participant-telegram" target="_blank" rel="noopener noreferrer" href="https://t.me/'+esc(username)+'">@'+esc(username)+'</a>'
       : tg ? '<span class="battle-participant-telegram">Telegram ID: '+esc(tg)+'</span>'
       : '<span class="battle-participant-empty">Telegram не привязан</span>';
-    return '<div class="battle-admin-entry">'+
+    return '<div class="battle-admin-entry'+(current?'':' battle-admin-entry-refunded')+'">'+
       '<div class="battle-participant">'+
-        '<span class="battle-participant-slot">#'+esc(e.slot_number)+'</span>'+icon+
+        '<span class="battle-participant-slot">#'+esc(e.slot_number)+esc(archived)+'</span>'+icon+
         '<div class="battle-participant-details">'+
           '<span class="battle-participant-name">'+esc(name)+'</span>'+
           email+telegram+

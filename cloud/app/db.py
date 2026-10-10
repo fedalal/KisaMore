@@ -159,6 +159,26 @@ def _ensure_battle_columns(connection) -> None:
             "end_date": "DATE NULL",
         },
     )
+    if "plant_battle_entries" not in inspect(connection).get_table_names():
+        return
+    # Existing PostgreSQL deployments have a full UNIQUE(battle_id, slot_number)
+    # constraint. That constraint also reserves refunded slots forever. First
+    # create the partial unique index, then remove the old constraint.
+    if connection.dialect.name == "postgresql":
+        connection.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_plant_battle_occupied_slot "
+            "ON plant_battle_entries (battle_id, slot_number) "
+            "WHERE status IN ('active','finished')"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE plant_battle_entries "
+            "DROP CONSTRAINT IF EXISTS uq_plant_battle_slot"
+        )
+        connection.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_plant_battle_active_user "
+            "ON plant_battle_entries (battle_id, user_id) "
+            "WHERE status IN ('active','finished')"
+        )
 
 
 def _ensure_analytics_columns(connection) -> None:
