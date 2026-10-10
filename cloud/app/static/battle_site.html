@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#08130f">
   <title>KisaMore Battle — Grow. Decide. Win.</title>
   <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
-  <link rel="stylesheet" href="/static/battle_site.css?v=20261010-5">
+  <link rel="stylesheet" href="/static/battle_site.css?v=20261010-9">
   <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/battle_site.js?v=20261010-5" defer></script>
+  <script src="/static/battle_site.js?v=20261010-9" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -28,7 +28,25 @@
         <option value="pt">PT</option><option value="pl">PL</option><option value="zh">中文</option>
       </select>
       <span id="walletBalance" class="wallet-balance" hidden></span>
-      <button id="accountButton" class="button secondary" type="button">Sign in</button>
+      <div class="account-control" id="accountControl">
+        <button id="accountButton" class="button secondary account-trigger" type="button"
+                aria-haspopup="true" aria-expanded="false" title="Sign in">
+          <span id="accountAvatar" class="account-avatar hidden" aria-hidden="true"></span>
+          <span id="accountLabel" class="account-name">Sign in</span>
+          <span id="accountChevron" class="account-chevron hidden" aria-hidden="true">⌄</span>
+        </button>
+        <div id="accountDropdown" class="account-dropdown hidden" role="group" aria-label="Account">
+          <span class="account-menu-caption" data-i18n="signedInAs">Signed in as</span>
+          <strong id="accountFullName" class="account-menu-name"></strong>
+          <span id="accountEmail" class="account-menu-email"></span>
+          <div class="account-menu-telegram">
+            <span>Telegram</span>
+            <span id="accountTelegram">—</span>
+          </div>
+          <button id="accountLogoutButton" class="button secondary account-logout"
+                  data-i18n="signOut" type="button">Sign out</button>
+        </div>
+      </div>
     </div>
   </header>
 

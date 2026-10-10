@@ -16,3 +16,38 @@
 .wallet-balance{color:var(--green);font-weight:900;white-space:nowrap;padding:7px 10px;border:1px solid rgba(121,255,154,.25);border-radius:12px}
 .join-wallet-balance{color:var(--muted);font-size:14px;margin-top:-12px;margin-bottom:14px}
 .join-wallet-balance.is-short{color:#ffb7a8}
+
+
+/* Logged-in identity, visible in the header instead of an anonymous Sign out.
+   The detailed account information and sign-out action live in this menu. */
+.account-control{position:relative;min-width:0}
+.account-trigger{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;max-width:220px}
+.account-trigger.is-signed-in{border-color:rgba(121,255,154,.38)}
+.account-trigger:hover,.account-trigger[aria-expanded="true"]{border-color:var(--green)}
+.account-avatar{display:grid;flex:0 0 28px;width:28px;height:28px;place-items:center;border-radius:9px;background:var(--green);color:#07110d;font-size:13px;font-weight:950}
+.account-name{display:block;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.account-chevron{color:var(--green);font-size:16px}
+.account-dropdown{position:absolute;z-index:45;right:0;top:calc(100% + 10px);width:min(290px,calc(100vw - 28px));padding:16px;border:1px solid #315a46;border-radius:17px;background:#10231a;box-shadow:0 18px 52px rgba(0,0,0,.42);display:flex;flex-direction:column;gap:8px;overflow-wrap:anywhere}
+.account-menu-caption{color:var(--muted);font-size:11px}
+.account-menu-name{font-size:17px;color:var(--text)}
+.account-menu-email{color:#b6d0c1;font-size:13px}
+.account-menu-telegram{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 0 4px;margin-top:5px;border-top:1px solid var(--line);font-size:13px}
+.account-menu-telegram>span:first-child{color:var(--muted)}
+.account-menu-telegram>span:last-child{text-align:right}
+.account-logout{width:100%;margin-top:8px}
+@media(max-width:620px){
+  .site-header{gap:8px}
+  .header-actions{gap:6px;min-width:0}
+  .header-actions select{padding:8px 8px}
+  .wallet-balance{padding:7px 8px;font-size:12px}
+  .account-trigger{max-width:142px;padding:7px 9px;gap:6px}
+  .account-avatar{flex-basis:24px;width:24px;height:24px;font-size:12px}
+}
+@media(max-width:400px){
+  .site-header{gap:6px;padding-left:10px;padding-right:10px}
+  .header-actions{gap:5px}
+  .header-actions select{padding:7px 5px;font-size:12px}
+  .account-trigger{max-width:110px;padding:8px}
+  .account-avatar{display:none}
+  .account-chevron{font-size:13px}
+}
