@@ -434,6 +434,9 @@ internal class BattleArenaScreen(
         frame.addView(image, FrameLayout.LayoutParams(-1, -1))
         var highlight: View? = null
         val photoUrl = api.absolute(camera?.photoUrl ?: battle.rackPhotoUrl)
+        frame.isClickable = true
+        frame.contentDescription = "Посмотреть фото полки крупно"
+        frame.setOnClickListener { onPhoto(photoUrl) }
         if (photoUrl != null) {
             PhotoFrameCache.current(photoUrl)?.let { image.setImageBitmap(it) }
             Thread {
