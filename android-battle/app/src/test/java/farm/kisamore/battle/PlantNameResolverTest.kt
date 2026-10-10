@@ -28,10 +28,10 @@ class PlantNameResolverTest {
         ctx.getSharedPreferences("battle_settings", 0).edit()
             .putString("language", "en").commit()
         val language = AppLanguage(ctx)
-        assertEquals("SIGN IN TO BATTLE", language.t("ВХОД В BATTLE"))
+        assertEquals("BATTLE SIGN IN", language.t("ВХОД В BATTLE"))
         assertEquals("Create account", language.t("Создать аккаунт"))
-        assertEquals("Close", language.t("Закрыть"))
+        assertEquals("Close", language.t("Закрыть окно"))
         assertEquals("Password", language.t("Пароль"))
-        assertEquals("Enter your email and password", language.t("Введите email и пароль"))
+        assertEquals("Enter email and password", language.t("Введите email и пароль"))
     }
 }

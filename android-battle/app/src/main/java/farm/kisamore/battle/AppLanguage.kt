@@ -61,18 +61,10 @@ class AppLanguage(private val context: Context) {
             supported.firstOrNull { it.first == code }?.second ?: "English"
 
         private val rows: Map<String, Array<String>> = mapOf(
+            "Закрыть окно" to arrayOf("Close", "Schließen", "Fermer", "Cerrar", "Chiudi", "Fechar", "Zamknij", "关闭"),
             "РЕГИСТРАЦИЯ" to arrayOf("CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT"),
-            "ВХОД В BATTLE" to arrayOf("SIGN IN TO BATTLE", "SIGN IN TO BATTLE", "SIGN IN TO BATTLE", "SIGN IN TO BATTLE", "SIGN IN TO BATTLE", "SIGN IN TO BATTLE", "SIGN IN TO BATTLE", "SIGN IN TO BATTLE"),
-            "Ваш аккаунт KisaMore" to arrayOf("Your KisaMore account", "Your KisaMore account", "Your KisaMore account", "Your KisaMore account", "Your KisaMore account", "Your KisaMore account", "Your KisaMore account", "Your KisaMore account"),
-            "Имя" to arrayOf("Name", "Name", "Name", "Name", "Name", "Name", "Name", "Name"),
-            "Пароль" to arrayOf("Password", "Password", "Password", "Password", "Password", "Password", "Password", "Password"),
-            "Закрыть" to arrayOf("Close", "Close", "Close", "Close", "Close", "Close", "Close", "Close"),
-            "ВОЙТИ" to arrayOf("SIGN IN", "SIGN IN", "SIGN IN", "SIGN IN", "SIGN IN", "SIGN IN", "SIGN IN", "SIGN IN"),
-            "СОЗДАТЬ АККАУНТ" to arrayOf("CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT"),
             "Создать аккаунт" to arrayOf("Create account", "Create account", "Create account", "Create account", "Create account", "Create account", "Create account", "Create account"),
             "Уже есть аккаунт? Войти" to arrayOf("Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in"),
-            "Введите email и пароль" to arrayOf("Enter your email and password", "Enter your email and password", "Enter your email and password", "Enter your email and password", "Enter your email and password", "Enter your email and password", "Enter your email and password", "Enter your email and password"),
-            "Введите имя" to arrayOf("Enter your name", "Enter your name", "Enter your name", "Enter your name", "Enter your name", "Enter your name", "Enter your name", "Enter your name"),
             "Пароль минимум 5 символов" to arrayOf("Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters"),
             "Неверный email или пароль" to arrayOf("Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password"),
             "Email уже зарегистрирован" to arrayOf("Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered"),

@@ -590,7 +590,7 @@ class MainActivity : Activity() {
             textSize = 25f
             gravity = Gravity.CENTER
             setTextColor(white)
-            contentDescription = t("Закрыть")
+            contentDescription = t("Закрыть окно")
             setOnClickListener { closeAuthScreen() }
         }, LinearLayout.LayoutParams(dp(42), dp(42)))
         body.addView(header)
