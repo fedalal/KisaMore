@@ -322,10 +322,7 @@ internal class BattleArenaScreen(
                 setOnClickListener { onJournal(mine.actions) }
             }, LinearLayout.LayoutParams(-2, dp(25)))
             body.addView(actionHeader, spacedTop(5))
-            val journalHeight = if (mine.actions.isEmpty()) 39
-                else (mine.actions.size.coerceAtMost(3) * 28 + 6).coerceAtMost(90)
-            body.addView(journal(mine.actions),
-                LinearLayout.LayoutParams(-1, dp(journalHeight)))
+            body.addView(journal(mine.actions), LinearLayout.LayoutParams(-1, dp(90)))
             body.addView(chartHeader(), spacedTop(7))
             val chartCard = FrameLayout(host).apply {
                 background = round(cardBg, 14)
