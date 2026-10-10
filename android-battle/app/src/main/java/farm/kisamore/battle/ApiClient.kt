@@ -126,6 +126,26 @@ class ApiClient(context: Context) {
 
     fun publicBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/public/battles")))
+    fun publicGrowthClips(farmSlug: String = "demo-farm"): List<HomeClip> {
+        val market = JSONObject(request("GET", "/api/v1/public/farms/$farmSlug/market"))
+        val racks = market.optJSONArray("racks") ?: return emptyList()
+        val clips = mutableListOf<HomeClip>()
+        for (i in 0 until racks.length()) {
+            val rack = racks.optJSONObject(i) ?: continue
+            val rackId = rack.optInt("rack_id")
+            val slots = rack.optJSONArray("slots") ?: continue
+            val posterUrl = rack.nullableString("photo_url")
+            for (j in 0 until slots.length()) {
+                val slotNumber = slots.optJSONObject(j)?.optInt("slot_number") ?: 0
+                if (rackId <= 0 || slotNumber <= 0) continue
+                val prefix = "/api/v1/public/farms/$farmSlug/racks/$rackId/slots/$slotNumber/timelapse/"
+                clips.add(HomeClip(null, prefix + "3d", false, posterUrl))
+                clips.add(HomeClip(null, prefix + "24h", false, posterUrl))
+            }
+        }
+        return clips
+    }
+
 
     fun myBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/battles/me")))
@@ -351,7 +371,10 @@ class ApiClient(context: Context) {
             predictionCounts = predictionCounts,
             myPredictionEntryId = obj.nullableString("my_prediction_entry_id"),
             winnerEntryId = obj.nullableString("winner_entry_id"),
-            finishedAt = obj.nullableString("finished_at")
+            finishedAt = obj.nullableString("finished_at"),
+            plantId = obj.nullableString("plant_id"),
+            farmSlug = obj.nullableString("farm_slug"),
+            startDate = obj.nullableString("start_date")
         )
     }
 }

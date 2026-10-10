@@ -61,7 +61,10 @@ data class Battle(
     val predictionCounts: Map<String, Int>,
     val myPredictionEntryId: String?,
     val winnerEntryId: String? = null,
-    val finishedAt: String? = null
+    val finishedAt: String? = null,
+    val plantId: String? = null,
+    val farmSlug: String? = null,
+    val startDate: String? = null
 ) {
     val mine: BattleEntry?
         get() = entries.firstOrNull { it.isMine }

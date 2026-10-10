@@ -1,0 +1,290 @@
+package farm.kisamore.battle
+
+import android.content.Context
+import java.util.Locale
+
+class AppLanguage(private val context: Context) {
+    val code: String
+        get() = currentCode(context)
+
+    fun t(source: String): String {
+        if (code == "ru") return source
+        val index = languageIndex[code] ?: languageIndex["en"]!!
+        return rows[source]?.getOrNull(index) ?: rows[source]?.getOrNull(0) ?: source
+    }
+
+    companion object {
+        private const val PREFS = "kisamore_battle_language"
+        private const val KEY = "language"
+
+        val supported: List<Pair<String, String>> = listOf(
+            "en" to "English",
+            "ru" to "Русский",
+            "zh" to "中文",
+            "de" to "Deutsch",
+            "fr" to "Français",
+            "es" to "Español",
+            "it" to "Italiano",
+            "pt" to "Português",
+            "pl" to "Polski"
+        )
+
+        private val languageIndex = mapOf(
+            "en" to 0, "de" to 1, "fr" to 2, "es" to 3,
+            "it" to 4, "pt" to 5, "pl" to 6, "zh" to 7
+        )
+
+        fun currentCode(context: Context): String {
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val selected = context.getSharedPreferences("battle_settings", Context.MODE_PRIVATE)
+                .getString("language", null)
+            if (selected != null && supported.any { it.first == selected }) return selected
+            val saved = prefs.getString(KEY, null)
+            if (saved != null && supported.any { it.first == saved }) return saved
+            val device = Locale.getDefault().language.lowercase(Locale.ROOT)
+            return when {
+                device == "zh" -> "zh"
+                supported.any { it.first == device } -> device
+                else -> "en"
+            }
+        }
+
+        fun set(context: Context, code: String) {
+            if (supported.none { it.first == code }) return
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY, code)
+                .apply()
+        }
+
+        fun displayName(code: String): String =
+            supported.firstOrNull { it.first == code }?.second ?: "English"
+
+        private val rows: Map<String, Array<String>> = mapOf(
+            "Начало" to arrayOf("Start", "Start", "Accueil", "Inicio", "Inizio", "Início", "Start", "开始"),
+            "Битва" to arrayOf("Battle", "Battle", "Bataille", "Batalla", "Battaglia", "Batalha", "Bitwa", "对战"),
+            "ГОСТЬ" to arrayOf("GUEST", "GAST", "INVITÉ", "INVITADO", "OSPITE", "VISITANTE", "GOŚĆ", "访客"),
+            "ЖИВАЯ БИТВА РАСТЕНИЙ" to arrayOf("REAL PLANT BATTLES", "ECHTE PFLANZENBATTLES", "BATAILLES RÉELLES", "BATALLAS REALES", "SFIDE REALI", "BATALHAS REAIS", "PRAWDZIWE BITWY", "真实植物对战"),
+            "Выращивай. Соревнуйся.\nПобеждай." to arrayOf("Grow. Compete.\nWin.", "Pflanzen. Kämpfen.\nGewinnen.", "Cultivez. Défiez.\nGagnez.", "Cultiva. Compite.\nGana.", "Coltiva. Sfida.\nVinci.", "Cultive. Compita.\nVença.", "Uprawiaj. Walcz.\nWygrywaj.", "种植。竞技。\n获胜。"),
+            "Настоящие растения в реальной теплице.\nУправляй своим и следи за ростом." to arrayOf("Real plants in a real greenhouse.\nCare for yours and watch it grow.", "Echte Pflanzen im Gewächshaus.\nPflege deine und sieh ihnen beim Wachsen zu.", "De vraies plantes dans une vraie serre.\nCultivez la vôtre et observez-la.", "Plantas reales en un invernadero.\nCuida la tuya y observa cómo crece.", "Piante vere in una serra vera.\nCura la tua e segui la crescita.", "Plantas reais em uma estufa.\nCuide da sua e observe.", "Prawdziwe rośliny w szklarni.\nDbaj o swoją i obserwuj wzrost.", "真实植物，真实温室。\n亲自照料，见证成长。"),
+            "ТАЙМЛАПС" to arrayOf("TIMELAPSE", "ZEITRAFFER", "TIMELAPSE", "TIMELAPSE", "TIMELAPSE", "TIMELAPSE", "TIMELAPSE", "延时摄影"),
+            "Прошлая битва" to arrayOf("Past battle", "Vergangenes Battle", "Bataille passée", "Batalla anterior", "Sfida passata", "Batalha anterior", "Poprzednia bitwa", "往期对战"),
+            "Рост растения" to arrayOf("Plant growth", "Pflanzenwachstum", "Croissance", "Crecimiento", "Crescita", "Crescimento", "Wzrost roślin", "植物生长"),
+            "Как растут растения" to arrayOf("Watch plants grow", "So wachsen Pflanzen", "Regardez pousser", "Mira cómo crecen", "Come crescono", "Veja como crescem", "Zobacz ich wzrost", "观察生长"),
+            "Реальное видео роста растений" to arrayOf("Real plant growth video", "Echtes Wachstumsvideo", "Vidéo de croissance réelle", "Vídeo de crecimiento real", "Video di crescita reale", "Vídeo de crescimento real", "Prawdziwy film ze wzrostu", "真实生长视频"),
+            "БЛИЖАЙШАЯ БИТВА" to arrayOf("UPCOMING BATTLE", "NÄCHSTES BATTLE", "PROCHAINE BATAILLE", "PRÓXIMA BATALLA", "PROSSIMA SFIDA", "PRÓXIMA BATALHA", "NAJBLIŻSZA BITWA", "即将开始的对战"),
+            "● Набор открыт" to arrayOf("● Open for entries", "● Anmeldung offen", "● Inscription ouverte", "● Inscripción abierta", "● Iscrizioni aperte", "● Inscrições abertas", "● Zapisy otwarte", "● 正在招募"),
+            "Пока нет открытых битв" to arrayOf("No open battles yet", "Keine offenen Battles", "Aucune bataille ouverte", "No hay batallas abiertas", "Nessuna sfida aperta", "Sem batalhas abertas", "Brak otwartych bitew", "暂无开放对战"),
+            "Новые битвы появятся здесь. Пока можно смотреть другие." to arrayOf("New battles will appear here. Watch others for now.", "Neue Battles folgen hier. Sieh dir andere an.", "D'autres batailles arrivent. Regardez en attendant.", "Pronto habrá nuevas batallas. Mira otras.", "Presto nuove sfide. Guarda le altre.", "Novas batalhas em breve. Veja outras.", "Nowe bitwy wkrótce. Zobacz inne.", "新对战即将上线。先看看其他对战。"),
+            "Смотреть битвы" to arrayOf("Watch battles", "Battles ansehen", "Voir les batailles", "Ver batallas", "Guarda le sfide", "Ver batalhas", "Oglądaj bitwy", "观看对战"),
+            "Один сорт · " to arrayOf("One variety · ", "Eine Sorte · ", "Une variété · ", "Una variedad · ", "Una varietà · ", "Uma variedade · ", "Jedna odmiana · ", "同一品种 · "),
+            " игроков" to arrayOf(" players", " Spieler", " joueurs", " jugadores", " giocatori", " jogadores", " graczy", " 位玩家"),
+            "Старт после набора участников" to arrayOf("Starts when full", "Start bei voller Belegung", "Début quand c'est complet", "Empieza al llenar plazas", "Inizia al completo", "Começa quando lotar", "Start po zebraniu graczy", "满员后开始"),
+            "мест свободно" to arrayOf("spots left", "Plätze frei", "places libres", "plazas libres", "posti liberi", "vagas livres", "wolnych miejsc", "个空位"),
+            "из" to arrayOf("of", "von", "sur", "de", "su", "de", "z", "/"),
+            "занято" to arrayOf("filled", "belegt", "prises", "ocupadas", "occupati", "ocupadas", "zajęte", "已占用"),
+            "Присоединиться к битве" to arrayOf("Join the battle", "Am Battle teilnehmen", "Rejoindre la bataille", "Unirse a la batalla", "Unisciti alla sfida", "Entrar na batalha", "Dołącz do bitwy", "加入对战"),
+            "победителю · диплом каждому" to arrayOf("to winner · diploma for all", "für Sieger · Urkunde für alle", "au gagnant · diplôme pour tous", "al ganador · diploma para todos", "al vincitore · diploma per tutti", "ao vencedor · diploma para todos", "dla zwycięzcy · dyplom dla każdego", "冠军奖励 · 人人有证书"),
+            "Смотреть битвы без входа" to arrayOf("Watch battles without signing in", "Ohne Anmeldung ansehen", "Voir sans se connecter", "Ver sin iniciar sesión", "Guarda senza accedere", "Ver sem entrar", "Oglądaj bez logowania", "无需登录即可观看"),
+            "Главная" to arrayOf("Home", "Start", "Accueil", "Inicio", "Home", "Início", "Główna", "首页"),
+            "УРОВЕНЬ " to arrayOf("LEVEL ", "LEVEL ", "NIVEAU ", "NIVEL ", "LIVELLO ", "NÍVEL ", "POZIOM ", "等级 "),
+            "Моя битва" to arrayOf("My Battle", "Mein Battle", "Ma bataille", "Mi batalla", "La mia battaglia", "Minha batalha", "Moja bitwa", "我的对战"),
+            "Моё растение" to arrayOf("My Plant", "Meine Pflanze", "Ma plante", "Mi planta", "La mia pianta", "Minha planta", "Moja roślina", "我的植物"),
+            "МОЁ РАСТЕНИЕ" to arrayOf("MY PLANT", "MEINE PFLANZE", "MA PLANTE", "MI PLANTA", "LA MIA PIANTA", "MINHA PLANTA", "MOJA ROŚLINA", "我的植物"),
+            "ОТКРЫТЬ МОЁ РАСТЕНИЕ" to arrayOf("OPEN MY PLANT", "MEINE PFLANZE ÖFFNEN", "OUVRIR MA PLANTE", "ABRIR MI PLANTA", "APRI LA MIA PIANTA", "ABRIR MINHA PLANTA", "OTWÓRZ MOJĄ ROŚLINĘ", "打开我的植物"),
+            "Смотреть" to arrayOf("Watch", "Ansehen", "Regarder", "Ver", "Guarda", "Assistir", "Oglądaj", "观看"),
+            "Арена" to arrayOf("Arena", "Arena", "Arène", "Arena", "Arena", "Arena", "Arena", "竞技场"),
+            "АРЕНА" to arrayOf("ARENA", "ARENA", "ARÈNE", "ARENA", "ARENA", "ARENA", "ARENA", "竞技场"),
+            "СМОТРЕТЬ БИТВУ" to arrayOf("WATCH BATTLE", "BATTLE ANSEHEN", "VOIR LA BATAILLE", "VER BATALLA", "GUARDA BATTAGLIA", "VER BATALHA", "OGLĄDAJ BITWĘ", "观看对战"),
+            "ЗАВЕРШЕННЫЕ" to arrayOf("FINISHED", "BEENDET", "TERMINÉES", "FINALIZADAS", "CONCLUSE", "ENCERRADAS", "ZAKOŃCZONE", "已结束"),
+            "Здесь пока нет битв" to arrayOf("No battles here yet", "Hier gibt es noch keine Battles", "Aucune bataille ici pour le moment", "Aún no hay batallas aquí", "Nessuna battaglia qui per ora", "Ainda não há batalhas aqui", "Nie ma tu jeszcze bitew", "这里暂时没有对战"),
+            "Выберите другую категорию или обновите список." to arrayOf("Choose another category or refresh the list.", "Wähle eine andere Kategorie oder aktualisiere die Liste.", "Choisissez une autre catégorie ou actualisez la liste.", "Elige otra categoría o actualiza la lista.", "Scegli un'altra categoria o aggiorna l'elenco.", "Escolha outra categoria ou atualize a lista.", "Wybierz inną kategorię lub odśwież listę.", "请选择其他分类或刷新列表。"),
+            "Открываем растение…" to arrayOf("Opening your plant…", "Pflanze wird geöffnet…", "Ouverture de votre plante…", "Abriendo tu planta…", "Apertura della tua pianta…", "Abrindo sua planta…", "Otwieranie rośliny…", "正在打开你的植物…"),
+            "Это растение не привязано к вашему аккаунту." to arrayOf("This plant is not linked to your account.", "Diese Pflanze ist nicht mit deinem Konto verknüpft.", "Cette plante n'est pas liée à votre compte.", "Esta planta no está vinculada a tu cuenta.", "Questa pianta non è collegata al tuo account.", "Esta planta não está vinculada à sua conta.", "Ta roślina nie jest przypisana do twojego konta.", "这株植物未绑定到你的账户。"),
+            "ПЕРЕЙТИ В АРЕНУ" to arrayOf("GO TO ARENA", "ZUR ARENA", "ALLER À L'ARÈNE", "IR A LA ARENA", "VAI ALL'ARENA", "IR PARA A ARENA", "PRZEJDŹ DO ARENY", "前往竞技场"),
+            "Профиль" to arrayOf("Profile", "Profil", "Profil", "Perfil", "Profilo", "Perfil", "Profil", "个人资料"),
+            "Подключаемся к теплице…" to arrayOf("Connecting to the greenhouse…", "Verbindung zum Gewächshaus…", "Connexion à la serre…", "Conectando con el invernadero…", "Connessione alla serra…", "Conectando à estufa…", "Łączenie ze szklarnią…", "正在连接温室…"),
+            "Настоящее растение. Ваши решения." to arrayOf("A real plant. Your decisions.", "Eine echte Pflanze. Deine Entscheidungen.", "Une vraie plante. Vos décisions.", "Una planta real. Tus decisiones.", "Una pianta vera. Le tue decisioni.", "Uma planta real. Suas decisões.", "Prawdziwa roślina. Twoje decyzje.", "真实植物，由你决策。"),
+            "Выращивайте настоящее растение удалённо" to arrayOf("Grow a real plant remotely", "Baue eine echte Pflanze aus der Ferne an", "Cultivez une vraie plante à distance", "Cultiva una planta real a distancia", "Coltiva una pianta vera da remoto", "Cultive uma planta real à distância", "Uprawiaj prawdziwą roślinę zdalnie", "远程种植真实植物"),
+            "Выберите растение, управляйте уходом и наблюдайте за ростом вживую." to arrayOf("Choose a plant, control its care and watch it grow live.", "Wähle eine Pflanze, steuere ihre Pflege und beobachte ihr Wachstum live.", "Choisissez une plante, gérez ses soins et observez sa croissance en direct.", "Elige una planta, controla sus cuidados y observa su crecimiento en directo.", "Scegli una pianta, gestisci la cura e guardala crescere dal vivo.", "Escolha uma planta, controle os cuidados e acompanhe o crescimento ao vivo.", "Wybierz roślinę, steruj pielęgnacją i obserwuj jej wzrost na żywo.", "选择植物、控制养护并实时观看生长。"),
+            "ВЫБРАТЬ РАСТЕНИЕ" to arrayOf("CHOOSE A PLANT", "PFLANZE WÄHLEN", "CHOISIR UNE PLANTE", "ELEGIR UNA PLANTA", "SCEGLI UNA PIANTA", "ESCOLHER UMA PLANTA", "WYBIERZ ROŚLINĘ", "选择植物"),
+            "или смотреть текущие битвы" to arrayOf("or watch live battles", "oder Live-Battles ansehen", "ou regarder les batailles en direct", "o ver batallas en directo", "oppure guarda le battaglie live", "ou assistir às batalhas ao vivo", "lub oglądaj bitwy na żywo", "或观看实时对战"),
+            " дн." to arrayOf(" d.", " Tg.", " j", " d", " g", " d", " dn.", " 天"),
+            "ВАША БИТВА" to arrayOf("YOUR BATTLE", "DEIN BATTLE", "VOTRE BATAILLE", "TU BATALLA", "LA TUA BATTAGLIA", "SUA BATALHA", "TWOJA BITWA", "你的对战"),
+            "Продолжить игру" to arrayOf("Continue playing", "Weiterspielen", "Continuer", "Continuar jugando", "Continua a giocare", "Continuar jogando", "Kontynuuj grę", "继续游戏"),
+            "СЕЙЧАС" to arrayOf("NOW", "JETZT", "MAINTENANT", "AHORA", "ORA", "AGORA", "TERAZ", "现在"),
+            "У вас нет активной битвы" to arrayOf("You have no active battle", "Du hast kein aktives Battle", "Vous n'avez aucune bataille active", "No tienes una batalla activa", "Non hai una battaglia attiva", "Você não tem uma batalha ativa", "Nie masz aktywnej bitwy", "你没有进行中的对战"),
+            "Войдите, чтобы управлять растением" to arrayOf("Sign in to manage a plant", "Anmelden, um eine Pflanze zu steuern", "Connectez-vous pour gérer une plante", "Inicia sesión para controlar una planta", "Accedi per gestire una pianta", "Entre para controlar uma planta", "Zaloguj się, aby sterować rośliną", "登录以管理植物"),
+            "Выберите следующую битву 🌱" to arrayOf("Choose your next battle 🌱", "Wähle dein nächstes Battle 🌱", "Choisissez votre prochaine bataille 🌱", "Elige tu próxima batalla 🌱", "Scegli la prossima battaglia 🌱", "Escolha sua próxima batalha 🌱", "Wybierz następną bitwę 🌱", "选择下一场对战 🌱"),
+            "Станьте игроком 🌱" to arrayOf("Become a player 🌱", "Werde Spieler 🌱", "Devenez joueur 🌱", "Conviértete en jugador 🌱", "Diventa un giocatore 🌱", "Torne-se jogador 🌱", "Zostań graczem 🌱", "成为玩家 🌱"),
+            "Пока можно наблюдать за другими участниками, смотреть таймлапсы и делать прогнозы." to arrayOf("For now you can watch other players, view timelapses and make predictions.", "Du kannst andere Spieler beobachten, Zeitraffer ansehen und Vorhersagen abgeben.", "Vous pouvez observer les autres joueurs, voir les timelapses et faire des pronostics.", "Puedes observar a otros jugadores, ver timelapses y hacer predicciones.", "Puoi osservare gli altri giocatori, vedere i timelapse e fare previsioni.", "Você pode observar outros jogadores, ver timelapses e fazer previsões.", "Możesz obserwować innych graczy, oglądać timelapse'y i typować zwycięzcę.", "你可以观看其他玩家、查看延时视频并进行预测。"),
+            "Участник получает настоящее растение и ограниченный запас воды, питания и времени без света." to arrayOf("A player gets a real plant and limited water, nutrients and shade time.", "Ein Spieler erhält eine echte Pflanze sowie begrenztes Wasser, Nährstoffe und Schattenzeit.", "Un joueur reçoit une vraie plante avec une quantité limitée d'eau, de nutriments et de temps à l'ombre.", "Un jugador recibe una planta real y recursos limitados de agua, nutrientes y sombra.", "Un giocatore riceve una pianta vera e risorse limitate di acqua, nutrienti e ombra.", "Um jogador recebe uma planta real e recursos limitados de água, nutrientes e sombra.", "Gracz otrzymuje prawdziwą roślinę oraz ograniczoną ilość wody, pożywki i czasu bez światła.", "玩家获得一株真实植物，以及有限的水、营养液和遮光时间。"),
+            "СМОТРЕТЬ БИТВЫ" to arrayOf("WATCH BATTLES", "BATTLES ANSEHEN", "VOIR LES BATAILLES", "VER BATALLAS", "GUARDA LE BATTAGLIE", "VER BATALHAS", "OGLĄDAJ BITWY", "观看对战"),
+            "ВОЙТИ В ИГРУ" to arrayOf("SIGN IN", "ANMELDEN", "SE CONNECTER", "INICIAR SESIÓN", "ACCEDI", "ENTRAR", "ZALOGUJ SIĘ", "登录"),
+            "ЗАДАНИЯ НА СЕГОДНЯ" to arrayOf("TODAY'S MISSIONS", "HEUTIGE AUFGABEN", "MISSIONS DU JOUR", "MISIONES DE HOY", "MISSIONI DI OGGI", "MISSÕES DE HOJE", "DZISIEJSZE MISJE", "今日任务"),
+            "Короткие действия дают XP" to arrayOf("Quick actions earn XP", "Kurze Aktionen bringen XP", "Les actions rapides rapportent de l'XP", "Las acciones rápidas dan XP", "Le azioni rapide danno XP", "Ações rápidas rendem XP", "Krótkie działania dają XP", "完成简短操作可获得 XP"),
+            "За этой битвой можно следить прямо сейчас" to arrayOf("Watch this battle live now", "Dieses Battle jetzt live verfolgen", "Suivez cette bataille en direct", "Sigue esta batalla en directo", "Segui questa battaglia dal vivo", "Acompanhe esta batalha ao vivo", "Śledź tę bitwę na żywo", "立即观看这场对战"),
+            "ЗАЧЕМ ВОЗВРАЩАТЬСЯ" to arrayOf("WHY COME BACK", "WARUM WIEDERKOMMEN", "POURQUOI REVENIR", "POR QUÉ VOLVER", "PERCHÉ TORNARE", "POR QUE VOLTAR", "DLACZEGO WRACAĆ", "为什么要回来"),
+            "Игра продолжается, пока растение растёт" to arrayOf("The game continues while the plant grows", "Das Spiel läuft weiter, während die Pflanze wächst", "Le jeu continue pendant la croissance de la plante", "El juego continúa mientras la planta crece", "Il gioco continua mentre la pianta cresce", "O jogo continua enquanto a planta cresce", "Gra trwa, gdy roślina rośnie", "植物生长期间，游戏一直继续"),
+            "Новое фото" to arrayOf("New photo", "Neues Foto", "Nouvelle photo", "Nueva foto", "Nuova foto", "Nova foto", "Nowe zdjęcie", "新照片"),
+            "Смотрите изменения всей полки каждый день" to arrayOf("See the whole rack change every day", "Sieh jeden Tag die Veränderungen im ganzen Regal", "Observez chaque jour l'évolution de toute l'étagère", "Observa cada día los cambios de toda la estantería", "Osserva ogni giorno i cambiamenti dell'intero scaffale", "Veja as mudanças de toda a prateleira todos os dias", "Codziennie obserwuj zmiany całego regału", "每天查看整层种植架的变化"),
+            "Прогнозы" to arrayOf("Predictions", "Vorhersagen", "Pronostics", "Predicciones", "Previsioni", "Previsões", "Prognozy", "预测"),
+            "Угадайте победителя раньше остальных" to arrayOf("Predict the winner before everyone else", "Sage den Gewinner vor allen anderen voraus", "Devinez le gagnant avant les autres", "Adivina al ganador antes que los demás", "Prevedi il vincitore prima degli altri", "Preveja o vencedor antes dos outros", "Wytypuj zwycięzcę przed innymi", "比别人更早预测获胜者"),
+            "Таймлапсы" to arrayOf("Timelapses", "Zeitraffer", "Timelapses", "Timelapses", "Timelapse", "Timelapses", "Timelapse'y", "延时视频"),
+            "Несколько дней роста за несколько секунд" to arrayOf("Days of growth in seconds", "Tage des Wachstums in Sekunden", "Des jours de croissance en quelques secondes", "Días de crecimiento en segundos", "Giorni di crescita in pochi secondi", "Dias de crescimento em segundos", "Dni wzrostu w kilka sekund", "几秒看完数天生长"),
+            "XP и серии" to arrayOf("XP and streaks", "XP und Serien", "XP et séries", "XP y rachas", "XP e serie", "XP e sequências", "XP i serie", "XP 和连续记录"),
+            "Возвращайтесь ежедневно и собирайте достижения" to arrayOf("Come back daily and earn achievements", "Komm täglich zurück und sammle Erfolge", "Revenez chaque jour et gagnez des succès", "Vuelve a diario y consigue logros", "Torna ogni giorno e ottieni traguardi", "Volte diariamente e conquiste realizações", "Wracaj codziennie i zdobywaj osiągnięcia", "每天回来并解锁成就"),
+            "LIVE АРЕНА" to arrayOf("LIVE ARENA", "LIVE-ARENA", "ARÈNE LIVE", "ARENA EN VIVO", "ARENA LIVE", "ARENA AO VIVO", "ARENA LIVE", "实时竞技场"),
+            "Наблюдайте, болейте, делайте прогнозы" to arrayOf("Watch, cheer and predict", "Beobachten, mitfiebern, vorhersagen", "Regardez, encouragez et pronostiquez", "Mira, anima y predice", "Guarda, fai il tifo e prevedi", "Assista, torça e faça previsões", "Oglądaj, kibicuj i typuj", "观看、助威并预测"),
+            "Пока нет активных битв" to arrayOf("No active battles yet", "Noch keine aktiven Battles", "Aucune bataille active pour le moment", "Aún no hay batallas activas", "Nessuna battaglia attiva al momento", "Ainda não há batalhas ativas", "Brak aktywnych bitew", "暂时没有进行中的对战"),
+            "После создания следующей битвы она автоматически появится здесь." to arrayOf("The next battle will appear here automatically.", "Das nächste Battle erscheint hier automatisch.", "La prochaine bataille apparaîtra ici automatiquement.", "La próxima batalla aparecerá aquí automáticamente.", "La prossima battaglia apparirà qui automaticamente.", "A próxima batalha aparecerá aqui automaticamente.", "Następna bitwa pojawi się tutaj automatycznie.", "下一场对战创建后会自动显示在这里。"),
+            "ОБНОВИТЬ" to arrayOf("REFRESH", "AKTUALISIEREN", "ACTUALISER", "ACTUALIZAR", "AGGIORNA", "ATUALIZAR", "ODŚWIEŻ", "刷新"),
+            "ПРОФИЛЬ САДОВОДА" to arrayOf("GARDENER PROFILE", "GÄRTNERPROFIL", "PROFIL DU JARDINIER", "PERFIL DEL JARDINERO", "PROFILO DEL GIARDINIERE", "PERFIL DO JARDINEIRO", "PROFIL OGRODNIKA", "园丁资料"),
+            "Гость" to arrayOf("Guest", "Gast", "Invité", "Invitado", "Ospite", "Convidado", "Gość", "访客"),
+            "Уровень " to arrayOf("Level ", "Level ", "Niveau ", "Nivel ", "Livello ", "Nível ", "Poziom ", "等级 "),
+            " XP · серия " to arrayOf(" XP · streak ", " XP · Serie ", " XP · série ", " XP · racha ", " XP · serie ", " XP · sequência ", " XP · seria ", " XP · 连续 "),
+            " дней" to arrayOf(" days", " Tage", " jours", " días", " giorni", " dias", " dni", " 天"),
+            "До следующего уровня: " to arrayOf("To next level: ", "Bis zum nächsten Level: ", "Avant le niveau suivant : ", "Para el siguiente nivel: ", "Al prossimo livello: ", "Para o próximo nível: ", "Do następnego poziomu: ", "距离下一等级："),
+            "ДОСТИЖЕНИЯ" to arrayOf("ACHIEVEMENTS", "ERFOLGE", "SUCCÈS", "LOGROS", "TRAGUARDI", "CONQUISTAS", "OSIĄGNIĘCIA", "成就"),
+            "Открываются за реальные действия" to arrayOf("Unlocked by real actions", "Durch echte Aktionen freigeschaltet", "Débloqués par de vraies actions", "Se desbloquean con acciones reales", "Si sbloccano con azioni reali", "Desbloqueadas por ações reais", "Odblokowywane za prawdziwe działania", "通过真实操作解锁"),
+            "Первое достижение появится уже сегодня." to arrayOf("Your first achievement can appear today.", "Dein erster Erfolg kann schon heute erscheinen.", "Votre premier succès peut apparaître dès aujourd'hui.", "Tu primer logro puede aparecer hoy.", "Il tuo primo traguardo può apparire già oggi.", "Sua primeira conquista pode aparecer hoje.", "Pierwsze osiągnięcie może pojawić się już dziś.", "你的第一个成就今天就可能出现。"),
+            "Игрок" to arrayOf("Player", "Spieler", "Joueur", "Jugador", "Giocatore", "Jogador", "Gracz", "玩家"),
+            "ВЫЙТИ" to arrayOf("SIGN OUT", "ABMELDEN", "SE DÉCONNECTER", "CERRAR SESIÓN", "ESCI", "SAIR", "WYLOGUJ", "退出登录"),
+            "Аккаунт не подключён" to arrayOf("Account not connected", "Konto nicht verbunden", "Compte non connecté", "Cuenta no conectada", "Account non collegato", "Conta não conectada", "Konto niepołączone", "账号未连接"),
+            "ВОЙТИ" to arrayOf("SIGN IN", "ANMELDEN", "SE CONNECTER", "INICIAR SESIÓN", "ACCEDI", "ENTRAR", "ZALOGUJ", "登录"),
+            "КОНФИДЕНЦИАЛЬНОСТЬ" to arrayOf("PRIVACY", "DATENSCHUTZ", "CONFIDENTIALITÉ", "PRIVACIDAD", "PRIVACY", "PRIVACIDADE", "PRYWATNOŚĆ", "隐私"),
+            "Управление данными аккаунта" to arrayOf("Manage account data", "Kontodaten verwalten", "Gérer les données du compte", "Gestionar datos de la cuenta", "Gestisci i dati dell'account", "Gerenciar dados da conta", "Zarządzaj danymi konta", "管理账号数据"),
+            "ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ" to arrayOf("PRIVACY POLICY", "DATENSCHUTZERKLÄRUNG", "POLITIQUE DE CONFIDENTIALITÉ", "POLÍTICA DE PRIVACIDAD", "INFORMATIVA SULLA PRIVACY", "POLÍTICA DE PRIVACIDADE", "POLITYKA PRYWATNOŚCI", "隐私政策"),
+            "УДАЛИТЬ АККАУНТ И ДАННЫЕ" to arrayOf("DELETE ACCOUNT AND DATA", "KONTO UND DATEN LÖSCHEN", "SUPPRIMER LE COMPTE ET LES DONNÉES", "ELIMINAR CUENTA Y DATOS", "ELIMINA ACCOUNT E DATI", "EXCLUIR CONTA E DADOS", "USUŃ KONTO I DANE", "删除账号和数据"),
+            "ВХОД В BATTLE" to arrayOf("BATTLE SIGN IN", "BATTLE-ANMELDUNG", "CONNEXION BATTLE", "INICIO DE SESIÓN BATTLE", "ACCESSO BATTLE", "LOGIN BATTLE", "LOGOWANIE DO BATTLE", "对战登录"),
+            "Ваш аккаунт KisaMore" to arrayOf("Your KisaMore account", "Dein KisaMore-Konto", "Votre compte KisaMore", "Tu cuenta KisaMore", "Il tuo account KisaMore", "Sua conta KisaMore", "Twoje konto KisaMore", "你的 KisaMore 账号"),
+            "Пароль" to arrayOf("Password", "Passwort", "Mot de passe", "Contraseña", "Password", "Senha", "Hasło", "密码"),
+            "Введите email и пароль" to arrayOf("Enter email and password", "E-Mail und Passwort eingeben", "Saisissez l'e-mail et le mot de passe", "Introduce email y contraseña", "Inserisci email e password", "Digite email e senha", "Wpisz e-mail i hasło", "请输入邮箱和密码"),
+            "Входим в игру…" to arrayOf("Signing in…", "Anmeldung…", "Connexion…", "Iniciando sesión…", "Accesso…", "Entrando…", "Logowanie…", "正在登录…"),
+            "СОЗДАТЬ АККАУНТ" to arrayOf("CREATE ACCOUNT", "KONTO ERSTELLEN", "CRÉER UN COMPTE", "CREAR CUENTA", "CREA ACCOUNT", "CRIAR CONTA", "UTWÓRZ KONTO", "创建账号"),
+            "Начните свою первую битву растений" to arrayOf("Start your first plant battle", "Starte dein erstes Pflanzen-Battle", "Commencez votre première bataille de plantes", "Empieza tu primera batalla de plantas", "Inizia la tua prima battaglia di piante", "Comece sua primeira batalha de plantas", "Rozpocznij pierwszą bitwę roślin", "开始你的第一场植物对战"),
+            "Имя" to arrayOf("Name", "Name", "Nom", "Nombre", "Nome", "Nome", "Imię", "姓名"),
+            "Пароль · минимум 5 символов" to arrayOf("Password · at least 5 characters", "Passwort · mindestens 5 Zeichen", "Mot de passe · au moins 5 caractères", "Contraseña · mínimo 5 caracteres", "Password · almeno 5 caratteri", "Senha · pelo menos 5 caracteres", "Hasło · co najmniej 5 znaków", "密码 · 至少 5 个字符"),
+            "Повторите пароль" to arrayOf("Repeat password", "Passwort wiederholen", "Répétez le mot de passe", "Repite la contraseña", "Ripeti la password", "Repita a senha", "Powtórz hasło", "再次输入密码"),
+            "Создавая аккаунт, вы соглашаетесь на обработку данных, необходимую для работы KisaMore Battle." to arrayOf("By creating an account, you agree to the processing of data required to operate KisaMore Battle.", "Mit der Kontoerstellung stimmst du der für KisaMore Battle erforderlichen Datenverarbeitung zu.", "En créant un compte, vous acceptez le traitement des données nécessaires au fonctionnement de KisaMore Battle.", "Al crear una cuenta, aceptas el tratamiento de datos necesario para KisaMore Battle.", "Creando un account accetti il trattamento dei dati necessario al funzionamento di KisaMore Battle.", "Ao criar uma conta, você concorda com o tratamento de dados necessário ao funcionamento do KisaMore Battle.", "Tworząc konto, zgadzasz się na przetwarzanie danych niezbędnych do działania KisaMore Battle.", "创建账号即表示你同意处理 KisaMore Battle 运行所需的数据。"),
+            "Введите имя" to arrayOf("Enter your name", "Name eingeben", "Saisissez votre nom", "Introduce tu nombre", "Inserisci il nome", "Digite seu nome", "Wpisz imię", "请输入姓名"),
+            "Введите корректный email" to arrayOf("Enter a valid email", "Gültige E-Mail eingeben", "Saisissez un e-mail valide", "Introduce un email válido", "Inserisci un'email valida", "Digite um email válido", "Wpisz prawidłowy e-mail", "请输入有效邮箱"),
+            "Пароль должен содержать минимум 5 символов" to arrayOf("Password must be at least 5 characters", "Das Passwort muss mindestens 5 Zeichen lang sein", "Le mot de passe doit contenir au moins 5 caractères", "La contraseña debe tener al menos 5 caracteres", "La password deve contenere almeno 5 caratteri", "A senha deve ter pelo menos 5 caracteres", "Hasło musi mieć co najmniej 5 znaków", "密码至少需要 5 个字符"),
+            "Пароли не совпадают" to arrayOf("Passwords do not match", "Passwörter stimmen nicht überein", "Les mots de passe ne correspondent pas", "Las contraseñas no coinciden", "Le password non coincidono", "As senhas não coincidem", "Hasła nie są zgodne", "两次输入的密码不一致"),
+            "Создаём аккаунт…" to arrayOf("Creating account…", "Konto wird erstellt…", "Création du compte…", "Creando cuenta…", "Creazione account…", "Criando conta…", "Tworzenie konta…", "正在创建账号…"),
+            "УЖЕ ЕСТЬ АККАУНТ — ВОЙТИ" to arrayOf("ALREADY HAVE AN ACCOUNT — SIGN IN", "SCHON EIN KONTO — ANMELDEN", "DÉJÀ UN COMPTE — SE CONNECTER", "YA TENGO CUENTA — INICIAR SESIÓN", "HAI GIÀ UN ACCOUNT — ACCEDI", "JÁ TEM CONTA — ENTRAR", "MASZ JUŻ KONTO — ZALOGUJ SIĘ", "已有账号 — 登录"),
+            "МОЯ БИТВА" to arrayOf("MY BATTLE", "MEIN BATTLE", "MA BATAILLE", "MI BATALLA", "LA MIA BATTAGLIA", "MINHA BATALHA", "MOJA BITWA", "我的对战"),
+            "Активного растения пока нет" to arrayOf("No active plant yet", "Noch keine aktive Pflanze", "Aucune plante active pour le moment", "Aún no hay planta activa", "Nessuna pianta attiva al momento", "Ainda não há planta ativa", "Brak aktywnej rośliny", "暂时没有活跃植物"),
+            "Следующая битва ждёт 🌱" to arrayOf("Your next battle is waiting 🌱", "Das nächste Battle wartet 🌱", "Votre prochaine bataille vous attend 🌱", "Tu próxima batalla te espera 🌱", "La prossima battaglia ti aspetta 🌱", "Sua próxima batalha está esperando 🌱", "Następna bitwa czeka 🌱", "下一场对战正等着你 🌱"),
+            "Выберите открытую битву. После покупки места здесь появятся фото растения, ресурсы и кнопки управления." to arrayOf("Choose an open battle. After taking a place, plant photos, resources and controls will appear here.", "Wähle ein offenes Battle. Nach der Teilnahme erscheinen hier Pflanzenfotos, Ressourcen und Steuerungen.", "Choisissez une bataille ouverte. Après avoir pris une place, les photos, ressources et commandes apparaîtront ici.", "Elige una batalla abierta. Al ocupar una plaza aparecerán aquí fotos, recursos y controles.", "Scegli una battaglia aperta. Dopo aver preso un posto appariranno qui foto, risorse e controlli.", "Escolha uma batalha aberta. Depois de ocupar uma vaga, fotos, recursos e controles aparecerão aqui.", "Wybierz otwartą bitwę. Po zajęciu miejsca pojawią się tu zdjęcia, zasoby i sterowanie.", "选择开放对战。加入后，这里会显示植物照片、资源和控制按钮。"),
+            "ВЫБРАТЬ БИТВУ" to arrayOf("CHOOSE BATTLE", "BATTLE WÄHLEN", "CHOISIR UNE BATAILLE", "ELEGIR BATALLA", "SCEGLI BATTAGLIA", "ESCOLHER BATALHA", "WYBIERZ BITWĘ", "选择对战"),
+            "Открываем арену…" to arrayOf("Opening arena…", "Arena wird geöffnet…", "Ouverture de l'arène…", "Abriendo arena…", "Apertura arena…", "Abrindo arena…", "Otwieranie areny…", "正在打开竞技场…"),
+            "Обновляем арену…" to arrayOf("Refreshing arena…", "Arena wird aktualisiert…", "Actualisation de l'arène…", "Actualizando arena…", "Aggiornamento arena…", "Atualizando arena…", "Odświeżanie areny…", "正在刷新竞技场…"),
+            "ВАШИ РАСТЕНИЯ" to arrayOf("YOUR PLANTS", "DEINE PFLANZEN", "VOS PLANTES", "TUS PLANTAS", "LE TUE PIANTE", "SUAS PLANTAS", "TWOJE ROŚLINY", "你的植物"),
+            "Ресурсы скрыты от соперников до финала" to arrayOf("Resources are hidden from rivals until the final", "Ressourcen bleiben bis zum Finale vor Rivalen verborgen", "Les ressources sont cachées aux rivaux jusqu'à la finale", "Los recursos se ocultan a los rivales hasta la final", "Le risorse sono nascoste agli avversari fino alla finale", "Os recursos ficam ocultos dos rivais até a final", "Zasoby są ukryte przed rywalami do finału", "资源在决赛前对对手隐藏"),
+            "СТАТЬ ИГРОКОМ" to arrayOf("BECOME A PLAYER", "SPIELER WERDEN", "DEVENIR JOUEUR", "CONVERTIRSE EN JUGADOR", "DIVENTA GIOCATORE", "TORNAR-SE JOGADOR", "ZOSTAŃ GRACZEM", "成为玩家"),
+            "В битве ещё есть места" to arrayOf("Places are still available", "Es sind noch Plätze frei", "Il reste des places", "Aún hay plazas disponibles", "Ci sono ancora posti disponibili", "Ainda há vagas disponíveis", "Są jeszcze wolne miejsca", "对战仍有空位"),
+            "Свободно мест: " to arrayOf("Places available: ", "Freie Plätze: ", "Places disponibles : ", "Plazas disponibles: ", "Posti disponibili: ", "Vagas disponíveis: ", "Wolne miejsca: ", "空位："),
+            "После участия вы получите собственный контейнер и сможете управлять его ресурсами." to arrayOf("After joining, you'll get your own container and control its resources.", "Nach der Teilnahme erhältst du einen eigenen Behälter und steuerst seine Ressourcen.", "Après votre inscription, vous aurez votre propre bac et pourrez gérer ses ressources.", "Al participar tendrás tu propio contenedor y podrás gestionar sus recursos.", "Dopo la partecipazione avrai il tuo contenitore e potrai gestirne le risorse.", "Ao participar, você terá seu próprio recipiente e poderá gerenciar seus recursos.", "Po dołączeniu otrzymasz własny pojemnik i będziesz zarządzać jego zasobami.", "加入后，你将获得自己的种植容器并管理其资源。"),
+            "ЗАНЯТЬ МЕСТО" to arrayOf("TAKE A PLACE", "PLATZ NEHMEN", "PRENDRE UNE PLACE", "OCUPAR PLAZA", "PRENDI UN POSTO", "OCUPAR VAGA", "ZAJMIJ MIEJSCE", "加入"),
+            "ВОЙТИ И УЧАСТВОВАТЬ" to arrayOf("SIGN IN AND JOIN", "ANMELDEN UND TEILNEHMEN", "SE CONNECTER ET PARTICIPER", "INICIAR SESIÓN Y PARTICIPAR", "ACCEDI E PARTECIPA", "ENTRAR E PARTICIPAR", "ZALOGUJ SIĘ I DOŁĄCZ", "登录并参加"),
+            "ПРОГНОЗ ЗРИТЕЛЕЙ" to arrayOf("SPECTATOR PREDICTION", "ZUSCHAUER-VORHERSAGE", "PRONOSTIC DES SPECTATEURS", "PREDICCIÓN DE ESPECTADORES", "PREVISIONE DEGLI SPETTATORI", "PREVISÃO DOS ESPECTADORES", "TYPOWANIE WIDZÓW", "观众预测"),
+            "Кто победит в этой битве?" to arrayOf("Who will win this battle?", "Wer gewinnt dieses Battle?", "Qui gagnera cette bataille ?", "¿Quién ganará esta batalla?", "Chi vincerà questa battaglia?", "Quem vencerá esta batalha?", "Kto wygra tę bitwę?", "谁会赢得这场对战？"),
+            "ТАЙМЛАПС" to arrayOf("TIMELAPSE", "ZEITRAFFER", "TIMELAPSE", "TIMELAPSE", "TIMELAPSE", "TIMELAPSE", "TIMELAPSE", "延时视频"),
+            "Рост, который не нужно ждать часами" to arrayOf("Growth without hours of waiting", "Wachstum ohne stundenlanges Warten", "La croissance sans des heures d'attente", "Crecimiento sin horas de espera", "Crescita senza ore di attesa", "Crescimento sem horas de espera", "Wzrost bez wielogodzinnego czekania", "无需等待数小时即可看见生长"),
+            "СОБЫТИЯ" to arrayOf("EVENTS", "EREIGNISSE", "ÉVÉNEMENTS", "EVENTOS", "EVENTI", "EVENTOS", "WYDARZENIA", "事件"),
+            "Что происходит прямо сейчас" to arrayOf("What's happening right now", "Was gerade passiert", "Ce qui se passe maintenant", "Qué está pasando ahora", "Cosa sta succedendo ora", "O que está acontecendo agora", "Co dzieje się teraz", "正在发生什么"),
+            " · полка " to arrayOf(" · rack ", " · Regal ", " · étagère ", " · estante ", " · scaffale ", " · prateleira ", " · regał ", " · 种植架 "),
+            "Фото полки" to arrayOf("Rack photo", "Regalfoto", "Photo de l'étagère", "Foto de la estantería", "Foto dello scaffale", "Foto da prateleira", "Zdjęcie regału", "种植架照片"),
+            "Основная" to arrayOf("Primary", "Primär", "Principale", "Principal", "Principale", "Principal", "Główna", "主摄像头"),
+            "  ★ ВЫ" to arrayOf("  ★ YOU", "  ★ DU", "  ★ VOUS", "  ★ TÚ", "  ★ TU", "  ★ VOCÊ", "  ★ TY", "  ★ 你"),
+            "🌱 Контейнер #" to arrayOf("🌱 Container #", "🌱 Behälter #", "🌱 Bac #", "🌱 Contenedor #", "🌱 Contenitore #", "🌱 Recipiente #", "🌱 Pojemnik #", "🌱 容器 #"),
+            "Вы принимаете решения" to arrayOf("You make the decisions", "Du triffst die Entscheidungen", "Vous prenez les décisions", "Tú tomas las decisiones", "Decidi tu", "Você toma as decisões", "To ty podejmujesz decyzje", "由你做决定"),
+            "💧 Вода" to arrayOf("💧 Water", "💧 Wasser", "💧 Eau", "💧 Agua", "💧 Acqua", "💧 Água", "💧 Woda", "💧 水"),
+            "мл" to arrayOf("ml", "ml", "ml", "ml", "ml", "ml", "ml", "毫升"),
+            "🧪 Питание" to arrayOf("🧪 Nutrients", "🧪 Nährstoffe", "🧪 Nutriments", "🧪 Nutrientes", "🧪 Nutrienti", "🧪 Nutrientes", "🧪 Pożywka", "🧪 营养液"),
+            "🌙 Без света" to arrayOf("🌙 Shade", "🌙 Schatten", "🌙 Ombre", "🌙 Sombra", "🌙 Ombra", "🌙 Sombra", "🌙 Bez światła", "🌙 遮光"),
+            "мин" to arrayOf("min", "Min.", "min", "min", "min", "min", "min", "分钟"),
+            "ВАШ ХОД" to arrayOf("YOUR MOVE", "DEIN ZUG", "À VOUS DE JOUER", "TU TURNO", "IL TUO TURNO", "SUA VEZ", "TWÓJ RUCH", "轮到你"),
+            "💧\nПолить" to arrayOf("💧\nWater", "💧\nGießen", "💧\nArroser", "💧\nRegar", "💧\nAnnaffia", "💧\nRegar", "💧\nPodlej", "💧\n浇水"),
+            "🧪\nПитание" to arrayOf("🧪\nNutrients", "🧪\nNährstoffe", "🧪\nNutriments", "🧪\nNutrientes", "🧪\nNutrienti", "🧪\nNutrientes", "🧪\nPożywka", "🧪\n营养"),
+            "🌙\nЗакрыть" to arrayOf("🌙\nShade", "🌙\nAbdecken", "🌙\nOmbrer", "🌙\nCubrir", "🌙\nCopri", "🌙\nCobrir", "🌙\nZaciemnij", "🌙\n遮光"),
+            "Контейнер #" to arrayOf("Container #", "Behälter #", "Bac #", "Contenedor #", "Contenitore #", "Recipiente #", "Pojemnik #", "容器 #"),
+            " голосов" to arrayOf(" votes", " Stimmen", " votes", " votos", " voti", " votos", " głosów", " 票"),
+            "Прогнозы уже закрыты" to arrayOf("Predictions are closed", "Vorhersagen sind geschlossen", "Les pronostics sont clos", "Las predicciones están cerradas", "Le previsioni sono chiuse", "As previsões estão encerradas", "Typowanie jest zamknięte", "预测已关闭"),
+            "Можно менять выбор до окончания битвы. Прогноз не влияет на растение." to arrayOf("You can change your choice until the battle ends. Predictions do not affect the plant.", "Du kannst deine Wahl bis zum Ende ändern. Die Vorhersage beeinflusst die Pflanze nicht.", "Vous pouvez changer votre choix jusqu'à la fin. Le pronostic n'affecte pas la plante.", "Puedes cambiar tu elección hasta el final. La predicción no afecta a la planta.", "Puoi cambiare scelta fino alla fine. La previsione non influisce sulla pianta.", "Você pode mudar sua escolha até o fim. A previsão não afeta a planta.", "Możesz zmienić wybór do końca bitwy. Typowanie nie wpływa na roślinę.", "你可以在对战结束前更改选择，预测不会影响植物。"),
+            "Таймлапс появится после посадки." to arrayOf("Timelapse will appear after planting.", "Der Zeitraffer erscheint nach der Pflanzung.", "Le timelapse apparaîtra après la plantation.", "El timelapse aparecerá después de plantar.", "Il timelapse apparirà dopo la semina.", "O timelapse aparecerá após o plantio.", "Timelapse pojawi się po posadzeniu.", "种植后会生成延时视频。"),
+            "🎬 24 ЧАСА" to arrayOf("🎬 24 HOURS", "🎬 24 STUNDEN", "🎬 24 HEURES", "🎬 24 HORAS", "🎬 24 ORE", "🎬 24 HORAS", "🎬 24 GODZINY", "🎬 24 小时"),
+            "🎞 3 ДНЯ" to arrayOf("🎞 3 DAYS", "🎞 3 TAGE", "🎞 3 JOURS", "🎞 3 DÍAS", "🎞 3 GIORNI", "🎞 3 DIAS", "🎞 3 DNI", "🎞 3 天"),
+            "Битва идёт" to arrayOf("Battle in progress", "Battle läuft", "Bataille en cours", "Batalla en curso", "Battaglia in corso", "Batalha em andamento", "Bitwa trwa", "对战进行中"),
+            "Зрители спорят о победителе" to arrayOf("Spectators are predicting the winner", "Zuschauer tippen auf den Gewinner", "Les spectateurs pronostiquent le gagnant", "Los espectadores predicen al ganador", "Gli spettatori prevedono il vincitore", "Os espectadores preveem o vencedor", "Widzowie typują zwycięzcę", "观众正在预测获胜者"),
+            " прогнозов" to arrayOf(" predictions", " Vorhersagen", " pronostics", " predicciones", " previsioni", " previsões", " typów", " 个预测"),
+            "Набор участников" to arrayOf("Recruiting players", "Teilnehmer gesucht", "Inscriptions ouvertes", "Inscripciones abiertas", "Iscrizioni aperte", "Inscrições abertas", "Nabór uczestników", "招募参与者"),
+            "Ваш ход · контейнер #" to arrayOf("Your move · container #", "Dein Zug · Behälter #", "À vous · bac #", "Tu turno · contenedor #", "Il tuo turno · contenitore #", "Sua vez · recipiente #", "Twój ruch · pojemnik #", "轮到你 · 容器 #"),
+            "Следующий ход за вами" to arrayOf("The next move is yours", "Der nächste Zug gehört dir", "Le prochain choix vous appartient", "El siguiente movimiento es tuyo", "La prossima mossa è tua", "A próxima jogada é sua", "Następny ruch należy do ciebie", "下一步由你决定"),
+            "Решите, стоит ли сейчас тратить ресурсы" to arrayOf("Decide whether to spend resources now", "Entscheide, ob du jetzt Ressourcen einsetzen willst", "Décidez s'il faut utiliser des ressources maintenant", "Decide si gastar recursos ahora", "Decidi se usare risorse adesso", "Decida se vale usar recursos agora", "Zdecyduj, czy teraz zużyć zasoby", "决定现在是否使用资源"),
+            "Сохраняем прогноз…" to arrayOf("Saving prediction…", "Vorhersage wird gespeichert…", "Enregistrement du pronostic…", "Guardando predicción…", "Salvataggio previsione…", "Salvando previsão…", "Zapisywanie prognozy…", "正在保存预测…"),
+            "+10 XP · прогноз сохранён" to arrayOf("+10 XP · prediction saved", "+10 XP · Vorhersage gespeichert", "+10 XP · pronostic enregistré", "+10 XP · predicción guardada", "+10 XP · previsione salvata", "+10 XP · previsão salva", "+10 XP · prognoza zapisana", "+10 XP · 预测已保存"),
+            "Для прогнозов нужно обновить Battle API на сервере" to arrayOf("Battle API must be updated on the server for predictions", "Für Vorhersagen muss die Battle API auf dem Server aktualisiert werden", "L'API Battle doit être mise à jour sur le serveur pour les pronostics", "Hay que actualizar la API Battle del servidor para las predicciones", "Per le previsioni va aggiornata la Battle API sul server", "A Battle API do servidor precisa ser atualizada para previsões", "Aby typować, trzeba zaktualizować Battle API na serwerze", "需要更新服务器 Battle API 才能进行预测"),
+            "минуты" to arrayOf("minutes", "Minuten", "minutes", "minutos", "minuti", "minutos", "minuty", "分钟"),
+            "💧 Полить растение" to arrayOf("💧 Water plant", "💧 Pflanze gießen", "💧 Arroser la plante", "💧 Regar planta", "💧 Annaffia pianta", "💧 Regar planta", "💧 Podlej roślinę", "💧 给植物浇水"),
+            "🧪 Добавить питание" to arrayOf("🧪 Add nutrients", "🧪 Nährstoffe hinzufügen", "🧪 Ajouter des nutriments", "🧪 Añadir nutrientes", "🧪 Aggiungi nutrienti", "🧪 Adicionar nutrientes", "🧪 Dodaj pożywkę", "🧪 添加营养液"),
+            "🌙 Закрыть от света" to arrayOf("🌙 Shade from light", "🌙 Vom Licht abschirmen", "🌙 Mettre à l'ombre", "🌙 Proteger de la luz", "🌙 Copri dalla luce", "🌙 Proteger da luz", "🌙 Zaciemnij", "🌙 遮光"),
+            "Это реальная команда. Ресурс будет списан из лимита растения." to arrayOf("This is a real command. The resource will be deducted from the plant's limit.", "Dies ist ein echter Befehl. Die Ressource wird vom Pflanzenlimit abgezogen.", "C'est une vraie commande. La ressource sera déduite de la limite de la plante.", "Es una orden real. El recurso se descontará del límite de la planta.", "È un comando reale. La risorsa verrà scalata dal limite della pianta.", "Este é um comando real. O recurso será descontado do limite da planta.", "To prawdziwe polecenie. Zasób zostanie odjęty od limitu rośliny.", "这是真实指令，资源将从植物配额中扣除。"),
+            "Отмена" to arrayOf("Cancel", "Abbrechen", "Annuler", "Cancelar", "Annulla", "Cancelar", "Anuluj", "取消"),
+            "Отправить" to arrayOf("Send", "Senden", "Envoyer", "Enviar", "Invia", "Enviar", "Wyślij", "发送"),
+            "Укажите количество" to arrayOf("Enter an amount", "Menge eingeben", "Indiquez une quantité", "Introduce una cantidad", "Inserisci una quantità", "Informe uma quantidade", "Podaj ilość", "请输入数量"),
+            "Передаём команду в теплицу…" to arrayOf("Sending command to greenhouse…", "Befehl wird ans Gewächshaus gesendet…", "Envoi de la commande à la serre…", "Enviando orden al invernadero…", "Invio comando alla serra…", "Enviando comando à estufa…", "Wysyłanie polecenia do szklarni…", "正在向温室发送指令…"),
+            "+15 XP · команда принята" to arrayOf("+15 XP · command accepted", "+15 XP · Befehl angenommen", "+15 XP · commande acceptée", "+15 XP · orden aceptada", "+15 XP · comando accettato", "+15 XP · comando aceito", "+15 XP · polecenie przyjęte", "+15 XP · 指令已接受"),
+            "Занять место в битве?" to arrayOf("Join this battle?", "An diesem Battle teilnehmen?", "Participer à cette bataille ?", "¿Unirse a esta batalla?", "Partecipare a questa battaglia?", "Participar desta batalha?", "Dołączyć do tej bitwy?", "加入这场对战？"),
+            "Будет использована стоимость участия в Kisa. После покупки место закрепится за вашим аккаунтом." to arrayOf("The entry price in Kisa will be charged. The place will then belong to your account.", "Der Teilnahmebetrag in Kisa wird abgebucht. Danach ist der Platz deinem Konto zugeordnet.", "Le prix d'entrée en Kisa sera débité. La place sera ensuite liée à votre compte.", "Se cobrará el precio de entrada en Kisa. La plaza quedará vinculada a tu cuenta.", "Verrà addebitato il prezzo in Kisa. Il posto sarà associato al tuo account.", "O preço em Kisa será cobrado. A vaga ficará vinculada à sua conta.", "Opłata w Kisa zostanie pobrana. Miejsce zostanie przypisane do twojego konta.", "将扣除 Kisa 参赛费用，之后名额会绑定到你的账号。"),
+            "Участвовать" to arrayOf("Join", "Teilnehmen", "Participer", "Participar", "Partecipa", "Participar", "Dołącz", "参加"),
+            "Бронируем растение…" to arrayOf("Reserving plant…", "Pflanze wird reserviert…", "Réservation de la plante…", "Reservando planta…", "Prenotazione pianta…", "Reservando planta…", "Rezerwowanie rośliny…", "正在预订植物…"),
+            "Не удалось открыть страницу" to arrayOf("Could not open page", "Seite konnte nicht geöffnet werden", "Impossible d'ouvrir la page", "No se pudo abrir la página", "Impossibile aprire la pagina", "Não foi possível abrir a página", "Nie udało się otworzyć strony", "无法打开页面"),
+            "Таймлапс пока не готов" to arrayOf("Timelapse is not ready yet", "Zeitraffer ist noch nicht bereit", "Le timelapse n'est pas encore prêt", "El timelapse aún no está listo", "Il timelapse non è ancora pronto", "O timelapse ainda não está pronto", "Timelapse nie jest jeszcze gotowy", "延时视频尚未准备好"),
+            "+5 XP · наблюдение засчитано" to arrayOf("+5 XP · viewing counted", "+5 XP · Beobachtung gewertet", "+5 XP · visionnage comptabilisé", "+5 XP · visualización registrada", "+5 XP · visualizzazione registrata", "+5 XP · visualização registrada", "+5 XP · oglądanie zaliczone", "+5 XP · 观看已计入"),
+            "Не удалось открыть видео" to arrayOf("Could not open video", "Video konnte nicht geöffnet werden", "Impossible d'ouvrir la vidéo", "No se pudo abrir el vídeo", "Impossibile aprire il video", "Não foi possível abrir o vídeo", "Nie udało się otworzyć filmu", "无法打开视频"),
+            "🎮 ВЫ В ИГРЕ" to arrayOf("🎮 YOU'RE IN", "🎮 DU BIST DABEI", "🎮 VOUS PARTICIPEZ", "🎮 ESTÁS DENTRO", "🎮 SEI IN GIOCO", "🎮 VOCÊ ESTÁ NO JOGO", "🎮 JESTEŚ W GRZE", "🎮 你已参赛"),
+            "ОТКРЫТЬ АРЕНУ" to arrayOf("OPEN ARENA", "ARENA ÖFFNEN", "OUVRIR L'ARÈNE", "ABRIR ARENA", "APRI ARENA", "ABRIR ARENA", "OTWÓRZ ARENĘ", "打开竞技场"),
+            "СМОТРЕТЬ LIVE" to arrayOf("WATCH LIVE", "LIVE ANSEHEN", "REGARDER EN DIRECT", "VER EN VIVO", "GUARDA LIVE", "VER AO VIVO", "OGLĄDAJ LIVE", "观看直播"),
+            " мест" to arrayOf(" places", " Plätze", " places", " plazas", " posti", " vagas", " miejsc", " 个名额"),
+            "Выполнено" to arrayOf("Done", "Erledigt", "Terminé", "Completado", "Completato", "Concluído", "Wykonano", "已完成"),
+            "Сегодня: " to arrayOf("Today: ", "Heute: ", "Aujourd'hui : ", "Hoy: ", "Oggi: ", "Hoje: ", "Dziś: ", "今天："),
+            " заданий" to arrayOf(" missions", " Aufgaben", " missions", " misiones", " missioni", " missões", " zadań", " 个任务"),
+            " мин" to arrayOf(" min", " Min.", " min", " min", " min", " min", " min", " 分钟"),
+            " мл" to arrayOf(" ml", " ml", " ml", " ml", " ml", " ml", " ml", " 毫升"),
+            "Полив " to arrayOf("Watering ", "Gießen ", "Arrosage ", "Riego ", "Irrigazione ", "Rega ", "Podlewanie ", "浇水 "),
+            "Полить" to arrayOf("Water", "Gießen", "Arroser", "Regar", "Annaffia", "Regar", "Podlej", "浇水"),
+            "Питание" to arrayOf("Nutrients", "Nährstoffe", "Nutriments", "Nutrientes", "Nutrienti", "Nutrientes", "Pożywka", "营养"),
+            "Закрыть" to arrayOf("Shade", "Abdecken", "Ombrer", "Cubrir", "Copri", "Cobrir", "Zaciemnij", "遮光"),
+            "Питание " to arrayOf("Nutrients ", "Nährstoffe ", "Nutriments ", "Nutrientes ", "Nutrienti ", "Nutrientes ", "Pożywka ", "营养 "),
+            "Без света " to arrayOf("Shade ", "Schatten ", "Ombre ", "Sombra ", "Ombra ", "Sombra ", "Bez światła ", "遮光 "),
+            "ожидает выполнения" to arrayOf("pending", "ausstehend", "en attente", "pendiente", "in attesa", "pendente", "oczekuje", "等待执行"),
+            "выполнено" to arrayOf("completed", "erledigt", "terminé", "completado", "completato", "concluído", "wykonano", "已完成"),
+            "отменено" to arrayOf("cancelled", "abgebrochen", "annulé", "cancelado", "annullato", "cancelado", "anulowano", "已取消"),
+            "Не удалось связаться с сервером" to arrayOf("Could not reach the server", "Server nicht erreichbar", "Impossible de joindre le serveur", "No se pudo conectar con el servidor", "Impossibile contattare il server", "Não foi possível conectar ao servidor", "Nie udało się połączyć z serwerem", "无法连接服务器"),
+            "Набор" to arrayOf("Open", "Offen", "Ouvert", "Abierta", "Aperta", "Aberta", "Nabór", "招募中"),
+            "Готово к посадке" to arrayOf("Ready to plant", "Bereit zum Pflanzen", "Prêt à planter", "Listo para plantar", "Pronto per la semina", "Pronto para plantar", "Gotowe do sadzenia", "准备种植"),
+            "Посадка" to arrayOf("Planting", "Pflanzung", "Plantation", "Plantación", "Semina", "Plantio", "Sadzenie", "种植中"),
+            "Финал" to arrayOf("Final", "Finale", "Finale", "Final", "Finale", "Final", "Finał", "决赛"),
+            "Завершено" to arrayOf("Finished", "Beendet", "Terminé", "Finalizada", "Terminata", "Finalizada", "Zakończono", "已结束"),
+            "день " to arrayOf("day ", "Tag ", "jour ", "día ", "giorno ", "dia ", "dzień ", "第 "),
+            "Версия " to arrayOf("Version ", "Version ", "Version ", "Versión ", "Versione ", "Versão ", "Wersja ", "版本 "),
+            "Версия ?" to arrayOf("Version ?", "Version ?", "Version ?", "Versión ?", "Versione ?", "Versão ?", "Wersja ?", "版本 ?"),
+            "ЯЗЫК" to arrayOf("LANGUAGE", "SPRACHE", "LANGUE", "IDIOMA", "LINGUA", "IDIOMA", "JĘZYK", "语言"),
+            "Язык приложения" to arrayOf("App language", "App-Sprache", "Langue de l'application", "Idioma de la aplicación", "Lingua dell'app", "Idioma do aplicativo", "Język aplikacji", "应用语言"),
+            "Выберите язык" to arrayOf("Choose language", "Sprache wählen", "Choisir la langue", "Elegir idioma", "Scegli lingua", "Escolher idioma", "Wybierz język", "选择语言"),
+            "Язык изменён" to arrayOf("Language changed", "Sprache geändert", "Langue modifiée", "Idioma cambiado", "Lingua cambiata", "Idioma alterado", "Język zmieniony", "语言已更改"),
+            "Зайти в теплицу" to arrayOf("Open the greenhouse", "Gewächshaus öffnen", "Ouvrir la serre", "Abrir el invernadero", "Apri la serra", "Abrir a estufa", "Otwórz szklarnię", "进入温室"),
+            "Сделать прогноз" to arrayOf("Make a prediction", "Vorhersage abgeben", "Faire un pronostic", "Hacer una predicción", "Fai una previsione", "Fazer uma previsão", "Wytypuj zwycięzcę", "进行预测"),
+            "Посмотреть таймлапс" to arrayOf("Watch a timelapse", "Zeitraffer ansehen", "Regarder un timelapse", "Ver un timelapse", "Guarda un timelapse", "Assistir a um timelapse", "Obejrzyj timelapse", "观看延时视频"),
+            "Отдать команду растению" to arrayOf("Send a plant command", "Pflanzenbefehl senden", "Envoyer une commande à la plante", "Enviar una orden a la planta", "Invia un comando alla pianta", "Enviar um comando à planta", "Wyślij polecenie roślinie", "向植物发送指令"),
+            "🌱 Первый рост" to arrayOf("🌱 First Growth", "🌱 Erstes Wachstum", "🌱 Première pousse", "🌱 Primer crecimiento", "🌱 Prima crescita", "🌱 Primeiro crescimento", "🌱 Pierwszy wzrost", "🌱 初次生长"),
+            "🎯 Аналитик" to arrayOf("🎯 Analyst", "🎯 Analyst", "🎯 Analyste", "🎯 Analista", "🎯 Analista", "🎯 Analista", "🎯 Analityk", "🎯 分析师"),
+            "🧠 Стратег" to arrayOf("🧠 Strategist", "🧠 Stratege", "🧠 Stratège", "🧠 Estratega", "🧠 Stratega", "🧠 Estrategista", "🧠 Strateg", "🧠 策略家"),
+            "🎬 Наблюдатель" to arrayOf("🎬 Observer", "🎬 Beobachter", "🎬 Observateur", "🎬 Observador", "🎬 Osservatore", "🎬 Observador", "🎬 Obserwator", "🎬 观察者"),
+            "🏅 Опытный садовод" to arrayOf("🏅 Experienced Gardener", "🏅 Erfahrener Gärtner", "🏅 Jardinier expérimenté", "🏅 Jardinero experimentado", "🏅 Giardiniere esperto", "🏅 Jardineiro experiente", "🏅 Doświadczony ogrodnik", "🏅 资深园丁"),
+            "🔥 Серия %d дней" to arrayOf("🔥 %d-day streak", "🔥 Serie: %d Tage", "🔥 Série de %d jours", "🔥 Racha de %d días", "🔥 Serie di %d giorni", "🔥 Sequência de %d dias", "🔥 Seria %d dni", "🔥 连续 %d 天")
+        )
+    }
+}

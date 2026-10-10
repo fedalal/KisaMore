@@ -59,6 +59,17 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
         canvas.translate((width - 24f * scale) / 2f, (height - 24f * scale) / 2f)
         canvas.scale(scale, scale)
         when (glyph) {
+            "home" -> {
+                val house = Path().apply {
+                    moveTo(3f, 10f); lineTo(12f, 3f); lineTo(21f, 10f); lineTo(21f, 20f)
+                    cubicTo(21f, 21.1f, 20.1f, 22f, 19f, 22f); lineTo(5f, 22f)
+                    cubicTo(3.9f, 22f, 3f, 21.1f, 3f, 20f); close()
+                }
+                canvas.drawPath(house, p)
+                canvas.drawLine(9f, 22f, 9f, 13f, p)
+                canvas.drawLine(9f, 13f, 15f, 13f, p)
+                canvas.drawLine(15f, 13f, 15f, 22f, p)
+            }
             "plant" -> {
                 val leaf = Path().apply {
                     moveTo(4f, 17f); cubicTo(4f, 8f, 13f, 4f, 21f, 3f)

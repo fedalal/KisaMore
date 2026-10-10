@@ -38,6 +38,9 @@ class MainActivity : Activity() {
     private lateinit var game: GameStore
     private lateinit var contentHost: FrameLayout
     private lateinit var navBar: LinearLayout
+    private var welcome: GuestHomeScreen? = null
+    private var growthClips: List<HomeClip> = emptyList()
+    private var pendingJoinBattleId: String? = null
 
     private var publicBattles: List<Battle> = emptyList()
     private var myBattles: List<Battle> = emptyList()
@@ -79,6 +82,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         handler.removeCallbacks(autoRefresh)
+        welcome?.release()
         super.onDestroy()
     }
 
@@ -135,8 +139,6 @@ class MainActivity : Activity() {
         navBar.setBackgroundColor(Color.parseColor(if (
             getSharedPreferences("battle_settings", MODE_PRIVATE).getBoolean("dark_mode", false)
         ) "#1B2A22" else "#FFFFFF"))
-        val english = getSharedPreferences("battle_settings", MODE_PRIVATE)
-            .getString("language", "ru") == "en"
         val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
             .getString("language", "ru") ?: "ru"
         val navLabels = mapOf(
@@ -150,8 +152,14 @@ class MainActivity : Activity() {
             "pt" to listOf("Minha planta", "Batalha", "Histórico", "Perfil"),
             "pl" to listOf("Moja roślina", "Bitwa", "Historia", "Profil")
         )[language] ?: listOf("My plant", "Battle", "History", "Profile")
+        val hasActiveBattle = activeMyBattle() != null
+        val firstLabel = if (hasActiveBattle) mapOf(
+            "ru" to "Моя битва", "en" to "My battle", "zh" to "我的对战",
+            "de" to "Mein Battle", "fr" to "Ma bataille", "es" to "Mi batalla",
+            "it" to "La mia sfida", "pt" to "Minha batalha", "pl" to "Moja bitwa"
+        )[language] ?: "My battle" else AppLanguage(this).t("Начало")
         val tabs = listOf(
-            Triple(navLabels[0], "plant", "plant"),
+            Triple(firstLabel, if (hasActiveBattle) "plant" else "home", "plant"),
             Triple(navLabels[1], "battle", "watch"),
             Triple(navLabels[2], "history", "history"),
             Triple(navLabels[3], "profile", "profile")
@@ -159,8 +167,10 @@ class MainActivity : Activity() {
         tabs.filter { it.third != "history" || api.hasSession() }
             .forEach { (label, icon, destination) ->
             val active = when (destination) {
-                "plant" -> currentScreen in listOf("no_battle", "login")
-                "watch" -> currentScreen in listOf("home", "watch", "battle")
+                "plant" -> currentScreen in listOf("home", "mine-empty", "no_battle") &&
+                    hasActiveBattle
+                "watch" -> currentScreen in listOf("watch", "battle")
+                "home" -> currentScreen == "home" && !hasActiveBattle
                 else -> currentScreen == destination
             }
             navBar.addView(BattleBottomTab(this, label, icon, active) {
@@ -168,9 +178,7 @@ class MainActivity : Activity() {
                 when (destination) {
                     "plant" -> {
                         val mine = activeMyBattle()
-                        if (mine == null) {
-                            if (api.hasSession()) showNoBattle() else showLogin()
-                        } else openBattle(mine)
+                        if (mine == null) showHome() else openBattle(mine)
                     }
                     "watch" -> showWatch()
                     "history" -> { currentScreen = "history"; showBattleHistory() }
@@ -281,15 +289,30 @@ class MainActivity : Activity() {
                         if (e.statusCode == 401) emptyList() else throw e
                     }
                 } else emptyList()
-                Pair(pub, mine)
+                val fallback = if (target == "home") {
+                    runCatching { api.publicGrowthClips(pub.firstOrNull()?.farmSlug ?: "demo-farm") }
+                        .getOrDefault(emptyList())
+                } else emptyList()
+                Triple(pub, mine, fallback)
             },
             success = {
                 publicBattles = it.first
                 myBattles = it.second
+                growthClips = it.third
                 when (target) {
                     "watch" -> showWatch()
                     "profile" -> showProfile()
-                    else -> showHome()
+                    else -> {
+                        showHome()
+                        val id = pendingJoinBattleId
+                        pendingJoinBattleId = null
+                        val battle = publicBattles.firstOrNull {
+                            it.id == id && it.status == "open" && it.remainingEntries > 0
+                        }
+                        if (battle != null && api.hasSession() && activeMyBattle() == null) {
+                            contentHost.post { confirmJoin(battle) }
+                        }
+                    }
                 }
             }
         )
@@ -298,6 +321,23 @@ class MainActivity : Activity() {
     private fun showHome() {
         currentScreen = "home"
         currentBattleId = null
+        if (activeMyBattle() == null) {
+            val guest = GuestHomeScreen(
+                this, api, AppLanguage(this), publicBattles, growthClips,
+                onJoin = { battle ->
+                    if (api.hasSession()) {
+                        confirmJoin(battle)
+                    } else {
+                        pendingJoinBattleId = battle.id
+                        showLogin()
+                    }
+                },
+                onWatch = { showWatch() }
+            )
+            welcome = guest
+            showContent(guest.create())
+            return
+        }
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
         body.addView(gameHeader("KISAMORE BATTLE", "Настоящее растение. Ваши решения."))
@@ -633,19 +673,7 @@ class MainActivity : Activity() {
     }
 
     private fun showNoBattle() {
-        currentScreen = "mine-empty"
-        val scroll = screenScroll()
-        val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("МОЯ БИТВА", "Активного растения пока нет"))
-        val c = card()
-        c.addView(bigText("Следующая битва ждёт 🌱"))
-        c.addView(smallText("Выберите открытую битву. После покупки места здесь появятся фото растения, ресурсы и кнопки управления."))
-        c.addView(primaryButton("ВЫБРАТЬ БИТВУ") {
-            currentScreen = "watch"
-            showWatch()
-        })
-        body.addView(cardWithMargin(c))
-        showContent(scroll)
+        showHome()
     }
 
     private fun openBattle(battle: Battle) {
@@ -1334,7 +1362,7 @@ class MainActivity : Activity() {
     }
 
     private fun activeMyBattle(): Battle? =
-        myBattles.firstOrNull { it.status != "finished" } ?: myBattles.firstOrNull()
+        myBattles.firstOrNull { it.status !in listOf("finished", "cancelled") }
 
     private fun replaceBattleInCaches(updated: Battle) {
         publicBattles = publicBattles.map { if (it.id == updated.id) updated else it }
@@ -1406,6 +1434,10 @@ class MainActivity : Activity() {
     }
 
     private fun showContent(view: View) {
+        if (view !== welcome?.rootView) {
+            welcome?.release()
+            welcome = null
+        }
         contentHost.removeAllViews()
         contentHost.addView(
             view,
@@ -1414,6 +1446,10 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
+        val dark = getSharedPreferences("battle_settings", MODE_PRIVATE).getBoolean("dark_mode", false)
+        window.decorView.systemUiVisibility = if (dark) 0 else
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        addNavigation()
     }
 
     private fun screenScroll(): ScrollView {
