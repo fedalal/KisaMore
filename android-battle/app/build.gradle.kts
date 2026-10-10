@@ -66,3 +66,21 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
 }
+
+// Fail closed: release artifacts are NEVER generated without the original
+// Google Play upload key. Debug builds and tests need no signing secrets.
+gradle.taskGraph.whenReady {
+    if (allTasks.any { it.path in setOf(":app:bundleRelease", ":app:assembleRelease") }) {
+        val required = listOf(
+            "KISAMORE_UPLOAD_STORE_FILE",
+            "KISAMORE_UPLOAD_STORE_PASSWORD",
+            "KISAMORE_UPLOAD_KEY_ALIAS",
+            "KISAMORE_UPLOAD_KEY_PASSWORD",
+        )
+        val missing = required.filter { System.getenv(it).isNullOrBlank() }
+        check(missing.isEmpty()) {
+            "Google Play release signing requires the original upload keystore: " +
+                missing.joinToString(", ")
+        }
+    }
+}

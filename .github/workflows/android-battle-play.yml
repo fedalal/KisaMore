@@ -62,14 +62,19 @@ jobs:
           echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/kisamore-upload-key.jks"
           keytool -list -keystore "$RUNNER_TEMP/kisamore-upload-key.jks"             -storepass "${{ secrets.KISAMORE_UPLOAD_STORE_PASSWORD }}"             -alias "${{ secrets.KISAMORE_UPLOAD_KEY_ALIAS }}" >/dev/null
 
-      - name: Print upload certificate fingerprint
+      - name: Verify original Google Play upload certificate fingerprint
         env:
           STORE_PASSWORD: ${{ secrets.KISAMORE_UPLOAD_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KISAMORE_UPLOAD_KEY_ALIAS }}
         shell: bash
         run: |
           set -euo pipefail
-          keytool -list -v -keystore "$RUNNER_TEMP/kisamore-upload-key.jks" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | grep "SHA256:" | head -1
+          expected_file=google-play/upload-certificate-sha256.txt
+          test -s "$expected_file" || (echo "Upload SHA-256 certificate pin missing. Copy the UPLOAD key certificate SHA-256 from Play Console / App integrity before publishing." && exit 1)
+          actual="$(keytool -list -v -keystore "$RUNNER_TEMP/kisamore-upload-key.jks" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1 | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
+          expected="$(tr -d '[:space:]:' < "$expected_file" | tr '[:lower:]' '[:upper:]')"
+          test -n "$actual" && test -n "$expected" && test "$actual" = "$expected" || (echo "Google Play UPLOAD certificate mismatch! Refusing to sign. Do not create a new key." && exit 1)
+          echo "Original Google Play upload certificate SHA-256 matches the pinned version."
 
       - name: Unit tests
         run: gradle -p android-battle testDebugUnitTest --stacktrace
