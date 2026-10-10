@@ -21,6 +21,7 @@ from .seed_inventory import SeedUnavailable, require_seed_available
 from .config import get_settings
 from .telegram.admin_models import EdgeOperatorCommand
 from .telegram.models import TelegramRentalRequest, TelegramUser, WalletAccount, WalletTransaction
+from .site_wallet import SiteWallet, locked_wallet, record_wallet_change
 
 
 router = APIRouter(prefix="/api/v1/admin/battles", tags=["admin-battles"])
@@ -46,6 +47,12 @@ class RejectActionIn(BaseModel):
 
 class WinnerIn(BaseModel):
     entry_id: str = Field(min_length=1, max_length=36)
+
+
+class SiteKisaCreditIn(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    amount: int = Field(ge=1, le=100_000)
+    reason: str = Field(min_length=3, max_length=500)
 
 
 class UpdateBattleIn(BaseModel):
@@ -226,6 +233,38 @@ async def admin_participant_avatar(
     return FileResponse(image, media_type=mime, headers={
         "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
     })
+
+
+@router.post("/site-kisa-credit")
+async def credit_site_kisa(
+    payload: SiteKisaCreditIn,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Manual, audited admin credit. No fake online payments or anonymous minting."""
+    email = payload.email.strip().lower()
+    user = (await session.execute(
+        select(User).where(func.lower(User.email) == email).with_for_update()
+    )).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Website user not found")
+    wallet, tg = await locked_wallet(session, user.id)
+    wallet.balance += payload.amount
+    record_wallet_change(
+        session, user_id=user.id, telegram_user=tg, wallet=wallet,
+        amount=payload.amount, kind="admin_gift", reference_type="site_admin",
+        reference_id=admin.id,
+        details={"reason": payload.reason, "admin_email": admin.email},
+    )
+    session.add(AdminAuditLog(
+        admin_user_id=admin.id, action="site_kisa_credit",
+        target_type="user", target_id=user.id,
+        details={"amount": payload.amount, "reason": payload.reason,
+                 "balance_after": wallet.balance, "telegram_linked": tg is not None},
+    ))
+    await session.commit()
+    return {"ok": True, "balance": wallet.balance,
+            "name": user.display_name, "email": user.email}
 
 
 @router.get("/options")
@@ -596,32 +635,17 @@ async def cancel_battle(
     )
     now = datetime.now(timezone.utc)
     for entry in entries:
-        wallet = (
-            await session.execute(
-                select(WalletAccount)
-                .where(WalletAccount.user_id == entry.telegram_user_id)
-                .with_for_update()
-            )
-        ).scalar_one_or_none()
-        if wallet is None:
-            wallet = WalletAccount(user_id=entry.telegram_user_id, balance=0)
-            session.add(wallet)
-            await session.flush()
+        await session.execute(select(User).where(User.id == entry.user_id).with_for_update())
+        wallet, tg_for_wallet = await locked_wallet(session, entry.user_id)
         wallet.balance += entry.price_kisa
-        session.add(
-            WalletTransaction(
-                user_id=entry.telegram_user_id,
-                amount=entry.price_kisa,
-                balance_after=wallet.balance,
-                kind="battle_refund",
-                reference_type="plant_battle_entry",
-                reference_id=entry.id,
-                details={"battle_id": battle.id, "reason": "battle_cancelled"},
-                created_at=now,
-            )
+        record_wallet_change(
+            session, user_id=entry.user_id, telegram_user=tg_for_wallet,
+            wallet=wallet, amount=entry.price_kisa, kind="battle_refund",
+            reference_type="plant_battle_entry", reference_id=entry.id,
+            details={"battle_id": battle.id, "reason": "battle_cancelled"},
         )
         entry.status = "refunded"
-        tg = await session.get(TelegramUser, entry.telegram_user_id)
+        tg = await session.get(TelegramUser, entry.telegram_user_id) if entry.telegram_user_id else None
         if tg is not None and tg.is_active:
             await queue_telegram_text(
                 session,
@@ -679,7 +703,7 @@ async def complete_action(
     action.status = "completed"
     action.completed_at = now
     action.completed_by_user_id = admin.id
-    tg = await session.get(TelegramUser, entry.telegram_user_id)
+    tg = await session.get(TelegramUser, entry.telegram_user_id) if entry.telegram_user_id else None
     if tg is not None and tg.is_active:
         lang_ru = (tg.language_code or "").lower().startswith("ru")
         labels = (
@@ -783,31 +807,16 @@ async def choose_winner(
     if entry is None:
         raise HTTPException(status_code=404, detail="Battle entry not found")
 
-    wallet = (
-        await session.execute(
-            select(WalletAccount)
-            .where(WalletAccount.user_id == entry.telegram_user_id)
-            .with_for_update()
-        )
-    ).scalar_one_or_none()
-    if wallet is None:
-        wallet = WalletAccount(user_id=entry.telegram_user_id, balance=0)
-        session.add(wallet)
-        await session.flush()
+    await session.execute(select(User).where(User.id == entry.user_id).with_for_update())
+    wallet, tg_for_wallet = await locked_wallet(session, entry.user_id)
     reward = max(0, battle.winner_reward_kisa)
     if reward:
         wallet.balance += reward
-        session.add(
-            WalletTransaction(
-                user_id=entry.telegram_user_id,
-                amount=reward,
-                balance_after=wallet.balance,
-                kind="battle_prize",
-                reference_type="plant_battle",
-                reference_id=battle.id,
-                details={"entry_id": entry.id, "badge": "Лучший садовод"},
-                created_at=datetime.now(timezone.utc),
-            )
+        record_wallet_change(
+            session, user_id=entry.user_id, telegram_user=tg_for_wallet,
+            wallet=wallet, amount=reward, kind="battle_prize",
+            reference_type="plant_battle", reference_id=battle.id,
+            details={"entry_id": entry.id, "badge": "Лучший садовод"},
         )
 
     now = datetime.now(timezone.utc)
@@ -832,7 +841,7 @@ async def choose_winner(
         if participant.telegram_user_id in notified:
             continue
         notified.add(participant.telegram_user_id)
-        tg = await session.get(TelegramUser, participant.telegram_user_id)
+        tg = await session.get(TelegramUser, participant.telegram_user_id) if participant.telegram_user_id else None
         if tg is None or not tg.is_active:
             continue
         certificate = (

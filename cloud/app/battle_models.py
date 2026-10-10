@@ -67,7 +67,7 @@ class PlantBattleEntry(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     battle_id: Mapped[str] = mapped_column(ForeignKey("plant_battles.id"), index=True, nullable=False)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
-    telegram_user_id: Mapped[int] = mapped_column(ForeignKey("telegram_users.id"), index=True, nullable=False)
+    telegram_user_id: Mapped[int | None] = mapped_column(ForeignKey("telegram_users.id"), index=True, nullable=True)
     slot_number: Mapped[int] = mapped_column(Integer, nullable=False)
     price_kisa: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="active", index=True, nullable=False)

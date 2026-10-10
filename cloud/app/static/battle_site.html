@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#08130f">
   <title>KisaMore Battle — Grow. Decide. Win.</title>
   <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
-  <link rel="stylesheet" href="/static/battle_site.css?v=20261010-4">
+  <link rel="stylesheet" href="/static/battle_site.css?v=20261010-5">
   <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/battle_site.js?v=20261010-1" defer></script>
+  <script src="/static/battle_site.js?v=20261010-5" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -27,6 +27,7 @@
         <option value="es">ES</option><option value="it">IT</option>
         <option value="pt">PT</option><option value="pl">PL</option><option value="zh">中文</option>
       </select>
+      <span id="walletBalance" class="wallet-balance" hidden></span>
       <button id="accountButton" class="button secondary" type="button">Sign in</button>
     </div>
   </header>
@@ -140,6 +141,7 @@
       <h2 id="joinTitle">Join battle</h2>
       <p id="joinMeta"></p>
       <div class="join-price"><span data-i18n="total">Price</span><strong id="joinTotal">Ⓚ 0</strong></div>
+      <div id="joinWalletBalance" class="join-wallet-balance"></div>
       <p id="joinError" class="error"></p>
       <button id="joinConfirm" class="button primary large" type="button" data-i18n="confirmEntry">Confirm entry</button>
     </div>

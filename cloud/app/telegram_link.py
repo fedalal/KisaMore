@@ -92,7 +92,8 @@ async def consume_telegram_link_token(
     if row is None or row.used_at is not None or (_aware(row.expires_at) or now) <= now:
         raise ValueError("link_expired")
 
-    website_user = await session.get(User, row.user_id)
+    # All wallet mutations lock the website user first.
+    website_user = await session.get(User, row.user_id, with_for_update=True)
     telegram_user = (
         await session.execute(
             select(TelegramUser)
@@ -139,6 +140,22 @@ async def consume_telegram_link_token(
                 .values(user_id=website_user.id)
             )
 
+    # Transfer the website-only Kisa balance into the existing Telegram wallet.
+    # The debit and credit ledgers are written in the same transaction.
+    from .site_wallet import combine_site_wallet_with_telegram
+    from .battle_models import PlantBattleEntry
+    await combine_site_wallet_with_telegram(
+        session, website_user=website_user, telegram_user=telegram_user
+    )
+    # New website-only entries get Telegram notifications after the link.
+    await session.execute(
+        update(PlantBattleEntry)
+        .where(
+            PlantBattleEntry.user_id == website_user.id,
+            PlantBattleEntry.telegram_user_id.is_(None),
+        )
+        .values(telegram_user_id=telegram_user.id)
+    )
     telegram_user.marketplace_user_id = website_user.id
     row.used_at = now
     await session.flush()

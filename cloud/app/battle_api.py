@@ -20,6 +20,7 @@ from .security import get_current_user, get_session
 from .config import get_settings
 from .telegram_link import create_telegram_link_token, linked_telegram_user
 from .telegram.models import TelegramUser, WalletAccount, WalletTransaction
+from .site_wallet import SiteWallet, SiteWalletTransaction, locked_wallet, record_wallet_change
 
 
 router = APIRouter(prefix="/api/v1", tags=["plant-battles"])
@@ -353,6 +354,43 @@ body{{margin:0;background:#edf5f0;color:#183c31;font-family:Arial,sans-serif}}
     )
 
 
+@router.get("/account/kisa-wallet")
+async def website_kisa_wallet(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """The Kisa balance available to the website, linked or standalone."""
+    tg = (await session.execute(
+        select(TelegramUser).where(TelegramUser.marketplace_user_id == user.id)
+    )).scalar_one_or_none()
+    if tg is not None:
+        wallet = (await session.execute(
+            select(WalletAccount).where(WalletAccount.user_id == tg.id)
+        )).scalar_one_or_none()
+        transactions = (await session.execute(
+            select(WalletTransaction)
+            .where(WalletTransaction.user_id == tg.id)
+            .order_by(WalletTransaction.id.desc()).limit(20)
+        )).scalars().all()
+    else:
+        wallet = await session.get(SiteWallet, user.id)
+        transactions = (await session.execute(
+            select(SiteWalletTransaction)
+            .where(SiteWalletTransaction.user_id == user.id)
+            .order_by(SiteWalletTransaction.id.desc()).limit(20)
+        )).scalars().all()
+    return {
+        "balance": int(wallet.balance) if wallet else 0,
+        "telegram_linked": tg is not None,
+        "currency": "Kisa",
+        "transactions": [{
+            "id": row.id, "amount": row.amount, "kind": row.kind,
+            "balance_after": row.balance_after, "created_at": row.created_at,
+        } for row in transactions],
+        "top_up_available": False,
+    }
+
+
 @router.get("/account/telegram-link/status")
 async def telegram_link_status(
     user: User = Depends(get_current_user),
@@ -598,27 +636,10 @@ async def join_battle(
             detail="You already own a plant in this battle",
         )
 
-    telegram_user = (
-        await session.execute(
-            select(TelegramUser)
-            .where(TelegramUser.marketplace_user_id == user.id)
-            .with_for_update()
-        )
-    ).scalar_one_or_none()
-    if telegram_user is None:
-        raise HTTPException(
-            status_code=409,
-            detail="Link your Telegram account to use Kisa and join the battle",
-        )
-    wallet = (
-        await session.execute(
-            select(WalletAccount)
-            .where(WalletAccount.user_id == telegram_user.id)
-            .with_for_update()
-        )
-    ).scalar_one_or_none()
-    if wallet is None:
-        raise HTTPException(status_code=409, detail="Kisa wallet is not available")
+    # Serialize website joins, balance changes and Telegram-link migration
+    # against the same site user row. Telegram is optional.
+    await session.execute(select(User).where(User.id == user.id).with_for_update())
+    wallet, telegram_user = await locked_wallet(session, user.id)
 
     active_entries = list(
         (
@@ -652,7 +673,7 @@ async def join_battle(
             id=str(uuid4()),
             battle_id=battle.id,
             user_id=user.id,
-            telegram_user_id=telegram_user.id,
+            telegram_user_id=telegram_user.id if telegram_user else None,
             slot_number=slot_number,
             price_kisa=battle.entry_price_kisa,
             status="active",
@@ -662,21 +683,15 @@ async def join_battle(
         created.append(entry)
 
     wallet.balance -= total
-    session.add(
-        WalletTransaction(
-            user_id=telegram_user.id,
-            amount=-total,
-            balance_after=wallet.balance,
-            kind="battle_entry",
-            reference_type="plant_battle",
-            reference_id=battle.id,
-            details={
-                "quantity": payload.quantity,
-                "price_each": battle.entry_price_kisa,
-                "slots": [entry.slot_number for entry in created],
-            },
-            created_at=now,
-        )
+    record_wallet_change(
+        session, user_id=user.id, telegram_user=telegram_user, wallet=wallet,
+        amount=-total, kind="battle_entry", reference_type="plant_battle",
+        reference_id=battle.id,
+        details={
+            "quantity": payload.quantity,
+            "price_each": battle.entry_price_kisa,
+            "slots": [entry.slot_number for entry in created],
+        },
     )
 
     if len(active_entries) + len(created) == battle.max_entries:
@@ -689,7 +704,7 @@ async def join_battle(
             if entry.telegram_user_id in notified:
                 continue
             notified.add(entry.telegram_user_id)
-            tg = await session.get(TelegramUser, entry.telegram_user_id)
+            tg = await session.get(TelegramUser, entry.telegram_user_id) if entry.telegram_user_id else None
             if tg is not None and tg.is_active:
                 await queue_telegram_text(
                     session,

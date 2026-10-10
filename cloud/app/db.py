@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from .config import get_settings
 from .models import Base
+from .site_wallet import SiteWallet, SiteWalletTransaction  # noqa: F401 - website Kisa wallets
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry  # noqa: F401 - register battle tables
 from .telegram_link import WebsiteTelegramLinkToken  # noqa: F401 - register website/Telegram linking table
 from . import site_analytics_models  # noqa: F401 - register analytics tables
@@ -165,6 +166,10 @@ def _ensure_battle_columns(connection) -> None:
     # constraint. That constraint also reserves refunded slots forever. First
     # create the partial unique index, then remove the old constraint.
     if connection.dialect.name == "postgresql":
+        # Old entries are Telegram-backed. New website-only entries have NULL here.
+        connection.exec_driver_sql(
+            "ALTER TABLE plant_battle_entries ALTER COLUMN telegram_user_id DROP NOT NULL"
+        )
         connection.exec_driver_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_plant_battle_occupied_slot "
             "ON plant_battle_entries (battle_id, slot_number) "

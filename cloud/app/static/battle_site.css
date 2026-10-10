@@ -12,3 +12,7 @@
 .rack-overlay .rack-slot.selected {
   background: rgba(121, 255, 154, 0.08);
 }
+
+.wallet-balance{color:var(--green);font-weight:900;white-space:nowrap;padding:7px 10px;border:1px solid rgba(121,255,154,.25);border-radius:12px}
+.join-wallet-balance{color:var(--muted);font-size:14px;margin-top:-12px;margin-bottom:14px}
+.join-wallet-balance.is-short{color:#ffb7a8}

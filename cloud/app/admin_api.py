@@ -16,6 +16,7 @@ from .config import get_settings
 from .models import Allocation, Plant, Planting, RackPhoto, RackSlot, User
 from .security import get_admin_user, get_session
 from .telegram.models import SocialComment, TelegramRentalRequest, TelegramUser, WalletAccount, WalletTransaction
+from .site_wallet import SiteWallet
 from .telegram.plant_sos import TelegramPlantSosReport
 from .timelapse_service import generate_slot_timelapse, planting_timelapse_path
 
@@ -68,7 +69,9 @@ async def overview(
     session: AsyncSession = Depends(get_session),
 ):
     telegram_users = int((await session.execute(select(func.count(TelegramUser.id)))).scalar_one() or 0)
-    total_kisa = int((await session.execute(select(func.coalesce(func.sum(WalletAccount.balance), 0)))).scalar_one() or 0)
+    telegram_kisa = int((await session.execute(select(func.coalesce(func.sum(WalletAccount.balance), 0)))).scalar_one() or 0)
+    website_kisa = int((await session.execute(select(func.coalesce(func.sum(SiteWallet.balance), 0)))).scalar_one() or 0)
+    total_kisa = telegram_kisa + website_kisa
     active_plantings = int((await session.execute(select(func.count(Planting.id)).where(Planting.status.in_(ACTIVE_PLANTING_STATUSES)))).scalar_one() or 0)
     comments = int((await session.execute(select(func.count(SocialComment.id)).where(SocialComment.status == "published"))).scalar_one() or 0)
     rental_requests = int((await session.execute(select(func.count(TelegramRentalRequest.id)).where(TelegramRentalRequest.status == "requested"))).scalar_one() or 0)

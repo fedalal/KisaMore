@@ -163,6 +163,20 @@
       </section>
 
       <section id="section-battles" class="section">
+        <div class="panel" style="margin-bottom:18px">
+          <div class="panel-head">
+            <div><h2>Кошелёк сайта · Kisa</h2>
+              <p>Ручное зачисление средств зарегистрированному пользователю. Каждое начисление записывается в журнал аудита. Онлайн-эквайринг будет подключён отдельно.</p>
+            </div>
+          </div>
+          <form id="siteKisaCreditForm" class="battle-create-grid">
+            <label class="wide">Email пользователя<input id="siteKisaEmail" type="email" autocomplete="off" required></label>
+            <label>Количество Kisa<input id="siteKisaAmount" type="number" min="1" max="100000" value="20" required></label>
+            <label class="wide">Основание зачисления<input id="siteKisaReason" maxlength="500" minlength="3" placeholder="Например: ручная оплата по счёту №..." required></label>
+            <div style="display:flex;align-items:end"><button class="primary" type="submit">Зачислить Kisa</button></div>
+          </form>
+          <p id="siteKisaCreditMessage" role="status" style="margin:12px 0 0"></p>
+        </div>
         <div class="panel">
           <div class="panel-head">
             <div><h2>Создать Битву растений</h2><p>Выберите целую свободную полку. Все 6 контейнеров будут зарезервированы для соревнования и исключены из обычной аренды.</p></div>
@@ -359,7 +373,7 @@
 
   <div id="toast" class="toast"></div>
   <script src="/static/admin.js?v=20261008-2" defer></script>
-  <script src="/static/admin_battles.js?v=20261010-3" defer></script>
+  <script src="/static/admin_battles.js?v=20261010-6" defer></script>
   <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
   <script src="/static/admin_seeds.js?v=20260910-1" defer></script>
