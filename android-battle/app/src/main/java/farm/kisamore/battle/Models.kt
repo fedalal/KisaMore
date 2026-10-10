@@ -66,8 +66,14 @@ data class Battle(
     val finishedAt: String? = null,
     val plantId: String? = null,
     val farmSlug: String? = null,
-    val startDate: String? = null
+    val startDate: String? = null,
+    // Keep translations from the API. The language may change after battles
+    // were downloaded, so the displayed name is resolved when drawing.
+    val plantNames: Map<String, String> = emptyMap()
 ) {
+    fun localizedPlantName(languageCode: String): String =
+        PlantNameResolver.resolve(plantNames, languageCode, plantName)
+
     val mine: BattleEntry?
         get() = entries.firstOrNull { it.isMine }
 }

@@ -104,7 +104,7 @@ internal class BattleHistoryScreen(
                     orientation = LinearLayout.VERTICAL
                     setPadding(dp(14), 0, dp(4), 0)
                 }
-                column.addView(label(battle.plantName, 16f, true))
+                column.addView(label(battle.localizedPlantName(AppLanguage(host).code), 16f, true))
                 column.addView(label(if (entry.isWinner) "Победа" else "Участие", 13f, true).apply {
                     setTextColor(green)
                 })

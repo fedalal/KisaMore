@@ -23,6 +23,45 @@ class PlantNameResolverTest {
         assertEquals("Default", PlantNameResolver.resolve(null, "ru", "Default"))
     }
 
+    @Test fun upcomingBattleUsesSelectedLanguageEvenAfterInitialDownload() {
+        // Live API response is English by default but includes localized
+        // plant_names. The UI must not depend on the language at fetch time.
+        val names = PlantNameResolver.translations(JSONObject(
+            """{"en":"Arugula","ru":"Руккола","zh":"芝麻菜","de":"Rucola","fr":"Roquette"}"""
+        ))
+        val battle = Battle(
+            id = "battle1", title = "Upcoming", status = "open", rackId = 1,
+            plantName = "Arugula", plantNames = names, growDays = 8,
+            rackPhotoUrl = null,
+            waterBudgetMl = 1000, nutrientBudgetMl = 200, shadeBudgetMinutes = 500,
+            winnerRewardKisa = 20, plantedAt = null, createdAt = null,
+            entriesCount = 1, maxEntries = 6, remainingEntries = 5,
+            entries = emptyList(), predictionTotal = 0, predictionCounts = emptyMap(),
+            myPredictionEntryId = null
+        )
+        val ctx = RuntimeEnvironment.getApplication()
+        val settings = ctx.getSharedPreferences("battle_settings", 0)
+        settings.edit().putString("language", "ru").commit()
+        assertEquals("Руккола", battle.localizedPlantName(AppLanguage(ctx).code))
+        settings.edit().putString("language", "en").commit()
+        assertEquals("Arugula", battle.localizedPlantName(AppLanguage(ctx).code))
+        settings.edit().putString("language", "zh").commit()
+        assertEquals("芝麻菜", battle.localizedPlantName(AppLanguage(ctx).code))
+        settings.edit().putString("language", "de").commit()
+        assertEquals("Rucola", battle.localizedPlantName(AppLanguage(ctx).code))
+        settings.edit().putString("language", "fr").commit()
+        assertEquals("Roquette", battle.localizedPlantName(AppLanguage(ctx).code))
+    }
+
+    @Test fun missingLocaleFallsBackToEnglishName() {
+        val translations = PlantNameResolver.translations(JSONObject(
+            """{"en":"Radish","ru":"Редис"}"""
+        ))
+        assertEquals("Radish", PlantNameResolver.resolve(translations, "it", "Plant"))
+        assertEquals("Редис", PlantNameResolver.resolve(translations, "ru-RU", "Plant"))
+        assertEquals("Radish", PlantNameResolver.resolve(emptyMap(), "ru", "Radish"))
+    }
+
     @Test fun authLabelsRespectSelectedEnglishLanguage() {
         val ctx = RuntimeEnvironment.getApplication()
         ctx.getSharedPreferences("battle_settings", 0).edit()

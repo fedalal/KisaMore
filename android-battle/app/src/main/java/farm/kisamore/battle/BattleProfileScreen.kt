@@ -240,7 +240,7 @@ class BattleProfileScreen(
             setPadding(dp(11), 0, dp(5), 0)
         }
         info.addView(text(tr("Мои растения", "My plants"), if (shortScreen) 16f else 18f, ink, true, true))
-        info.addView(text(battle?.plantName ?: tr("Пока нет растения", "No plant yet"), 13f, secondary, single = true))
+        info.addView(text(battle?.localizedPlantName(languageCode) ?: tr("Пока нет растения", "No plant yet"), 13f, secondary, single = true))
         info.addView(text(
             if (battle == null) tr("Выбрать битву", "Choose a battle") else
                 if (battle.status == "growing") tr("Растёт", "Growing") else tr("Участие в битве", "Participating"),
@@ -302,7 +302,7 @@ class BattleProfileScreen(
                 }
                 row.addView(text("✿", 16f, olive), LayoutParams(dp(24), -2))
                 val copy = column()
-                copy.addView(text(battle.plantName, 13f, ink, true, true))
+                copy.addView(text(battle.localizedPlantName(languageCode), 13f, ink, true, true))
                 copy.addView(text("Завершена", 10f, secondary))
                 row.addView(copy, LayoutParams(0, -2, 1f))
                 row.addView(text("›", 17f, secondary))

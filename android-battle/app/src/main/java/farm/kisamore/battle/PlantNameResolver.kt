@@ -2,14 +2,27 @@ package farm.kisamore.battle
 
 import org.json.JSONObject
 
-/** Resolve server-provided multilingual crop names in the selected app language. */
+/** Select the plant translation from the user's current application language. */
 internal object PlantNameResolver {
-    fun resolve(names: JSONObject?, language: String, fallback: String): String {
-        if (names == null) return fallback
-        for (code in listOf(language, "en", "ru")) {
-            val value = names.optString(code).trim()
-            if (value.isNotBlank()) return value
+    fun translations(names: JSONObject?): Map<String, String> {
+        if (names == null) return emptyMap()
+        return buildMap {
+            val keys = names.keys()
+            while (keys.hasNext()) {
+                val code = keys.next()
+                val value = names.optString(code).trim()
+                if (value.isNotEmpty() && value != "null") put(code.lowercase(), value)
+            }
         }
-        return fallback
+    }
+
+    fun resolve(names: JSONObject?, language: String, fallback: String): String =
+        resolve(translations(names), language, fallback)
+
+    fun resolve(names: Map<String, String>, language: String, fallback: String): String {
+        val selected = language.lowercase().substringBefore('-')
+        return sequenceOf(selected, "en", "ru")
+            .mapNotNull { names[it]?.trim()?.takeIf { it.isNotEmpty() } }
+            .firstOrNull() ?: fallback
     }
 }

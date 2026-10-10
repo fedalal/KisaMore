@@ -895,7 +895,7 @@ class MainActivity : Activity() {
         }
         textBlock.addView(labelText("● LIVE BATTLE", green))
         textBlock.addView(bigText(battle.title, 27f))
-        textBlock.addView(smallText(battle.plantName + " · полка " + battle.rackId + " · " + dayLabel(battle)))
+        textBlock.addView(smallText(battle.localizedPlantName(AppLanguage(this).code) + " · полка " + battle.rackId + " · " + dayLabel(battle)))
         row.addView(textBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(statusPill(battle.status))
         box.addView(row)
@@ -1099,7 +1099,7 @@ class MainActivity : Activity() {
 
     private fun eventFeed(battle: Battle): View {
         val c = card()
-        c.addView(eventLine("🌿", "Битва идёт", battle.plantName + " · " + dayLabel(battle)))
+        c.addView(eventLine("🌿", "Битва идёт", battle.localizedPlantName(AppLanguage(this).code) + " · " + dayLabel(battle)))
         if (battle.predictionTotal > 0) {
             c.addView(eventLine("🎯", "Зрители спорят о победителе", battle.predictionTotal.toString() + " прогнозов"))
         }
@@ -1251,7 +1251,7 @@ class MainActivity : Activity() {
         val c = card()
         c.addView(labelText(if (mine) "🎮 ВЫ В ИГРЕ" else "● LIVE", if (mine) gold else green))
         c.addView(bigText(battle.title, 21f))
-        c.addView(smallText(battle.plantName + " · " + dayLabel(battle)))
+        c.addView(smallText(battle.localizedPlantName(AppLanguage(this).code) + " · " + dayLabel(battle)))
         c.addView(space(8))
         c.addView(statStrip(
             battle.entriesCount.toString() + "/" + battle.maxEntries,
@@ -1280,7 +1280,7 @@ class MainActivity : Activity() {
             setPadding(dp(10), 0, dp(8), 0)
         }
         names.addView(bigText(battle.title, 18f))
-        names.addView(smallText(battle.plantName + " · полка " + battle.rackId))
+        names.addView(smallText(battle.localizedPlantName(AppLanguage(this).code) + " · полка " + battle.rackId))
         top.addView(names, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(statusPill(battle.status))
         c.addView(top)

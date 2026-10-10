@@ -365,15 +365,16 @@ class ApiClient(context: Context) {
             }
         }
 
+        val plantNames = PlantNameResolver.translations(obj.optJSONObject("plant_names"))
         return Battle(
             id = obj.optString("id"),
             title = obj.optString("title", "Plant Battle"),
             status = obj.optString("status"),
             rackId = obj.optInt("rack_id"),
             plantName = PlantNameResolver.resolve(
-                obj.optJSONObject("plant_names"), language.code,
-                obj.optString("plant_name", "Plant")
+                plantNames, language.code, obj.optString("plant_name", "Plant")
             ),
+            plantNames = plantNames,
             growDays = obj.optInt("grow_days"),
             rackPhotoUrl = obj.nullableString("rack_photo_url"),
             cameraViews = cameras,

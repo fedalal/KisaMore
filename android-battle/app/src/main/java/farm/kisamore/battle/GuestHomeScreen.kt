@@ -229,7 +229,9 @@ class GuestHomeScreen(
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), 0, 0, 0)
         }
-        detail.addView(text(upcoming.plantName, 18f, ink, true).apply {
+        // Resolve at render time, not while fetching. The server's default
+        // plant_name is English; plant_names contains all translations.
+        detail.addView(text(upcoming.localizedPlantName(language.code), 18f, ink, true).apply {
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         })
