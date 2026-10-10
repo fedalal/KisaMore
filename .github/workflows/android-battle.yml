@@ -51,6 +51,18 @@ jobs:
       - name: Build debug APK
         run: gradle -p android-battle assembleDebug --stacktrace
 
+      - name: Build unsigned release AAB for offline signing
+        env:
+          KISAMORE_BUILD_UNSIGNED_BUNDLE_FOR_OFFLINE_SIGNING: "true"
+        run: gradle -p android-battle bundleRelease --stacktrace
+
+      - name: Upload unsigned AAB - NOT publishable until signed
+        uses: actions/upload-artifact@v4
+        with:
+          name: kisamore-battle-unsigned-for-offline-signing
+          path: android-battle/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:

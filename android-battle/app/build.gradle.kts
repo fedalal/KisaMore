@@ -70,7 +70,12 @@ dependencies {
 // Fail closed: release artifacts are NEVER generated without the original
 // Google Play upload key. Debug builds and tests need no signing secrets.
 gradle.taskGraph.whenReady {
-    if (allTasks.any { it.path in setOf(":app:bundleRelease", ":app:assembleRelease") }) {
+    // Only this explicitly opted-in CI task may produce an UNSIGNED AAB
+    // for manual signing. Play release requires the permanent upload key.
+    val offlineUnsigned = System.getenv("KISAMORE_BUILD_UNSIGNED_BUNDLE_FOR_OFFLINE_SIGNING") == "true"
+    if (!offlineUnsigned && allTasks.any {
+        it.path in setOf(":app:bundleRelease", ":app:assembleRelease")
+    }) {
         val required = listOf(
             "KISAMORE_UPLOAD_STORE_FILE",
             "KISAMORE_UPLOAD_STORE_PASSWORD",

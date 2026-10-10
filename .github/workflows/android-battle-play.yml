@@ -62,7 +62,7 @@ jobs:
           echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/kisamore-upload-key.jks"
           keytool -list -keystore "$RUNNER_TEMP/kisamore-upload-key.jks"             -storepass "${{ secrets.KISAMORE_UPLOAD_STORE_PASSWORD }}"             -alias "${{ secrets.KISAMORE_UPLOAD_KEY_ALIAS }}" >/dev/null
 
-      - name: Verify original Google Play upload certificate fingerprint
+      - name: Verify pinned Google Play upload certificate fingerprint
         env:
           STORE_PASSWORD: ${{ secrets.KISAMORE_UPLOAD_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KISAMORE_UPLOAD_KEY_ALIAS }}
@@ -74,7 +74,7 @@ jobs:
           actual="$(keytool -list -v -keystore "$RUNNER_TEMP/kisamore-upload-key.jks" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1 | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
           expected="$(tr -d '[:space:]:' < "$expected_file" | tr '[:lower:]' '[:upper:]')"
           test -n "$actual" && test -n "$expected" && test "$actual" = "$expected" || (echo "Google Play UPLOAD certificate mismatch! Refusing to sign. Do not create a new key." && exit 1)
-          echo "Original Google Play upload certificate SHA-256 matches the pinned version."
+          echo "Pinned Google Play upload certificate SHA-256 matches the permanent key."
 
       - name: Unit tests
         run: gradle -p android-battle testDebugUnitTest --stacktrace
@@ -95,7 +95,7 @@ jobs:
           test -s "$aab"
           jarsigner -verify -verbose -certs "$aab" > "$RUNNER_TEMP/aab-verification.log"
           grep -Fq "jar verified." "$RUNNER_TEMP/aab-verification.log"
-          echo "Verified signed AAB with original Google Play upload key."
+          echo "Verified signed AAB with pinned Google Play upload key."
 
       - name: Remove temporary signing key
         if: always()
