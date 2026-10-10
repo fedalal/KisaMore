@@ -1126,3 +1126,10 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
     transition-duration: .01ms !important;
   }
 }
+
+
+.account-kisa-wallet{display:flex;flex-direction:column;gap:6px;margin-top:18px;padding:15px;border-radius:14px;border:1px solid #cbe8d4;background:#effaf2}
+.account-kisa-wallet span{font-size:12px;color:#426b4c;font-weight:650}
+.account-kisa-wallet strong{font-size:29px;color:#155e34;font-variant-numeric:tabular-nums}
+.account-kisa-wallet a{color:#167443;font-size:13px;font-weight:750;text-decoration:none}
+.account-kisa-wallet a:hover{text-decoration:underline}

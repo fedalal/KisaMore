@@ -1017,13 +1017,38 @@
     email.textContent = user.email;
 
     profile.append(emailLabel, email);
+    const wallet = document.createElement("section");
+    wallet.className = "account-kisa-wallet";
+    wallet.id = "accountKisaWallet";
+    const balance = document.createElement("strong");
+    balance.textContent = "Ⓚ —";
+    const title = document.createElement("span");
+    title.textContent = language === "ru" ? "Баланс Kisa" : "Kisa balance";
+    const battleLink = document.createElement("a");
+    battleLink.href = "/battle";
+    battleLink.textContent = language === "ru" ? "Участвовать в битве →" : "Join a plant battle →";
+    wallet.append(title, balance, battleLink);
+    profile.append(wallet);
     $("#accountContent").replaceChildren(profile);
+  }
+
+  async function updateAccountWallet() {
+    const container = $("#accountKisaWallet");
+    if (!container || !user) return;
+    try {
+      const wallet = await api("/api/v1/account/kisa-wallet");
+      if (!container.isConnected || !user) return;
+      container.querySelector("strong").textContent = "Ⓚ " + wallet.balance;
+    } catch (error) {
+      console.error("Kisa balance unavailable", error);
+    }
   }
 
   function openAccount() {
     if (!user) { openAuth(); return; }
     renderAccount();
     $("#accountDialog").showModal();
+    updateAccountWallet();
   }
 
   async function releaseAllocation(id) {
