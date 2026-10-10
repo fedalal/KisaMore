@@ -4,7 +4,10 @@ data class BattleCamera(
     val cameraId: String,
     val isPrimary: Boolean,
     val photoUrl: String?,
-    val capturedAt: String?
+    val capturedAt: String?,
+    val timelapse24hUrl: String? = null,
+    val timelapse3dUrl: String? = null,
+    val timelapseFullUrl: String? = null
 )
 
 data class BattleAction(
