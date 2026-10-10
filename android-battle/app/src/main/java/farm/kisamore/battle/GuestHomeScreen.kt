@@ -47,7 +47,7 @@ class GuestHomeScreen(
 
     fun create(): View {
         val scroll = ScrollView(activity).apply {
-            setBackgroundColor(background)
+            setBackgroundColor(this@GuestHomeScreen.background)
             isFillViewport = true
             clipToPadding = false
             isVerticalScrollBarEnabled = false
@@ -56,7 +56,7 @@ class GuestHomeScreen(
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(9), dp(16), dp(14))
         }
-        scroll.addView(column, ScrollView.LayoutParams(-1, -2))
+        scroll.addView(column, FrameLayout.LayoutParams(-1, -2))
 
         val brand = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
