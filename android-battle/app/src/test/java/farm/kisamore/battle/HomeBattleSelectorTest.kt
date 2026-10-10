@@ -11,7 +11,7 @@ class HomeBattleSelectorTest {
         id: String = "1",
         free: Int = 3,
         start: String? = null,
-        cameras: List<CameraView> = emptyList(),
+        cameras: List<BattleCamera> = emptyList(),
         entries: List<BattleEntry> = emptyList()
     ) = Battle(
         id = id, title = "Battle", status = status, rackId = 1,
@@ -29,7 +29,7 @@ class HomeBattleSelectorTest {
         resourcesVisible = true, waterUsedMl = 0, nutrientUsedMl = 0,
         shadeUsedMinutes = 0, actions = emptyList(),
         timelapse24hUrl = recent, timelapse3dUrl = null, certificateUrl = null,
-        timelapseFullUrl = full
+        timelapseFullUrl = full, photoUrl = null
     )
 
     @Test fun nextBattleSkipsFullAndGrowing() {
