@@ -679,7 +679,10 @@ class MainActivity : Activity() {
             },
             success = {
                 replaceBattleInCaches(it)
-                if (currentScreen == "battle" && currentBattleId == id) renderBattle(it)
+                if (currentScreen == "battle" && currentBattleId == id) {
+                    val arena = contentHost.getChildAt(0) as? BattleArenaScreen
+                    if (arena?.isPlayingVideo() != true) renderBattle(it)
+                }
             },
             failure = {
                 if (!silent) showError(it)
@@ -709,7 +712,7 @@ class MainActivity : Activity() {
             },
             onPeriod = { days -> selectedActivityPeriod[battle.id] = days },
             onCommand = { entry, kind -> amountDialog(battle, entry, kind) },
-            onVideo = { path -> showArenaTimelapse(path) },
+            onPhoto = { url -> showFullRackPhoto(url) },
             onJournal = { actions -> showActionJournal(actions) },
             onPredict = { entry ->
                 if (api.hasSession()) sendPrediction(battle, entry) else showLogin()
@@ -720,6 +723,42 @@ class MainActivity : Activity() {
         )
         showContent(screen)
         addNavigation()
+    }
+
+    private fun showFullRackPhoto(path: String?) {
+        val url = api.absolute(path)
+        if (url.isNullOrBlank()) {
+            toast("Фото ещё не получено")
+            return
+        }
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val frame = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+        }
+        val image = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "Нажмите, чтобы закрыть крупное фото"
+            PhotoFrameCache.current(url)?.let { setImageBitmap(it) }
+            setOnClickListener { dialog.dismiss() }
+        }
+        frame.addView(image, FrameLayout.LayoutParams(-1, -1))
+        val close = TextView(this).apply {
+            text = "✕"
+            setTextColor(Color.WHITE)
+            textSize = 24f
+            gravity = Gravity.CENTER
+            setOnClickListener { dialog.dismiss() }
+        }
+        frame.addView(close, FrameLayout.LayoutParams(dp(50), dp(50),
+            Gravity.TOP or Gravity.END))
+        dialog.setContentView(frame)
+        dialog.show()
+        async(work = { api.loadBitmap(url) }, success = { bitmap ->
+            if (bitmap != null && dialog.isShowing) {
+                PhotoFrameCache.remember(url, bitmap)
+                image.setImageBitmap(bitmap)
+            }
+        }, failure = { toast("Не удалось загрузить фотографию") })
     }
 
     private fun showArenaTimelapse(path: String?) {
