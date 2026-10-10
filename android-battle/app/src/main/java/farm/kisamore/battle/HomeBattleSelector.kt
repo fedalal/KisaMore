@@ -29,7 +29,7 @@ object HomeBattleSelector {
 
         // Completed whole-shelf timelapse is the first choice, as on the web.
         completed.forEach { battle ->
-            battle.cameraViews.sortedByDescending { it.primary }.forEach { camera ->
+            battle.cameraViews.sortedByDescending { it.isPrimary }.forEach { camera ->
                 offer(battle, camera.timelapseFullUrl, true)
             }
         }
@@ -42,7 +42,7 @@ object HomeBattleSelector {
                 offer(battle, entry.timelapse3dUrl, false)
                 offer(battle, entry.timelapse24hUrl, false)
             }
-            battle.cameraViews.sortedByDescending { it.primary }.forEach { camera ->
+            battle.cameraViews.sortedByDescending { it.isPrimary }.forEach { camera ->
                 offer(battle, camera.timelapse3dUrl, true)
                 offer(battle, camera.timelapse24hUrl, true)
             }
