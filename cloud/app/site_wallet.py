@@ -84,9 +84,30 @@ def record_wallet_change(
 async def combine_site_wallet_with_telegram(
     session: AsyncSession, *, website_user: User, telegram_user: TelegramUser,
 ) -> None:
-    """Atomic balance migration when a website-only user links Telegram."""
+    """Merge the two wallets and undo overlapping campaign bonuses atomically.
+
+    This is called while the website User and TelegramUser rows are locked.
+    A person who independently claimed a campaign in both accounts must not
+    keep two copies of the same promotional credit after account linking.
+    """
+    from .telegram.promotion_models import (
+        SitePromotionGrant, TelegramPromotion, TelegramPromotionGrant,
+    )
+
     site = await session.get(SiteWallet, website_user.id, with_for_update=True)
-    if site is None or not site.balance:
+    overlaps = (await session.execute(
+        select(TelegramPromotion.id, TelegramPromotion.amount_kisa)
+        .join(SitePromotionGrant, SitePromotionGrant.promotion_id == TelegramPromotion.id)
+        .join(TelegramPromotionGrant, TelegramPromotionGrant.promotion_id == TelegramPromotion.id)
+        .where(
+            SitePromotionGrant.user_id == website_user.id,
+            TelegramPromotionGrant.user_id == telegram_user.id,
+        )
+        .order_by(TelegramPromotion.id)
+    )).all()
+
+    amount = int(site.balance) if site else 0
+    if not amount and not overlaps:
         return
     wallet = (await session.execute(
         select(WalletAccount).where(WalletAccount.user_id == telegram_user.id).with_for_update()
@@ -95,17 +116,36 @@ async def combine_site_wallet_with_telegram(
         wallet = WalletAccount(user_id=telegram_user.id, balance=0)
         session.add(wallet)
         await session.flush()
-    amount = int(site.balance)
-    site.balance = 0
-    site.updated_at = utcnow()
-    wallet.balance += amount
-    session.add(SiteWalletTransaction(
-        user_id=website_user.id, amount=-amount, balance_after=0,
-        kind="telegram_wallet_transfer", reference_type="telegram_user",
-        reference_id=str(telegram_user.id), details={"reason": "account_link"},
-    ))
-    session.add(WalletTransaction(
-        user_id=telegram_user.id, amount=amount, balance_after=wallet.balance,
-        kind="site_wallet_transfer", reference_type="site_user",
-        reference_id=website_user.id, details={"reason": "account_link"},
-    ))
+    if site and amount:
+        site.balance = 0
+        site.updated_at = utcnow()
+        wallet.balance += amount
+        session.add(SiteWalletTransaction(
+            user_id=website_user.id, amount=-amount, balance_after=0,
+            kind="telegram_wallet_transfer", reference_type="telegram_user",
+            reference_id=str(telegram_user.id), details={"reason": "account_link"},
+        ))
+        session.add(WalletTransaction(
+            user_id=telegram_user.id, amount=amount, balance_after=wallet.balance,
+            kind="site_wallet_transfer", reference_type="site_user",
+            reference_id=website_user.id, details={"reason": "account_link"},
+        ))
+
+    for promotion_id, duplicate_amount in overlaps:
+        # Never create a negative wallet (the bonuses might already have been
+        # spent). Log any unrecouped portion for administrator review.
+        deduction = min(int(duplicate_amount), max(0, int(wallet.balance)))
+        wallet.balance -= deduction
+        session.add(WalletTransaction(
+            user_id=telegram_user.id,
+            amount=-deduction, balance_after=int(wallet.balance),
+            kind="promotion_link_dedup", reference_type="promotion",
+            reference_id=str(promotion_id),
+            details={
+                "website_user_id": website_user.id,
+                "telegram_user_id": telegram_user.id,
+                "overlapping_grant": int(duplicate_amount),
+                "unrecouped_amount": int(duplicate_amount) - deduction,
+                "reason": "one_bonus_per_linked_person",
+            },
+        ))

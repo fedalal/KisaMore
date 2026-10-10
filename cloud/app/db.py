@@ -32,6 +32,7 @@ from .telegram.broadcast_models import (  # noqa: F401 - register tables in Base
 from .telegram.promotion_models import (  # noqa: F401 - register tables in Base metadata
     TelegramPromotion,
     TelegramPromotionGrant,
+    SitePromotionGrant,
 )
 
 

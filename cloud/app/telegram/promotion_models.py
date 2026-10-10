@@ -69,3 +69,30 @@ class TelegramPromotionGrant(Base):
     notification_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     notification_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SitePromotionGrant(Base):
+    """One promotional credit per website identity and campaign.
+
+    A linked Telegram wallet may own the balance; grant identity stays with
+    the website account and the respective transaction is recorded in its
+    actual wallet ledger.
+    """
+    __tablename__ = "site_promotion_grants"
+
+    promotion_id: Mapped[int] = mapped_column(
+        ForeignKey("telegram_promotions.id"), primary_key=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id"), primary_key=True
+    )
+    site_transaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey("site_wallet_transactions.id"), unique=True, nullable=True
+    )
+    telegram_transaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey("wallet_transactions.id"), unique=True, nullable=True
+    )
+    balance_after: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )

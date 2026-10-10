@@ -175,6 +175,10 @@ async def register(
     await session.flush()
     from .site_analytics import record_registration
     await record_registration(session, user, request)
+    # Website and Android use this same registration endpoint. Credit active
+    # promotional Kisa in the SAME transaction as the new account.
+    from .site_promotion_service import grant_for_website_user
+    await grant_for_website_user(session, user, now)
     await create_user_session(session, user, response)
     return user_out(user)
 

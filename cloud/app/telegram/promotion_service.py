@@ -5,10 +5,11 @@ from datetime import datetime, timezone
 from html import escape
 import os
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from ..db import SessionLocal
+from ..models import User
 from .models import TelegramUser, WalletAccount, WalletTransaction
 from .promotion_models import TelegramPromotion, TelegramPromotionGrant
 
@@ -40,6 +41,7 @@ def _language(value: str | None) -> str:
 def _candidate_query(promotion: TelegramPromotion):
     stmt = (
         select(TelegramUser.id)
+        .outerjoin(User, User.id == TelegramUser.marketplace_user_id)
         .outerjoin(
             TelegramPromotionGrant,
             and_(
@@ -49,6 +51,16 @@ def _candidate_query(promotion: TelegramPromotion):
         )
         .where(
             TelegramUser.is_active.is_(True),
+            # A legacy technical User is not a real website identity.
+            # Telegram-first participants with this inactive placeholder
+            # still receive bot promotions exactly as before.
+            or_(
+                TelegramUser.marketplace_user_id.is_(None),
+                and_(
+                    User.is_active.is_(False),
+                    User.email.endswith("@internal.kisamore.local"),
+                ),
+            ),
             TelegramPromotionGrant.user_id.is_(None),
         )
         .order_by(TelegramUser.id)
@@ -71,9 +83,21 @@ async def _grant_one(promotion_id: int, user_id: int) -> bool:
     async with SessionLocal() as session:
         try:
             promotion = await session.get(TelegramPromotion, promotion_id)
-            user = await session.get(TelegramUser, user_id)
+            user = (await session.execute(
+                select(TelegramUser)
+                .where(TelegramUser.id == user_id)
+                .with_for_update()
+            )).scalar_one_or_none()
             if promotion is None or user is None or not promotion.enabled or not user.is_active:
                 return False
+            if user.marketplace_user_id is not None:
+                linked = await session.get(User, user.marketplace_user_id)
+                is_technical = bool(
+                    linked is not None and not linked.is_active
+                    and linked.email.endswith("@internal.kisamore.local")
+                )
+                if not is_technical:
+                    return False
             now = datetime.now(timezone.utc)
             start = promotion.start_at
             if start.tzinfo is None:
@@ -251,13 +275,13 @@ async def promotion_loop(bot, core) -> None:
     while True:
         try:
             granted = await discover_and_grant()
+            from ..site_promotion_service import discover_and_grant_website
+            website_granted = await discover_and_grant_website(GRANT_BATCH)
             sent, failed = await send_pending(bot)
-            if granted or sent or failed:
+            if granted or website_granted or sent or failed:
                 core.logger.info(
-                    "Telegram promotion pass: granted=%s sent=%s failed=%s",
-                    granted,
-                    sent,
-                    failed,
+                    "Promotion pass: telegram=%s website=%s sent=%s failed=%s",
+                    granted, website_granted, sent, failed,
                 )
         except asyncio.CancelledError:
             raise

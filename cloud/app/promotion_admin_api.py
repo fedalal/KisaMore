@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import and_, or_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .admin_models import AdminAuditLog
@@ -13,7 +13,7 @@ from .config import get_settings
 from .models import User
 from .security import get_admin_user, get_session
 from .telegram.models import TelegramUser
-from .telegram.promotion_models import TelegramPromotion, TelegramPromotionGrant
+from .telegram.promotion_models import TelegramPromotion, TelegramPromotionGrant, SitePromotionGrant
 
 
 router = APIRouter(prefix="/api/v1/admin/promotions", tags=["admin-promotions"])
@@ -77,7 +77,32 @@ def _status(row: TelegramPromotion) -> str:
 
 
 async def _eligible_count(session: AsyncSession, row: TelegramPromotion) -> int:
-    stmt = select(func.count(TelegramUser.id)).where(TelegramUser.is_active.is_(True))
+    # Count distinct people once: every website account plus unlinked Telegram
+    # accounts. Linked accounts are counted with their website identity.
+    site_stmt = select(func.count(User.id)).where(User.is_active.is_(True))
+    stmt = (
+        select(func.count(TelegramUser.id))
+        .outerjoin(User, User.id == TelegramUser.marketplace_user_id)
+        .where(
+            TelegramUser.is_active.is_(True),
+            or_(
+                TelegramUser.marketplace_user_id.is_(None),
+                and_(
+                    User.is_active.is_(False),
+                    User.email.endswith("@internal.kisamore.local"),
+                ),
+            ),
+        )
+    )
+    if row.audience == "new":
+        site_stmt = site_stmt.where(
+            User.created_at >= row.start_at, User.created_at < row.end_at
+        )
+    elif row.audience == "existing":
+        site_stmt = site_stmt.where(User.created_at < row.start_at)
+    elif row.audience == "all":
+        site_stmt = site_stmt.where(User.created_at < row.end_at)
+    site_count = int((await session.execute(site_stmt)).scalar_one() or 0)
     if row.audience == "new":
         stmt = stmt.where(
             TelegramUser.created_at >= row.start_at,
@@ -87,7 +112,7 @@ async def _eligible_count(session: AsyncSession, row: TelegramPromotion) -> int:
         stmt = stmt.where(TelegramUser.created_at < row.start_at)
     elif row.audience == "all":
         stmt = stmt.where(TelegramUser.created_at < row.end_at)
-    return int((await session.execute(stmt)).scalar_one() or 0)
+    return site_count + int((await session.execute(stmt)).scalar_one() or 0)
 
 
 async def _payload(session: AsyncSession, row: TelegramPromotion) -> dict:
@@ -100,6 +125,27 @@ async def _payload(session: AsyncSession, row: TelegramPromotion) -> dict:
             )
         ).scalar_one()
         or 0
+    )
+    site_grant_count = int(
+        (await session.execute(
+            select(func.count(SitePromotionGrant.user_id)).where(
+                SitePromotionGrant.promotion_id == row.id
+            )
+        )).scalar_one() or 0
+    )
+    overlapping_count = int(
+        (await session.execute(
+            select(func.count(SitePromotionGrant.user_id))
+            .join(TelegramUser, TelegramUser.marketplace_user_id == SitePromotionGrant.user_id)
+            .join(
+                TelegramPromotionGrant,
+                and_(
+                    TelegramPromotionGrant.promotion_id == SitePromotionGrant.promotion_id,
+                    TelegramPromotionGrant.user_id == TelegramUser.id,
+                ),
+            )
+            .where(SitePromotionGrant.promotion_id == row.id)
+        )).scalar_one() or 0
     )
     notified_count = int(
         (
@@ -136,7 +182,10 @@ async def _payload(session: AsyncSession, row: TelegramPromotion) -> dict:
         "enabled": bool(row.enabled),
         "status": _status(row),
         "eligible_count": await _eligible_count(session, row),
-        "grant_count": grant_count,
+        # One connected person may have earned both before linking; count once.
+        "grant_count": grant_count + site_grant_count - overlapping_count,
+        "telegram_grant_count": grant_count,
+        "site_grant_count": site_grant_count,
         "notified_count": notified_count,
         "failed_count": failed_count,
         "created_at": row.created_at,
