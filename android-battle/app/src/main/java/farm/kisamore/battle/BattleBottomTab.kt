@@ -51,6 +51,7 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
         strokeJoin = Paint.Join.ROUND
         style = Paint.Style.STROKE
     }
+    fun setTint(newTint: Int) { p.color = newTint; invalidate() }
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.save()
