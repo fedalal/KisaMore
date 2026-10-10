@@ -41,7 +41,7 @@ class GuestHomeScreen(
     private val border = color(if (isDark) "#375141" else "#E0E8DF")
     private val chip = color(if (isDark) "#294E36" else "#EAF3E9")
     private val primary = color(if (isDark) "#477D5A" else "#4A7C59")
-    private var movie: VideoView? = null
+    private var playlist: GuestTimelapseQueue? = null
     var rootView: View? = null
         private set
 
@@ -80,30 +80,32 @@ class GuestHomeScreen(
             maxLines = 1
         })
         column.addView(brand)
-        column.addView(space(20))
-        column.addView(text(t("ЖИВАЯ БИТВА РАСТЕНИЙ"), 11f, accent, true))
-        column.addView(space(5))
-        column.addView(text(t("Выращивай. Соревнуйся.\nПобеждай."), 27f, ink, true).apply {
-            setLineSpacing(dp(0).toFloat(), 1.02f)
-        })
-        column.addView(space(12))
-        column.addView(text(
-            t("Настоящие растения в реальной теплице.\nУправляй своим и следи за ростом."),
-            12f, secondary, false
-        ).apply { setLineSpacing(dp(3).toFloat(), 1f) })
-        column.addView(space(14))
-        column.addView(makeVideoPreview(), LinearLayout.LayoutParams(-1, dp(224)))
-        column.addView(space(11))
-        column.addView(makeUpcomingCard())
         column.addView(space(10))
-        column.addView(makeWatchButton(), LinearLayout.LayoutParams(-1, dp(43)))
+        column.addView(text(t("Битва живых растений"), 22f, ink, true).apply {
+            maxLines = 1
+            setAutoSizeTextTypeUniformWithConfiguration(
+                18, 22, 1, android.util.TypedValue.COMPLEX_UNIT_SP
+            )
+        })
+        column.addView(space(5))
+        column.addView(text(t("Настоящие растения. Твои решения."), 12f, secondary))
+        column.addView(space(10))
+        // Keep both actions in view on smaller phones without sacrificing scroll support.
+        val screenHeightDp = activity.resources.displayMetrics.heightPixels /
+            activity.resources.displayMetrics.density
+        val previewHeightDp = (screenHeightDp * 0.24f).toInt().coerceIn(158, 194)
+        column.addView(makeVideoPreview(), LinearLayout.LayoutParams(-1, dp(previewHeightDp)))
+        column.addView(space(8))
+        column.addView(makeUpcomingCard())
+        column.addView(space(8))
+        column.addView(makeWatchButton(), LinearLayout.LayoutParams(-1, dp(42)))
         rootView = scroll
         return scroll
     }
 
     fun release() {
-        movie?.stopPlayback()
-        movie = null
+        playlist?.release()
+        playlist = null
     }
 
     private fun makeVideoPreview(): View {
@@ -124,12 +126,15 @@ class GuestHomeScreen(
             ?: posterBattle?.plantId?.let { plantPhotoPath(it) }
         fillPhoto(poster, posterPath)
 
+        // A GONE VideoView has no Surface, so MediaPlayer never reaches
+        // onPrepared and autoplay silently fails. Keep it attached and visible,
+        // with the poster on top until the first playable video is prepared.
         val video = VideoView(activity).apply {
-            visibility = View.GONE
+            visibility = View.VISIBLE
             setBackgroundColor(Color.TRANSPARENT)
         }
-        movie = video
         frame.addView(video, FrameLayout.LayoutParams(-1, -1))
+        poster.bringToFront()
 
         val top = LinearLayout(activity).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -156,70 +161,20 @@ class GuestHomeScreen(
             background = shape(color("#F5FBF3"), 50)
         }
         frame.addView(play, FrameLayout.LayoutParams(dp(58), dp(58), Gravity.CENTER))
+        // Autoplay starts on its own: don't imply the user must tap Play.
+        play.visibility = View.GONE
 
-        val foot = LinearLayout(activity).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(5), dp(12), dp(8))
-            setBackgroundColor(color("#1E4430"))
-            addView(ImageView(activity).apply {
-                setImageResource(R.drawable.ic_video_outline)
-                imageTintList = ColorStateList.valueOf(color("#B7D9BB"))
-            }, LinearLayout.LayoutParams(dp(15), dp(15)))
-            addView(text(t("Реальное видео роста растений"), 10f, color("#B8D8B8"), false)
-                .apply { setPadding(dp(7), 0, 0, 0) })
-        }
-        frame.addView(foot, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        // No bottom caption overlay: all video pixels remain unobstructed.
+        top.bringToFront()
+        play.bringToFront()
 
-        // VideoView attempts each source in priority order: previous full battle,
-        // then individual plant timelapses. Server may return 404 for unfinished files.
-        var choiceIndex = 0
-        lateinit var playNext: () -> Unit
-        playNext = {
-            if (choiceIndex >= choices.size || activity.isFinishing || activity.isDestroyed) {
-                video.visibility = View.GONE
-                poster.visibility = View.VISIBLE
-                play.visibility = View.VISIBLE
-            } else {
-                val address = api.absolute(choices[choiceIndex++].path)
-                if (address != null) {
-                    video.setVideoURI(Uri.parse(address))
-                    video.requestFocus()
-                } else {
-                    playNext()
-                }
-            }
-        }
-        video.setOnPreparedListener { media ->
-            media.isLooping = true
-            media.setVolume(0f, 0f)
-            poster.visibility = View.GONE
-            video.visibility = View.VISIBLE
-            play.visibility = View.GONE
-            video.start()
-        }
-        video.setOnErrorListener { _, _, _ ->
-            video.post { playNext() }
-            true
-        }
-        video.setOnClickListener {
-            if (video.isPlaying) {
-                video.pause()
-                play.visibility = View.VISIBLE
-            } else {
-                video.start()
-                play.visibility = View.GONE
-            }
-        }
-        play.setOnClickListener {
-            if (video.visibility == View.VISIBLE) {
-                video.start()
-                play.visibility = View.GONE
-            } else if (choices.isNotEmpty()) {
-                choiceIndex = 0
-                playNext()
-            }
-        }
-        if (choices.isNotEmpty()) video.post { playNext() }
+        val queue = GuestTimelapseQueue(activity, api, choices, video, poster, play)
+        playlist = queue
+        video.setOnClickListener { queue.onVideoPressed() }
+        play.setOnClickListener { queue.onPlayPressed() }
+        // Show the latest rack photo only during the initial MP4 download.
+        // Subsequent MP4s are prefetched while the current one plays.
+        video.post { queue.start() }
         return frame
     }
 

@@ -61,6 +61,8 @@ class AppLanguage(private val context: Context) {
             supported.firstOrNull { it.first == code }?.second ?: "English"
 
         private val rows: Map<String, Array<String>> = mapOf(
+            "Битва живых растений" to arrayOf("Battle of living plants", "Battle echter Pflanzen", "Bataille de vraies plantes", "Batalla de plantas vivas", "Sfida tra piante vere", "Batalha de plantas vivas", "Bitwa żywych roślin", "真实植物对战"),
+            "Настоящие растения. Твои решения." to arrayOf("Real plants. Your decisions.", "Echte Pflanzen. Deine Entscheidungen.", "De vraies plantes. Vos choix.", "Plantas reales. Tus decisiones.", "Piante vere. Le tue scelte.", "Plantas reais. Suas decisões.", "Prawdziwe rośliny. Twoje decyzje.", "真实植物，由你决策。"),
             "Начало" to arrayOf("Start", "Start", "Accueil", "Inicio", "Inizio", "Início", "Start", "开始"),
             "Битва" to arrayOf("Battle", "Battle", "Bataille", "Batalla", "Battaglia", "Batalha", "Bitwa", "对战"),
             "ГОСТЬ" to arrayOf("GUEST", "GAST", "INVITÉ", "INVITADO", "OSPITE", "VISITANTE", "GOŚĆ", "访客"),
