@@ -79,6 +79,13 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
                 f"/api/v1/public/farms/{farm_slug}/racks/{battle.rack_id}/"
                 f"cameras/{item.camera_id}/photo"
             ),
+            "timelapse_urls": {
+                period: (
+                    f"/api/v1/public/battles/{battle.id}/cameras/"
+                    f"{item.camera_id}/timelapse/{period}"
+                )
+                for period in ("24h", "3d", "full")
+            },
         }
         for item in camera_rows
     ]
