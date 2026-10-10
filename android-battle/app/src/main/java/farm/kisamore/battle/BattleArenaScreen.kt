@@ -347,6 +347,7 @@ internal class BattleArenaScreen(
             contentDescription = "Фото полки с выбранной камеры"
         }
         frame.addView(image, FrameLayout.LayoutParams(-1, -1))
+        var highlight: View? = null
         val photoUrl = api.absolute(camera?.photoUrl ?: battle.rackPhotoUrl)
         if (photoUrl != null) {
             PhotoFrameCache.current(photoUrl)?.let { image.setImageBitmap(it) }
@@ -355,8 +356,10 @@ internal class BattleArenaScreen(
                 if (newBitmap != null) {
                     PhotoFrameCache.remember(photoUrl, newBitmap)
                     host.runOnUiThread {
-                        if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow)
+                        if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) {
                             image.setImageBitmap(newBitmap)
+                            highlight?.invalidate()
+                        }
                     }
                 }
             }.start()
@@ -399,6 +402,7 @@ internal class BattleArenaScreen(
                     marker.draw(canvas)
                 }
             }
+            highlight = overlay
             frame.addView(overlay, FrameLayout.LayoutParams(-1, -1))
             image.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 overlay.invalidate()
