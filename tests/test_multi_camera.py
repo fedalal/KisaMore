@@ -145,3 +145,41 @@ def test_battle_camera_archives_and_video_paths_are_isolated(tmp_path):
         start_at=start,
         end_at=end,
     ) is None  # Not enough source images: no fake video
+
+
+
+def test_battle_camera_video_generation_creates_playable_mp4(tmp_path):
+    """Exercise the real image-to-video pipeline when ffmpeg is installed."""
+    import shutil
+    from datetime import timedelta
+
+    import pytest
+    from cloud.app.camera_timelapse_service import generate_camera_battle_timelapse
+
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg is not present")
+    captured = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    for i in range(12):
+        store_rack_camera_photo(
+            photo_dir=tmp_path,
+            device_id="test-pi",
+            rack_id=2,
+            camera_id="camera_secondary",
+            is_primary=False,
+            captured_at=captured + timedelta(minutes=i),
+            content=_jpeg(320, 480),
+        )
+    result = generate_camera_battle_timelapse(
+        photo_dir=tmp_path,
+        device_id="test-pi",
+        rack_id=2,
+        camera_id="camera_secondary",
+        is_primary=False,
+        battle_id="test-battle",
+        period="24h",
+        start_at=captured,
+        end_at=captured + timedelta(hours=1),
+    )
+    assert result is not None
+    assert result.is_file() and result.stat().st_size > 1000
+    assert result.read_bytes()[4:8] == b"ftyp"
