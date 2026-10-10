@@ -1,0 +1,7 @@
+<en-US>
+Updated Battle interface: watch real plants grow, view time-lapses, enter battles using your KisaMore account, and see participant names and avatars. Improved sign-in and registration and localized plant names.
+</en-US>
+
+<ru-RU>
+Новый интерфейс «Битвы растений»: рост живых растений, таймлапсы, участие через аккаунт KisaMore, имена и аватары участников. Улучшены вход, регистрация и перевод названий растений.
+</ru-RU>

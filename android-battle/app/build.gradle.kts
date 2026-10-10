@@ -5,14 +5,46 @@ plugins {
 
 android {
     namespace = "farm.kisamore.battle"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "farm.kisamore.battle"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 31
         versionName = "0.6.16"
+    }
+
+    // Google Play: use the EXISTING upload keystore. Missing credentials must
+    // never cause a production release to be signed with a different key.
+    val uploadStoreFile = System.getenv("KISAMORE_UPLOAD_STORE_FILE")
+    val uploadStorePassword = System.getenv("KISAMORE_UPLOAD_STORE_PASSWORD")
+    val uploadKeyAlias = System.getenv("KISAMORE_UPLOAD_KEY_ALIAS")
+    val uploadKeyPassword = System.getenv("KISAMORE_UPLOAD_KEY_PASSWORD")
+
+    signingConfigs {
+        create("release") {
+            if (
+                !uploadStoreFile.isNullOrBlank() &&
+                !uploadStorePassword.isNullOrBlank() &&
+                !uploadKeyAlias.isNullOrBlank() &&
+                !uploadKeyPassword.isNullOrBlank()
+            ) {
+                storeFile = file(uploadStoreFile)
+                storePassword = uploadStorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (!uploadStoreFile.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     testOptions {
