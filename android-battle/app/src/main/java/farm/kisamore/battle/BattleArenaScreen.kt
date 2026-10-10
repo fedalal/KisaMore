@@ -12,6 +12,9 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
+import android.widget.VideoView
+import android.widget.ProgressBar
+import android.net.Uri
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -42,7 +45,7 @@ internal class BattleArenaScreen(
     private val onCamera: (String) -> Unit,
     private val onPeriod: (Int) -> Unit,
     private val onCommand: (BattleEntry, String) -> Unit,
-    private val onVideo: (String?) -> Unit,
+    private val onPhoto: (String?) -> Unit,
     private val onJournal: (List<BattleAction>) -> Unit,
     private val onPredict: (BattleEntry) -> Unit,
     private val onJoin: () -> Unit
@@ -67,6 +70,63 @@ internal class BattleArenaScreen(
     private val mine = battle.mine
     private var chartPeriod = initialPeriod.coerceIn(1, 7)
     private var chartTarget: BattleActivityChart? = null
+
+    private var mediaPreview: View? = null
+    private var mediaPlayer: VideoView? = null
+    private var videoLoading: ProgressBar? = null
+    private var closeVideo: TextView? = null
+    private val videoButtons = mutableListOf<View>()
+    private var playingPeriod = -1
+
+    fun isPlayingVideo(): Boolean = playingPeriod >= 0
+
+    private fun restorePhoto() {
+        mediaPlayer?.stopPlayback()
+        mediaPlayer?.visibility = View.GONE
+        videoLoading?.visibility = View.GONE
+        closeVideo?.visibility = View.GONE
+        mediaPreview?.visibility = View.VISIBLE
+        playingPeriod = -1
+        videoButtons.forEach { view ->
+            view.background = round(tint, 9)
+            val button = view as? LinearLayout ?: return@forEach
+            for (k in 0 until button.childCount) {
+                (button.getChildAt(k) as? BattleTabGlyph)?.setTint(green)
+                (button.getChildAt(k) as? TextView)?.setTextColor(ink)
+            }
+        }
+    }
+
+    private fun playCameraVideo(path: String?, index: Int) {
+        val url = api.absolute(path)
+        if (url.isNullOrBlank()) {
+            Toast.makeText(host, "Таймлапс этой камеры пока не готов", Toast.LENGTH_SHORT).show()
+            return
+        }
+        restorePhoto()
+        val player = mediaPlayer ?: return
+        playingPeriod = index
+        mediaPreview?.visibility = View.GONE
+        player.visibility = View.VISIBLE
+        videoLoading?.visibility = View.VISIBLE
+        closeVideo?.visibility = View.VISIBLE
+        videoButtons.forEachIndexed { i, view ->
+            view.background = round(if (i == index) buttonBg else tint, 9)
+            val button = view as? LinearLayout ?: return@forEachIndexed
+            for (k in 0 until button.childCount) {
+                (button.getChildAt(k) as? BattleTabGlyph)?.setTint(if (i == index) Color.WHITE else green)
+                (button.getChildAt(k) as? TextView)?.setTextColor(if (i == index) Color.WHITE else ink)
+            }
+        }
+        player.setVideoURI(Uri.parse(url))
+        player.requestFocus()
+    }
+
+    override fun onDetachedFromWindow() {
+        mediaPlayer?.stopPlayback()
+        super.onDetachedFromWindow()
+    }
+
 
     private fun color(hex: String) = Color.parseColor(hex)
     private fun round(fill: Int, radius: Int, stroke: Int? = null): GradientDrawable =
