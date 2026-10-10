@@ -252,8 +252,8 @@ internal class BattleArenaScreen(
                 if (selected) Color.WHITE else secondary).apply {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, dp(17)))
-            cameraButtons.addView(cameraButton, LinearLayout.LayoutParams(dp(38), dp(49)).apply {
-                bottomMargin = dp(8)
+            cameraButtons.addView(cameraButton, LinearLayout.LayoutParams(dp(38), dp(47)).apply {
+                bottomMargin = dp(6)
             })
         }
         cameraScroller.addView(cameraButtons)
@@ -302,12 +302,12 @@ internal class BattleArenaScreen(
                 if (selected) Color.WHITE else ink).apply {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, dp(17)))
-            videosRail.addView(videoButton, LinearLayout.LayoutParams(dp(38), dp(49)).apply {
-                bottomMargin = dp(8)
+            videosRail.addView(videoButton, LinearLayout.LayoutParams(dp(38), dp(47)).apply {
+                bottomMargin = dp(6)
             })
         }
         photoRow.addView(videosRail, LinearLayout.LayoutParams(dp(44), -1))
-        body.addView(photoRow, LinearLayout.LayoutParams(-1, dp(184)).apply {
+        body.addView(photoRow, LinearLayout.LayoutParams(-1, dp(174)).apply {
             topMargin = dp(6)
         })
 
