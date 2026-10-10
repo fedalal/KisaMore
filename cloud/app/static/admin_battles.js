@@ -68,15 +68,36 @@
 
   function entryHtml(b,e){
     var winner=b.status==="judging"
-      ? '<button class="battle-winner primary" data-battle="'+b.id+'" data-entry="'+e.id+'">🏆 Победитель</button>'
+      ? '<button class="battle-winner primary" data-battle="'+esc(b.id)+'" data-entry="'+esc(e.id)+'">🏆 Победитель</button>'
       : (e.is_winner?"🏆 Лучший садовод":"");
+    var name=e.user_name||"Пользователь";
+    var icon=e.user_avatar_url
+      ? '<img class="battle-participant-avatar" src="'+esc(e.user_avatar_url)+'" alt="" loading="lazy" decoding="async">'
+      : '<span class="battle-participant-avatar battle-participant-placeholder" aria-hidden="true">👤</span>';
+    var email=e.user_email
+      ? '<span class="battle-participant-email" title="'+esc(e.user_email)+'">'+esc(e.user_email)+'</span>'
+      : '<span class="battle-participant-empty">Почта не указана</span>';
+    var username=String(e.telegram_username||"").replace(/^@/,"");
+    var tg=e.telegram_chat_id||null;
+    var telegram=username&&/^[A-Za-z0-9_]{5,32}$/.test(username)
+      ? '<a class="battle-participant-telegram" target="_blank" rel="noopener noreferrer" href="https://t.me/'+esc(username)+'">@'+esc(username)+'</a>'
+      : tg ? '<span class="battle-participant-telegram">Telegram ID: '+esc(tg)+'</span>'
+      : '<span class="battle-participant-empty">Telegram не привязан</span>';
     return '<div class="battle-admin-entry">'+
-      '<strong>#'+e.slot_number+'</strong>'+
-      '<span>Ⓚ '+e.price_kisa+'</span>'+
-      '<span>💧 '+e.water_used_ml+'/'+b.water_budget_ml+' мл</span>'+
-      '<span>🧪 '+e.nutrient_used_ml+'/'+b.nutrient_budget_ml+' мл</span>'+
-      '<span>🌘 '+e.shade_used_minutes+'/'+b.shade_budget_minutes+' мин</span>'+
-      winner+
+      '<div class="battle-participant">'+
+        '<span class="battle-participant-slot">#'+esc(e.slot_number)+'</span>'+icon+
+        '<div class="battle-participant-details">'+
+          '<span class="battle-participant-name">'+esc(name)+'</span>'+
+          email+telegram+
+        '</div>'+
+      '</div>'+
+      '<div class="battle-participant-resources">'+
+        '<span>Ⓚ '+esc(e.price_kisa)+'</span>'+
+        '<span>💧 '+esc(e.water_used_ml)+'/'+esc(b.water_budget_ml)+' мл</span>'+
+        '<span>🧪 '+esc(e.nutrient_used_ml)+'/'+esc(b.nutrient_budget_ml)+' мл</span>'+
+        '<span>🌘 '+esc(e.shade_used_minutes)+'/'+esc(b.shade_budget_minutes)+' мин</span>'+
+        winner+
+      '</div>'+
       '</div>';
   }
 
@@ -110,7 +131,8 @@
           if(a.status!=="pending")return;
           out.push(
             '<tr>'+
-              '<td>Полка '+b.rack_id+' · контейнер '+e.slot_number+'</td>'+
+              '<td>Полка '+b.rack_id+' · контейнер '+e.slot_number+
+                '<div class="username">'+esc(e.user_name||"Пользователь")+'</div></td>'+
               '<td>'+actionName(a.kind)+'</td>'+
               '<td>'+a.amount+(a.kind==="shade"?" мин":" мл")+'</td>'+
               '<td>'+esc(fmtDate(a.requested_at))+'</td>'+
