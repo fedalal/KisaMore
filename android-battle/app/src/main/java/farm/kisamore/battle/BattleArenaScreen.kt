@@ -59,11 +59,11 @@ internal class BattleArenaScreen(
     private val line = color(if (dark) "#354B3B" else "#E4EBE3")
     private val tint = color(if (dark) "#294333" else "#ECF3E9")
     private val zone = ZoneId.systemDefault()
-    private val cameras = battle.cameraViews.ifEmpty {
-        listOf(BattleCamera("default", true, battle.rackPhotoUrl, null))
-    }
+    // Only show cameras actually published by the server. Legacy rack photo is a
+    // fallback image, never an invented extra camera button.
+    private val cameras = battle.cameraViews
     private val camera = cameras.firstOrNull { it.cameraId == cameraPreference }
-        ?: cameras.firstOrNull { it.isPrimary } ?: cameras.first()
+        ?: cameras.firstOrNull { it.isPrimary } ?: cameras.firstOrNull()
     private val mine = battle.mine
     private var chartPeriod = initialPeriod.coerceIn(1, 7)
     private var chartTarget: BattleActivityChart? = null
@@ -106,7 +106,7 @@ internal class BattleArenaScreen(
             ?: runCatching { LocalDateTime.parse(raw).atZone(zone).toInstant() }.getOrNull()
     }
     private fun photoAge(): String {
-        val capture = instant(camera.capturedAt) ?: return "Фото: время неизвестно"
+        val capture = instant(camera?.capturedAt) ?: return "Фото: время неизвестно"
         val mins = ChronoUnit.MINUTES.between(capture, Instant.now()).coerceAtLeast(0)
         return when {
             mins == 0L -> "Фото: только что"
@@ -158,16 +158,37 @@ internal class BattleArenaScreen(
         isVerticalScrollBarEnabled = false
         val body = column().apply { setPadding(dp(16), dp(4), dp(16), dp(8)) }
         addView(body, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-        val battleRow = HorizontalScrollView(host).apply { isHorizontalScrollBarEnabled = false }
+        // One horizontally scrollable row of generously sized Battle selectors.
+        val battleRow = HorizontalScrollView(host).apply {
+            isHorizontalScrollBarEnabled = false
+        }
         val buttons = row()
         val switched = (choices + battle).distinctBy { it.id }
             .filter { it.status != "finished" || it.id == battle.id }
         switched.forEachIndexed { i, candidate ->
             val title = candidate.title.ifBlank { "Битва " + (i + 1) }
-            buttons.addView(chip(title, candidate.id == battle.id) { onBattle(candidate) },
-                LinearLayout.LayoutParams(dp(if (title.length > 16) 130 else 110), dp(34)).apply {
-                    rightMargin = dp(6)
-                })
+            val active = candidate.id == battle.id
+            val owned = api.hasSession() && candidate.mine != null
+            val selector = row().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(7), 0, dp(7), 0)
+                background = round(if (active) buttonBg else cardBg, 11,
+                    if (active) null else line)
+                isClickable = true
+                isFocusable = true
+                contentDescription = title + if (owned) ", участвую" else ""
+                setOnClickListener { onBattle(candidate) }
+            }
+            if (owned) selector.addView(BattleTabGlyph(host, "trophy",
+                if (active) Color.WHITE else green),
+                LinearLayout.LayoutParams(dp(17), dp(17)).apply { rightMargin = dp(5) })
+            selector.addView(label(title, 11f, active,
+                if (active) Color.WHITE else ink).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(0, dp(34), 1f))
+            buttons.addView(selector, LinearLayout.LayoutParams(dp(166), dp(34)).apply {
+                rightMargin = dp(8)
+            })
         }
         battleRow.addView(buttons)
         body.addView(battleRow, LinearLayout.LayoutParams(-1, dp(36)))
@@ -175,44 +196,120 @@ internal class BattleArenaScreen(
         body.addView(label(dayLabel() + "   ·   " + photoAge(), 11f, false, secondary),
             LinearLayout.LayoutParams(-1, dp(20)))
 
-        val cameraRow = row()
-        cameraRow.addView(label("КАМЕРА", 10f, true, secondary),
-            LinearLayout.LayoutParams(dp(65), dp(32)))
-        val cameraScroll = HorizontalScrollView(host).apply { isHorizontalScrollBarEnabled = false }
-        val camChips = row()
-        cameras.forEachIndexed { i, cam ->
-            camChips.addView(chip(cameraName(cam, i), cam.cameraId == camera.cameraId, 79) {
-                onCamera(cam.cameraId)
-            }, LinearLayout.LayoutParams(-2, dp(30)).apply { rightMargin = dp(6) })
+        // The LIVE header is outside the photograph and cannot conceal a tray.
+        val header = row().apply {
+            setPadding(dp(9), 0, dp(8), 0)
+            background = round(color("#31543D"), 9)
         }
-        cameraScroll.addView(camChips)
-        cameraRow.addView(cameraScroll, LinearLayout.LayoutParams(0, dp(32), 1f))
-        body.addView(cameraRow)
+        header.addView(label("● LIVE · ПОЛКА " + battle.rackId, 10f, true, Color.WHITE),
+            LinearLayout.LayoutParams(0, -1, 1f))
+        if (mine != null) header.addView(label("МОЙ №" + mine.slotNumber, 10f, true,
+            color("#E3F4D5")).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), 0, dp(10), 0)
+            background = round(color("#51845D"), 9)
+        }, LinearLayout.LayoutParams(-2, dp(20)))
+        body.addView(header, LinearLayout.LayoutParams(-1, dp(24)).apply {
+            topMargin = dp(5)
+        })
 
-        val videoRow = row()
-        videoRow.addView(label("ВИДЕО", 10f, true, secondary),
-            LinearLayout.LayoutParams(dp(65), dp(32)))
-        val videoChoices = listOf("24 ч", "3 дня", "Полный")
+        // A 44dp camera rail, 6dp gap, flexible central image, 6dp gap,
+        // and a 44dp timelapse rail. Buttons reflect actual server cameras.
+        val photoRow = row()
+        val camerasRail = column().apply {
+            background = round(cardBg, 11, line)
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        }
+        val cameraScroller = ScrollView(host).apply {
+            isVerticalScrollBarEnabled = false
+            isFillViewport = false
+        }
+        val cameraButtons = column().apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            setPadding(dp(3), dp(5), dp(3), 0)
+        }
+        if (cameras.isEmpty()) {
+            cameraButtons.addView(label("—", 15f, false, secondary).apply {
+                gravity = Gravity.CENTER
+                contentDescription = "Камеры не подключены"
+            }, LinearLayout.LayoutParams(dp(38), dp(44)))
+        }
+        cameras.forEachIndexed { i, cam ->
+            val selected = camera?.cameraId == cam.cameraId
+            val cameraButton = column().apply {
+                gravity = Gravity.CENTER
+                background = round(if (selected) buttonBg else tint, 9)
+                isClickable = true
+                isFocusable = true
+                contentDescription = "Камера " + (i + 1) +
+                    (if (selected) ", выбрана" else "") + ", " + cameraName(cam, i)
+                setOnClickListener { if (!selected) onCamera(cam.cameraId) }
+            }
+            cameraButton.addView(BattleTabGlyph(host, "camera",
+                if (selected) Color.WHITE else green),
+                LinearLayout.LayoutParams(dp(21), dp(21)))
+            cameraButton.addView(label("К" + (i + 1), 10f, selected,
+                if (selected) Color.WHITE else secondary).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(17)))
+            cameraButtons.addView(cameraButton, LinearLayout.LayoutParams(dp(38), dp(59)).apply {
+                bottomMargin = dp(7)
+            })
+        }
+        cameraScroller.addView(cameraButtons)
+        camerasRail.addView(cameraScroller, LinearLayout.LayoutParams(dp(44), -1))
+        photoRow.addView(camerasRail, LinearLayout.LayoutParams(dp(44), -1).apply {
+            rightMargin = dp(6)
+        })
+
+        photoRow.addView(photoPanel(), LinearLayout.LayoutParams(0, -1, 1f).apply {
+            rightMargin = dp(6)
+        })
+
+        val videosRail = column().apply {
+            background = round(cardBg, 11, line)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(3), dp(5), dp(3), 0)
+        }
         val videoEntry = mine ?: battle.entries.firstOrNull()
-        videoChoices.forEachIndexed { index, title ->
-            val candidateUrl = when (index) {
+        listOf("24 ч", "3 дня", "Всё").forEachIndexed { i, title ->
+            val path = when (i) {
                 0 -> videoEntry?.timelapse24hUrl
                 1 -> videoEntry?.timelapse3dUrl
                 else -> videoEntry?.timelapseFullUrl
             }
-            val c = chip(title, index == 0, if (index == 2) 76 else 66) {
-                if (!camera.isPrimary && cameras.size > 1) {
-                    Toast.makeText(host, "Таймлапс этой камеры пока недоступен", Toast.LENGTH_SHORT).show()
-                } else {
-                    onVideo(candidateUrl)
+            val selected = i == 0
+            val videoButton = column().apply {
+                gravity = Gravity.CENTER
+                background = round(if (selected) buttonBg else tint, 9)
+                isClickable = true
+                isFocusable = true
+                contentDescription = "Таймлапс " +
+                    (if (i == 2) "за весь период" else title) + " выбранной камеры"
+                setOnClickListener {
+                    if (camera != null && !camera.isPrimary) {
+                        Toast.makeText(host, "Таймлапс этой камеры пока недоступен",
+                            Toast.LENGTH_SHORT).show()
+                    } else {
+                        onVideo(path)
+                    }
                 }
             }
-            videoRow.addView(c, LinearLayout.LayoutParams(0, dp(30), 1f).apply {
-                if (index != 2) rightMargin = dp(6)
+            videoButton.addView(BattleTabGlyph(host, "play",
+                if (selected) Color.WHITE else green),
+                LinearLayout.LayoutParams(dp(21), dp(21)))
+            videoButton.addView(label(title, 10f, selected,
+                if (selected) Color.WHITE else ink).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(17)))
+            videosRail.addView(videoButton, LinearLayout.LayoutParams(dp(38), dp(59)).apply {
+                bottomMargin = dp(7)
             })
         }
-        body.addView(videoRow)
-        body.addView(photoPanel(), LinearLayout.LayoutParams(-1, dp(150)).apply { topMargin=dp(5) })
+        photoRow.addView(videosRail, LinearLayout.LayoutParams(dp(44), -1))
+        body.addView(photoRow, LinearLayout.LayoutParams(-1, dp(204)).apply {
+            topMargin = dp(6)
+        })
 
         if (mine != null) {
             body.addView(labelHeader("МОИ РЕСУРСЫ", 6))
@@ -242,15 +339,15 @@ internal class BattleArenaScreen(
 
     private fun photoPanel(): View {
         val frame = FrameLayout(host).apply {
-            background = round(color("#1E3025"), 13)
+            background = round(color("#1E3025"), 11)
             clipToOutline = true
         }
         val image = ImageView(host).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "Фото выбранной камеры"
+            contentDescription = "Фото полки с выбранной камеры"
         }
         frame.addView(image, FrameLayout.LayoutParams(-1, -1))
-        val photoUrl = api.absolute(camera.photoUrl ?: battle.rackPhotoUrl)
+        val photoUrl = api.absolute(camera?.photoUrl ?: battle.rackPhotoUrl)
         if (photoUrl != null) {
             PhotoFrameCache.current(photoUrl)?.let { image.setImageBitmap(it) }
             Thread {
@@ -264,44 +361,55 @@ internal class BattleArenaScreen(
                 }
             }.start()
         }
-        // Only on the primary overhead view: the translucent marker intentionally
-        // covers a broad region, not a precise image-dependent rectangular border.
-        if (mine != null && camera.isPrimary && mine.slotNumber in 1..6) {
+
+        // Keep the soft highlight anchored to the *actual displayed photograph*
+        // (FIT_CENTER content bounds), not its black letterbox area. The approximate
+        // 2x3 position is deliberately soft; camera calibration is not assumed.
+        if (mine != null && (camera == null || camera.isPrimary) &&
+            mine.slotNumber in 1..6) {
             val slot = mine.slotNumber - 1
             val overlay = object : View(host) {
                 private val marker = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    intArrayOf(Color.argb(110, 130, 200, 105), Color.argb(35, 130, 200, 105))).apply {
-                    cornerRadius = dp(12).toFloat()
+                    intArrayOf(Color.argb(95, 130, 200, 105),
+                        Color.argb(30, 130, 200, 105))).apply {
+                    cornerRadius = dp(9).toFloat()
                 }
                 override fun onDraw(canvas: android.graphics.Canvas) {
-                    val marginX = width*.065f
-                    val contentW = width - marginX*2f
-                    val rowH = (height-dp(28)) / 3f
-                    val col = slot % 2; val r = slot / 2
+                    val drawable = image.drawable ?: return
+                    val sourceW = drawable.intrinsicWidth.toFloat()
+                    val sourceH = drawable.intrinsicHeight.toFloat()
+                    if (sourceW <= 0f || sourceH <= 0f) return
+                    val scale = minOf(width / sourceW, height / sourceH)
+                    val actualW = sourceW * scale
+                    val actualH = sourceH * scale
+                    val left = (width - actualW) / 2f
+                    val top = (height - actualH) / 2f
+                    val col = slot % 2
+                    val row = slot / 2
+                    val cellW = actualW / 2f
+                    val cellH = actualH / 3f
+                    val padx = cellW * .09f
+                    val pady = cellH * .10f
                     marker.setBounds(
-                        (marginX + col*contentW/2 + dp(4)).toInt(),
-                        (dp(28) + r*rowH + dp(3)).toInt(),
-                        (marginX + (col+1)*contentW/2 - dp(4)).toInt(),
-                        (dp(28)+(r+1)*rowH-dp(3)).toInt()
+                        (left + col * cellW + padx).toInt(),
+                        (top + row * cellH + pady).toInt(),
+                        (left + (col + 1) * cellW - padx).toInt(),
+                        (top + (row + 1) * cellH - pady).toInt()
                     )
                     marker.draw(canvas)
                 }
             }
             frame.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+            image.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                overlay.invalidate()
+            }
+            // A new cached frame keeps the same viewer; refresh the highlight
+            // after the bitmap is swapped, too.
+            image.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) { overlay.invalidate() }
+                override fun onViewDetachedFromWindow(v: View) {}
+            })
         }
-        val header = row().apply {
-            setPadding(dp(8), 0, dp(8), 0)
-            setBackgroundColor(color("#31543D"))
-        }
-        header.addView(label("● LIVE   ПОЛКА " + battle.rackId, 10f, true, Color.WHITE),
-            LinearLayout.LayoutParams(0, -1, 1f))
-        if (mine != null) header.addView(label("МОЙ №" + mine.slotNumber, 10f, true,
-            Color.parseColor("#E3F4D5")).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(10), 0, dp(10), 0)
-            background = round(color("#51845D"), 9)
-        }, LinearLayout.LayoutParams(-2, dp(21)))
-        frame.addView(header, FrameLayout.LayoutParams(-1, dp(24), Gravity.TOP))
         return frame
     }
 
@@ -332,7 +440,7 @@ internal class BattleArenaScreen(
             progressTrack.addView(p, FrameLayout.LayoutParams(
                 dp(64*remain/max(1,budget)),dp(5),Gravity.START or Gravity.CENTER_VERTICAL))
             content.addView(progressTrack, LinearLayout.LayoutParams(dp(64),dp(5)).apply { rightMargin=dp(7) })
-            val nameButton = when (kind) { "water" -> "Полить"; "nutrient" -> "Добавить"; else -> "Закрыть" }
+            val nameButton = when (kind) { "water" -> "Полить"; "nutrient" -> "Добавить"; else -> "Использовать" }
             val enabled = battle.status == "growing" && remain > 0
             content.addView(label(nameButton, 11f, true, Color.WHITE).apply {
                 gravity=Gravity.CENTER
