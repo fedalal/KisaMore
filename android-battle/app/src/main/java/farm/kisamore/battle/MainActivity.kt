@@ -142,45 +142,44 @@ class MainActivity : Activity() {
         val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
             .getString("language", "ru") ?: "ru"
         val navLabels = mapOf(
-            "ru" to listOf("Моё растение", "Битва", "История", "Профиль"),
-            "en" to listOf("My plant", "Battle", "History", "Profile"),
-            "zh" to listOf("我的植物", "对战", "历史", "个人"),
-            "de" to listOf("Meine Pflanze", "Kampf", "Verlauf", "Profil"),
-            "fr" to listOf("Ma plante", "Bataille", "Historique", "Profil"),
-            "es" to listOf("Mi planta", "Batalla", "Historial", "Perfil"),
-            "it" to listOf("La mia pianta", "Sfida", "Cronologia", "Profilo"),
-            "pt" to listOf("Minha planta", "Batalha", "Histórico", "Perfil"),
-            "pl" to listOf("Moja roślina", "Bitwa", "Historia", "Profil")
-        )[language] ?: listOf("My plant", "Battle", "History", "Profile")
+            "ru" to listOf("Битва", "История", "Профиль"),
+            "en" to listOf("Battle", "History", "Profile"),
+            "zh" to listOf("对战", "历史", "个人"),
+            "de" to listOf("Kampf", "Verlauf", "Profil"),
+            "fr" to listOf("Bataille", "Historique", "Profil"),
+            "es" to listOf("Batalla", "Historial", "Perfil"),
+            "it" to listOf("Sfida", "Cronologia", "Profilo"),
+            "pt" to listOf("Batalha", "Histórico", "Perfil"),
+            "pl" to listOf("Bitwa", "Historia", "Profil")
+        )[language] ?: listOf("Battle", "History", "Profile")
+
+        // Participants already have the Battle tab: don't duplicate it as "My battle".
+        // "Start" is available only to guests and users without an active battle.
         val hasActiveBattle = activeMyBattle() != null
-        val firstLabel = if (hasActiveBattle) mapOf(
-            "ru" to "Моя битва", "en" to "My battle", "zh" to "我的对战",
-            "de" to "Mein Battle", "fr" to "Ma bataille", "es" to "Mi batalla",
-            "it" to "La mia sfida", "pt" to "Minha batalha", "pl" to "Moja bitwa"
-        )[language] ?: "My battle" else AppLanguage(this).t("Начало")
-        val tabs = listOf(
-            Triple(firstLabel, if (hasActiveBattle) "plant" else "home", "plant"),
-            Triple(navLabels[1], "battle", "watch"),
-            Triple(navLabels[2], "history", "history"),
-            Triple(navLabels[3], "profile", "profile")
-        )
-        tabs.filter { it.third != "history" || api.hasSession() }
-            .forEach { (label, icon, destination) ->
+        val tabs = buildList {
+            if (!hasActiveBattle) {
+                add(Triple(AppLanguage(this@MainActivity).t("Начало"), "home", "home"))
+            }
+            add(Triple(navLabels[0], "battle", "watch"))
+            if (api.hasSession()) add(Triple(navLabels[1], "history", "history"))
+            add(Triple(navLabels[2], "profile", "profile"))
+        }
+        tabs.forEach { (label, icon, destination) ->
             val active = when (destination) {
-                "plant" -> currentScreen in listOf("home", "mine-empty", "no_battle") &&
-                    hasActiveBattle
+                "home" -> currentScreen == "home"
                 "watch" -> currentScreen in listOf("watch", "battle")
-                "home" -> currentScreen == "home" && !hasActiveBattle
                 else -> currentScreen == destination
             }
             navBar.addView(BattleBottomTab(this, label, icon, active) {
                 stopAutoRefresh()
                 when (destination) {
-                    "plant" -> {
+                    "home" -> showHome()
+                    "watch" -> {
+                        // Entering Battle from the tab bar should bring a
+                        // participant back to their own plant, not an observed one.
                         val mine = activeMyBattle()
-                        if (mine == null) showHome() else openBattle(mine)
+                        if (mine != null) openBattle(mine) else showWatch()
                     }
-                    "watch" -> showWatch()
                     "history" -> { currentScreen = "history"; showBattleHistory() }
                     "profile" -> { currentScreen = "profile"; showProfile() }
                 }
@@ -303,7 +302,12 @@ class MainActivity : Activity() {
                     "watch" -> showWatch()
                     "profile" -> showProfile()
                     else -> {
-                        showHome()
+                        if (activeMyBattle() != null) {
+                            // Returning player: only Battle, History and Profile are present.
+                            openBattle(activeMyBattle()!!)
+                        } else {
+                            showHome()
+                        }
                         val id = pendingJoinBattleId
                         pendingJoinBattleId = null
                         val battle = publicBattles.firstOrNull {
@@ -319,83 +323,28 @@ class MainActivity : Activity() {
     }
 
     private fun showHome() {
-        currentScreen = "home"
-        currentBattleId = null
-        if (activeMyBattle() == null) {
-            val guest = GuestHomeScreen(
-                this, api, AppLanguage(this), publicBattles, growthClips,
-                onJoin = { battle ->
-                    if (api.hasSession()) {
-                        confirmJoin(battle)
-                    } else {
-                        pendingJoinBattleId = battle.id
-                        showLogin()
-                    }
-                },
-                onWatch = { showWatch() }
-            )
-            welcome = guest
-            showContent(guest.create())
+        // The participant's home is the Battle screen. Never show a duplicate tab.
+        val mine = activeMyBattle()
+        if (mine != null) {
+            openBattle(mine)
             return
         }
-        val scroll = screenScroll()
-        val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("KISAMORE BATTLE", "Настоящее растение. Ваши решения."))
-
-        val profile = game.profile()
-        body.addView(
-            statStrip(
-                "LEVEL " + profile.level,
-                profile.xp.toString() + " XP",
-                "🔥 " + profile.streak + " дн."
-            )
-        )
-
-        val active = activeMyBattle()
-        if (active != null) {
-            body.addView(sectionTitle("ВАША БИТВА", "Продолжить игру"))
-            body.addView(battleHeroCard(active, true))
-        } else {
-            body.addView(sectionTitle("СЕЙЧАС", if (api.hasSession()) "У вас нет активной битвы" else "Войдите, чтобы управлять растением"))
-            val card = card()
-            card.addView(bigText(if (api.hasSession()) "Выберите следующую битву 🌱" else "Станьте игроком 🌱"))
-            card.addView(
-                smallText(
-                    if (api.hasSession())
-                        "Пока можно наблюдать за другими участниками, смотреть таймлапсы и делать прогнозы."
-                    else
-                        "Участник получает настоящее растение и ограниченный запас воды, питания и времени без света."
-                )
-            )
-            card.addView(primaryButton(if (api.hasSession()) "СМОТРЕТЬ БИТВЫ" else "ВОЙТИ В ИГРУ") {
+        currentScreen = "home"
+        currentBattleId = null
+        val guest = GuestHomeScreen(
+            this, api, AppLanguage(this), publicBattles, growthClips,
+            onJoin = { battle ->
                 if (api.hasSession()) {
-                    currentScreen = "watch"
-                    showWatch()
+                    confirmJoin(battle)
                 } else {
+                    pendingJoinBattleId = battle.id
                     showLogin()
                 }
-            })
-            body.addView(cardWithMargin(card))
-        }
-
-        body.addView(sectionTitle("ЗАДАНИЯ НА СЕГОДНЯ", "Короткие действия дают XP"))
-        body.addView(missionsCard(profile))
-
-        val live = publicBattles.firstOrNull { it.status in listOf("growing", "judging", "planting") }
-        if (live != null && live.id != active?.id) {
-            body.addView(sectionTitle("LIVE", "За этой битвой можно следить прямо сейчас"))
-            body.addView(battleHeroCard(live, false))
-        }
-
-        body.addView(sectionTitle("ЗАЧЕМ ВОЗВРАЩАТЬСЯ", "Игра продолжается, пока растение растёт"))
-        val info = card()
-        info.addView(infoLine("📸", "Новое фото", "Смотрите изменения всей полки каждый день"))
-        info.addView(infoLine("🎯", "Прогнозы", "Угадайте победителя раньше остальных"))
-        info.addView(infoLine("🎬", "Таймлапсы", "Несколько дней роста за несколько секунд"))
-        info.addView(infoLine("🏅", "XP и серии", "Возвращайтесь ежедневно и собирайте достижения"))
-        body.addView(cardWithMargin(info))
-
-        showContent(scroll)
+            },
+            onWatch = { showWatch() }
+        )
+        welcome = guest
+        showContent(guest.create())
     }
 
     private fun showWatch() {
