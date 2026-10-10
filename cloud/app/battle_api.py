@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from html import escape
 import io
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
 import qrcode
 from sqlalchemy import select
@@ -14,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
-from .account_preferences_api import AccountAchievement
+from .account_preferences_api import AccountAchievement, AccountPreferences
 from .models import Device, Farm, Plant, RackCameraPhoto, User
 from .security import get_current_user, get_session
 from .config import get_settings
@@ -118,6 +119,23 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         if current_user_id is not None and prediction.user_id == current_user_id:
             my_prediction_entry_id = prediction.entry_id
 
+    # Public player identities: display names and uploaded profile avatars only.
+    # Never include emails, Telegram identifiers, wallet balances or other
+    # private account fields in a public battle response.
+    public_names = {}
+    public_avatars = set()
+    if entries:
+        user_ids = {entry.user_id for entry in entries}
+        public_names = dict((await session.execute(
+            select(User.id, User.display_name).where(User.id.in_(user_ids))
+        )).all())
+        public_avatars = set((await session.execute(
+            select(AccountPreferences.user_id).where(
+                AccountPreferences.user_id.in_(user_ids),
+                AccountPreferences.avatar_key.is_not(None),
+            )
+        )).scalars().all())
+
     entry_rows = []
     for entry in entries:
         is_mine = current_user_id is not None and entry.user_id == current_user_id
@@ -152,6 +170,11 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
                 "id": entry.id,
                 "slot_number": entry.slot_number,
                 "status": entry.status,
+                "participant_name": public_names.get(entry.user_id) or f"Игрок {entry.slot_number}",
+                "participant_avatar_url": (
+                    f"/api/v1/public/battles/entries/{entry.id}/avatar"
+                    if entry.user_id in public_avatars else None
+                ),
                 "is_mine": is_mine,
                 "resources_visible": resources_visible,
                 "water_used_ml": entry.water_used_ml if resources_visible else None,
@@ -493,6 +516,36 @@ async def my_battle_profile(
         "rewards": rewards,
         "history": history,
     }
+
+
+@router.get("/public/battles/entries/{entry_id}/avatar", response_class=FileResponse)
+async def public_battle_participant_avatar(
+    entry_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """An avatar is public only while its owner is listed in a public battle."""
+    entry = await session.get(PlantBattleEntry, entry_id)
+    if entry is None or entry.status not in ("active", "finished"):
+        raise HTTPException(404, "Avatar not found")
+    battle = await session.get(PlantBattle, entry.battle_id)
+    if battle is None or battle.status == "cancelled":
+        raise HTTPException(404, "Avatar not found")
+    prefs = await session.get(AccountPreferences, entry.user_id)
+    if prefs is None or not prefs.avatar_key:
+        raise HTTPException(404, "Avatar not found")
+    name = prefs.avatar_key
+    if Path(name).name != name or Path(name).suffix.lower() not in (".jpg", ".png", ".webp"):
+        raise HTTPException(404, "Avatar not found")
+    avatar_path = Path(get_settings().photo_dir) / "avatars" / name
+    if not avatar_path.is_file():
+        raise HTTPException(404, "Avatar not found")
+    content_type = {
+        ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"
+    }[avatar_path.suffix.lower()]
+    return FileResponse(
+        avatar_path, media_type=content_type,
+        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.get("/public/battles")
