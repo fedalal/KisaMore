@@ -252,8 +252,8 @@ internal class BattleArenaScreen(
                 if (selected) Color.WHITE else secondary).apply {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, dp(17)))
-            cameraButtons.addView(cameraButton, LinearLayout.LayoutParams(dp(38), dp(59)).apply {
-                bottomMargin = dp(7)
+            cameraButtons.addView(cameraButton, LinearLayout.LayoutParams(dp(38), dp(49)).apply {
+                bottomMargin = dp(8)
             })
         }
         cameraScroller.addView(cameraButtons)
@@ -302,12 +302,12 @@ internal class BattleArenaScreen(
                 if (selected) Color.WHITE else ink).apply {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, dp(17)))
-            videosRail.addView(videoButton, LinearLayout.LayoutParams(dp(38), dp(59)).apply {
-                bottomMargin = dp(7)
+            videosRail.addView(videoButton, LinearLayout.LayoutParams(dp(38), dp(49)).apply {
+                bottomMargin = dp(8)
             })
         }
         photoRow.addView(videosRail, LinearLayout.LayoutParams(dp(44), -1))
-        body.addView(photoRow, LinearLayout.LayoutParams(-1, dp(204)).apply {
+        body.addView(photoRow, LinearLayout.LayoutParams(-1, dp(184)).apply {
             topMargin = dp(6)
         })
 
@@ -322,14 +322,17 @@ internal class BattleArenaScreen(
                 setOnClickListener { onJournal(mine.actions) }
             }, LinearLayout.LayoutParams(-2, dp(25)))
             body.addView(actionHeader, spacedTop(5))
-            body.addView(journal(mine.actions), LinearLayout.LayoutParams(-1, dp(90)))
+            val journalHeight = if (mine.actions.isEmpty()) 39
+                else (mine.actions.size.coerceAtMost(3) * 28 + 6).coerceAtMost(90)
+            body.addView(journal(mine.actions),
+                LinearLayout.LayoutParams(-1, dp(journalHeight)))
             body.addView(chartHeader(), spacedTop(7))
             val chartCard = FrameLayout(host).apply {
                 background = round(cardBg, 14)
                 addView(BattleActivityChart(host, mine.actions, dark, chartPeriod),
                     FrameLayout.LayoutParams(-1, -1))
             }
-            body.addView(chartCard, LinearLayout.LayoutParams(-1, dp(128)).apply { topMargin=dp(3) })
+            body.addView(chartCard, LinearLayout.LayoutParams(-1, dp(120)).apply { topMargin=dp(3) })
             // graph selection works without rebuilding the remote photo.
             chartTarget = chartCard.getChildAt(0) as BattleActivityChart
         } else {
@@ -465,8 +468,9 @@ internal class BattleArenaScreen(
         }
         val list=actions.sortedByDescending { it.completedAt ?: it.requestedAt ?: "" }.take(3)
         if(list.isEmpty()){
-            parent.addView(label("Команд пока нет",12f,false,secondary),
-                LinearLayout.LayoutParams(-1,-1))
+            parent.addView(label("Команд пока нет",12f,false,secondary).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }, LinearLayout.LayoutParams(-1, dp(32)))
         } else list.forEachIndexed { i,action ->
             val r=row()
             r.addView(label(actionIcon(action.kind),16f,false,green),
