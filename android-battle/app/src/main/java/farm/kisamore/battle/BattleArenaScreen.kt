@@ -615,15 +615,67 @@ internal class BattleArenaScreen(
             LinearLayout.LayoutParams(-1,dp(36)))
         wrap.addView(card)
         wrap.addView(labelHeader("УЧАСТНИКИ",10))
-        val members=row().apply{
-            setPadding(dp(8),dp(8),dp(8),dp(8));background=round(cardBg,14)
+        val members = HorizontalScrollView(host).apply {
+            isHorizontalScrollBarEnabled = false
         }
-        battle.entries.take(6).forEach { entry ->
-            members.addView(chip("#"+entry.slotNumber,false){onPredict(entry)},
-                LinearLayout.LayoutParams(0,dp(31),1f).apply { rightMargin=dp(4) })
+        val cards = row().apply {
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            background = round(cardBg, 14)
         }
-        wrap.addView(members)
-        wrap.addView(label("Нажмите на номер контейнера, чтобы выбрать фаворита.",11f,false,secondary),
+        battle.entries.sortedBy { it.slotNumber }.take(6).forEach { entry ->
+            val player = entry.participantName?.trim().takeUnless { it.isNullOrBlank() }
+                ?: "Игрок #" + entry.slotNumber
+            val selected = battle.myPredictionEntryId == entry.id
+            val tile = column().apply {
+                gravity = Gravity.CENTER
+                background = round(if (selected) tint else cardBg, 12,
+                    if (selected) green else line)
+                isClickable = true
+                isFocusable = true
+                contentDescription = "Контейнер #" + entry.slotNumber + ": " + player
+                setOnClickListener { onPredict(entry) }
+                setPadding(dp(6), dp(7), dp(6), dp(7))
+            }
+            val avatar = FrameLayout(host)
+            val initials = label(player.take(1).uppercase(), 17f, true, green).apply {
+                gravity = Gravity.CENTER
+                background = round(tint, 25)
+            }
+            avatar.addView(initials, FrameLayout.LayoutParams(dp(38), dp(38)))
+            val photoUrl = api.absolute(entry.participantAvatarUrl)
+            if (photoUrl != null) {
+                val photo = ImageView(host).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = round(tint, 25)
+                    clipToOutline = true
+                    visibility = View.GONE
+                }
+                avatar.addView(photo, FrameLayout.LayoutParams(dp(38), dp(38)))
+                Thread {
+                    val bitmap = api.loadBitmap(photoUrl)
+                    if (bitmap != null) host.runOnUiThread {
+                        if (photo.isAttachedToWindow && !host.isFinishing) {
+                            photo.setImageBitmap(bitmap)
+                            photo.visibility = View.VISIBLE
+                        }
+                    }
+                }.start()
+            }
+            tile.addView(avatar)
+            tile.addView(label(player, 11f, true).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(22)))
+            tile.addView(label("#" + entry.slotNumber +
+                if (selected) "  ★" else "", 10f, false, if (selected) green else secondary)
+                .apply { gravity = Gravity.CENTER },
+                LinearLayout.LayoutParams(-1, dp(16)))
+            cards.addView(tile, LinearLayout.LayoutParams(dp(102), dp(95)).apply {
+                rightMargin = dp(6)
+            })
+        }
+        members.addView(cards)
+        wrap.addView(members, LinearLayout.LayoutParams(-1, dp(112)))
+        wrap.addView(label("Нажмите на участника, чтобы выбрать фаворита.",11f,false,secondary),
             spacedTop(8))
         return wrap
     }

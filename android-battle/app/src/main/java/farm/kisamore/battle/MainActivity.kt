@@ -41,6 +41,8 @@ class MainActivity : Activity() {
     private var welcome: GuestHomeScreen? = null
     private var growthClips: List<HomeClip> = emptyList()
     private var pendingJoinBattleId: String? = null
+    private var authReturnScreen = "home"
+    private var authReturnBattleId: String? = null
 
     private var publicBattles: List<Battle> = emptyList()
     private var myBattles: List<Battle> = emptyList()
@@ -544,24 +546,74 @@ class MainActivity : Activity() {
     }
 
     private fun showLogin() {
+        if (currentScreen != "login" && currentScreen != "register") {
+            authReturnScreen = currentScreen
+            authReturnBattleId = currentBattleId
+        }
+        renderAuthScreen(register = false)
+    }
+
+    private fun closeAuthScreen() {
+        pendingJoinBattleId = null
+        val screen = authReturnScreen
+        val battleId = authReturnBattleId
+        authReturnBattleId = null
+        val battle = (myBattles + publicBattles).firstOrNull { it.id == battleId }
+        when {
+            battle != null -> openBattle(battle)
+            screen == "profile" -> showProfile()
+            screen == "watch" || screen == "battle" -> showWatch()
+            else -> showHome()
+        }
+    }
+
+    private fun renderAuthScreen(register: Boolean, existingEmail: String = "") {
         stopAutoRefresh()
-        currentScreen = "login"
+        currentScreen = if (register) "register" else "login"
         currentBattleId = null
+        val language = AppLanguage(this)
+        fun t(source: String) = language.t(source)
 
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader("ВХОД В BATTLE", "Ваш аккаунт KisaMore"))
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(2), dp(4), dp(12))
+        }
+        val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        heading.addView(bigText(t(if (register) "РЕГИСТРАЦИЯ" else "ВХОД В BATTLE"), 22f))
+        heading.addView(smallText(t("Ваш аккаунт KisaMore")))
+        header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(TextView(this).apply {
+            text = "✕"
+            textSize = 25f
+            gravity = Gravity.CENTER
+            setTextColor(white)
+            contentDescription = t("Закрыть")
+            setOnClickListener { closeAuthScreen() }
+        }, LinearLayout.LayoutParams(dp(42), dp(42)))
+        body.addView(header)
 
         val form = card()
+        val name = EditText(this).apply {
+            hint = t("Имя")
+            setHintTextColor(muted)
+            setTextColor(white)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            backgroundTintList = ColorStateList.valueOf(green)
+        }
+        if (register) form.addView(name, matchWrap())
         val email = EditText(this).apply {
             hint = "Email"
+            setText(existingEmail)
             setHintTextColor(muted)
             setTextColor(white)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
             backgroundTintList = ColorStateList.valueOf(green)
         }
         val password = EditText(this).apply {
-            hint = "Пароль"
+            hint = t("Пароль")
             setHintTextColor(muted)
             setTextColor(white)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -569,25 +621,37 @@ class MainActivity : Activity() {
         }
         form.addView(email, matchWrap())
         form.addView(password, matchWrap())
-        val loginError = TextView(this).apply {
+        val authError = TextView(this).apply {
             setTextColor(danger)
             textSize = 13f
             visibility = View.GONE
             setPadding(0, dp(8), 0, dp(4))
         }
-        form.addView(loginError, matchWrap())
+        form.addView(authError, matchWrap())
         form.addView(space(10))
-        val loginButton = primaryButton("ВОЙТИ") {
-            if (email.text.isBlank() || password.text.isBlank()) {
-                loginError.text = "Введите email и пароль"
-                loginError.visibility = View.VISIBLE
+        val submit = primaryButton(t(if (register) "СОЗДАТЬ АККАУНТ" else "ВОЙТИ")) {
+            val givenEmail = email.text.toString().trim()
+            val givenPassword = password.text.toString()
+            val givenName = name.text.toString().trim()
+            val problem = when {
+                givenEmail.isBlank() || givenPassword.isBlank() ->
+                    t("Введите email и пароль")
+                register && givenName.isBlank() -> t("Введите имя")
+                register && givenPassword.length < 5 -> t("Пароль минимум 5 символов")
+                else -> null
+            }
+            if (problem != null) {
+                authError.text = problem
+                authError.visibility = View.VISIBLE
             } else {
-                loginError.visibility = View.GONE
-                val enteredEmail = email.text.toString()
-                val enteredPassword = password.text.toString()
+                authError.visibility = View.GONE
                 async(
                     work = {
-                        val loggedIn = api.login(enteredEmail, enteredPassword)
+                        val loggedIn = if (register) {
+                            api.register(givenName, givenEmail, givenPassword, language.code)
+                        } else {
+                            api.login(givenEmail, givenPassword)
+                        }
                         val preferences = runCatching { api.fetchPreferences() }.getOrNull()
                         Pair(loggedIn, preferences)
                     },
@@ -598,23 +662,37 @@ class MainActivity : Activity() {
                         loadAll("home")
                     },
                     failure = { error ->
-                        // Keep the form, email and password fields in place.
-                        if (currentScreen == "login") {
-                            loginError.text = when (error) {
+                        if (currentScreen == "login" || currentScreen == "register") {
+                            authError.text = when (error) {
                                 is ApiException -> when (error.statusCode) {
-                                    401 -> "Неверный email или пароль"
-                                    429 -> "Слишком много попыток. Попробуйте позже"
-                                    else -> "Ошибка входа: " + (error.message ?: "HTTP " + error.statusCode)
+                                    401 -> t("Неверный email или пароль")
+                                    409 -> t("Email уже зарегистрирован")
+                                    422 -> t("Проверьте введённые данные")
+                                    429 -> t("Слишком много попыток. Попробуйте позже")
+                                    else -> t(if (register) "Ошибка регистрации: " else "Ошибка входа: ") +
+                                        (error.message ?: "HTTP " + error.statusCode)
                                 }
-                                else -> "Нет соединения с сервером. Проверьте интернет"
+                                else -> t("Нет соединения с сервером. Проверьте интернет")
                             }
-                            loginError.visibility = View.VISIBLE
+                            authError.visibility = View.VISIBLE
                         }
                     }
                 )
             }
         }
-        form.addView(loginButton)
+        form.addView(submit)
+        form.addView(space(10))
+        val switch = TextView(this).apply {
+            text = t(if (register) "Уже есть аккаунт? Войти" else "Создать аккаунт")
+            setTextColor(green)
+            gravity = Gravity.CENTER
+            textSize = 15f
+            setPadding(dp(8), dp(14), dp(8), dp(14))
+            setOnClickListener {
+                renderAuthScreen(register = !register, existingEmail = email.text.toString())
+            }
+        }
+        form.addView(switch)
         val appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
         form.addView(smallText("KisaMore Battle · v" + appVersion))
         body.addView(cardWithMargin(form))

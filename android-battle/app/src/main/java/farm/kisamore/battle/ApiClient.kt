@@ -15,6 +15,7 @@ class ApiException(message: String, val statusCode: Int = 0) : IOException(messa
 
 class ApiClient(context: Context) {
     private val prefs = context.getSharedPreferences("kisamore_battle_api", Context.MODE_PRIVATE)
+    private val language = AppLanguage(context)
     private val primaryHost = "https://kisamore.farm"
     private val backupHost = "https://ru.kisamore.farm"
 
@@ -81,6 +82,20 @@ class ApiClient(context: Context) {
         )
         currentUser = user
         return user
+    }
+
+    fun register(displayName: String, email: String, password: String, language: String): UserInfo {
+        val payload = JSONObject()
+            .put("display_name", displayName.trim())
+            .put("email", email.trim())
+            .put("password", password)
+            .put("language", language)
+        val json = JSONObject(request("POST", "/api/v1/auth/register", payload.toString()))
+        return UserInfo(
+            id = json.optString("id"),
+            displayName = json.optString("display_name", displayName.trim()),
+            email = json.optString("email", email.trim())
+        ).also { currentUser = it }
     }
 
     fun logout() {
@@ -318,7 +333,9 @@ class ApiClient(context: Context) {
                             "/racks/" + obj.optInt("rack_id") +
                             "/slots/" + item.optInt("slot_number") + "/photo",
                         isWinner = item.optBoolean("is_winner", false),
-                        badge = item.nullableString("badge")
+                        badge = item.nullableString("badge"),
+                        participantName = item.nullableString("participant_name"),
+                        participantAvatarUrl = item.nullableString("participant_avatar_url")
                     )
                 )
             }
@@ -353,7 +370,10 @@ class ApiClient(context: Context) {
             title = obj.optString("title", "Plant Battle"),
             status = obj.optString("status"),
             rackId = obj.optInt("rack_id"),
-            plantName = obj.optString("plant_name", "Plant"),
+            plantName = PlantNameResolver.resolve(
+                obj.optJSONObject("plant_names"), language.code,
+                obj.optString("plant_name", "Plant")
+            ),
             growDays = obj.optInt("grow_days"),
             rackPhotoUrl = obj.nullableString("rack_photo_url"),
             cameraViews = cameras,

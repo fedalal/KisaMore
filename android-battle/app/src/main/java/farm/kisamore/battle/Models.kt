@@ -35,7 +35,9 @@ data class BattleEntry(
     val certificateUrl: String?,
     val photoUrl: String?,
     val isWinner: Boolean = false,
-    val badge: String? = null
+    val badge: String? = null,
+    val participantName: String? = null,
+    val participantAvatarUrl: String? = null
 )
 
 data class Battle(
