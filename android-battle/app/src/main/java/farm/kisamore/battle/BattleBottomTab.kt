@@ -89,6 +89,26 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
                 }
                 canvas.drawPath(left, p)
             }
+            "camera" -> {
+                // Standard Lucide camera glyph for a server-provided camera.
+                val body = Path().apply {
+                    moveTo(14f, 4f); lineTo(10f, 4f); lineTo(8f, 7f)
+                    lineTo(4f, 7f); cubicTo(2.9f, 7f, 2f, 7.9f, 2f, 9f)
+                    lineTo(2f, 19f); lineTo(22f, 19f); lineTo(22f, 9f)
+                    cubicTo(22f, 7.9f, 21.1f, 7f, 20f, 7f)
+                    lineTo(16f, 7f); close()
+                }
+                canvas.drawPath(body, p)
+                canvas.drawCircle(12f, 13f, 3f, p)
+            }
+            "play" -> {
+                canvas.drawCircle(12f, 12f, 9f, p)
+                val triangle = Path().apply {
+                    moveTo(10f, 8f); lineTo(16f, 12f)
+                    lineTo(10f, 16f); close()
+                }
+                canvas.drawPath(triangle, p)
+            }
             "trophy" -> {
                 canvas.drawRoundRect(7f, 3f, 17f, 15f, 2f, 2f, p)
                 canvas.drawArc(3f, 5f, 10f, 14f, 90f, 190f, false, p)
