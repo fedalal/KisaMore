@@ -322,7 +322,42 @@ internal class BattleArenaScreen(
             rightMargin = dp(6)
         })
 
-        photoRow.addView(photoPanel(), LinearLayout.LayoutParams(0, -1, 1f).apply {
+        val mediaFrame = FrameLayout(host)
+        val photo = photoPanel()
+        mediaFrame.addView(photo, FrameLayout.LayoutParams(-1, -1))
+        mediaPreview = photo
+        val player = VideoView(host).apply {
+            visibility = View.GONE
+            setOnPreparedListener {
+                videoLoading?.visibility = View.GONE
+                start()
+            }
+            setOnCompletionListener { restorePhoto() }
+            setOnErrorListener { _, _, _ ->
+                restorePhoto()
+                Toast.makeText(host, "Не удалось загрузить таймлапс", Toast.LENGTH_SHORT).show()
+                true
+            }
+        }
+        mediaPlayer = player
+        mediaFrame.addView(player, FrameLayout.LayoutParams(-1, -1))
+        val loading = ProgressBar(host).apply { visibility = View.GONE }
+        videoLoading = loading
+        mediaFrame.addView(loading, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER))
+        val exit = label("✕", 20f, true, Color.WHITE).apply {
+            visibility = View.GONE
+            gravity = Gravity.CENTER
+            background = round(color("#365B40"), 10)
+            contentDescription = "Вернуться к фотографии"
+            setOnClickListener { restorePhoto() }
+        }
+        closeVideo = exit
+        mediaFrame.addView(exit, FrameLayout.LayoutParams(dp(36), dp(36),
+            Gravity.TOP or Gravity.END).apply {
+            topMargin = dp(5)
+            rightMargin = dp(5)
+        })
+        photoRow.addView(mediaFrame, LinearLayout.LayoutParams(0, -1, 1f).apply {
             rightMargin = dp(6)
         })
 
@@ -331,37 +366,27 @@ internal class BattleArenaScreen(
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(3), dp(5), dp(3), 0)
         }
-        val videoEntry = mine ?: battle.entries.firstOrNull()
         listOf("24 ч", "3 дня", "Всё").forEachIndexed { i, title ->
             val path = when (i) {
-                0 -> videoEntry?.timelapse24hUrl
-                1 -> videoEntry?.timelapse3dUrl
-                else -> videoEntry?.timelapseFullUrl
+                0 -> camera?.timelapse24hUrl
+                1 -> camera?.timelapse3dUrl
+                else -> camera?.timelapseFullUrl
             }
-            val selected = i == 0
             val videoButton = column().apply {
                 gravity = Gravity.CENTER
-                background = round(if (selected) buttonBg else tint, 9)
+                background = round(tint, 9)
                 isClickable = true
                 isFocusable = true
                 contentDescription = "Таймлапс " +
                     (if (i == 2) "за весь период" else title) + " выбранной камеры"
-                setOnClickListener {
-                    if (camera != null && !camera.isPrimary) {
-                        Toast.makeText(host, "Таймлапс этой камеры пока недоступен",
-                            Toast.LENGTH_SHORT).show()
-                    } else {
-                        onVideo(path)
-                    }
-                }
+                setOnClickListener { playCameraVideo(path, i) }
             }
-            videoButton.addView(BattleTabGlyph(host, "play",
-                if (selected) Color.WHITE else green),
+            videoButton.addView(BattleTabGlyph(host, "play", green),
                 LinearLayout.LayoutParams(dp(21), dp(21)))
-            videoButton.addView(label(title, 10f, selected,
-                if (selected) Color.WHITE else ink).apply {
+            videoButton.addView(label(title, 10f, false, ink).apply {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, dp(17)))
+            videoButtons.add(videoButton)
             videosRail.addView(videoButton, LinearLayout.LayoutParams(dp(38), dp(47)).apply {
                 bottomMargin = dp(6)
             })
