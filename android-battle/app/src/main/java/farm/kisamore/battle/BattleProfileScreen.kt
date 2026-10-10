@@ -28,6 +28,7 @@ class BattleProfileScreen(
     private val battles: List<Battle>,
     private val avatarUri: String?,
     private val serverProfile: PlayerBattleProfile? = null,
+    private val walletBalance: Long? = null,
     private val onChangePhoto: () -> Unit,
     private val onLogin: () -> Unit,
     private val onPlant: () -> Unit,
@@ -167,10 +168,22 @@ class BattleProfileScreen(
         }
         card.addView(details, LayoutParams(0, -2, 1f))
         if (user != null) {
-            card.addView(icon("logout", 22, secondary).apply {
-                contentDescription = "Выйти из профиля"
+            // Visible at the very top of the profile: live server Kisa balance.
+            // Keep sign out in the same compact column so short devices fit.
+            val walletAndExit = column().apply { gravity = Gravity.CENTER_HORIZONTAL }
+            walletAndExit.addView(text("Ⓚ " + (walletBalance?.toString() ?: "—"),
+                15f, accent, true, single = true).apply {
+                gravity = Gravity.CENTER
+                background = rounded(pale, 11)
+                setPadding(dp(7), dp(5), dp(7), dp(5))
+                contentDescription = tr("Баланс Kisa: ", "Kisa balance: ") +
+                    (walletBalance?.toString() ?: tr("не загружен", "unavailable"))
+            }, LayoutParams(-2, dp(30)))
+            walletAndExit.addView(icon("logout", 19, secondary).apply {
+                contentDescription = tr("Выйти из профиля", "Sign out")
                 setOnClickListener { confirmLogout() }
-            }, LayoutParams(dp(26), dp(28)))
+            }, LayoutParams(dp(24), dp(24)).apply { topMargin = dp(3) })
+            card.addView(walletAndExit, LayoutParams(-2, -2))
         }
         return card
     }

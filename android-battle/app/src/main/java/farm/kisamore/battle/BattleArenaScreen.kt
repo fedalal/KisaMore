@@ -50,6 +50,13 @@ internal class BattleArenaScreen(
     private val onPredict: (BattleEntry) -> Unit,
     private val onJoin: () -> Unit
 ) : ScrollView(host) {
+    private val language = AppLanguage(host)
+    private fun tr(ru: String, en: String): String {
+        if (language.code == "ru") return ru
+        if (language.code == "en") return en
+        val localized = language.t(ru)
+        return if (localized == ru) en else localized
+    }
     private val d = resources.displayMetrics.density
     private fun dp(value: Int): Int = (value * d + .5f).toInt()
     private val dark = host.getSharedPreferences("battle_settings", 0).getBoolean("dark_mode", false)
@@ -100,7 +107,7 @@ internal class BattleArenaScreen(
     private fun playCameraVideo(path: String?, index: Int) {
         val url = api.absolute(path)
         if (url.isNullOrBlank()) {
-            Toast.makeText(host, "Таймлапс этой камеры пока не готов", Toast.LENGTH_SHORT).show()
+            Toast.makeText(host, tr("Таймлапс этой камеры пока не готов", "Timelapse for this camera is not ready yet"), Toast.LENGTH_SHORT).show()
             return
         }
         restorePhoto()
@@ -166,31 +173,31 @@ internal class BattleArenaScreen(
             ?: runCatching { LocalDateTime.parse(raw).atZone(zone).toInstant() }.getOrNull()
     }
     private fun photoAge(): String {
-        val capture = instant(camera?.capturedAt) ?: return "Фото: время неизвестно"
+        val capture = instant(camera?.capturedAt) ?: return tr("Фото: время неизвестно", "Photo: time unknown")
         val mins = ChronoUnit.MINUTES.between(capture, Instant.now()).coerceAtLeast(0)
         return when {
-            mins == 0L -> "Фото: только что"
-            mins < 60 -> "Фото: " + mins + " мин назад"
-            mins < 1440 -> "Фото: " + (mins / 60) + " ч назад"
-            else -> "Фото: " + (mins / 1440) + " дн назад"
+            mins == 0L -> tr("Фото: только что", "Photo: just now")
+            mins < 60 -> tr("Фото: ", "Photo: ") + mins + tr(" мин назад", " min ago")
+            mins < 1440 -> tr("Фото: ", "Photo: ") + (mins / 60) + tr(" ч назад", " h ago")
+            else -> tr("Фото: ", "Photo: ") + (mins / 1440) + tr(" дн назад", " d ago")
         }
     }
     private fun dayLabel(): String {
         val planted = instant(battle.plantedAt)
         return if (planted != null) {
-            "День " + (ChronoUnit.DAYS.between(planted, Instant.now()) + 1).coerceAtLeast(1)
+            tr("День ", "Day ") + (ChronoUnit.DAYS.between(planted, Instant.now()) + 1).coerceAtLeast(1)
         } else when (battle.status) {
-            "open" -> "Набор участников"
-            "planting" -> "Посадка"
-            "finished" -> "Завершена"
-            else -> "Битва идёт"
+            "open" -> tr("Набор участников", "Recruiting players")
+            "planting" -> tr("Посадка", "Planting")
+            "finished" -> tr("Завершена", "Finished")
+            else -> tr("Битва идёт", "Battle in progress")
         }
     }
     private fun actionText(a: BattleAction): String = when (a.kind) {
-        "water" -> "Полив " + a.amount + " мл"
-        "nutrient" -> "Питание " + a.amount + " мл"
-        "shade" -> "Закрыто на " + a.amount + " мин"
-        else -> "Команда: " + a.kind
+        "water" -> tr("Полив ", "Watering ") + a.amount + tr(" мл", " ml")
+        "nutrient" -> tr("Питание ", "Nutrients ") + a.amount + tr(" мл", " ml")
+        "shade" -> tr("Закрыто на ", "Shaded for ") + a.amount + tr(" мин", " min")
+        else -> tr("Команда: ", "Command: ") + a.kind
     }
     private fun actionIcon(kind: String) = when (kind) {
         "water" -> "💧"; "nutrient" -> "⚗"; "shade" -> "☾"; else -> "·"
@@ -201,15 +208,15 @@ internal class BattleArenaScreen(
         val today = LocalDate.now(zone)
         return when (local.toLocalDate()) {
             today -> local.format(DateTimeFormatter.ofPattern("HH:mm"))
-            today.minusDays(1) -> "Вчера"
+            today.minusDays(1) -> tr("Вчера", "Yesterday")
             else -> local.format(DateTimeFormatter.ofPattern("dd.MM"))
         }
     }
     private fun cameraName(value: BattleCamera, i: Int): String {
         val id = value.cameraId
-        return if (value.isPrimary) "Основная"
+        return if (value.isPrimary) tr("Основная", "Main")
         else if (id.length in 3..15 && !id.matches(Regex("(?i)(video|camera|cam)[_-]?\\d+"))) id.replace('_', ' ')
-        else "Камера " + (i + 1)
+        else tr("Камера ", "Camera ") + (i + 1)
     }
 
     init {
@@ -226,7 +233,7 @@ internal class BattleArenaScreen(
         val switched = (choices + battle).distinctBy { it.id }
             .filter { it.status != "finished" || it.id == battle.id }
         switched.forEachIndexed { i, candidate ->
-            val title = candidate.title.ifBlank { "Битва " + (i + 1) }
+            val title = candidate.title.ifBlank { tr("Битва ", "Battle ") + (i + 1) }
             val active = candidate.id == battle.id
             val owned = api.hasSession() && candidate.mine != null
             val selector = row().apply {
@@ -236,7 +243,7 @@ internal class BattleArenaScreen(
                     if (active) null else line)
                 isClickable = true
                 isFocusable = true
-                contentDescription = title + if (owned) ", участвую" else ""
+                contentDescription = title + if (owned) tr(", участвую", ", participating") else ""
                 setOnClickListener { onBattle(candidate) }
             }
             if (owned) selector.addView(BattleTabGlyph(host, "trophy",
@@ -261,9 +268,9 @@ internal class BattleArenaScreen(
             setPadding(dp(9), 0, dp(8), 0)
             background = round(color("#31543D"), 9)
         }
-        header.addView(label("● LIVE · ПОЛКА " + battle.rackId, 10f, true, Color.WHITE),
+        header.addView(label(tr("● LIVE · ПОЛКА ", "● LIVE · RACK ") + battle.rackId, 10f, true, Color.WHITE),
             LinearLayout.LayoutParams(0, -1, 1f))
-        if (mine != null) header.addView(label("МОЙ №" + mine.slotNumber, 10f, true,
+        if (mine != null) header.addView(label(tr("МОЙ №", "MINE #") + mine.slotNumber, 10f, true,
             color("#E3F4D5")).apply {
             gravity = Gravity.CENTER
             setPadding(dp(10), 0, dp(10), 0)
@@ -291,7 +298,7 @@ internal class BattleArenaScreen(
         if (cameras.isEmpty()) {
             cameraButtons.addView(label("—", 15f, false, secondary).apply {
                 gravity = Gravity.CENTER
-                contentDescription = "Камеры не подключены"
+                contentDescription = tr("Камеры не подключены", "No cameras connected")
             }, LinearLayout.LayoutParams(dp(38), dp(44)))
         }
         cameras.forEachIndexed { i, cam ->
@@ -301,14 +308,14 @@ internal class BattleArenaScreen(
                 background = round(if (selected) buttonBg else tint, 9)
                 isClickable = true
                 isFocusable = true
-                contentDescription = "Камера " + (i + 1) +
-                    (if (selected) ", выбрана" else "") + ", " + cameraName(cam, i)
+                contentDescription = tr("Камера ", "Camera ") + (i + 1) +
+                    (if (selected) tr(", выбрана", ", selected") else "") + ", " + cameraName(cam, i)
                 setOnClickListener { if (!selected) onCamera(cam.cameraId) }
             }
             cameraButton.addView(BattleTabGlyph(host, "camera",
                 if (selected) Color.WHITE else green),
                 LinearLayout.LayoutParams(dp(21), dp(21)))
-            cameraButton.addView(label("К" + (i + 1), 10f, selected,
+            cameraButton.addView(label((if(language.code=="ru") "К" else "C") + (i + 1), 10f, selected,
                 if (selected) Color.WHITE else secondary).apply {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, dp(17)))
@@ -335,7 +342,7 @@ internal class BattleArenaScreen(
             setOnCompletionListener { restorePhoto() }
             setOnErrorListener { _, _, _ ->
                 restorePhoto()
-                Toast.makeText(host, "Не удалось загрузить таймлапс", Toast.LENGTH_SHORT).show()
+                Toast.makeText(host, tr("Не удалось загрузить таймлапс", "Could not load timelapse"), Toast.LENGTH_SHORT).show()
                 true
             }
         }
@@ -348,7 +355,7 @@ internal class BattleArenaScreen(
             visibility = View.GONE
             gravity = Gravity.CENTER
             background = round(color("#365B40"), 10)
-            contentDescription = "Вернуться к фотографии"
+            contentDescription = tr("Вернуться к фотографии", "Return to photo")
             setOnClickListener { restorePhoto() }
         }
         closeVideo = exit
@@ -366,7 +373,7 @@ internal class BattleArenaScreen(
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(3), dp(5), dp(3), 0)
         }
-        listOf("24 ч", "3 дня", "Всё").forEachIndexed { i, title ->
+        listOf(if(language.code=="ru") "24 ч" else "24 h", tr("3 дня", "3 days"), tr("Всё", "All")).forEachIndexed { i, title ->
             val path = when (i) {
                 0 -> camera?.timelapse24hUrl
                 1 -> camera?.timelapse3dUrl
@@ -377,8 +384,8 @@ internal class BattleArenaScreen(
                 background = round(tint, 9)
                 isClickable = true
                 isFocusable = true
-                contentDescription = "Таймлапс " +
-                    (if (i == 2) "за весь период" else title) + " выбранной камеры"
+                contentDescription = tr("Таймлапс ", "Timelapse ") +
+                    (if (i == 2) tr("за весь период", "for the full period") else title) + tr(" выбранной камеры", " of the selected camera")
                 setOnClickListener { playCameraVideo(path, i) }
             }
             videoButton.addView(BattleTabGlyph(host, "play", green),
@@ -397,12 +404,12 @@ internal class BattleArenaScreen(
         })
 
         if (mine != null) {
-            body.addView(labelHeader("МОИ РЕСУРСЫ", 6))
+            body.addView(labelHeader(tr("МОИ РЕСУРСЫ", "MY RESOURCES"), 6))
             body.addView(resources(mine), LinearLayout.LayoutParams(-1, dp(117)))
             val actionHeader = row()
-            actionHeader.addView(label("ПОСЛЕДНИЕ ДЕЙСТВИЯ", 11f, true),
+            actionHeader.addView(label(tr("ПОСЛЕДНИЕ ДЕЙСТВИЯ", "RECENT ACTIONS"), 11f, true),
                 LinearLayout.LayoutParams(0, dp(25), 1f))
-            actionHeader.addView(label("Все ›", 11f, true, green).apply {
+            actionHeader.addView(label(tr("Все ›", "All ›"), 11f, true, green).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 setOnClickListener { onJournal(mine.actions) }
             }, LinearLayout.LayoutParams(-2, dp(25)))
@@ -429,13 +436,13 @@ internal class BattleArenaScreen(
         }
         val image = ImageView(host).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "Фото полки с выбранной камеры"
+            contentDescription = tr("Фото полки с выбранной камеры", "Rack photo from selected camera")
         }
         frame.addView(image, FrameLayout.LayoutParams(-1, -1))
         var highlight: View? = null
         val photoUrl = api.absolute(camera?.photoUrl ?: battle.rackPhotoUrl)
         frame.isClickable = true
-        frame.contentDescription = "Посмотреть фото полки крупно"
+        frame.contentDescription = tr("Посмотреть фото полки крупно", "Enlarge rack photo")
         frame.setOnClickListener { onPhoto(photoUrl) }
         if (photoUrl != null) {
             PhotoFrameCache.current(photoUrl)?.let { image.setImageBitmap(it) }
@@ -511,15 +518,15 @@ internal class BattleArenaScreen(
             setPadding(dp(8), dp(2), dp(8), dp(2))
         }
         val resources = listOf(
-            Triple("Вода", Pair(battle.waterBudgetMl,entry.waterUsedMl), "water"),
-            Triple("Питание", Pair(battle.nutrientBudgetMl,entry.nutrientUsedMl), "nutrient"),
-            Triple("Без света", Pair(battle.shadeBudgetMinutes,entry.shadeUsedMinutes), "shade")
+            Triple(tr("Вода", "Water"), Pair(battle.waterBudgetMl,entry.waterUsedMl), "water"),
+            Triple(tr("Питание", "Nutrients"), Pair(battle.nutrientBudgetMl,entry.nutrientUsedMl), "nutrient"),
+            Triple(tr("Без света", "Shade"), Pair(battle.shadeBudgetMinutes,entry.shadeUsedMinutes), "shade")
         )
         resources.forEachIndexed { i, data ->
             val (name, amounts, kind) = data
             val (budget, used) = amounts
             val remain = (budget - used).coerceAtLeast(0)
-            val unit = if (kind == "shade") "мин" else "мл"
+            val unit = if (kind == "shade") tr("мин", "min") else tr("мл", "ml")
             val content = row()
             content.addView(label(when(kind){"water"->"💧";"nutrient"->"⚗";else->"☾"},18f,false,green),
                 LinearLayout.LayoutParams(dp(29), -1))
@@ -532,7 +539,7 @@ internal class BattleArenaScreen(
             progressTrack.addView(p, FrameLayout.LayoutParams(
                 dp(64*remain/max(1,budget)),dp(5),Gravity.START or Gravity.CENTER_VERTICAL))
             content.addView(progressTrack, LinearLayout.LayoutParams(dp(64),dp(5)).apply { rightMargin=dp(7) })
-            val nameButton = when (kind) { "water" -> "Полить"; "nutrient" -> "Добавить"; else -> "Использовать" }
+            val nameButton = when (kind) { "water" -> tr("Полить", "Water"); "nutrient" -> tr("Добавить", "Add"); else -> tr("Использовать", "Use") }
             val enabled = battle.status == "growing" && remain > 0
             content.addView(label(nameButton, 11f, true, Color.WHITE).apply {
                 gravity=Gravity.CENTER
@@ -553,7 +560,7 @@ internal class BattleArenaScreen(
         }
         val list=actions.sortedByDescending { it.completedAt ?: it.requestedAt ?: "" }.take(3)
         if(list.isEmpty()){
-            parent.addView(label("Команд пока нет",12f,false,secondary).apply {
+            parent.addView(label(tr("Команд пока нет", "No commands yet"),12f,false,secondary).apply {
                 gravity = Gravity.CENTER_VERTICAL
             }, LinearLayout.LayoutParams(-1, dp(32)))
         } else list.forEachIndexed { i,action ->
@@ -563,8 +570,8 @@ internal class BattleArenaScreen(
             r.addView(label(whenText(action),10f,false,secondary),
                 LinearLayout.LayoutParams(dp(57),-1))
             val suffix=when(action.status){
-                "pending"->" · ожидает"
-                "cancelled"->" · отменено"
+                "pending"->tr(" · ожидает", " · pending")
+                "cancelled"->tr(" · отменено", " · cancelled")
                 else->""
             }
             r.addView(label(actionText(action)+suffix,11f,i==0),
@@ -578,10 +585,10 @@ internal class BattleArenaScreen(
 
     private fun chartHeader(): View {
         val r=row()
-        r.addView(label("АКТИВНОСТЬ",11f,true),LinearLayout.LayoutParams(0,dp(28),1f))
+        r.addView(label(tr("АКТИВНОСТЬ", "ACTIVITY"),11f,true),LinearLayout.LayoutParams(0,dp(28),1f))
         for (days in listOf(1,3,7)) {
             val selected=days==chartPeriod
-            val button=chip(if(days==1)"24 ч" else "$days дня".replace("7 дня","7 дней"),
+            val button=chip(if(days==1) (if(language.code=="ru") "24 ч" else "24 h") else if(language.code=="ru") "$days дня".replace("7 дня","7 дней") else "$days days",
                 selected,0) {
                 chartPeriod=days
                 onPeriod(days)
@@ -607,14 +614,14 @@ internal class BattleArenaScreen(
             setPadding(dp(15),dp(14),dp(15),dp(12))
             background=round(cardBg,14)
         }
-        card.addView(label("Вы наблюдаете за битвой",16f,true))
-        card.addView(label("Ресурсы участников скрыты. Управляет растением только его владелец.",12f,false,secondary).apply{
+        card.addView(label(tr("Вы наблюдаете за битвой", "You are watching the battle"),16f,true))
+        card.addView(label(tr("Ресурсы участников скрыты. Управляет растением только его владелец.", "Players’ resources are hidden. Only each owner controls their plant."),12f,false,secondary).apply{
             maxLines=3;ellipsize=null
         },LinearLayout.LayoutParams(-1,dp(52)))
-        if (battle.status=="open") card.addView(chip("Занять место",true){onJoin()},
+        if (battle.status=="open") card.addView(chip(tr("Занять место", "Join battle"),true){onJoin()},
             LinearLayout.LayoutParams(-1,dp(36)))
         wrap.addView(card)
-        wrap.addView(labelHeader("УЧАСТНИКИ",10))
+        wrap.addView(labelHeader(tr("УЧАСТНИКИ", "PARTICIPANTS"),10))
         val members = HorizontalScrollView(host).apply {
             isHorizontalScrollBarEnabled = false
         }
@@ -624,7 +631,7 @@ internal class BattleArenaScreen(
         }
         battle.entries.sortedBy { it.slotNumber }.take(6).forEach { entry ->
             val player = entry.participantName?.trim().takeUnless { it.isNullOrBlank() }
-                ?: "Игрок #" + entry.slotNumber
+                ?: tr("Игрок #", "Player #") + entry.slotNumber
             val selected = battle.myPredictionEntryId == entry.id
             val tile = column().apply {
                 gravity = Gravity.CENTER
@@ -632,7 +639,7 @@ internal class BattleArenaScreen(
                     if (selected) green else line)
                 isClickable = true
                 isFocusable = true
-                contentDescription = "Контейнер #" + entry.slotNumber + ": " + player
+                contentDescription = tr("Контейнер #", "Container #") + entry.slotNumber + ": " + player
                 setOnClickListener { onPredict(entry) }
                 setPadding(dp(6), dp(7), dp(6), dp(7))
             }
@@ -675,7 +682,7 @@ internal class BattleArenaScreen(
         }
         members.addView(cards)
         wrap.addView(members, LinearLayout.LayoutParams(-1, dp(112)))
-        wrap.addView(label("Нажмите на участника, чтобы выбрать фаворита.",11f,false,secondary),
+        wrap.addView(label(tr("Нажмите на участника, чтобы выбрать фаворита.", "Tap a player to pick your favorite."),11f,false,secondary),
             spacedTop(8))
         return wrap
     }

@@ -25,6 +25,13 @@ internal class BattleActivityChart(
     private val dark: Boolean,
     private var days: Int = 3
 ) : View(context) {
+    private val language = AppLanguage(context)
+    private fun tr(ru: String, en: String): String {
+        if (language.code == "ru") return ru
+        if (language.code == "en") return en
+        val translated = language.t(ru)
+        return if (translated == ru) en else translated
+    }
     private val d = resources.displayMetrics.density
     private val zone = ZoneId.systemDefault()
     private val labelColor = Color.parseColor(if (dark) "#AEBCAE" else "#738074")
@@ -79,7 +86,7 @@ internal class BattleActivityChart(
             p.textAlign = if (center) Paint.Align.CENTER else Paint.Align.LEFT
             canvas.drawText(text, x, y, p)
         }
-        val names = listOf("Полив", "Питание", "Без света")
+        val names = listOf(tr("Полив", "Watering"), tr("Питание", "Nutrients"), tr("Без света", "Shade"))
         names.forEachIndexed { index, title ->
             val y = top + rowGap * (index + .5f)
             label(title, 11f * d, y + 4f * d, 11f, textColor)
@@ -124,7 +131,7 @@ internal class BattleActivityChart(
             }
         }
         if (filtered.none { val at = instant(it.completedAt) ?: instant(it.requestedAt); at != null && at >= start && at < end }) {
-            label("Нет событий за этот период", (left+right)/2f, top + rowGap*1.5f+4f*d, 10f, labelColor, true)
+            label(tr("Нет событий за этот период", "No events in this period"), (left+right)/2f, top + rowGap*1.5f+4f*d, 10f, labelColor, true)
         }
     }
 }

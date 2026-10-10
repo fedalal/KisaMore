@@ -349,6 +349,15 @@ class MainActivity : Activity() {
         showContent(guest.create())
     }
 
+    /** UI strings on Battle-related dialogs follow the same app language. */
+    private fun battleText(ru: String, en: String): String {
+        val lang = AppLanguage(this)
+        if (lang.code == "ru") return ru
+        if (lang.code == "en") return en
+        val translated = lang.t(ru)
+        return if (translated == ru) en else translated
+    }
+
     private fun showWatch() {
         // The Battle tab is the arena itself, not the legacy LIVE ARENA list.
         // Remember the last selection; otherwise prefer the user's own battle.
@@ -366,9 +375,14 @@ class MainActivity : Activity() {
             val scroll = screenScroll()
             val body = scroll.getChildAt(0) as LinearLayout
             val c = card()
-            c.addView(bigText("Пока нет доступных битв"))
-            c.addView(smallText("Когда появится новая битва, она будет доступна здесь."))
-            c.addView(primaryButton("ОБНОВИТЬ") { loadAll("watch") })
+            val lng = AppLanguage(this)
+            fun localized(ru: String, en: String) = if (lng.code == "ru") ru else en
+            c.addView(bigText(localized("Пока нет доступных битв", "No battles available")))
+            c.addView(smallText(localized(
+                "Когда появится новая битва, она будет доступна здесь.",
+                "New battles will appear here as soon as they are available."
+            )))
+            c.addView(primaryButton(localized("ОБНОВИТЬ", "REFRESH")) { loadAll("watch") })
             body.addView(cardWithMargin(c))
             showContent(scroll)
         }
@@ -404,6 +418,8 @@ class MainActivity : Activity() {
     }
 
     private var cachedServerProfile: PlayerBattleProfile? = null
+    private var cachedWalletKisa: Long? = null
+    private var cachedWalletUserId: String? = null
 
     private var accountAvatarUrl: String? = null
     private var accountPrefsLoadedFor: String? = null
@@ -487,6 +503,8 @@ class MainActivity : Activity() {
             if (currentScreen != "profile") return
             showContent(BattleProfileScreen(
                 this, user, game.profile(), myBattles, avatar, server,
+                walletBalance = if (user != null && cachedWalletUserId == user.id)
+                    cachedWalletKisa else null,
                 onChangePhoto = { pickProfilePhoto() },
                 onLogin = { showLogin() },
                 onPlant = {
@@ -504,6 +522,8 @@ class MainActivity : Activity() {
                     async(work = { api.logout(); true }, success = {
                         myBattles = emptyList()
                         cachedServerProfile = null
+                        cachedWalletKisa = null
+                        cachedWalletUserId = null
                         accountAvatarUrl = null
                         accountPrefsLoadedFor = null
                         showProfile()
@@ -527,18 +547,24 @@ class MainActivity : Activity() {
                     // Older VPS supports /battles/me without a profile endpoint.
                     fallbackBattleProfile(freshBattles)
                 }
-                Triple(freshBattles, profileResponse, preferences)
+                val walletBalance = runCatching { api.fetchKisaBalance() }.getOrNull()
+                Triple(freshBattles, profileResponse, Pair(preferences, walletBalance))
             }, success = {
+                if (api.currentUser?.id != user.id) return@async
                 myBattles = it.first
                 cachedServerProfile = it.second
-                if (it.third != null && accountPrefsLoadedFor != user.id) {
-                    applyRemotePreferences(it.third!!)
+                cachedWalletUserId = user.id
+                cachedWalletKisa = it.third.second
+                if (it.third.first != null && accountPrefsLoadedFor != user.id) {
+                    applyRemotePreferences(it.third.first!!)
                     showProfile()
                 } else {
                     render(it.second)
                 }
             }, failure = {
                 cachedServerProfile = null
+                cachedWalletKisa = null
+                cachedWalletUserId = null
                 render(null)
                 toast("Не удалось загрузить статистику профиля")
             })
@@ -783,7 +809,7 @@ class MainActivity : Activity() {
     private fun showFullRackPhoto(path: String?) {
         val url = api.absolute(path)
         if (url.isNullOrBlank()) {
-            toast("Фото ещё не получено")
+            toast(battleText("Фото ещё не получено", "Photo not available yet"))
             return
         }
         val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
@@ -792,7 +818,7 @@ class MainActivity : Activity() {
         }
         val image = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "Нажмите, чтобы закрыть крупное фото"
+            contentDescription = battleText("Нажмите, чтобы закрыть крупное фото", "Tap to close enlarged photo")
             PhotoFrameCache.current(url)?.let { setImageBitmap(it) }
             setOnClickListener { dialog.dismiss() }
         }
@@ -813,7 +839,7 @@ class MainActivity : Activity() {
                 PhotoFrameCache.remember(url, bitmap)
                 image.setImageBitmap(bitmap)
             }
-        }, failure = { toast("Не удалось загрузить фотографию") })
+        }, failure = { toast(battleText("Не удалось загрузить фотографию", "Could not load photo")) })
     }
 
     private fun showArenaTimelapse(path: String?) {
@@ -858,7 +884,7 @@ class MainActivity : Activity() {
         }
         panel.addView(rows)
         if (sorted.isEmpty()) rows.addView(TextView(this).apply {
-            text = "Команд пока нет"
+            text = battleText("Команд пока нет", "No commands yet")
             setPadding(0, dp(12), 0, dp(12))
         })
         sorted.forEach { a ->
@@ -874,9 +900,9 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, dp(1)))
         }
         AlertDialog.Builder(this)
-            .setTitle("Все действия · " + sorted.size)
+            .setTitle(battleText("Все действия · ", "All actions · ") + sorted.size)
             .setView(panel)
-            .setPositiveButton("Закрыть", null)
+            .setPositiveButton(battleText("Закрыть окно", "Close"), null)
             .show()
     }
 
@@ -1128,18 +1154,18 @@ class MainActivity : Activity() {
     }
 
     private fun sendPrediction(battle: Battle, entry: BattleEntry) {
-        toast("Сохраняем прогноз…")
+        toast(battleText("Сохраняем прогноз…", "Saving prediction…"))
         async(
             work = { api.predict(battle.id, entry.id) },
             success = { updated ->
                 game.completeMission("predict")
                 replaceBattleInCaches(updated)
                 renderBattle(updated)
-                toast("+10 XP · прогноз сохранён")
+                toast(battleText("+10 XP · прогноз сохранён", "+10 XP · prediction saved"))
             },
             failure = { error ->
                 if (error is ApiException && error.statusCode == 404) {
-                    toast("Для прогнозов нужно обновить Battle API на сервере")
+                    toast(battleText("Для прогнозов нужно обновить Battle API на сервере", "Predictions require a server update"))
                 } else {
                     showError(error)
                 }
@@ -1151,7 +1177,7 @@ class MainActivity : Activity() {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setTextColor(Color.BLACK)
-            hint = if (kind == "shade") "минуты" else "мл"
+            hint = if (kind == "shade") battleText("минуты", "minutes") else battleText("мл", "ml")
         }
         val presets = when (kind) {
             "water" -> intArrayOf(30, 60, 100)
@@ -1159,9 +1185,9 @@ class MainActivity : Activity() {
             else -> intArrayOf(30, 60, 120)
         }
         val title = when (kind) {
-            "water" -> "💧 Полить растение"
-            "nutrient" -> "🧪 Добавить питание"
-            else -> "🌙 Закрыть от света"
+            "water" -> battleText("💧 Полить растение", "💧 Water plant")
+            "nutrient" -> battleText("🧪 Добавить питание", "🧪 Add nutrients")
+            else -> battleText("🌙 Закрыть от света", "🌙 Shade plant")
         }
 
         val wrap = LinearLayout(this).apply {
@@ -1180,13 +1206,13 @@ class MainActivity : Activity() {
 
         AlertDialog.Builder(this)
             .setTitle(title)
-            .setMessage("Это реальная команда. Ресурс будет списан из лимита растения.")
+            .setMessage(battleText("Это реальная команда. Ресурс будет списан из лимита растения.", "This is a real command. Resources will be deducted from your plant’s allowance."))
             .setView(wrap)
-            .setNegativeButton("Отмена", null)
-            .setPositiveButton("Отправить") { _, _ ->
+            .setNegativeButton(battleText("Отмена", "Cancel"), null)
+            .setPositiveButton(battleText("Отправить", "Send")) { _, _ ->
                 val amount = input.text.toString().toIntOrNull() ?: 0
                 if (amount <= 0) {
-                    toast("Укажите количество")
+                    toast(battleText("Укажите количество", "Enter an amount"))
                 } else {
                     executeCommand(battle, entry, kind, amount)
                 }
@@ -1195,7 +1221,7 @@ class MainActivity : Activity() {
     }
 
     private fun executeCommand(battle: Battle, entry: BattleEntry, kind: String, amount: Int) {
-        showLoading("Передаём команду в теплицу…")
+        showLoading(battleText("Передаём команду в теплицу…", "Sending command to greenhouse…"))
         async(
             work = {
                 api.sendAction(battle.id, entry.id, kind, amount)
@@ -1205,18 +1231,18 @@ class MainActivity : Activity() {
                 game.completeMission("command")
                 replaceBattleInCaches(updated)
                 renderBattle(updated)
-                toast("+15 XP · команда принята")
+                toast(battleText("+15 XP · команда принята", "+15 XP · command accepted"))
             }
         )
     }
 
     private fun confirmJoin(battle: Battle) {
         AlertDialog.Builder(this)
-            .setTitle("Занять место в битве?")
-            .setMessage("Будет использована стоимость участия в Kisa. После покупки место закрепится за вашим аккаунтом.")
-            .setNegativeButton("Отмена", null)
-            .setPositiveButton("Участвовать") { _, _ ->
-                showLoading("Бронируем растение…")
+            .setTitle(battleText("Занять место в битве?", "Join this battle?"))
+            .setMessage(battleText("Будет использована стоимость участия в Kisa. После покупки место закрепится за вашим аккаунтом.", "The entry fee will be deducted in Kisa. The slot will be reserved for your account."))
+            .setNegativeButton(battleText("Отмена", "Cancel"), null)
+            .setPositiveButton(battleText("Участвовать", "Join")) { _, _ ->
+                showLoading(battleText("Бронируем растение…", "Reserving your plant…"))
                 async(
                     work = {
                         api.joinBattle(battle.id, 1)
@@ -1365,11 +1391,11 @@ class MainActivity : Activity() {
         eventLine(icon, title, subtitle)
 
     private fun actionHuman(action: BattleAction): String {
-        val unit = if (action.kind == "shade") " мин" else " мл"
+        val unit = if (action.kind == "shade") battleText(" мин", " min") else battleText(" мл", " ml")
         return when (action.kind) {
-            "water" -> "Полив " + action.amount + unit
-            "nutrient" -> "Питание " + action.amount + unit
-            "shade" -> "Без света " + action.amount + unit
+            "water" -> battleText("Полив ", "Watering ") + action.amount + unit
+            "nutrient" -> battleText("Питание ", "Nutrients ") + action.amount + unit
+            "shade" -> battleText("Без света ", "Shade ") + action.amount + unit
             else -> action.kind + " " + action.amount
         }
     }
@@ -1382,9 +1408,9 @@ class MainActivity : Activity() {
     }
 
     private fun actionStatus(status: String): String = when (status) {
-        "pending" -> "ожидает выполнения"
-        "completed" -> "выполнено"
-        "cancelled" -> "отменено"
+        "pending" -> battleText("ожидает выполнения", "pending")
+        "completed" -> battleText("выполнено", "completed")
+        "cancelled" -> battleText("отменено", "cancelled")
         else -> status
     }
 

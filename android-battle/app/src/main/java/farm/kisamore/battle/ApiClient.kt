@@ -107,6 +107,15 @@ class ApiClient(context: Context) {
 
     private val supportedLanguages = listOf("en","ru","zh","de","fr","es","it","pt","pl")
 
+    /** The server's actual Kisa wallet, including balances linked to Telegram. */
+    fun fetchKisaBalance(): Long {
+        val payload = JSONObject(request("GET", "/api/v1/account/kisa-wallet"))
+        if (!payload.has("balance") || payload.isNull("balance")) {
+            throw IOException("Kisa wallet balance is missing")
+        }
+        return payload.getLong("balance")
+    }
+
     fun fetchPreferences(): JSONObject =
         JSONObject(request("GET", "/api/v1/account/preferences"))
 
