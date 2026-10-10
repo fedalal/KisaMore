@@ -320,7 +320,10 @@ class ApiClient(context: Context) {
                     cameraId = row.optString("camera_id"),
                     isPrimary = row.optBoolean("primary"),
                     photoUrl = row.nullableString("photo_url"),
-                    capturedAt = row.nullableString("captured_at")
+                    capturedAt = row.nullableString("captured_at"),
+                    timelapse24hUrl = row.optJSONObject("timelapse_urls")?.nullableString("24h"),
+                    timelapse3dUrl = row.optJSONObject("timelapse_urls")?.nullableString("3d"),
+                    timelapseFullUrl = row.optJSONObject("timelapse_urls")?.nullableString("full")
                 ))
             }
         }
