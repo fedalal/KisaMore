@@ -667,12 +667,11 @@
 
     if (plant?.id && (plant.microgreen_image_name || plant.seed_image_name)) {
       const image = document.createElement("img");
-      image.src = `/api/v1/public/plants/${encodeURIComponent(plant.id)}/image`;
+      image.dataset.smoothPhoto = "plant-" + plant.id;
+      image.dataset.photoUrl = "/api/v1/public/plants/" + encodeURIComponent(plant.id) + "/image";
       image.alt = plantName(plant);
       image.loading = "lazy";
       image.decoding = "async";
-      image.addEventListener("load", () => fallback.classList.add("hidden"));
-      image.addEventListener("error", () => image.remove());
       visual.append(image);
     }
 
@@ -719,7 +718,7 @@
       container.append(empty);
       return;
     }
-    container.replaceChildren(...plants.map(renderPlantCard));
+    window.KisaMoreSmoothImages.replace(container, plants.map(renderPlantCard));
 
     const prices = plants
       .map((plant) => Number(plant.rental_price_kisa))
@@ -826,7 +825,10 @@
     const photo = $(".rack-photo", card);
     if (rack.photo_url) {
       const image = $("img", photo);
-      image.src = `${rack.photo_url}?v=${encodeURIComponent(rack.photo_captured_at || Date.now())}`;
+      image.dataset.smoothPhoto = "rack-" + rack.rack_id;
+      image.dataset.photoUrl = window.KisaMoreSmoothImages.versioned(
+        rack.photo_url, rack.photo_captured_at
+      );
       image.alt = `${t("rack")} ${rack.rack_id}`;
       $("figcaption", photo).textContent = `${t("updated")}: ${date(rack.photo_captured_at)}`;
       photo.classList.remove("hidden");
@@ -867,7 +869,9 @@
     $("#growingCount").textContent = slots.filter((slot) => slot.planting).length;
     const plantsById = new Map(marketData.plants.map((plant) => [plant.id, plant]));
     renderPlants();
-    $("#racksGrid").replaceChildren(...marketData.racks.map((rack) => renderRack(rack, plantsById)));
+    window.KisaMoreSmoothImages.replace(
+      $("#racksGrid"), marketData.racks.map((rack) => renderRack(rack, plantsById))
+    );
     $("#racksGrid").setAttribute("aria-busy", "false");
     $("#pageUpdated").textContent = `${t("updated")}: ${new Intl.DateTimeFormat(locale(), { timeStyle: "medium" }).format(new Date())}`;
   }
