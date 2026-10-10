@@ -104,6 +104,32 @@ class ApiClient(context: Context) {
     fun publicBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/public/battles")))
 
+    /**
+     * Legacy/ordinary growing plants provide the welcome-video fallback while
+     * there are no completed battle timelapses. All these URLs are public.
+     * A missing file returns 404 and the player moves to the next candidate.
+     */
+    fun publicGrowthClips(farmSlug: String = "demo-farm"): List<HomeClip> {
+        val market = JSONObject(request("GET", "/api/v1/public/farms/$farmSlug/market"))
+        val racks = market.optJSONArray("racks") ?: return emptyList()
+        val clips = mutableListOf<HomeClip>()
+        for (i in 0 until racks.length()) {
+            val rack = racks.optJSONObject(i) ?: continue
+            val rackId = rack.optInt("rack_id")
+            val slots = rack.optJSONArray("slots") ?: continue
+            val posterUrl = rack.nullableString("photo_url")
+            for (j in 0 until slots.length()) {
+                val slot = slots.optJSONObject(j) ?: continue
+                val slotNumber = slot.optInt("slot_number")
+                if (rackId <= 0 || slotNumber <= 0) continue
+                val prefix = "/api/v1/public/farms/$farmSlug/racks/$rackId/slots/$slotNumber/timelapse/"
+                clips.add(HomeClip(null, prefix + "3d", false, posterUrl))
+                clips.add(HomeClip(null, prefix + "24h", false, posterUrl))
+            }
+        }
+        return clips
+    }
+
     fun myBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/battles/me")))
 
@@ -283,7 +309,8 @@ class ApiClient(context: Context) {
                         actions = actions,
                         timelapse24hUrl = item.nullableString("timelapse_24h_url"),
                         timelapse3dUrl = item.nullableString("timelapse_3d_url"),
-                        certificateUrl = item.nullableString("certificate_url")
+                        certificateUrl = item.nullableString("certificate_url"),
+                        timelapseFullUrl = item.nullableString("timelapse_full_url")
                     )
                 )
             }
@@ -297,7 +324,10 @@ class ApiClient(context: Context) {
                     CameraView(
                         cameraId = item.optString("camera_id"),
                         primary = item.optBoolean("primary", false),
-                        photoUrl = item.nullableString("photo_url")
+                        photoUrl = item.nullableString("photo_url"),
+                        timelapseFullUrl = item.optJSONObject("timelapse_urls")?.nullableString("full"),
+                        timelapse3dUrl = item.optJSONObject("timelapse_urls")?.nullableString("3d"),
+                        timelapse24hUrl = item.optJSONObject("timelapse_urls")?.nullableString("24h")
                     )
                 )
             }
@@ -332,7 +362,11 @@ class ApiClient(context: Context) {
             entries = entries,
             predictionTotal = obj.optInt("prediction_total"),
             predictionCounts = predictionCounts,
-            myPredictionEntryId = obj.nullableString("my_prediction_entry_id")
+            myPredictionEntryId = obj.nullableString("my_prediction_entry_id"),
+            plantId = obj.nullableString("plant_id"),
+            startDate = obj.nullableString("start_date"),
+            finishedAt = obj.nullableString("finished_at"),
+            farmSlug = obj.nullableString("farm_slug")
         )
     }
 }

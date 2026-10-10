@@ -20,13 +20,17 @@ data class BattleEntry(
     val actions: List<BattleAction>,
     val timelapse24hUrl: String?,
     val timelapse3dUrl: String?,
-    val certificateUrl: String?
+    val certificateUrl: String?,
+    val timelapseFullUrl: String? = null
 )
 
 data class CameraView(
     val cameraId: String,
     val primary: Boolean,
-    val photoUrl: String?
+    val photoUrl: String?,
+    val timelapseFullUrl: String? = null,
+    val timelapse3dUrl: String? = null,
+    val timelapse24hUrl: String? = null
 )
 
 data class Battle(
@@ -50,7 +54,11 @@ data class Battle(
     val entries: List<BattleEntry>,
     val predictionTotal: Int,
     val predictionCounts: Map<String, Int>,
-    val myPredictionEntryId: String?
+    val myPredictionEntryId: String?,
+    val plantId: String? = null,
+    val startDate: String? = null,
+    val finishedAt: String? = null,
+    val farmSlug: String? = null
 ) {
     val mine: BattleEntry?
         get() = entries.firstOrNull { it.isMine }

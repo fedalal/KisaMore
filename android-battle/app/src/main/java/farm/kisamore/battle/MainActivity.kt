@@ -3,6 +3,7 @@ package farm.kisamore.battle
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -37,10 +38,14 @@ class MainActivity : Activity() {
     private lateinit var game: GameStore
     private lateinit var language: AppLanguage
     private lateinit var contentHost: FrameLayout
+    private lateinit var rootShell: LinearLayout
+    private var welcome: GuestHomeScreen? = null
     private lateinit var navBar: LinearLayout
 
     private var publicBattles: List<Battle> = emptyList()
     private var myBattles: List<Battle> = emptyList()
+    private var growthClips: List<HomeClip> = emptyList()
+    private var pendingJoinBattleId: String? = null
     private var currentScreen = "home"
     private var currentBattleId: String? = null
     private var watchBattleIndex = 0
@@ -79,6 +84,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         handler.removeCallbacks(autoRefresh)
+        welcome?.release()
         super.onDestroy()
     }
 
@@ -88,6 +94,7 @@ class MainActivity : Activity() {
             setBackgroundColor(bg)
         }
 
+        rootShell = root
         contentHost = FrameLayout(this).apply {
             setBackgroundColor(bg)
         }
@@ -106,22 +113,6 @@ class MainActivity : Activity() {
             setPadding(dp(6), dp(6), dp(6), dp(8))
             setBackgroundColor(surface)
         }
-
-        navBar.addView(navButton("🏠", t("Главная")) {
-            stopAutoRefresh()
-            currentScreen = "home"
-            showHome()
-        })
-        navBar.addView(navButton("👁", t("Арена")) {
-            stopAutoRefresh()
-            currentScreen = "watch"
-            showWatch()
-        })
-        navBar.addView(navButton("🏅", t("Профиль")) {
-            stopAutoRefresh()
-            currentScreen = "profile"
-            showProfile()
-        })
 
         root.addView(
             navBar,
@@ -161,17 +152,72 @@ class MainActivity : Activity() {
         root.requestApplyInsets()
     }
 
-    private fun navButton(icon: String, label: String, action: () -> Unit): View {
-        return TextView(this).apply {
-            text = icon + "\n" + label
-            gravity = Gravity.CENTER
-            setTextColor(white)
-            textSize = 11f
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(0, dp(52), 1f)
+    private fun updateNavigation() {
+        val firstTabIsStart = activeMyBattle() == null
+        val welcomeLight = currentScreen == "home" && firstTabIsStart &&
+            (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) != Configuration.UI_MODE_NIGHT_YES
+        val foreground = if (welcomeLight) Color.parseColor("#718073") else muted
+        val selected = if (welcomeLight) Color.parseColor("#4A7C59") else green
+        val navbarColor = if (welcomeLight) Color.WHITE else surface
+        val backgroundColor = if (welcomeLight) Color.parseColor("#F8F9F6") else bg
+        rootShell.setBackgroundColor(backgroundColor)
+        navBar.setBackgroundColor(navbarColor)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.insetsController?.setSystemBarsAppearance(
+                if (welcomeLight) android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
+                android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = if (welcomeLight) View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0
         }
+        navBar.removeAllViews()
+        navBar.addView(tabButton(
+            if (firstTabIsStart) R.drawable.ic_house_outline else R.drawable.ic_sprout_outline,
+            if (firstTabIsStart) t("Начало") else t("Моя битва"),
+            currentScreen == "home",
+            selected, foreground
+        ) {
+            stopAutoRefresh()
+            showHome()
+        })
+        navBar.addView(tabButton(
+            R.drawable.ic_swords_outline, t("Битва"), currentScreen == "watch",
+            selected, foreground
+        ) {
+            stopAutoRefresh()
+            showWatch()
+        })
+        navBar.addView(tabButton(
+            R.drawable.ic_user_outline, t("Профиль"), currentScreen == "profile",
+            selected, foreground
+        ) {
+            stopAutoRefresh()
+            showProfile()
+        })
     }
+
+    private fun tabButton(iconId: Int, label: String, active: Boolean,
+                          selected: Int, normal: Int, action: () -> Unit): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            val tint = if (active) selected else normal
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(iconId)
+                imageTintList = ColorStateList.valueOf(tint)
+            }, LinearLayout.LayoutParams(dp(23), dp(23)))
+            addView(TextView(this@MainActivity).apply {
+                text = label
+                textSize = 11f
+                setTextColor(tint)
+                if (active) setTypeface(typeface, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                maxLines = 1
+            }, LinearLayout.LayoutParams(-1, dp(22)))
+            setOnClickListener { action() }
+            layoutParams = LinearLayout.LayoutParams(0, dp(56), 1f)
+        }
 
     private fun loadAll(target: String) {
         currentScreen = target
@@ -186,15 +232,30 @@ class MainActivity : Activity() {
                         if (e.statusCode == 401) emptyList() else throw e
                     }
                 } else emptyList()
-                Pair(pub, mine)
+                val fallback = if (target == "home") {
+                    runCatching { api.publicGrowthClips(pub.firstOrNull()?.farmSlug ?: "demo-farm") }
+                        .getOrDefault(emptyList())
+                } else emptyList()
+                Triple(pub, mine, fallback)
             },
             success = {
                 publicBattles = it.first
                 myBattles = it.second
+                growthClips = it.third
                 when (target) {
                     "watch" -> showWatch()
                     "profile" -> showProfile()
-                    else -> showHome()
+                    else -> {
+                        showHome()
+                        val pending = pendingJoinBattleId
+                        pendingJoinBattleId = null
+                        val join = publicBattles.firstOrNull {
+                            it.id == pending && it.status == "open" && it.remainingEntries > 0
+                        }
+                        if (join != null && api.hasSession() && activeMyBattle() == null) {
+                            contentHost.post { confirmJoin(join) }
+                        }
+                    }
                 }
             }
         )
@@ -286,85 +347,24 @@ class MainActivity : Activity() {
     private fun showEmptyHome() {
         currentScreen = "home"
         currentBattleId = null
-
-        val body = compactScreen()
-
-        val hero = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(22), dp(14), dp(22), dp(10))
-
-            addView(bigText(t("Выращивайте настоящее растение удалённо"), 24f).apply {
-                gravity = Gravity.CENTER
-                textAlignment = View.TEXT_ALIGNMENT_CENTER
-                maxLines = 2
-            })
-
-            addView(TextView(this@MainActivity).apply {
-                text = t("Выберите растение, управляйте уходом и наблюдайте за ростом вживую.")
-                setTextColor(muted)
-                textSize = 13f
-                gravity = Gravity.CENTER
-                textAlignment = View.TEXT_ALIGNMENT_CENTER
-                setPadding(0, dp(7), 0, 0)
-            })
-        }
-        body.addView(hero)
-
-        val preview = publicBattles.firstOrNull { it.status == "growing" }
-            ?: publicBattles.firstOrNull { it.status == "open" }
-            ?: publicBattles.firstOrNull()
-
-        if (preview != null) {
-            body.addView(
-                shelfPhoto(preview, compactPhotoHeight(), compact = true),
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
-            )
-        } else {
-            body.addView(
-                TextView(this).apply {
-                    text = "🌱"
-                    textSize = 82f
-                    gravity = Gravity.CENTER
-                },
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                )
-            )
-        }
-
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(6), dp(14), dp(8))
-
-            addView(compactPrimaryButton(t("ВЫБРАТЬ РАСТЕНИЕ")) {
-                arenaFilter = "open"
+        val screen = GuestHomeScreen(
+            this, api, language, publicBattles, growthClips,
+            onJoin = { battle ->
+                if (api.hasSession()) {
+                    confirmJoin(battle)
+                } else {
+                    pendingJoinBattleId = battle.id
+                    showLogin()
+                }
+            },
+            onWatch = {
+                arenaFilter = "live"
                 watchBattleIndex = 0
                 showWatch()
-            })
-
-            addView(TextView(this@MainActivity).apply {
-                text = t("или смотреть текущие битвы")
-                setTextColor(muted)
-                textSize = 12f
-                gravity = Gravity.CENTER
-                setPadding(0, dp(9), 0, dp(7))
-                setOnClickListener {
-                    arenaFilter = "live"
-                    watchBattleIndex = 0
-                    showWatch()
-                }
-            })
-        }
-        body.addView(actions)
-
-        showContent(body)
+            }
+        )
+        welcome = screen
+        showContent(screen.create())
     }
 
     private fun homeSecondaryButton(icon: String, label: String, action: () -> Unit): View =
@@ -1396,7 +1396,7 @@ class MainActivity : Activity() {
     }
 
     private fun activeMyBattle(): Battle? =
-        myBattles.firstOrNull { it.status != "finished" } ?: myBattles.firstOrNull()
+        myBattles.firstOrNull { it.status !in listOf("finished", "cancelled") }
 
     private fun replaceBattleInCaches(updated: Battle) {
         publicBattles = publicBattles.map { if (it.id == updated.id) updated else it }
@@ -1702,7 +1702,12 @@ class MainActivity : Activity() {
             addView(compactMiniButton(
                 if (api.hasSession()) t("ЗАНЯТЬ МЕСТО") else t("ВОЙТИ И УЧАСТВОВАТЬ")
             ) {
-                if (api.hasSession()) confirmJoin(battle) else showLogin()
+                if (api.hasSession()) {
+                    confirmJoin(battle)
+                } else {
+                    pendingJoinBattleId = battle.id
+                    showLogin()
+                }
             })
         }
 
@@ -1827,6 +1832,10 @@ class MainActivity : Activity() {
     }
 
     private fun showContent(view: View) {
+        if (view !== welcome?.rootView) {
+            welcome?.release()
+            welcome = null
+        }
         contentHost.removeAllViews()
         contentHost.addView(
             view,
@@ -1835,6 +1844,7 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
+        updateNavigation()
     }
 
     private fun screenScroll(): ScrollView {
