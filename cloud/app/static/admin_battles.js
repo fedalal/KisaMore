@@ -211,7 +211,10 @@
     var payload={
       title:document.getElementById("battleEditTitle").value.trim(),
       start_date:startDate,
-      end_date:endDate
+      end_date:endDate,
+      water_budget_ml:Number(document.getElementById("battleEditWater").value),
+      nutrient_budget_ml:Number(document.getElementById("battleEditNutrient").value),
+      shade_budget_minutes:Number(document.getElementById("battleEditShade").value)
     };
     if(payload.title.length<2){
       toast("Название должно содержать минимум 2 символа.");
@@ -220,7 +223,7 @@
     try{
       await api("/api/v1/admin/battles/"+id,{method:"PATCH",body:JSON.stringify(payload)});
       editDialog.close();
-      toast("Название и даты битвы сохранены.");
+      toast("Название, даты и лимиты ресурсов сохранены.");
       await loadBattles();
     }catch(e){
       toast("Ошибка: "+e.message);
@@ -241,6 +244,9 @@
       document.getElementById("battleEditTitle").value=item.title||"";
       document.getElementById("battleEditStartDate").value=item.start_date||"";
       document.getElementById("battleEditEndDate").value=item.end_date||"";
+      document.getElementById("battleEditWater").value=item.water_budget_ml;
+      document.getElementById("battleEditNutrient").value=item.nutrient_budget_ml;
+      document.getElementById("battleEditShade").value=item.shade_budget_minutes;
       editDialog.showModal();
       return;
     }

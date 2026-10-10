@@ -53,6 +53,10 @@ class UpdateBattleIn(BaseModel):
     title: str = Field(min_length=2, max_length=180)
     start_date: date | None = None
     end_date: date | None = None
+    # Optional for older clients. The admin editor always sends all three.
+    water_budget_ml: int | None = Field(default=None, ge=0, le=100_000)
+    nutrient_budget_ml: int | None = Field(default=None, ge=0, le=100_000)
+    shade_budget_minutes: int | None = Field(default=None, ge=0, le=100_000)
 
 
 def _plant_name(plant: Plant) -> str:
@@ -452,14 +456,44 @@ async def update_battle(
     if payload.start_date and payload.end_date and payload.end_date < payload.start_date:
         raise HTTPException(status_code=422, detail="End date cannot be earlier than start date")
 
+    resource_fields = {
+        "water_budget_ml": ("water_used_ml", "Вода", "мл"),
+        "nutrient_budget_ml": ("nutrient_used_ml", "Питательный раствор", "мл"),
+        "shade_budget_minutes": ("shade_used_minutes", "Затемнение", "мин"),
+    }
+    # Action requests reserve resources immediately (including pending
+    # requests). Do not lower any player's budget below committed usage.
+    if any(getattr(payload, field) is not None for field in resource_fields):
+        for budget_field, (used_field, name, unit) in resource_fields.items():
+            requested_limit = getattr(payload, budget_field)
+            if requested_limit is None:
+                continue
+            used = (await session.execute(
+                select(func.coalesce(func.max(getattr(PlantBattleEntry, used_field)), 0))
+                .where(
+                    PlantBattleEntry.battle_id == battle.id,
+                    PlantBattleEntry.status.in_(("active", "finished")),
+                )
+            )).scalar_one()
+            if requested_limit < used:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"{name}: новый лимит не может быть меньше уже использованных {used} {unit}",
+                )
+
     old = {
         "title": battle.title,
         "start_date": battle.start_date.isoformat() if battle.start_date else None,
         "end_date": battle.end_date.isoformat() if battle.end_date else None,
+        **{field: getattr(battle, field) for field in resource_fields},
     }
     battle.title = payload.title.strip()
     battle.start_date = payload.start_date
     battle.end_date = payload.end_date
+    for field in resource_fields:
+        updated_limit = getattr(payload, field)
+        if updated_limit is not None:
+            setattr(battle, field, updated_limit)
     battle.updated_at = datetime.now(timezone.utc)
 
     session.add(
@@ -474,6 +508,7 @@ async def update_battle(
                     "title": battle.title,
                     "start_date": battle.start_date.isoformat() if battle.start_date else None,
                     "end_date": battle.end_date.isoformat() if battle.end_date else None,
+                    **{field: getattr(battle, field) for field in resource_fields},
                 },
             },
         )

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/admin_camera.css?v=20260909-2">
   <link rel="stylesheet" href="/static/admin_watering.css?v=20260910-1">
   <link rel="stylesheet" href="/static/admin_sos.css?v=20260920-1">
-  <link rel="stylesheet" href="/static/admin_battles.css?v=20261010-3">
+  <link rel="stylesheet" href="/static/admin_battles.css?v=20261010-10">
 </head>
 <body>
   <div id="loginView" class="login-shell">
@@ -295,13 +295,26 @@
   <dialog id="battleEditDialog">
     <form id="battleEditForm" class="dialog-card">
       <div class="dialog-head">
-        <div><h3>Изменить битву</h3><p>Название и плановые даты соревнования.</p></div>
+        <div><h3>Изменить битву</h3><p>Название, даты и ресурсы на одного участника.</p></div>
         <button type="button" class="icon-button" data-close-dialog="battleEditDialog">×</button>
       </div>
       <input id="battleEditId" type="hidden">
       <label>Название<input id="battleEditTitle" maxlength="180" required></label>
       <label>Дата начала<input id="battleEditStartDate" type="date"></label>
       <label>Дата окончания<input id="battleEditEndDate" type="date"></label>
+      <div class="battle-edit-resources">
+        <span class="battle-edit-resources-title">Лимиты ресурсов на одного участника</span>
+        <label>💧 Вода, мл
+          <input id="battleEditWater" type="number" min="0" max="100000" step="1" inputmode="numeric" required>
+        </label>
+        <label>🧪 Питательный раствор, мл
+          <input id="battleEditNutrient" type="number" min="0" max="100000" step="1" inputmode="numeric" required>
+        </label>
+        <label>🌘 Затемнение, минут
+          <input id="battleEditShade" type="number" min="0" max="100000" step="1" inputmode="numeric" required>
+        </label>
+        <p class="battle-edit-resources-hint">Лимиты нельзя уменьшить ниже уже использованного количества.</p>
+      </div>
       <div class="dialog-actions">
         <button type="button" data-close-dialog="battleEditDialog">Отмена</button>
         <button type="submit" class="primary">Сохранить</button>
@@ -360,7 +373,7 @@
 
   <div id="toast" class="toast"></div>
   <script src="/static/admin.js?v=20261010-8" defer></script>
-  <script src="/static/admin_battles.js?v=20261010-8" defer></script>
+  <script src="/static/admin_battles.js?v=20261010-10" defer></script>
   <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
   <script src="/static/admin_seeds.js?v=20260910-1" defer></script>
