@@ -21,10 +21,10 @@ class BattleProfileScreenTest {
     fun profileIsPopulatedImmediatelyBeforeAnySizeChange() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val screen = createProfile(activity)
-        assertTrue("Profile must not be a blank view", screen.childCount >= 7)
+        assertEquals("Exactly 5 cards and 4 compact gaps", 9, screen.childCount)
         assertTrue("No redundant title", !containsLabel(screen, "Профиль"))
         assertTrue("Empty rewards clearly labeled", containsLabel(screen, "Наград пока нет"))
-        assertTrue("Plant header is plural", containsLabel(screen, "Мои растения"))
+        assertTrue("Redundant My Plants block has been removed", !containsLabel(screen, "Мои растения"))
         assertTrue("Help setting exists", containsLabel(screen, "Помощь"))
         assertTrue("Server setting removed", !containsLabel(screen, "Сервер"))
         assertTrue("Photo section must exist", screen.getChildAt(0).visibility == View.VISIBLE)
@@ -48,16 +48,15 @@ class BattleProfileScreenTest {
         // Assert actual laid-out card dimensions, not a particular pixel color.
         assertTrue("Profile card should have positive height", screen.getChildAt(0).measuredHeight > 0)
         assertTrue("Stats must be laid out", screen.getChildAt(2).measuredHeight > 0)
-        assertTrue("Plant card must be laid out", screen.getChildAt(4).measuredHeight > 0)
-        assertTrue("Rewards should be visible", screen.getChildAt(6).measuredHeight > 0)
-        assertTrue("History should be visible", screen.getChildAt(8).measuredHeight > 0)
-        assertTrue("Settings should be visible", screen.getChildAt(10).measuredHeight > 0)
-        assertTrue("Settings must fit above bottom navigation", screen.getChildAt(10).bottom <= height)
+        assertTrue("Rewards card follows stats without a plant card", screen.getChildAt(4).measuredHeight > 0)
+        assertTrue("History should be visible", screen.getChildAt(6).measuredHeight > 0)
+        assertTrue("Settings should be visible", screen.getChildAt(8).measuredHeight > 0)
+        assertTrue("Settings must fit above bottom navigation", screen.getChildAt(8).bottom <= height)
         assertTrue("Natural-height rewards card should remain compact",
-            screen.getChildAt(6).measuredHeight <= 100 * activity.resources.displayMetrics.density)
+            screen.getChildAt(4).measuredHeight <= 100 * activity.resources.displayMetrics.density)
         assertTrue("Natural-height history card should remain compact",
-            screen.getChildAt(8).measuredHeight <= 105 * activity.resources.displayMetrics.density)
-        val settings = screen.getChildAt(10) as android.view.ViewGroup
+            screen.getChildAt(6).measuredHeight <= 105 * activity.resources.displayMetrics.density)
+        val settings = screen.getChildAt(8) as android.view.ViewGroup
         assertTrue("Last settings row must fit within the card",
             settings.getChildAt(settings.childCount - 1).bottom <= settings.height)
         val notificationLabel = findLabel(settings, "Уведомления")
@@ -100,7 +99,6 @@ class BattleProfileScreenTest {
         null,
         onChangePhoto = {},
         onLogin = {},
-        onPlant = {},
         onHistory = {},
         onRegion = {},
         onLogout = {}

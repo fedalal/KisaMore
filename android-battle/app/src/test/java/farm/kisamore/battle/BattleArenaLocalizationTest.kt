@@ -128,14 +128,13 @@ class BattleArenaLocalizationTest {
             walletBalance = 42,
             onChangePhoto = {},
             onLogin = {},
-            onPlant = {},
             onHistory = {},
             onRegion = {},
             onLogout = {}
         )
         val top = labels(profile.getChildAt(0))
         assertTrue(top.toString(), top.contains("Ⓚ 42"))
-        assertTrue(profile.childCount >= 7)
+        assertTrue(profile.childCount == 9)
     }
 
     @Test fun unavailableWalletIsNotSilentlyShownAsZero() {
@@ -149,7 +148,6 @@ class BattleArenaLocalizationTest {
             walletBalance = null,
             onChangePhoto = {},
             onLogin = {},
-            onPlant = {},
             onHistory = {},
             onRegion = {},
             onLogout = {}

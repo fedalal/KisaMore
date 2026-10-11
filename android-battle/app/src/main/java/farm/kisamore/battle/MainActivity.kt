@@ -507,12 +507,6 @@ class MainActivity : Activity() {
                     cachedWalletKisa else null,
                 onChangePhoto = { pickProfilePhoto() },
                 onLogin = { showLogin() },
-                onPlant = {
-                    val battle = activeMyBattle()
-                    if (battle != null) openBattle(battle) else showNoBattle()
-                    addNavigation()
-                },
-                onPlantPhoto = { battle -> showFullPlantPhoto(battle) },
                 onHistory = { showBattleHistory(); addNavigation() },
                 onRegion = {
                     api.setRegion(!api.isRussianServer())

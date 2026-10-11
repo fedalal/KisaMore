@@ -31,8 +31,6 @@ class BattleProfileScreen(
     private val walletBalance: Long? = null,
     private val onChangePhoto: () -> Unit,
     private val onLogin: () -> Unit,
-    private val onPlant: () -> Unit,
-    private val onPlantPhoto: (Battle) -> Unit = {},
     private val onHistory: () -> Unit,
     private val onRegion: () -> Unit,
     private val onLogout: () -> Unit,
@@ -53,7 +51,6 @@ class BattleProfileScreen(
             "Битв" to mapOf("en" to "Battles", "zh" to "对战", "de" to "Kämpfe", "fr" to "Batailles", "es" to "Batallas", "it" to "Sfide", "pt" to "Batalhas", "pl" to "Bitwy"),
             "Побед" to mapOf("en" to "Wins", "zh" to "胜利", "de" to "Siege", "fr" to "Victoires", "es" to "Victorias", "it" to "Vittorie", "pt" to "Vitórias", "pl" to "Zwycięstwa"),
             "Рейтинг" to mapOf("en" to "Rating", "zh" to "积分", "de" to "Punkte", "fr" to "Classement", "es" to "Puntos", "it" to "Punteggio", "pt" to "Pontos", "pl" to "Ranking"),
-            "Мои растения" to mapOf("en" to "My plants", "zh" to "我的植物", "de" to "Meine Pflanzen", "fr" to "Mes plantes", "es" to "Mis plantas", "it" to "Le mie piante", "pt" to "Minhas plantas", "pl" to "Moje rośliny"),
             "Пока нет растения" to mapOf("en" to "No plant yet", "zh" to "暂无植物", "de" to "Noch keine Pflanze", "fr" to "Aucune plante", "es" to "Sin plantas", "it" to "Nessuna pianta", "pt" to "Sem plantas", "pl" to "Brak roślin"),
             "Выбрать битву" to mapOf("en" to "Choose a battle", "zh" to "选择对战", "de" to "Kampf auswählen", "fr" to "Choisir une bataille", "es" to "Elegir batalla", "it" to "Scegli una sfida", "pt" to "Escolher batalha", "pl" to "Wybierz bitwę"),
             "Растёт" to mapOf("en" to "Growing", "zh" to "生长中", "de" to "Wächst", "fr" to "En croissance", "es" to "Creciendo", "it" to "In crescita", "pt" to "Crescendo", "pl" to "Rośnie"),
@@ -98,8 +95,6 @@ class BattleProfileScreen(
         addView(profileCard(), LayoutParams(-1, dp(if (shortScreen) 82 else 99)))
         gap()
         addView(statsRow(), LayoutParams(-1, dp(if (shortScreen) 52 else 58)))
-        gap()
-        addView(plantCard(), LayoutParams(-1, dp(if (shortScreen) 83 else 99)))
         gap()
         addView(rewardsCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 99)))
         gap()
@@ -214,54 +209,6 @@ class BattleProfileScreen(
             })
         }
         return row
-    }
-
-    private fun plantCard(): View {
-        val card = card(padding).apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setOnClickListener { onPlant() }
-        }
-        val battle = battles.firstOrNull { it.mine != null && it.status != "finished" }
-        val dimension = if (shortScreen) 48 else 60
-        val thumb = ImageView(host).apply {
-            background = rounded(pale, 12)
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            clipToOutline = true
-            // No placeholder icon: keep this empty until a real photo arrives.
-        }
-        thumb.visibility = View.GONE
-        card.addView(thumb, LayoutParams(dp(dimension * 2), dp(dimension)))
-        if (battle != null) {
-            thumb.isClickable = true
-            thumb.contentDescription = "Открыть фотографию растения"
-            thumb.setOnClickListener { onPlantPhoto(battle) }
-        }
-        // Slot-specific cropped image; never show the whole rack in the plant card.
-        battle?.mine?.photoUrl?.let { url ->
-            ApiClient(host.applicationContext).absolute(url)?.let { resolved ->
-                if (PhotoFrameCache.current(resolved) != null) {
-                    PhotoFrameCache.showPrevious(thumb, resolved)
-                    thumb.visibility = View.VISIBLE
-                }
-            }
-            loadPlantPhoto(thumb, url)
-        }
-
-        val info = column().apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(11), 0, dp(5), 0)
-        }
-        info.addView(text(tr("Мои растения", "My plants"), if (shortScreen) 16f else 18f, ink, true, true))
-        info.addView(text(battle?.localizedPlantName(languageCode) ?: tr("Пока нет растения", "No plant yet"), 13f, secondary, single = true))
-        info.addView(text(
-            if (battle == null) tr("Выбрать битву", "Choose a battle") else
-                if (battle.status == "growing") tr("Растёт", "Growing") else tr("Участие в битве", "Participating"),
-            11f, accent, single = true
-        ))
-        card.addView(info, LayoutParams(0, -2, 1f))
-        card.addView(icon("chevron", 18, secondary), LayoutParams(dp(18), dp(18)))
-        return card
     }
 
     private fun rewardsCard(): View {
