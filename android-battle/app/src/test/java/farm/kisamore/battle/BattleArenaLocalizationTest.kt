@@ -50,12 +50,12 @@ class BattleArenaLocalizationTest {
         myPredictionEntryId = null
     )
 
-    private fun screen(host: Activity, battle: Battle) = BattleArenaScreen(
+    private fun screen(host: Activity, battle: Battle, selectedCamera: String? = null) = BattleArenaScreen(
         host = host,
         api = ApiClient(host),
         battle = battle,
         choices = listOf(battle),
-        cameraPreference = null,
+        cameraPreference = selectedCamera,
         initialPeriod = 3,
         onBattle = {},
         onCamera = {},
@@ -152,6 +152,19 @@ class BattleArenaLocalizationTest {
             photoOverlayCount(screen(host, battle(listOf(entry(true))))) >= 1)
         assertTrue("Spectators should not see someone's selection outline",
             photoOverlayCount(screen(host, battle(listOf(entry(false))))) == 0)
+
+        val secondCamera = BattleCamera(
+            cameraId = "K2", isPrimary = false, photoUrl = null,
+            capturedAt = null, slotOutlines = mapOf(3 to listOf(
+                SlotPoint(.07f, .37f), SlotPoint(.48f, .35f),
+                SlotPoint(.47f, .61f), SlotPoint(.06f, .60f)
+            ))
+        )
+        val secondaryBattle = battle(listOf(entry(true))).copy(
+            cameraViews = listOf(secondCamera)
+        )
+        assertTrue("Second camera must display calibrated owner outline",
+            photoOverlayCount(screen(host, secondaryBattle, "K2")) >= 1)
     }
 
     @Test fun profileShowsRealKisaBalanceAtTopInEnglish() {

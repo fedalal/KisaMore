@@ -362,6 +362,23 @@ class ApiClient(context: Context) {
         val cameras = buildList {
             for (i in 0 until cameraViewsJson.length()) {
                 val row = cameraViewsJson.getJSONObject(i)
+                val slotOutlines = buildMap<Int, List<SlotPoint>> {
+                    val shapes = row.optJSONObject("slot_outlines")
+                    if (shapes != null) for (slot in 1..6) {
+                        val corners = shapes.optJSONArray(slot.toString()) ?: continue
+                        if (corners.length() != 4) continue
+                        val points = (0 until 4).mapNotNull { idx ->
+                            val xy = corners.optJSONArray(idx) ?: return@mapNotNull null
+                            if (xy.length() != 2) return@mapNotNull null
+                            val x = xy.optDouble(0, Double.NaN)
+                            val y = xy.optDouble(1, Double.NaN)
+                            if (!x.isFinite() || !y.isFinite() ||
+                                x !in 0.0..1.0 || y !in 0.0..1.0) null
+                            else SlotPoint(x.toFloat(), y.toFloat())
+                        }
+                        if (points.size == 4) put(slot, points)
+                    }
+                }
                 add(BattleCamera(
                     cameraId = row.optString("camera_id"),
                     isPrimary = row.optBoolean("primary"),
@@ -369,7 +386,8 @@ class ApiClient(context: Context) {
                     capturedAt = row.nullableString("captured_at"),
                     timelapse24hUrl = row.optJSONObject("timelapse_urls")?.nullableString("24h"),
                     timelapse3dUrl = row.optJSONObject("timelapse_urls")?.nullableString("3d"),
-                    timelapseFullUrl = row.optJSONObject("timelapse_urls")?.nullableString("full")
+                    timelapseFullUrl = row.optJSONObject("timelapse_urls")?.nullableString("full"),
+                    slotOutlines = slotOutlines
                 ))
             }
         }

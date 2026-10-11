@@ -460,75 +460,64 @@ internal class BattleArenaScreen(
             }.start()
         }
 
-        // The greenhouse camera is fixed: place the outline using the rack's
-        // 2-column x 3-row slot grid. This avoids costly, unreliable dark-edge
-        // detection on every frame (soil, shadows and leaves change the edges).
-        // All drawing is relative to FIT_CENTER image bounds, not the view's
-        // letterboxing; drawing is only enabled for the primary calibrated view.
-        if (mine != null && (camera == null || camera.isPrimary) &&
-            mine.slotNumber in 1..6) {
-            val slot = mine.slotNumber - 1
+        // The server stores four calibrated corners per container and camera,
+        // independent of a particular battle. They are fractions of the original
+        // photo dimensions. Render them within FIT_CENTER image bounds.
+        // Until the administrator saves calibration, show a thin approximate
+        // green grid border on BOTH cameras rather than dropping the outline.
+        if (mine != null && mine.slotNumber in 1..6) {
+            val slot = mine.slotNumber
+            val calibrated = camera?.slotOutlines?.get(slot)?.takeIf { it.size == 4 }
+            val col = (slot - 1) % 2
+            val row = (slot - 1) / 2
+            val x0 = col / 2f + .018f
+            val x1 = (col + 1) / 2f - .018f
+            val y0 = row / 3f + .026f
+            val y1 = (row + 1) / 3f - .026f
+            val points = calibrated ?: listOf(
+                SlotPoint(x0, y0), SlotPoint(x1, y0),
+                SlotPoint(x1, y1), SlotPoint(x0, y1)
+            )
             val overlay = object : View(host) {
-                private val strokeShadow = android.graphics.Paint(
+                private val darkBorder = android.graphics.Paint(
                     android.graphics.Paint.ANTI_ALIAS_FLAG
                 ).apply {
                     style = android.graphics.Paint.Style.STROKE
-                    color = Color.argb(235, 8, 19, 13)
-                    strokeWidth = dp(6).toFloat()
+                    color = Color.argb(230, 10, 27, 17)
+                    strokeWidth = dp(3).toFloat()
                     strokeJoin = android.graphics.Paint.Join.ROUND
                 }
-                private val strokeBright = android.graphics.Paint(
+                private val greenBorder = android.graphics.Paint(
                     android.graphics.Paint.ANTI_ALIAS_FLAG
                 ).apply {
                     style = android.graphics.Paint.Style.STROKE
-                    color = Color.rgb(245, 250, 239)
-                    strokeWidth = dp(2).toFloat()
+                    color = Color.rgb(110, 234, 154)
+                    strokeWidth = host.resources.displayMetrics.density * 1.5f
                     strokeJoin = android.graphics.Paint.Join.ROUND
                 }
-
                 override fun onDraw(canvas: android.graphics.Canvas) {
                     val drawable = image.drawable ?: return
-                    val sourceW = drawable.intrinsicWidth.toFloat()
-                    val sourceH = drawable.intrinsicHeight.toFloat()
-                    if (sourceW <= 0f || sourceH <= 0f) return
-
-                    val scale = minOf(width / sourceW, height / sourceH)
-                    val displayedW = sourceW * scale
-                    val displayedH = sourceH * scale
-                    val imageLeft = (width - displayedW) / 2f
-                    val imageTop = (height - displayedH) / 2f
-                    val col = slot % 2
-                    val row = slot / 2
-                    val cellW = displayedW / 2f
-                    val cellH = displayedH / 3f
-                    val paddingX = cellW * .09f
-                    val paddingY = cellH * .10f
-                    val borderInset = dp(3).toFloat()
-                    val rect = android.graphics.RectF(
-                        imageLeft + col * cellW + paddingX + borderInset,
-                        imageTop + row * cellH + paddingY + borderInset,
-                        imageLeft + (col + 1) * cellW - paddingX - borderInset,
-                        imageTop + (row + 1) * cellH - paddingY - borderInset
-                    )
-                    if (rect.width() <= dp(18) || rect.height() <= dp(18)) return
-                    val radius = dp(7).toFloat()
-                    // Contrasting outer and inner strokes remain visible against
-                    // both dark soil and pale/bright foliage; no green fill.
-                    canvas.drawRoundRect(rect, radius, radius, strokeShadow)
-                    canvas.drawRoundRect(rect, radius, radius, strokeBright)
-
-
+                    val photoW = drawable.intrinsicWidth.toFloat()
+                    val photoH = drawable.intrinsicHeight.toFloat()
+                    if (photoW <= 0f || photoH <= 0f) return
+                    val scale = minOf(width / photoW, height / photoH)
+                    val displayW = photoW * scale
+                    val displayH = photoH * scale
+                    val left = (width - displayW) / 2f
+                    val top = (height - displayH) / 2f
+                    val path = android.graphics.Path()
+                    points.forEachIndexed { index, xy ->
+                        val x = left + xy.x * displayW
+                        val y = top + xy.y * displayH
+                        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    path.close()
+                    canvas.drawPath(path, darkBorder)
+                    canvas.drawPath(path, greenBorder)
                 }
             }
             highlight = overlay
             frame.addView(overlay, FrameLayout.LayoutParams(-1, -1))
-            image.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                overlay.invalidate()
-            }
-            image.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) { overlay.invalidate() }
-                override fun onViewDetachedFromWindow(v: View) {}
-            })
         }
         return frame
     }

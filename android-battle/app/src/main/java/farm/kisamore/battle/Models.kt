@@ -1,5 +1,7 @@
 package farm.kisamore.battle
 
+data class SlotPoint(val x: Float, val y: Float)
+
 data class BattleCamera(
     val cameraId: String,
     val isPrimary: Boolean,
@@ -7,7 +9,8 @@ data class BattleCamera(
     val capturedAt: String?,
     val timelapse24hUrl: String? = null,
     val timelapse3dUrl: String? = null,
-    val timelapseFullUrl: String? = null
+    val timelapseFullUrl: String? = null,
+    val slotOutlines: Map<Int, List<SlotPoint>> = emptyMap()
 )
 
 data class BattleAction(
