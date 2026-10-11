@@ -140,6 +140,21 @@ class RackCameraPhoto(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RackCameraCalibration(Base):
+    """Six 4-point slot outlines per fixed rack camera, normalized to [0,1]."""
+    __tablename__ = "rack_camera_calibrations"
+    __table_args__ = (UniqueConstraint("device_id", "rack_id", "camera_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"), index=True, nullable=False)
+    rack_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    camera_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    slot_outlines: Mapped[dict] = mapped_column(JSON, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+
+
 class Planting(Base):
     __tablename__ = "plantings"
 

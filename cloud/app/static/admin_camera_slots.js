@@ -51,15 +51,26 @@
         const wrap = document.createElement("div");
         wrap.className = "camera-slots-wrap";
         wrap.innerHTML = `
-          <button type="button" class="camera-slots-toggle">
+          <div class="camera-slot-actions">
+            <button type="button" class="camera-slots-toggle">
             Показать контейнеры${available ? ` (${available}/6)` : ""}
           </button>
+            <button type="button" class="camera-calibration-button">Калибровка</button>
+          </div>
           <div class="camera-slot-grid" hidden>${slots}</div>
         `;
 
         const meta = card.querySelector(".camera-meta");
         card.insertBefore(wrap, meta || null);
 
+        const calibrationButton = wrap.querySelector(".camera-calibration-button");
+        calibrationButton.addEventListener("click", () => {
+          if (typeof window.openRackCalibration !== "function") {
+            console.error("Calibration editor is not loaded");
+            return;
+          }
+          window.openRackCalibration(item.device_id, item.rack_id, item.camera_id);
+        });
         const button = wrap.querySelector(".camera-slots-toggle");
         const slotGrid = wrap.querySelector(".camera-slot-grid");
         button.addEventListener("click", () => {

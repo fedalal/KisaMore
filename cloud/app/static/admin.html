@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>KisaMore Admin</title>
   <link rel="stylesheet" href="/static/admin.css?v=20260909-4">
-  <link rel="stylesheet" href="/static/admin_camera.css?v=20260909-2">
+  <link rel="stylesheet" href="/static/admin_camera.css?v=20261011-2">
   <link rel="stylesheet" href="/static/admin_watering.css?v=20260910-1">
   <link rel="stylesheet" href="/static/admin_sos.css?v=20260920-1">
   <link rel="stylesheet" href="/static/admin_battles.css?v=20261010-10">
@@ -292,6 +292,44 @@
     </main>
   </div>
 
+  <dialog id="rackCalibrationDialog" class="rack-calibration-dialog">
+    <div id="rackCalibrationPanel" class="calibration-dialog-body">
+      <div class="dialog-head">
+        <div>
+          <h3>Калибровка границ контейнеров</h3>
+          <p id="calibrationCameraTitle">Выбранная полка и камера</p>
+        </div>
+        <button type="button" id="calibrationClose" class="icon-button" aria-label="Закрыть калибровку">×</button>
+      </div>
+      <div class="calibration-actions">
+        <label>Камера
+          <select id="calibrationCamera" aria-label="Полка и камера"></select>
+        </label>
+        <label>Редактировать контейнер
+          <select id="calibrationSlot">
+            <option value="1">Контейнер 1</option><option value="2">Контейнер 2</option>
+            <option value="3">Контейнер 3</option><option value="4">Контейнер 4</option>
+            <option value="5">Контейнер 5</option><option value="6">Контейнер 6</option>
+          </select>
+        </label>
+      </div>
+      <div class="calibration-stage" id="calibrationStage" hidden>
+        <img id="calibrationPhoto" alt="Снимок выбранной камеры" draggable="false">
+        <svg id="calibrationOverlay" class="calibration-svg" viewBox="0 0 1000 1000"
+          preserveAspectRatio="none" aria-label="Границы контейнеров. Перетаскивайте углы."></svg>
+      </div>
+      <p class="muted">Выберите контейнер, затем перетаскивайте белые точки по четырём углам.
+        Вся рамка перемещается перетаскиванием внутри. Положения сохраняются для этой камеры,
+        независимо от соревнования.</p>
+      <div class="calibration-dialog-actions">
+        <button type="button" id="calibrationResetSlot">Сбросить выбранный</button>
+        <button type="button" id="calibrationResetAll">Сбросить все рамки</button>
+        <span id="calibrationStatus" class="muted">Загрузка…</span>
+        <button type="button" class="primary" id="calibrationSave" disabled>Сохранить рамки</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="battleEditDialog">
     <form id="battleEditForm" class="dialog-card">
       <div class="dialog-head">
@@ -374,7 +412,8 @@
   <div id="toast" class="toast"></div>
   <script src="/static/admin.js?v=20261010-8" defer></script>
   <script src="/static/admin_battles.js?v=20261010-10" defer></script>
-  <script src="/static/admin_camera_slots.js?v=20260909-1" defer></script>
+  <script src="/static/admin_rack_calibration.js?v=20261011-2" defer></script>
+  <script src="/static/admin_camera_slots.js?v=20261011-2" defer></script>
   <script src="/static/admin_watering.js?v=20260910-1" defer></script>
   <script src="/static/admin_seeds.js?v=20260910-1" defer></script>
   <script src="/static/admin_telegram.js?v=20260910-1" defer></script>

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
 from .account_preferences_api import AccountAchievement, AccountPreferences
-from .models import Device, Farm, Plant, RackCameraPhoto, User
+from .models import Device, Farm, Plant, RackCameraPhoto, RackCameraCalibration, User
 from .security import get_current_user, get_session
 from .config import get_settings
 from .telegram_link import create_telegram_link_token, linked_telegram_user
@@ -72,10 +72,18 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
             )
         ).scalars().all()
     )
+    calibration_rows = (await session.execute(
+        select(RackCameraCalibration).where(
+            RackCameraCalibration.device_id == battle.device_id,
+            RackCameraCalibration.rack_id == battle.rack_id,
+        )
+    )).scalars().all()
+    outlines_by_camera = {row.camera_id: row.slot_outlines for row in calibration_rows}
     camera_views = [
         {
             "camera_id": item.camera_id,
             "primary": bool(item.is_primary),
+            "slot_outlines": outlines_by_camera.get(item.camera_id),
             "captured_at": item.captured_at,
             "photo_url": (
                 f"/api/v1/public/farms/{farm_slug}/racks/{battle.rack_id}/"
