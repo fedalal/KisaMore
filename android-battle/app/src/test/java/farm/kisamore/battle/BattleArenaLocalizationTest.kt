@@ -59,7 +59,7 @@ class BattleArenaLocalizationTest {
         onCamera = {},
         onPeriod = {},
         onCommand = { _, _ -> },
-        onPhoto = {},
+        onPhoto = { _, _ -> },
         onJournal = {},
         onPredict = {},
         onJoin = {}
