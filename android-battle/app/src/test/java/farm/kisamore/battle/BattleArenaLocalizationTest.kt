@@ -1,6 +1,8 @@
 package farm.kisamore.battle
 
 import android.app.Activity
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -115,6 +117,41 @@ class BattleArenaLocalizationTest {
         val labels = labels(screen(host, battle()))
         assertTrue(labels.toString(), labels.contains("Вы наблюдаете за битвой"))
         assertTrue(labels.toString(), labels.contains("УЧАСТНИКИ"))
+    }
+
+    @Test fun onlyOwnersGetAnOutlineOverlayOnThePrimaryPhoto() {
+        val host = activity("ru")
+
+        fun entry(owner: Boolean) = BattleEntry(
+            id = if (owner) "mine" else "guest",
+            slotNumber = 3, status = "active", isMine = owner,
+            resourcesVisible = owner,
+            waterUsedMl = 0, nutrientUsedMl = 0, shadeUsedMinutes = 0,
+            actions = emptyList(), timelapse24hUrl = null,
+            timelapse3dUrl = null, certificateUrl = null, photoUrl = null
+        )
+
+        fun photoOverlayCount(root: View): Int {
+            var result = 0
+            fun walk(node: View) {
+                if (node is FrameLayout && node.childCount >= 2 &&
+                    node.getChildAt(0) is ImageView &&
+                    node.getChildAt(1) !is ImageView &&
+                    node.getChildAt(1) !is FrameLayout) {
+                    result++
+                }
+                if (node is ViewGroup) {
+                    for (i in 0 until node.childCount) walk(node.getChildAt(i))
+                }
+            }
+            walk(root)
+            return result
+        }
+
+        assertTrue("Owner should see an outline on rack photo",
+            photoOverlayCount(screen(host, battle(listOf(entry(true))))) >= 1)
+        assertTrue("Spectators should not see someone's selection outline",
+            photoOverlayCount(screen(host, battle(listOf(entry(false))))) == 0)
     }
 
     @Test fun profileShowsRealKisaBalanceAtTopInEnglish() {

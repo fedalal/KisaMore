@@ -460,41 +460,64 @@ internal class BattleArenaScreen(
             }.start()
         }
 
-        // Keep the soft highlight anchored to the *actual displayed photograph*
-        // (FIT_CENTER content bounds), not its black letterbox area. The approximate
-        // 2x3 position is deliberately soft; camera calibration is not assumed.
+        // The greenhouse camera is fixed: place the outline using the rack's
+        // 2-column x 3-row slot grid. This avoids costly, unreliable dark-edge
+        // detection on every frame (soil, shadows and leaves change the edges).
+        // All drawing is relative to FIT_CENTER image bounds, not the view's
+        // letterboxing; drawing is only enabled for the primary calibrated view.
         if (mine != null && (camera == null || camera.isPrimary) &&
             mine.slotNumber in 1..6) {
             val slot = mine.slotNumber - 1
             val overlay = object : View(host) {
-                private val marker = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    intArrayOf(Color.argb(95, 130, 200, 105),
-                        Color.argb(30, 130, 200, 105))).apply {
-                    cornerRadius = dp(9).toFloat()
+                private val strokeShadow = android.graphics.Paint(
+                    android.graphics.Paint.ANTI_ALIAS_FLAG
+                ).apply {
+                    style = android.graphics.Paint.Style.STROKE
+                    color = Color.argb(235, 8, 19, 13)
+                    strokeWidth = dp(6).toFloat()
+                    strokeJoin = android.graphics.Paint.Join.ROUND
                 }
+                private val strokeBright = android.graphics.Paint(
+                    android.graphics.Paint.ANTI_ALIAS_FLAG
+                ).apply {
+                    style = android.graphics.Paint.Style.STROKE
+                    color = Color.rgb(245, 250, 239)
+                    strokeWidth = dp(2).toFloat()
+                    strokeJoin = android.graphics.Paint.Join.ROUND
+                }
+
                 override fun onDraw(canvas: android.graphics.Canvas) {
                     val drawable = image.drawable ?: return
                     val sourceW = drawable.intrinsicWidth.toFloat()
                     val sourceH = drawable.intrinsicHeight.toFloat()
                     if (sourceW <= 0f || sourceH <= 0f) return
+
                     val scale = minOf(width / sourceW, height / sourceH)
-                    val actualW = sourceW * scale
-                    val actualH = sourceH * scale
-                    val left = (width - actualW) / 2f
-                    val top = (height - actualH) / 2f
+                    val displayedW = sourceW * scale
+                    val displayedH = sourceH * scale
+                    val imageLeft = (width - displayedW) / 2f
+                    val imageTop = (height - displayedH) / 2f
                     val col = slot % 2
                     val row = slot / 2
-                    val cellW = actualW / 2f
-                    val cellH = actualH / 3f
-                    val padx = cellW * .09f
-                    val pady = cellH * .10f
-                    marker.setBounds(
-                        (left + col * cellW + padx).toInt(),
-                        (top + row * cellH + pady).toInt(),
-                        (left + (col + 1) * cellW - padx).toInt(),
-                        (top + (row + 1) * cellH - pady).toInt()
+                    val cellW = displayedW / 2f
+                    val cellH = displayedH / 3f
+                    val paddingX = cellW * .09f
+                    val paddingY = cellH * .10f
+                    val borderInset = dp(3).toFloat()
+                    val rect = android.graphics.RectF(
+                        imageLeft + col * cellW + paddingX + borderInset,
+                        imageTop + row * cellH + paddingY + borderInset,
+                        imageLeft + (col + 1) * cellW - paddingX - borderInset,
+                        imageTop + (row + 1) * cellH - paddingY - borderInset
                     )
-                    marker.draw(canvas)
+                    if (rect.width() <= dp(18) || rect.height() <= dp(18)) return
+                    val radius = dp(7).toFloat()
+                    // Contrasting outer and inner strokes remain visible against
+                    // both dark soil and pale/bright foliage; no green fill.
+                    canvas.drawRoundRect(rect, radius, radius, strokeShadow)
+                    canvas.drawRoundRect(rect, radius, radius, strokeBright)
+
+
                 }
             }
             highlight = overlay
@@ -502,8 +525,6 @@ internal class BattleArenaScreen(
             image.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 overlay.invalidate()
             }
-            // A new cached frame keeps the same viewer; refresh the highlight
-            // after the bitmap is swapped, too.
             image.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) { overlay.invalidate() }
                 override fun onViewDetachedFromWindow(v: View) {}
