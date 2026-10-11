@@ -63,6 +63,13 @@ jobs:
           path: android-battle/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
 
+      - name: Export Android APK signer for offline signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-tools-apksigner
+          path: /usr/local/lib/android/sdk/build-tools/36.0.0/lib/apksigner.jar
+          if-no-files-found: error
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:

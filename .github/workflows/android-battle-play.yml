@@ -6,12 +6,6 @@ concurrency:
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/battle-android-mvp
-    paths:
-      - "android-battle/app/build.gradle.kts"
-      - ".github/workflows/android-battle-play.yml"
 
 jobs:
   play_bundle:
