@@ -45,7 +45,7 @@ internal class BattleArenaScreen(
     private val onCamera: (String) -> Unit,
     private val onPeriod: (Int) -> Unit,
     private val onCommand: (BattleEntry, String) -> Unit,
-    private val onPhoto: (String?) -> Unit,
+    private val onPhoto: (String?, BattleCamera?) -> Unit,
     private val onJournal: (List<BattleAction>) -> Unit,
     private val onPredict: (BattleEntry) -> Unit,
     private val onJoin: () -> Unit
@@ -443,7 +443,7 @@ internal class BattleArenaScreen(
         val photoUrl = api.absolute(camera?.photoUrl ?: battle.rackPhotoUrl)
         frame.isClickable = true
         frame.contentDescription = tr("Посмотреть фото полки крупно", "Enlarge rack photo")
-        frame.setOnClickListener { onPhoto(photoUrl) }
+        frame.setOnClickListener { onPhoto(photoUrl, camera) }
         if (photoUrl != null) {
             PhotoFrameCache.current(photoUrl)?.let { image.setImageBitmap(it) }
             Thread {
