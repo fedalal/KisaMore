@@ -19,6 +19,12 @@
   var pointer = null;
   var svgNS = "http://www.w3.org/2000/svg";
   function byId(id) { return document.getElementById(id); }
+  function friendlyCamera(row) {
+    var camerasOnRack = rows.filter(x =>
+      x.device_id === row.device_id && Number(x.rack_id) === Number(row.rack_id));
+    var index = camerasOnRack.findIndex(x => x.camera_id === row.camera_id);
+    return "К" + (index + 1);
+  }
   function clamp(v) { return Math.max(0, Math.min(1, v)); }
   function grid() {
     var result = {};
@@ -76,7 +82,7 @@
     current = rows[Number(cameraSelect.value)] || null;
     if (current) title.textContent = (current.device_name || "Теплица") +
       " · полка " + current.rack_id + " · " +
-      (current.primary ? "К1" : "Камера " + current.camera_id);
+      friendlyCamera(current);
     outlines = current && current.slot_outlines ?
       JSON.parse(JSON.stringify(current.slot_outlines)) : grid();
     dirty = false;
@@ -188,7 +194,7 @@
         opt.value = String(i);
         opt.textContent = (row.device_name || "Теплица") +
           " · полка " + row.rack_id +
-          " · " + (row.primary ? "К1" : "Камера " + row.camera_id) +
+          " · " + friendlyCamera(row) +
           (row.slot_outlines ? " ✓" : " · не настроена");
         cameraSelect.appendChild(opt);
       });
