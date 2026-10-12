@@ -134,25 +134,40 @@ def generate_camera_battle_timelapse(
             stamp = _frame_datetime(frame)
             if stamp:
                 _prepare_whole_rack_frame(frame, folder / f"frame_{i:06d}.jpg", stamp)
-        temporary = folder / "render.mp4"
-        command = [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-            "-framerate", str(FPS), "-start_number", "1",
-            "-i", str(folder / "frame_%06d.jpg"),
-            "-vf", "format=yuv420p",
-            "-c:v", "libx264",
-            "-preset", os.getenv("KISAMORE_TIMELAPSE_PRESET", "veryfast"),
-            "-crf", os.getenv("KISAMORE_TIMELAPSE_CRF", "23"),
-            "-movflags", "+faststart",
-            str(temporary),
-        ]
+        # /tmp and the shared photo volume are different filesystems in Docker.
+        # ffmpeg must write its final staging MP4 beside the target so
+        # Path.replace is atomic and cannot fail with EXDEV (cross-device link).
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{period}-render-", suffix=".mp4",
+            dir=target.parent, delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
         try:
-            subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                           timeout=max(60, int(os.getenv("KISAMORE_TIMELAPSE_FFMPEG_TIMEOUT", "180"))))
-        except subprocess.CalledProcessError as exc:
-            raise RuntimeError("Rack camera timelapse failed: " +
-                               (exc.stderr or b"").decode("utf-8", errors="replace")[-1000:]) from exc
-        temporary.replace(target)
-        marker.write_text(RENDER_VERSION, encoding="utf-8")
+            command = [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-framerate", str(FPS), "-start_number", "1",
+                "-i", str(folder / "frame_%06d.jpg"),
+                "-vf", "format=yuv420p",
+                "-c:v", "libx264",
+                "-preset", os.getenv("KISAMORE_TIMELAPSE_PRESET", "veryfast"),
+                "-crf", os.getenv("KISAMORE_TIMELAPSE_CRF", "23"),
+                "-movflags", "+faststart",
+                str(temporary),
+            ]
+            try:
+                subprocess.run(
+                    command, check=True, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    timeout=max(60, int(os.getenv("KISAMORE_TIMELAPSE_FFMPEG_TIMEOUT", "180"))),
+                )
+            except subprocess.CalledProcessError as exc:
+                raise RuntimeError(
+                    "Rack camera timelapse failed: " +
+                    (exc.stderr or b"").decode("utf-8", errors="replace")[-1000:]
+                ) from exc
+            temporary.replace(target)
+            marker.write_text(RENDER_VERSION, encoding="utf-8")
+        finally:
+            temporary.unlink(missing_ok=True)
     logger.info("Rendered camera timelapse battle=%s camera=%s period=%s frames=%s", battle_id, camera_id, period, len(selected))
     return target

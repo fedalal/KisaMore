@@ -123,7 +123,21 @@ function slotPicker(b,selectedId){
       (e?'':'disabled ')+'aria-label="'+esc(t("container"))+' '+i+'">'+esc(label)+'</button>';
   }).join("")+'</div>';
 }
-function videoButtons(e){let s='<div class="timelapse-row"><button class="button secondary" data-video="'+esc(e.timelapse_24h_url)+'" data-video-title="24h '+esc(t("timelapse"))+'">24h</button><button class="button secondary" data-video="'+esc(e.timelapse_3d_url)+'" data-video-title="3d '+esc(t("timelapse"))+'">3d</button>';if(e.timelapse_full_url)s+='<button class="button secondary" data-video="'+esc(e.timelapse_full_url)+'" data-video-title="'+esc(t("full"))+' '+esc(t("timelapse"))+'">'+esc(t("full"))+'</button>';if(e.certificate_url)s+='<button class="button secondary" data-cert="'+esc(e.certificate_url)+'">🎓 '+esc(t("diploma"))+'</button>';return s+'</div>'}
+function videoButtons(view){
+  // A Battle always shows the WHOLE RACK, never an individual slot crop.
+  // Match the video to the camera currently selected above the photograph.
+  const urls=view&&view.timelapse_urls||{};
+  const values=[
+    ["24h","24h"],
+    ["3d","3d"],
+    ["full",t("full")],
+  ];
+  return '<div class="timelapse-row">'+values.map(([period,label])=>
+    '<button class="button secondary" type="button"'+
+    (urls[period]?' data-video="'+esc(urls[period])+'"':' disabled')+
+    ' data-video-title="'+esc(label+" "+t("timelapse"))+'">'+esc(label)+'</button>'
+  ).join("")+'</div>';
+}
 function cameraViews(b){
   const views=Array.isArray(b.camera_views)?b.camera_views.filter(v=>v&&v.photo_url):[];
   if(views.length)return views;
@@ -175,11 +189,11 @@ function arena(b,interactive){
       resource(t("nutrient"),"🧪",selected.nutrient_used_ml,selected.nutrient_budget_ml,"ml")+
       resource(t("shade"),"🌘",selected.shade_used_minutes,selected.shade_budget_minutes,"min")+
       (can?'<div class="command-grid"><button class="command-button" data-action-kind="water" data-entry="'+selected.id+'" data-battle="'+b.id+'"><span>💧 '+esc(t("water"))+'</span><b>→</b></button><button class="command-button" data-action-kind="nutrient" data-entry="'+selected.id+'" data-battle="'+b.id+'"><span>🧪 '+esc(t("nutrient"))+'</span><b>→</b></button><button class="command-button" data-action-kind="shade" data-entry="'+selected.id+'" data-battle="'+b.id+'"><span>🌘 '+esc(t("shade"))+'</span><b>→</b></button></div>':"")+
-      videoButtons(selected)+'<div class="timeline"><h5>'+esc(t("actions"))+'</h5>'+timeline(selected)+'</div></div>';
+      videoButtons(view)+'<div class="timeline"><h5>'+esc(t("actions"))+'</h5>'+timeline(selected)+'</div></div>';
   }else if(selected){
     side='<div class="player-card"><h4>'+esc(t("container"))+' #'+selected.slot_number+'</h4><p>'+
       esc(plantName(b))+'</p><div class="strategy-secret">🔒 '+esc(t("secret"))+'</div>'+
-      videoButtons(selected)+'</div>';
+      videoButtons(view)+'</div>';
   }else{
     side='<div class="strategy-secret">'+esc(t("selectPlant"))+'</div>';
   }
