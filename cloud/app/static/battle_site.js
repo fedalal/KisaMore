@@ -67,7 +67,22 @@ function applyI18n(){
 function isLive(b){return ["growing","judging"].includes(b.status)}
 function isUpcoming(b){return ["open","ready_to_plant","planting"].includes(b.status)}
 function occupied(b){return (b.entries||[]).filter(e=>["active","finished"].includes(e.status)).length}
-function miniSlots(b){const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);return [1,2,3,4,5,6].map(i=>{const e=by[i];return '<div class="mini-slot '+(e?"taken":"")+(e&&e.is_winner?" winner":"")+'">'+(e?(e.is_winner?"🏆":"🌱"):i)+'</div>'}).join("")}
+function miniSlots(b){
+  const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);
+  return [1,2,3,4,5,6].map(i=>{
+    const e=by[i];
+    if(!e)return '<div class="mini-slot" title="'+esc(t("container"))+' #'+i+'">'+i+'</div>';
+    const name=String(e.participant_name||((state.lang==="ru"?"Игрок ":"Player ")+i));
+    const initial=Array.from(name.trim())[0]||"?";
+    const avatar=e.participant_avatar_url
+      ? '<img class="hero-slot-avatar" loading="lazy" src="'+esc(e.participant_avatar_url)+'" alt="">'
+      : '<span class="hero-slot-avatar hero-slot-initial" aria-hidden="true">'+esc(initial.toUpperCase())+'</span>';
+    return '<div class="mini-slot taken'+(e.is_winner?' winner':'')+
+      '" title="'+esc(name)+'" aria-label="'+esc(t("container"))+' #'+i+' · '+esc(name)+'">'+
+      avatar+'<small class="hero-slot-number">#'+i+'</small>'+
+      (e.is_winner?'<span class="hero-slot-winner" aria-label="Winner">🏆</span>':'')+'</div>';
+  }).join("");
+}
 function updateHero(){const b=state.all.find(isLive)||state.all.find(x=>x.status==="open")||state.all[0];if(!b){$("#heroBattleTitle").textContent="KisaMore Battle";$("#heroBattleMeta").textContent="";$("#heroBattleStatus").textContent="—";$("#heroSlots").innerHTML=[1,2,3,4,5,6].map(i=>'<div class="mini-slot">'+i+'</div>').join("");return}const d=dayInfo(b);$("#heroBattleTitle").textContent=b.title||plantName(b);$("#heroBattleMeta").textContent=plantName(b)+(d?" · "+t("day")+" "+d.day:"");$("#heroBattleStatus").textContent=statusText(b.status);$("#heroSlots").innerHTML=miniSlots(b);$("#heroEntries").textContent=occupied(b)+"/"+b.max_entries+" "+t("players");$("#heroPrize").textContent="🏆 Ⓚ "+b.winner_reward_kisa+" "+t("prize")}
 function battleCard(b){
   const live=isLive(b),d=dayInfo(b),taken=occupied(b),progress=pct(taken,b.max_entries);

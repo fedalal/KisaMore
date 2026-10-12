@@ -211,3 +211,25 @@
     flex-basis:26px;width:26px;height:26px;
     min-width:26px;min-height:0;max-width:26px;max-height:26px}
 }
+
+/* Hero: real battle participants instead of anonymous sprout icons. */
+.hero-scoreboard .mini-slot{position:relative;min-width:0;overflow:hidden;
+  height:86px;display:flex;flex-direction:column;justify-content:center;
+  align-items:center;gap:3px;padding:7px 3px}
+.hero-scoreboard .mini-slot .hero-slot-avatar{
+  display:block;flex:0 0 44px;width:44px;height:44px;
+  min-width:44px;min-height:44px;max-width:44px;max-height:44px;
+  aspect-ratio:1;object-fit:cover;border-radius:50%;
+  background:#244d37;border:1px solid rgba(121,255,154,.35)}
+.hero-scoreboard .mini-slot .hero-slot-initial{display:grid;place-items:center;
+  color:#e3ffec;font-size:21px;font-weight:800;line-height:1}
+.hero-scoreboard .mini-slot .hero-slot-number{font-size:10px;
+  font-weight:750;color:#b4d7bf;line-height:1.2}
+.hero-scoreboard .mini-slot .hero-slot-winner{position:absolute;right:3px;
+  top:2px;font-size:16px}
+@media(max-width:620px){
+  .hero-scoreboard .mini-slot{height:72px;padding:5px 1px}
+  .hero-scoreboard .mini-slot .hero-slot-avatar{flex-basis:34px;width:34px;
+    height:34px;min-width:34px;min-height:34px;max-width:34px;max-height:34px}
+  .hero-scoreboard .mini-slot .hero-slot-initial{font-size:17px}
+}
