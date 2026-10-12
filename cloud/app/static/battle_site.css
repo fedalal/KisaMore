@@ -115,3 +115,25 @@
   #photoDialog .photo-dialog-shell{padding:10px}
   #photoViewerImage{max-height:calc(95dvh - 150px)}
 }
+
+/* Battle details occupy the DOCUMENT flow rather than a scrollable dialog.
+   Browser page scrolling is the only page-height scrollbar. */
+.battle-detail-section{scroll-margin-top:75px;padding-top:22px}
+.battle-detail-toolbar{display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin:0 0 13px;flex-wrap:wrap}
+.battle-detail-toolbar strong{font-size:15px;color:#d5eedf;overflow-wrap:anywhere}
+.battle-detail-toolbar button{white-space:nowrap}
+#battleDetailArena{width:100%;min-width:0}
+#battleDetailArena .arena{overflow:visible}
+#battleDetailArena .arena-grid{grid-template-columns:minmax(0,1.6fr) minmax(310px,.75fr)}
+#battleDetailArena .timeline-list{max-height:none;overflow:visible}
+#battleDetailArena .rack-stage{min-width:0}
+@media(max-width:980px){
+  #battleDetailArena .arena-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:620px){
+  .battle-detail-section{padding-top:12px}
+  .battle-detail-toolbar button{font-size:12px}
+  #battleDetailArena .arena-head{padding:16px}
+  #battleDetailArena .arena-side{padding:16px}
+}

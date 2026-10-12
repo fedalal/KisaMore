@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#08130f">
   <title>KisaMore Battle — Grow. Decide. Win.</title>
   <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
-  <link rel="stylesheet" href="/static/battle_site.css?v=20261012-1">
+  <link rel="stylesheet" href="/static/battle_site.css?v=20261012-2">
   <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/battle_site.js?v=20261012-1" defer></script>
+  <script src="/static/battle_site.js?v=20261012-2" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -85,6 +85,14 @@
       <div id="myBattleArena"></div>
     </section>
 
+    <section id="battleDetailSection" class="section battle-detail-section hidden" aria-label="Battle details">
+      <div class="battle-detail-toolbar">
+        <strong id="battleDetailLabel"></strong>
+        <button id="battleDetailClose" class="button secondary" type="button">← Back to battles</button>
+      </div>
+      <div id="battleDetailArena"></div>
+    </section>
+
     <section id="live" class="section">
       <div class="section-heading">
         <div><span class="eyebrow" data-i18n="liveEyebrow">WATCH IT HAPPEN</span><h2 data-i18n="liveTitle">Live battles</h2></div>
@@ -128,13 +136,6 @@
     <div><strong>KisaMore Battle</strong><span data-i18n="footerTag">Real plants. Real decisions.</span></div>
     <a href="/" data-i18n="mainSite">KisaMore main site</a>
   </footer>
-
-  <dialog id="arenaDialog" class="wide-dialog">
-    <div class="dialog-shell">
-      <button class="dialog-close" type="button" data-close="arenaDialog">×</button>
-      <div id="arenaDialogContent"></div>
-    </div>
-  </dialog>
 
   <dialog id="authDialog">
     <form id="authForm" class="dialog-shell auth-shell">

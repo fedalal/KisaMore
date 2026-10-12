@@ -51,3 +51,46 @@ assert.ok(css.includes("object-fit:contain"),"retain entire photo");
 assert.ok(html.includes('id="photoDialog"')&&html.includes('id="photoViewerImage"'));
 assert.ok(js.includes("ready.decode"),"full-photo replacement after load");
 console.log("PASS: full camera frame, unobstructed image, camera switch, slot controls outside, fullscreen photo.");
+assert.ok(!html.includes('id="arenaDialog"'),"battle details must not be a dialog");
+assert.ok(html.includes('id="battleDetailSection"'),"battle detail belongs in page flow");
+assert.ok(html.indexOf('id="battleDetailSection"')<html.indexOf('id="live"'),"detail above live list");
+assert.ok(css.includes("#battleDetailArena .timeline-list{max-height:none;overflow:visible}"),
+  "battle history must not introduce an internal scrollbar");
+const detailCode=js.slice(js.indexOf("function renderBattleDetail(){"),js.indexOf("function openJoin("));
+const detailSection={
+  hidden:true,
+  classList:{add(name){if(name==="hidden")detailSection.hidden=true},
+             remove(name){if(name==="hidden")detailSection.hidden=false}},
+  scrollIntoView(){detailSection.scrolled=true}
+};
+const detailArena={replaceChildren(){this.cleared=true}};
+const detailLabel={textContent:""};
+const detailClose={textContent:""};
+const live={scrollIntoView(){this.scrolled=true}};
+const nodes={
+ "#battleDetailSection":detailSection,
+ "#battleDetailArena":detailArena,
+ "#battleDetailLabel":detailLabel,
+ "#battleDetailClose":detailClose,
+ "#live":live
+};
+const ui={
+ state:{all:[battle],viewingBattleId:null,selectedEntry:"e1",lang:"ru"},
+ $:name=>{assert.ok(nodes[name],"Missing mocked DOM node "+name);return nodes[name]},
+ smooth:{replace(node,markup){assert.equal(node,detailArena);node.html=markup}},
+ arena:()=>'<article class="arena">Full rack and controls</article>'
+};
+vm.createContext(ui);
+vm.runInContext(detailCode,ui);
+ui.openArena("battle-1");
+assert.equal(detailSection.hidden,false,"detail is visible on the page");
+assert.equal(detailSection.scrolled,true,"page navigates to details");
+assert.ok(detailArena.html.includes("Full rack"),"battle dashboard inserted into page");
+assert.equal(ui.state.viewingBattleId,"battle-1");
+assert.equal(ui.state.selectedEntry,null);
+ui.closeBattleDetail();
+assert.equal(detailSection.hidden,true,"closing detail hides in-page section");
+assert.equal(detailArena.cleared,true,"closing detail frees DOM");
+assert.equal(live.scrolled,true,"returns to normal page scroll");
+assert.equal(ui.state.viewingBattleId,null);
+console.log("PASS: Battle opens in ordinary page flow; one scrollbar; full history; closes normally.");
