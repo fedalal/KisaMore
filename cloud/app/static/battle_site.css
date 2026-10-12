@@ -195,3 +195,19 @@
   .rack-image-frame .rack-overlay .rack-slot:focus .rack-slot-tooltip{
     opacity:1;visibility:visible;transform:translateY(0)}
 }
+
+/* The legacy ".rack-stage img" rule sets min-height:560px for shelf photos.
+   Avatar images live inside the stage too, so explicitly override that rule
+   with a more specific selector (without changing the full-shelf photo). */
+.rack-image-frame .rack-overlay .rack-slot .rack-slot-tooltip{
+  width:max-content;max-width:min(240px,calc(100% - 12px));
+  max-height:62px;box-sizing:border-box}
+.rack-image-frame .rack-overlay .rack-slot .rack-slot-tooltip > img.rack-slot-avatar{
+  display:block;flex:0 0 34px;width:34px;height:34px;
+  min-width:34px;min-height:0;max-width:34px;max-height:34px;
+  aspect-ratio:1;object-fit:cover;border-radius:50%}
+@media(max-width:620px){
+  .rack-image-frame .rack-overlay .rack-slot .rack-slot-tooltip > img.rack-slot-avatar{
+    flex-basis:26px;width:26px;height:26px;
+    min-width:26px;min-height:0;max-width:26px;max-height:26px}
+}

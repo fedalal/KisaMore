@@ -39,6 +39,12 @@ assert.ok(css.includes(".rack-slot-tooltip")&&css.includes("visibility:hidden"))
 assert.ok(css.includes(":is(:hover,:focus-visible) .rack-slot-tooltip"));
 assert.ok(css.includes("@media(hover:none)"),"touch support");
 assert.ok(js.includes('hotspot.focus({preventScroll:true})'),"focus restored after touch selection");
-assert.ok(html.includes("battle_site.css?v=20261012-5"));
+assert.ok(css.includes('.rack-image-frame .rack-overlay .rack-slot .rack-slot-tooltip > img.rack-slot-avatar{'),
+  "avatar selector must override the more specific legacy .rack-stage img rule");
+assert.ok(css.includes('min-width:34px;min-height:0;max-width:34px;max-height:34px;'),
+  "avatar must not inherit the old 560px image min-height");
+assert.ok(css.includes('flex-basis:26px;width:26px;height:26px;'),
+  "mobile avatar size must stay small");
+assert.ok(html.includes("battle_site.css?v=20261012-6"));
 assert.ok(html.includes("battle_site.js?v=20261012-5"));
 console.log("PASS: participant hover tooltip, avatar/fallback, safely escaped names, keyboard/touch, selection retained");
