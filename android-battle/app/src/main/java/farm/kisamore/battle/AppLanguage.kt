@@ -36,6 +36,9 @@ class AppLanguage(private val context: Context) {
 
         fun currentCode(context: Context): String {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val selected = context.getSharedPreferences("battle_settings", Context.MODE_PRIVATE)
+                .getString("language", null)
+            if (selected != null && supported.any { it.first == selected }) return selected
             val saved = prefs.getString(KEY, null)
             if (saved != null && supported.any { it.first == saved }) return saved
             val device = Locale.getDefault().language.lowercase(Locale.ROOT)
@@ -58,11 +61,24 @@ class AppLanguage(private val context: Context) {
             supported.firstOrNull { it.first == code }?.second ?: "English"
 
         private val rows: Map<String, Array<String>> = mapOf(
-            "🌱 Утренняя сводка · день " to arrayOf("🌱 Morning report · day ", "🌱 Morgenbericht · Tag ", "🌱 Rapport du matin · jour ", "🌱 Informe matinal · día ", "🌱 Resoconto mattutino · giorno ", "🌱 Relatório matinal · dia ", "🌱 Poranny raport · dzień ", "🌱 早间报告 · 第 "),
-            "Закрыть утреннюю сводку" to arrayOf("Dismiss morning report", "Morgenbericht schließen", "Fermer le rapport", "Cerrar el informe matinal", "Chiudi il rapporto", "Fechar relatório", "Zamknij raport", "关闭早间报告"),
-            "Проверьте свежую фотографию полки и решите, нужны ли растению ресурсы сегодня." to arrayOf("Check the latest shelf photo and decide whether to use resources today.", "Prüfe das aktuelle Regalfoto und entscheide über Ressourcen.", "Regardez la photo récente et décidez des ressources à utiliser.", "Revisa la foto de la estantería y decide si usar recursos.", "Guarda la foto recente e decidi se usare risorse oggi.", "Veja a foto recente e decida se deve usar recursos hoje.", "Sprawdź najnowsze zdjęcie i zdecyduj o użyciu zasobów.", "查看最新架子照片，决定今天是否使用资源。"),
-            "Полка " to arrayOf("Rack ", "Regal ", "Étagère ", "Estante ", "Scaffale ", "Prateleira ", "Półka ", "架子 "),
-            "Контейнер " to arrayOf("Container ", "Behälter ", "Bac ", "Contenedor ", "Contenitore ", "Recipiente ", "Pojemnik ", "容器 "),
+            "🌱 Утренняя сводка · день " to arrayOf("🌱 Morning report · day ", "🌱 Morgenbericht · Tag ", "🌱 Rapport du matin · jour ", "🌱 Informe matinal · día ", "🌱 Rapporto mattutino · giorno ", "🌱 Relatório matinal · dia ", "🌱 Poranny raport · dzień ", "🌱 早间报告 · 第 "),
+            "Закрыть сводку" to arrayOf("Dismiss report", "Bericht schließen", "Fermer le rapport", "Cerrar informe", "Chiudi rapporto", "Fechar relatório", "Zamknij raport", "关闭报告"),
+            "Ваш контейнер №" to arrayOf("Your container #", "Dein Behälter Nr. ", "Votre bac nº ", "Tu contenedor n.º ", "Il tuo contenitore n. ", "Seu recipiente nº ", "Twój pojemnik nr ", "你的容器编号"),
+            "Проверьте фото полки и решите, нужен ли сегодня уход." to arrayOf("Check the shelf photo and decide how to care for your plant today.", "Prüfe das Regalfoto und entscheide, was die Pflanze heute braucht.", "Consultez la photo et décidez des soins nécessaires.", "Revisa la foto y decide qué cuidados necesita hoy.", "Guarda la foto e scegli le cure di oggi.", "Veja a foto e decida os cuidados de hoje.", "Sprawdź zdjęcie i zdecyduj o dzisiejszej pielęgnacji.", "查看架子照片，决定今天是否需要护理。"),
+            "Закрыть окно" to arrayOf("Close", "Schließen", "Fermer", "Cerrar", "Chiudi", "Fechar", "Zamknij", "关闭"),
+            "РЕГИСТРАЦИЯ" to arrayOf("CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT", "CREATE ACCOUNT"),
+            "Создать аккаунт" to arrayOf("Create account", "Create account", "Create account", "Create account", "Create account", "Create account", "Create account", "Create account"),
+            "Уже есть аккаунт? Войти" to arrayOf("Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in", "Already have an account? Sign in"),
+            "Пароль минимум 5 символов" to arrayOf("Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters", "Password must be at least 5 characters"),
+            "Неверный email или пароль" to arrayOf("Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password", "Incorrect email or password"),
+            "Email уже зарегистрирован" to arrayOf("Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered", "Email is already registered"),
+            "Проверьте введённые данные" to arrayOf("Please check your details", "Please check your details", "Please check your details", "Please check your details", "Please check your details", "Please check your details", "Please check your details", "Please check your details"),
+            "Слишком много попыток. Попробуйте позже" to arrayOf("Too many attempts. Try again later", "Too many attempts. Try again later", "Too many attempts. Try again later", "Too many attempts. Try again later", "Too many attempts. Try again later", "Too many attempts. Try again later", "Too many attempts. Try again later", "Too many attempts. Try again later"),
+            "Ошибка регистрации: " to arrayOf("Registration failed: ", "Registration failed: ", "Registration failed: ", "Registration failed: ", "Registration failed: ", "Registration failed: ", "Registration failed: ", "Registration failed: "),
+            "Ошибка входа: " to arrayOf("Sign-in failed: ", "Sign-in failed: ", "Sign-in failed: ", "Sign-in failed: ", "Sign-in failed: ", "Sign-in failed: ", "Sign-in failed: ", "Sign-in failed: "),
+            "Нет соединения с сервером. Проверьте интернет" to arrayOf("No connection to server. Check your internet connection", "No connection to server. Check your internet connection", "No connection to server. Check your internet connection", "No connection to server. Check your internet connection", "No connection to server. Check your internet connection", "No connection to server. Check your internet connection", "No connection to server. Check your internet connection", "No connection to server. Check your internet connection"),
+            "Битва живых растений" to arrayOf("Battle of living plants", "Battle echter Pflanzen", "Bataille de vraies plantes", "Batalla de plantas vivas", "Sfida tra piante vere", "Batalha de plantas vivas", "Bitwa żywych roślin", "真实植物对战"),
+            "Настоящие растения. Твои решения." to arrayOf("Real plants. Your decisions.", "Echte Pflanzen. Deine Entscheidungen.", "De vraies plantes. Vos choix.", "Plantas reales. Tus decisiones.", "Piante vere. Le tue scelte.", "Plantas reais. Suas decisões.", "Prawdziwe rośliny. Twoje decyzje.", "真实植物，由你决策。"),
             "Начало" to arrayOf("Start", "Start", "Accueil", "Inicio", "Inizio", "Início", "Start", "开始"),
             "Битва" to arrayOf("Battle", "Battle", "Bataille", "Batalla", "Battaglia", "Batalha", "Bitwa", "对战"),
             "ГОСТЬ" to arrayOf("GUEST", "GAST", "INVITÉ", "INVITADO", "OSPITE", "VISITANTE", "GOŚĆ", "访客"),

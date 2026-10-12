@@ -3,6 +3,8 @@ package farm.kisamore.battle
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
+import java.io.ByteArrayOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -12,19 +14,21 @@ import java.net.URL
 class ApiException(message: String, val statusCode: Int = 0) : IOException(message)
 
 class ApiClient(context: Context) {
-    private val appContext = context.applicationContext
     private val prefs = context.getSharedPreferences("kisamore_battle_api", Context.MODE_PRIVATE)
+    private val language = AppLanguage(context)
+    private val primaryHost = "https://kisamore.farm"
+    private val backupHost = "https://ru.kisamore.farm"
 
-    companion object {
-        private const val PRIMARY_BASE_URL = "https://kisamore.farm"
-        private const val FALLBACK_BASE_URL = "https://ru.kisamore.farm"
+    init {
+        if (!prefs.getBoolean("primary_host_migrated", false)) {
+            prefs.edit().putString("base_url", primaryHost)
+                .putBoolean("primary_host_migrated", true).apply()
+        }
     }
 
-    @Volatile
-    private var activeBaseUrl: String = PRIMARY_BASE_URL
-
-    val baseUrl: String
-        get() = activeBaseUrl
+    var baseUrl: String
+        get() = prefs.getString("base_url", primaryHost) ?: primaryHost
+        private set(value) = prefs.edit().putString("base_url", value.trimEnd('/')).apply()
 
     private var sessionCookie: String?
         get() = prefs.getString("session_cookie", null)
@@ -57,6 +61,12 @@ class ApiClient(context: Context) {
 
     fun hasSession(): Boolean = !sessionCookie.isNullOrBlank()
 
+    fun setRegion(russian: Boolean) {
+        baseUrl = if (russian) "https://ru.kisamore.farm" else "https://kisamore.farm"
+    }
+
+    fun isRussianServer(): Boolean = baseUrl.contains("ru.kisamore.farm")
+
     fun absolute(path: String?): String? {
         if (path.isNullOrBlank()) return null
         return if (path.startsWith("http://") || path.startsWith("https://")) path else baseUrl + path
@@ -74,20 +84,18 @@ class ApiClient(context: Context) {
         return user
     }
 
-    fun register(displayName: String, email: String, password: String, language: String = "ru"): UserInfo {
+    fun register(displayName: String, email: String, password: String, language: String): UserInfo {
         val payload = JSONObject()
             .put("display_name", displayName.trim())
             .put("email", email.trim())
             .put("password", password)
             .put("language", language)
         val json = JSONObject(request("POST", "/api/v1/auth/register", payload.toString()))
-        val user = UserInfo(
+        return UserInfo(
             id = json.optString("id"),
             displayName = json.optString("display_name", displayName.trim()),
             email = json.optString("email", email.trim())
-        )
-        currentUser = user
-        return user
+        ).also { currentUser = it }
     }
 
     fun logout() {
@@ -96,19 +104,52 @@ class ApiClient(context: Context) {
         currentUser = null
     }
 
-    fun updateLanguage(language: String) {
-        val payload = JSONObject().put("language", language)
-        request("PATCH", "/api/v1/auth/me/language", payload.toString())
+
+    private val supportedLanguages = listOf("en","ru","zh","de","fr","es","it","pt","pl")
+
+    /** The server's actual Kisa wallet, including balances linked to Telegram. */
+    fun fetchKisaBalance(): Long {
+        val payload = JSONObject(request("GET", "/api/v1/account/kisa-wallet"))
+        if (!payload.has("balance") || payload.isNull("balance")) {
+            throw IOException("Kisa wallet balance is missing")
+        }
+        return payload.getLong("balance")
+    }
+
+    fun fetchPreferences(): JSONObject =
+        JSONObject(request("GET", "/api/v1/account/preferences"))
+
+    fun savePreferences(language: String? = null, dark: Boolean? = null): JSONObject {
+        val payload = JSONObject()
+        if (language != null) {
+            require(language in supportedLanguages) { "Unsupported language" }
+            payload.put("language", language)
+        }
+        if (dark != null) payload.put("theme", if (dark) "dark" else "light")
+        return JSONObject(request("PATCH", "/api/v1/account/preferences", payload.toString()))
+    }
+
+    fun uploadAvatar(content: ByteArray, mimeType: String): JSONObject {
+        require(content.isNotEmpty() && content.size <= 2_097_152) { "Фотография не должна превышать 2 МБ" }
+        val connection = URL(baseUrl + "/api/v1/account/avatar").openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"
+            connection.connectTimeout = 12_000
+            connection.readTimeout = 25_000
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", mimeType)
+            sessionCookie?.let { connection.setRequestProperty("Cookie", it) }
+            connection.outputStream.use { it.write(content) }
+            val code = connection.responseCode
+            val response = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) throw ApiException("Ошибка загрузки фото (HTTP $code)", code)
+            return JSONObject(response)
+        } finally { connection.disconnect() }
     }
 
     fun publicBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/public/battles")))
-
-    /**
-     * Legacy/ordinary growing plants provide the welcome-video fallback while
-     * there are no completed battle timelapses. All these URLs are public.
-     * A missing file returns 404 and the player moves to the next candidate.
-     */
     fun publicGrowthClips(farmSlug: String = "demo-farm"): List<HomeClip> {
         val market = JSONObject(request("GET", "/api/v1/public/farms/$farmSlug/market"))
         val racks = market.optJSONArray("racks") ?: return emptyList()
@@ -119,8 +160,7 @@ class ApiClient(context: Context) {
             val slots = rack.optJSONArray("slots") ?: continue
             val posterUrl = rack.nullableString("photo_url")
             for (j in 0 until slots.length()) {
-                val slot = slots.optJSONObject(j) ?: continue
-                val slotNumber = slot.optInt("slot_number")
+                val slotNumber = slots.optJSONObject(j)?.optInt("slot_number") ?: 0
                 if (rackId <= 0 || slotNumber <= 0) continue
                 val prefix = "/api/v1/public/farms/$farmSlug/racks/$rackId/slots/$slotNumber/timelapse/"
                 clips.add(HomeClip(null, prefix + "3d", false, posterUrl))
@@ -130,8 +170,39 @@ class ApiClient(context: Context) {
         return clips
     }
 
+
     fun myBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/battles/me")))
+
+    fun myBattleProfile(): PlayerBattleProfile {
+        val json = JSONObject(request("GET", "/api/v1/battles/profile"))
+        val awardRows = json.optJSONArray("rewards") ?: JSONArray()
+        val rewards = buildList {
+            for (i in 0 until awardRows.length()) {
+                val row = awardRows.getJSONObject(i)
+                add(ServerReward(
+                    id = row.optString("id"),
+                    title = row.optString("title"),
+                    icon = row.optString("icon"),
+                    earnedAt = row.optString("earned_at"),
+                    url = row.nullableString("url")
+                ))
+            }
+        }
+        val histories = json.optJSONArray("history") ?: JSONArray()
+        val ids = buildList {
+            for (i in 0 until histories.length()) {
+                add(histories.getJSONObject(i).optString("battle_id"))
+            }
+        }
+        return PlayerBattleProfile(
+            battleCount = json.optInt("battle_count"),
+            winCount = json.optInt("win_count"),
+            ratingPoints = json.optInt("rating_points"),
+            rewards = rewards,
+            finishedBattleIds = ids
+        )
+    }
 
     fun authenticatedBattle(id: String): Battle =
         parseBattle(JSONObject(request("GET", "/api/v1/battles/$id")))
@@ -155,79 +226,44 @@ class ApiClient(context: Context) {
 
     fun loadBitmap(url: String?): Bitmap? {
         if (url.isNullOrBlank()) return null
-        val candidates = linkedSetOf(url)
-        when {
-            url.startsWith(PRIMARY_BASE_URL) ->
-                candidates.add(url.replaceFirst(PRIMARY_BASE_URL, FALLBACK_BASE_URL))
-            url.startsWith(FALLBACK_BASE_URL) ->
-                candidates.add(url.replaceFirst(FALLBACK_BASE_URL, PRIMARY_BASE_URL))
-        }
-
-        for (candidate in candidates) {
-            val connection = URL(candidate).openConnection() as HttpURLConnection
-            try {
-                connection.connectTimeout = 8_000
-                connection.readTimeout = 20_000
-                connection.setRequestProperty("Accept", "image/*")
-                if (connection.responseCode in 200..299) {
-                    if (candidate.startsWith(FALLBACK_BASE_URL)) activeBaseUrl = FALLBACK_BASE_URL
-                    if (candidate.startsWith(PRIMARY_BASE_URL)) activeBaseUrl = PRIMARY_BASE_URL
-                    return connection.inputStream.use { BitmapFactory.decodeStream(it) }
-                }
-            } catch (_: IOException) {
-                // Try the alternate public server.
-            } finally {
-                connection.disconnect()
+        val connection = URL(url).openConnection() as HttpURLConnection
+        return try {
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 20_000
+            connection.setRequestProperty("Accept", "image/*")
+            if (url.startsWith(baseUrl + "/")) sessionCookie?.let {
+                connection.setRequestProperty("Cookie", it)
             }
+            connection.inputStream.use { BitmapFactory.decodeStream(it) }
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection.disconnect()
         }
-        return null
     }
 
     private fun request(method: String, path: String, body: String? = null): String {
-        val first = activeBaseUrl
-        val second = if (first == PRIMARY_BASE_URL) FALLBACK_BASE_URL else PRIMARY_BASE_URL
-
-        try {
-            return requestAgainst(first, method, path, body)
-        } catch (firstError: Throwable) {
-            if (!shouldTryAlternate(firstError)) throw firstError
-            return try {
-                requestAgainst(second, method, path, body).also {
-                    activeBaseUrl = second
-                }
-            } catch (secondError: Throwable) {
-                // Keep the error from the server currently preferred by the app unless
-                // the alternate returned a meaningful API response.
-                if (secondError is ApiException && !shouldTryAlternate(secondError)) {
-                    throw secondError
-                }
-                throw firstError
-            }
+        val host = baseUrl
+        return try {
+            requestOnHost(host, method, path, body)
+        } catch (error: IOException) {
+            // HTTP failures (including bad credentials) must never cause failover.
+            if (error is ApiException || host != primaryHost) throw error
+            val response = requestOnHost(backupHost, method, path, body)
+            baseUrl = backupHost
+            response
         }
     }
 
-    private fun shouldTryAlternate(error: Throwable): Boolean {
-        return when (error) {
-            is ApiException -> error.statusCode in 500..599
-            is IOException -> true
-            else -> false
-        }
-    }
-
-    private fun requestAgainst(
-        serverBaseUrl: String,
-        method: String,
-        path: String,
-        body: String?
-    ): String {
-        val connection = URL(serverBaseUrl + path).openConnection() as HttpURLConnection
+    private fun requestOnHost(host: String, method: String, path: String, body: String?): String {
+        val connection = URL(host + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
-            connection.connectTimeout = 8_000
+            connection.connectTimeout = 12_000
             connection.readTimeout = 25_000
             connection.instanceFollowRedirects = true
             connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("User-Agent", "KisaMoreBattleAndroid/0.3")
+            connection.setRequestProperty("User-Agent", "KisaMoreBattleAndroid/0.2")
             sessionCookie?.let { connection.setRequestProperty("Cookie", it) }
 
             if (body != null) {
@@ -255,8 +291,6 @@ class ApiClient(context: Context) {
                 }
                 throw ApiException(detail.ifBlank { "HTTP $code" }, code)
             }
-
-            activeBaseUrl = serverBaseUrl
             return response
         } finally {
             connection.disconnect()
@@ -265,15 +299,6 @@ class ApiClient(context: Context) {
 
     private fun parseBattleArray(array: JSONArray): List<Battle> = buildList {
         for (i in 0 until array.length()) add(parseBattle(array.getJSONObject(i)))
-    }
-
-    private fun localizedPlantName(obj: JSONObject): String {
-        val names = obj.optJSONObject("plant_names")
-        val code = AppLanguage.currentCode(appContext)
-        return names?.optString(code)?.takeIf { it.isNotBlank() }
-            ?: names?.optString("en")?.takeIf { it.isNotBlank() }
-            ?: names?.optString("ru")?.takeIf { it.isNotBlank() }
-            ?: obj.optString("plant_name", "Plant")
     }
 
     private fun parseBattle(obj: JSONObject): Battle {
@@ -291,7 +316,8 @@ class ApiClient(context: Context) {
                                 kind = action.optString("kind"),
                                 amount = action.optInt("amount"),
                                 status = action.optString("status"),
-                                requestedAt = action.nullableString("requested_at")
+                                requestedAt = action.nullableString("requested_at"),
+                                completedAt = action.nullableString("completed_at")
                             )
                         )
                     }
@@ -309,25 +335,16 @@ class ApiClient(context: Context) {
                         actions = actions,
                         timelapse24hUrl = item.nullableString("timelapse_24h_url"),
                         timelapse3dUrl = item.nullableString("timelapse_3d_url"),
+                        timelapseFullUrl = item.nullableString("timelapse_full_url"),
                         certificateUrl = item.nullableString("certificate_url"),
-                        timelapseFullUrl = item.nullableString("timelapse_full_url")
-                    )
-                )
-            }
-        }
-
-        val cameraViewsJson = obj.optJSONArray("camera_views") ?: JSONArray()
-        val cameraViews = buildList {
-            for (i in 0 until cameraViewsJson.length()) {
-                val item = cameraViewsJson.optJSONObject(i) ?: continue
-                add(
-                    CameraView(
-                        cameraId = item.optString("camera_id"),
-                        primary = item.optBoolean("primary", false),
-                        photoUrl = item.nullableString("photo_url"),
-                        timelapseFullUrl = item.optJSONObject("timelapse_urls")?.nullableString("full"),
-                        timelapse3dUrl = item.optJSONObject("timelapse_urls")?.nullableString("3d"),
-                        timelapse24hUrl = item.optJSONObject("timelapse_urls")?.nullableString("24h")
+                        photoUrl = if (obj.optString("farm_slug").isBlank()) null else
+                            "/api/v1/public/farms/" + obj.optString("farm_slug") +
+                            "/racks/" + obj.optInt("rack_id") +
+                            "/slots/" + item.optInt("slot_number") + "/photo",
+                        isWinner = item.optBoolean("is_winner", false),
+                        badge = item.nullableString("badge"),
+                        participantName = item.nullableString("participant_name"),
+                        participantAvatarUrl = item.nullableString("participant_avatar_url")
                     )
                 )
             }
@@ -341,15 +358,53 @@ class ApiClient(context: Context) {
             predictionCounts[key] = counts.optInt(key)
         }
 
+        val cameraViewsJson = obj.optJSONArray("camera_views") ?: JSONArray()
+        val cameras = buildList {
+            for (i in 0 until cameraViewsJson.length()) {
+                val row = cameraViewsJson.getJSONObject(i)
+                val slotOutlines = buildMap<Int, List<SlotPoint>> {
+                    val shapes = row.optJSONObject("slot_outlines")
+                    if (shapes != null) for (slot in 1..6) {
+                        val corners = shapes.optJSONArray(slot.toString()) ?: continue
+                        if (corners.length() != 4) continue
+                        val points = (0 until 4).mapNotNull { idx ->
+                            val xy = corners.optJSONArray(idx) ?: return@mapNotNull null
+                            if (xy.length() != 2) return@mapNotNull null
+                            val x = xy.optDouble(0, Double.NaN)
+                            val y = xy.optDouble(1, Double.NaN)
+                            if (!x.isFinite() || !y.isFinite() ||
+                                x !in 0.0..1.0 || y !in 0.0..1.0) null
+                            else SlotPoint(x.toFloat(), y.toFloat())
+                        }
+                        if (points.size == 4) put(slot, points)
+                    }
+                }
+                add(BattleCamera(
+                    cameraId = row.optString("camera_id"),
+                    isPrimary = row.optBoolean("primary"),
+                    photoUrl = row.nullableString("photo_url"),
+                    capturedAt = row.nullableString("captured_at"),
+                    timelapse24hUrl = row.optJSONObject("timelapse_urls")?.nullableString("24h"),
+                    timelapse3dUrl = row.optJSONObject("timelapse_urls")?.nullableString("3d"),
+                    timelapseFullUrl = row.optJSONObject("timelapse_urls")?.nullableString("full"),
+                    slotOutlines = slotOutlines
+                ))
+            }
+        }
+
+        val plantNames = PlantNameResolver.translations(obj.optJSONObject("plant_names"))
         return Battle(
             id = obj.optString("id"),
             title = obj.optString("title", "Plant Battle"),
             status = obj.optString("status"),
             rackId = obj.optInt("rack_id"),
-            plantName = localizedPlantName(obj),
+            plantName = PlantNameResolver.resolve(
+                plantNames, language.code, obj.optString("plant_name", "Plant")
+            ),
+            plantNames = plantNames,
             growDays = obj.optInt("grow_days"),
             rackPhotoUrl = obj.nullableString("rack_photo_url"),
-            cameraViews = cameraViews,
+            cameraViews = cameras,
             waterBudgetMl = obj.optInt("water_budget_ml"),
             nutrientBudgetMl = obj.optInt("nutrient_budget_ml"),
             shadeBudgetMinutes = obj.optInt("shade_budget_minutes"),
@@ -363,10 +418,11 @@ class ApiClient(context: Context) {
             predictionTotal = obj.optInt("prediction_total"),
             predictionCounts = predictionCounts,
             myPredictionEntryId = obj.nullableString("my_prediction_entry_id"),
-            plantId = obj.nullableString("plant_id"),
-            startDate = obj.nullableString("start_date"),
+            winnerEntryId = obj.nullableString("winner_entry_id"),
             finishedAt = obj.nullableString("finished_at"),
+            plantId = obj.nullableString("plant_id"),
             farmSlug = obj.nullableString("farm_slug"),
+            startDate = obj.nullableString("start_date"),
             myTelegramLinked = obj.optBoolean("my_telegram_linked", false)
         )
     }

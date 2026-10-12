@@ -3,21 +3,21 @@ package farm.kisamore.battle
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.content.Intent
+import android.provider.DocumentsContract
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
+import android.os.Build
+import android.view.WindowInsets
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsets
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -30,29 +30,28 @@ import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
 import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.max
 
 class MainActivity : Activity() {
     private lateinit var api: ApiClient
     private lateinit var game: GameStore
-    private lateinit var language: AppLanguage
     private lateinit var contentHost: FrameLayout
-    private lateinit var rootShell: LinearLayout
-    private var welcome: GuestHomeScreen? = null
     private lateinit var navBar: LinearLayout
+    private var welcome: GuestHomeScreen? = null
+    private var growthClips: List<HomeClip> = emptyList()
+    private var pendingJoinBattleId: String? = null
+    private var authReturnScreen = "home"
+    private var authReturnBattleId: String? = null
 
     private var publicBattles: List<Battle> = emptyList()
     private var myBattles: List<Battle> = emptyList()
-    private var growthClips: List<HomeClip> = emptyList()
-    private var pendingJoinBattleId: String? = null
     private var currentScreen = "home"
+    private val avatarRequestCode = 4201
     private var currentBattleId: String? = null
-    private var watchBattleIndex = 0
-    private var arenaFilter = "live"
-    private var battleViewMode = "owner"
+    private var lastSelectedBattleId: String? = null
+    private val selectedBattleCamera = mutableMapOf<String, String>()
+    private val selectedActivityPeriod = mutableMapOf<String, Int>()
 
     private val handler = Handler(Looper.getMainLooper())
     private val autoRefresh = object : Runnable {
@@ -76,7 +75,6 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        language = AppLanguage(applicationContext)
         api = ApiClient(applicationContext)
         game = GameStore(applicationContext)
         game.openToday()
@@ -96,7 +94,6 @@ class MainActivity : Activity() {
             setBackgroundColor(bg)
         }
 
-        rootShell = root
         contentHost = FrameLayout(this).apply {
             setBackgroundColor(bg)
         }
@@ -112,118 +109,177 @@ class MainActivity : Activity() {
         navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(6), dp(6), dp(6), dp(8))
-            setBackgroundColor(surface)
+            setPadding(dp(8), 0, dp(8), 0)
+            setBackgroundColor(Color.WHITE)
         }
-
-        root.addView(
-            navBar,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        // Android 15/16 draws modern apps edge-to-edge. Respect the real
-        // status bar/cutout and navigation insets, then leave a small visual
-        // gap above the app header so it never touches the system icons.
-        root.setOnApplyWindowInsetsListener { view, insets ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val safe = insets.getInsets(
-                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
-                )
-                view.setPadding(
-                    safe.left,
-                    safe.top + dp(10),
-                    safe.right,
-                    safe.bottom
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                view.setPadding(
-                    insets.systemWindowInsetLeft,
-                    insets.systemWindowInsetTop + dp(10),
-                    insets.systemWindowInsetRight,
-                    insets.systemWindowInsetBottom
-                )
-            }
-            insets
-        }
-
-        setContentView(root)
-        root.requestApplyInsets()
-    }
-
-    private fun updateNavigation() {
-        val firstTabIsStart = activeMyBattle() == null
-        val welcomeLight = currentScreen == "home" && firstTabIsStart &&
-            (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) != Configuration.UI_MODE_NIGHT_YES
-        val foreground = if (welcomeLight) Color.parseColor("#718073") else muted
-        val selected = if (welcomeLight) Color.parseColor("#4A7C59") else green
-        val navbarColor = if (welcomeLight) Color.WHITE else surface
-        val backgroundColor = if (welcomeLight) Color.parseColor("#F8F9F6") else bg
-        rootShell.setBackgroundColor(backgroundColor)
-        navBar.setBackgroundColor(navbarColor)
+        addNavigation()
+        root.addView(navBar, LinearLayout.LayoutParams(-1, dp(48)))
+        // Android 15+ draws app content behind system bars. Inset the entire
+        // layout (including bottom tabs) explicitly to protect header and labels.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.setSystemBarsAppearance(
-                if (welcomeLight) android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
-                android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-            )
+            window.setDecorFitsSystemWindows(false)
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+            root.setOnApplyWindowInsetsListener { view, insets ->
+                val bars = insets.getInsets(
+                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+                )
+                view.setPadding(0, bars.top, 0, bars.bottom)
+                insets
+            }
         } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = if (welcomeLight) View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0
+            window.statusBarColor = Color.parseColor("#F8F9F6")
+            window.navigationBarColor = Color.WHITE
         }
-        navBar.removeAllViews()
-        navBar.addView(tabButton(
-            if (firstTabIsStart) R.drawable.ic_house_outline else R.drawable.ic_sprout_outline,
-            if (firstTabIsStart) t("Начало") else t("Моя битва"),
-            currentScreen == "home",
-            selected, foreground
-        ) {
-            stopAutoRefresh()
-            showHome()
-        })
-        navBar.addView(tabButton(
-            R.drawable.ic_swords_outline, t("Битва"), currentScreen == "watch",
-            selected, foreground
-        ) {
-            stopAutoRefresh()
-            showWatch()
-        })
-        navBar.addView(tabButton(
-            R.drawable.ic_user_outline, t("Профиль"), currentScreen == "profile",
-            selected, foreground
-        ) {
-            stopAutoRefresh()
-            showProfile()
-        })
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        setContentView(root)
     }
 
-    private fun tabButton(iconId: Int, label: String, active: Boolean,
-                          selected: Int, normal: Int, action: () -> Unit): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            val tint = if (active) selected else normal
-            addView(ImageView(this@MainActivity).apply {
-                setImageResource(iconId)
-                imageTintList = ColorStateList.valueOf(tint)
-            }, LinearLayout.LayoutParams(dp(23), dp(23)))
-            addView(TextView(this@MainActivity).apply {
-                text = label
-                textSize = 11f
-                setTextColor(tint)
-                if (active) setTypeface(typeface, Typeface.BOLD)
-                gravity = Gravity.CENTER
-                maxLines = 1
-            }, LinearLayout.LayoutParams(-1, dp(22)))
-            setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(0, dp(56), 1f)
+    private fun addNavigation() {
+        navBar.removeAllViews()
+        navBar.setBackgroundColor(Color.parseColor(if (
+            getSharedPreferences("battle_settings", MODE_PRIVATE).getBoolean("dark_mode", false)
+        ) "#1B2A22" else "#FFFFFF"))
+        val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
+            .getString("language", "ru") ?: "ru"
+        val navLabels = mapOf(
+            "ru" to listOf("Битва", "История", "Профиль"),
+            "en" to listOf("Battle", "History", "Profile"),
+            "zh" to listOf("对战", "历史", "个人"),
+            "de" to listOf("Kampf", "Verlauf", "Profil"),
+            "fr" to listOf("Bataille", "Historique", "Profil"),
+            "es" to listOf("Batalla", "Historial", "Perfil"),
+            "it" to listOf("Sfida", "Cronologia", "Profilo"),
+            "pt" to listOf("Batalha", "Histórico", "Perfil"),
+            "pl" to listOf("Bitwa", "Historia", "Profil")
+        )[language] ?: listOf("Battle", "History", "Profile")
+
+        // Participants already have the Battle tab: don't duplicate it as "My battle".
+        // "Start" is available only to guests and users without an active battle.
+        val hasActiveBattle = activeMyBattle() != null
+        val tabs = buildList {
+            if (!hasActiveBattle) {
+                add(Triple(AppLanguage(this@MainActivity).t("Начало"), "home", "home"))
+            }
+            add(Triple(navLabels[0], "battle", "watch"))
+            if (api.hasSession()) add(Triple(navLabels[1], "history", "history"))
+            add(Triple(navLabels[2], "profile", "profile"))
         }
+        tabs.forEach { (label, icon, destination) ->
+            val active = when (destination) {
+                "home" -> currentScreen == "home"
+                "watch" -> currentScreen in listOf("watch", "battle")
+                else -> currentScreen == destination
+            }
+            navBar.addView(BattleBottomTab(this, label, icon, active) {
+                stopAutoRefresh()
+                when (destination) {
+                    "home" -> showHome()
+                    "watch" -> {
+                        // Entering Battle from the tab bar should bring a
+                        // participant back to their own plant, not an observed one.
+                        val mine = activeMyBattle()
+                        if (mine != null) openBattle(mine) else showWatch()
+                    }
+                    "history" -> { currentScreen = "history"; showBattleHistory() }
+                    "profile" -> { currentScreen = "profile"; showProfile() }
+                }
+                addNavigation()
+            }, LinearLayout.LayoutParams(0, -1, 1f))
+        }
+    }
+
+    private fun showBattleHistory() {
+        if (!api.hasSession()) {
+            showLogin()
+            return
+        }
+        currentScreen = "history"
+        fun render() {
+            if (currentScreen != "history") return
+            showContent(BattleHistoryScreen(
+                this, myBattles, api,
+                onViewBattle = { openBattle(it) },
+                onPhoto = { showHistoryPhoto(it) },
+                onVideo = { openVideo(it) },
+                onCertificate = { url ->
+                    try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                    catch (_: Exception) { toast("Не удалось открыть диплом") }
+                },
+                onCurrentBattle = {
+                    val battle = activeMyBattle()
+                    if (battle != null) openBattle(battle) else showWatch()
+                    addNavigation()
+                }
+            ))
+            addNavigation()
+        }
+        render()
+        async(work = { api.myBattles() }, success = {
+            myBattles = it
+            render()
+        }, failure = { toast("Не удалось обновить историю битв") })
+    }
+
+    private fun showHistoryPhoto(battle: Battle) {
+        // The same fullscreen viewer is used from the profile and history.
+        showFullPlantPhoto(battle)
+    }
+
+    private fun pickProfilePhoto() {
+        if (!api.hasSession()) { showLogin(); return }
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+        }
+        startActivityForResult(intent, avatarRequestCode)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == avatarRequestCode && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val userId = api.currentUser?.id ?: return
+                getSharedPreferences("battle_profile_photos", MODE_PRIVATE).edit()
+                    .putString("avatar_" + userId, uri.toString()).apply()
+                // Convert to a compact JPEG for the server's 2 MB upload limit.
+                val bitmap = contentResolver.openInputStream(uri)?.use {
+                    android.graphics.BitmapFactory.decodeStream(it)
+                } ?: throw IllegalStateException("Не удалось прочитать фотографию")
+                val compressed = java.io.ByteArrayOutputStream()
+                var quality = 85
+                val width = bitmap.width
+                val height = bitmap.height
+                val factor = minOf(1.0, 768.0 / maxOf(width, height))
+                val sized = if (factor < 1.0)
+                    android.graphics.Bitmap.createScaledBitmap(bitmap, (width * factor).toInt().coerceAtLeast(1),
+                        (height * factor).toInt().coerceAtLeast(1), true) else bitmap
+                do {
+                    compressed.reset()
+                    sized.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, compressed)
+                    quality -= 10
+                } while (compressed.size() > 2_097_152 && quality >= 30)
+                val upload = compressed.toByteArray()
+                async(work = { api.uploadAvatar(upload, "image/jpeg") }, success = {
+                    accountPrefsLoadedFor = null
+                    accountAvatarUrl = null
+                    showProfile()
+                }, failure = {
+                    toast("Фото сохранено на телефоне, но не синхронизировано: " + it.message)
+                    showProfile()
+                })
+            } catch (e: Exception) {
+                toast("Не удалось сохранить фотографию: " + (e.message ?: "ошибка"))
+            }
+        }
+    }
 
     private fun loadAll(target: String) {
         currentScreen = target
-        showLoading(t("Подключаемся к теплице…"))
+        showLoading("Подключаемся к теплице…")
         async(
             work = {
                 val pub = api.publicBattles()
@@ -248,14 +304,19 @@ class MainActivity : Activity() {
                     "watch" -> showWatch()
                     "profile" -> showProfile()
                     else -> {
-                        showHome()
-                        val pending = pendingJoinBattleId
-                        pendingJoinBattleId = null
-                        val join = publicBattles.firstOrNull {
-                            it.id == pending && it.status == "open" && it.remainingEntries > 0
+                        if (activeMyBattle() != null) {
+                            // Returning player: only Battle, History and Profile are present.
+                            openBattle(activeMyBattle()!!)
+                        } else {
+                            showHome()
                         }
-                        if (join != null && api.hasSession() && activeMyBattle() == null) {
-                            contentHost.post { confirmJoin(join) }
+                        val id = pendingJoinBattleId
+                        pendingJoinBattleId = null
+                        val battle = publicBattles.firstOrNull {
+                            it.id == id && it.status == "open" && it.remainingEntries > 0
+                        }
+                        if (battle != null && api.hasSession() && activeMyBattle() == null) {
+                            contentHost.post { confirmJoin(battle) }
                         }
                     }
                 }
@@ -264,93 +325,16 @@ class MainActivity : Activity() {
     }
 
     private fun showHome() {
-        currentScreen = "home"
-        currentBattleId = null
-
-        val active = activeMyBattle()
-        if (active == null) {
-            showEmptyHome()
+        // The participant's home is the Battle screen. Never show a duplicate tab.
+        val mine = activeMyBattle()
+        if (mine != null) {
+            openBattle(mine)
             return
         }
-
-        val mine = active.entries.firstOrNull { it.isMine }
-        if (mine == null) {
-            showEmptyHome()
-            return
-        }
-
-        val body = compactScreen()
-
-        body.addView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(8), dp(16), dp(7))
-
-                val copy = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(bigText(active.plantName, 22f).apply {
-                        maxLines = 1
-                        ellipsize = android.text.TextUtils.TruncateAt.END
-                    })
-                    addView(TextView(this@MainActivity).apply {
-                        text = dayLabel(active)
-                        setTextColor(muted)
-                        textSize = 12f
-                    })
-                }
-                addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(statusPill(active.status))
-            }
-        )
-
-        body.addView(
-            shelfPhoto(active, compactPhotoHeight(), compact = true),
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        body.addView(compactResources(active, mine))
-
-        if (active.status == "growing") {
-            body.addView(compactCommandRow(active, mine))
-        } else {
-            body.addView(
-                TextView(this).apply {
-                    text = statusHuman(active.status)
-                    setTextColor(muted)
-                    textSize = 12f
-                    gravity = Gravity.CENTER
-                    setPadding(dp(12), dp(8), dp(12), dp(8))
-                }
-            )
-        }
-
-        body.addView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(dp(9), dp(3), dp(9), dp(5))
-
-                addView(homeSecondaryButton("🎬", t("Таймлапсы")) {
-                    showBattleDialog(t("ТАЙМЛАПС"), timelapseCard(active))
-                })
-                addView(homeSecondaryButton("☰", t("СОБЫТИЯ")) {
-                    showBattleDialog(t("СОБЫТИЯ"), eventFeed(active))
-                })
-            }
-        )
-
-        showContent(body)
-    }
-
-    private fun showEmptyHome() {
         currentScreen = "home"
         currentBattleId = null
-        val screen = GuestHomeScreen(
-            this, api, language, publicBattles, growthClips,
+        val guest = GuestHomeScreen(
+            this, api, AppLanguage(this), publicBattles, growthClips,
             onJoin = { battle ->
                 if (api.hasSession()) {
                     confirmJoin(battle)
@@ -359,251 +343,290 @@ class MainActivity : Activity() {
                     showLogin()
                 }
             },
-            onWatch = {
-                arenaFilter = "live"
-                watchBattleIndex = 0
-                showWatch()
-            }
+            onWatch = { showWatch() }
         )
-        welcome = screen
-        showContent(screen.create())
+        welcome = guest
+        showContent(guest.create())
     }
 
-    private fun homeSecondaryButton(icon: String, label: String, action: () -> Unit): View =
-        TextView(this).apply {
-            text = icon + " " + label
-            setTextColor(muted)
-            textSize = 12f
-            gravity = Gravity.CENTER
-            setPadding(dp(4), dp(8), dp(4), dp(8))
-            setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
+    /** UI strings on Battle-related dialogs follow the same app language. */
+    private fun battleText(ru: String, en: String): String {
+        val lang = AppLanguage(this)
+        if (lang.code == "ru") return ru
+        if (lang.code == "en") return en
+        val translated = lang.t(ru)
+        return if (translated == ru) en else translated
+    }
 
     private fun showWatch() {
-        currentScreen = "watch"
-        currentBattleId = null
+        // The Battle tab is the arena itself, not the legacy LIVE ARENA list.
+        // Remember the last selection; otherwise prefer the user's own battle.
+        val available = (myBattles + publicBattles)
+            .distinctBy { it.id }
+            .filter { it.status != "finished" && it.status != "cancelled" }
+        val selected = available.firstOrNull { it.id == lastSelectedBattleId }
+            ?: available.firstOrNull { it.mine != null }
+            ?: available.firstOrNull()
+        if (selected != null) {
+            openBattle(selected)
+        } else {
+            currentScreen = "watch"
+            currentBattleId = null
+            val scroll = screenScroll()
+            val body = scroll.getChildAt(0) as LinearLayout
+            val c = card()
+            val lng = AppLanguage(this)
+            fun localized(ru: String, en: String) = if (lng.code == "ru") ru else en
+            c.addView(bigText(localized("Пока нет доступных битв", "No battles available")))
+            c.addView(smallText(localized(
+                "Когда появится новая битва, она будет доступна здесь.",
+                "New battles will appear here as soon as they are available."
+            )))
+            c.addView(primaryButton(localized("ОБНОВИТЬ", "REFRESH")) { loadAll("watch") })
+            body.addView(cardWithMargin(c))
+            showContent(scroll)
+        }
+    }
 
-        val body = compactScreen()
-        body.addView(compactHeader(t("АРЕНА"), t("Наблюдайте, болейте, делайте прогнозы")))
-        body.addView(arenaFilterRow())
-
-        val battles = arenaBattles()
-        if (battles.isEmpty()) {
-            val empty = compactCard().apply {
-                gravity = Gravity.CENTER
-                addView(bigText(t("Здесь пока нет битв"), 19f))
-                addView(smallText(t("Выберите другую категорию или обновите список.")))
-                addView(compactPrimaryButton(t("ОБНОВИТЬ")) { loadAll("watch") })
+    private fun fallbackBattleProfile(battles: List<Battle>): PlayerBattleProfile {
+        val finished = battles.filter { it.status == "finished" }
+        val completedEntries = finished.flatMap { battle ->
+            battle.entries.filter { it.isMine }.map { entry -> Pair(battle, entry) }
+        }
+        val wins = completedEntries.count { (_, entry) -> entry.isWinner }
+        val rewards = completedEntries.flatMap { (battle, entry) ->
+            val earned = battle.finishedAt ?: battle.createdAt ?: ""
+            buildList {
+                if (entry.isWinner) {
+                    add(ServerReward("winner:" + entry.id, "Лучший садовод", "award", earned, null))
+                    add(ServerReward("kisa:" + entry.id,
+                        battle.winnerRewardKisa.toString() + " Kisa", "coins", earned, null))
+                }
+                if (entry.certificateUrl != null) {
+                    add(ServerReward("diploma:" + entry.id,
+                        "QR-диплом", "qr-code", earned, entry.certificateUrl))
+                }
             }
-            body.addView(
-                empty,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    0,
-                    1f
-                ).apply { setMargins(dp(12), dp(8), dp(12), dp(12)) }
-            )
-            showContent(body)
-            return
-        }
-
-        watchBattleIndex = watchBattleIndex.coerceIn(0, battles.lastIndex)
-        val battle = battles[watchBattleIndex]
-
-        if (battles.size > 1) {
-            body.addView(battlePager(battles.size))
-        }
-
-        body.addView(
-            compactBattlePanel(
-                battle,
-                label = statusHuman(battle.status).uppercase(),
-                actionLabel = t("СМОТРЕТЬ БИТВУ")
-            ) { openBattle(battle, spectator = true) },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(dp(12), dp(4), dp(12), dp(3)) }
+        }.sortedByDescending { it.earnedAt }
+        return PlayerBattleProfile(
+            battleCount = battles.distinctBy { it.id }.size,
+            winCount = wins,
+            ratingPoints = completedEntries.size * 10 + wins * 100,
+            rewards = rewards,
+            finishedBattleIds = finished.map { it.id }
         )
+    }
 
-        body.addView(
-            shelfPhoto(battle, compactPhotoHeight(), compact = true),
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
+    private var cachedServerProfile: PlayerBattleProfile? = null
+    private var cachedWalletKisa: Long? = null
+    private var cachedWalletUserId: String? = null
 
-        showContent(body)
+    private var accountAvatarUrl: String? = null
+    private var accountPrefsLoadedFor: String? = null
+
+    private fun syncPreference(language: String?, dark: Boolean?) {
+        if (!api.hasSession()) return
+        async(work = { api.savePreferences(language, dark) }, success = {
+            applyRemotePreferences(it)
+        }, failure = { toast("Не удалось сохранить настройки на сервере") })
+    }
+
+    private fun applyRemotePreferences(data: org.json.JSONObject) {
+        getSharedPreferences("battle_settings", MODE_PRIVATE).edit()
+            .putString("language", data.optString("language", "ru"))
+            .putBoolean("dark_mode", data.optString("theme", "light") == "dark")
+            .apply()
+        accountAvatarUrl = api.absolute(data.optString("avatar_url").takeIf { it.isNotBlank() })
+        accountPrefsLoadedFor = api.currentUser?.id
+    }
+
+    private fun showFullPlantPhoto(battle: Battle) {
+        val entry = battle.mine ?: return
+        val photoUrl = api.absolute(entry.photoUrl) ?: return
+        val videoUrl = api.absolute(entry.timelapse24hUrl ?: entry.timelapse3dUrl)
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val container = FrameLayout(this).apply { setBackgroundColor(android.graphics.Color.BLACK) }
+        val imageView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "Нажмите, чтобы посмотреть таймлапс"
+            PhotoFrameCache.showPrevious(this, photoUrl)
+        }
+        container.addView(imageView, FrameLayout.LayoutParams(-1, -1))
+        val player = android.widget.VideoView(this).apply {
+            visibility = View.GONE
+            setOnCompletionListener {
+                visibility = View.GONE
+                imageView.visibility = View.VISIBLE
+            }
+            setOnErrorListener { _, _, _ ->
+                visibility = View.GONE
+                imageView.visibility = View.VISIBLE
+                toast("Не удалось воспроизвести таймлапс")
+                true
+            }
+        }
+        container.addView(player, FrameLayout.LayoutParams(-1, -1))
+        imageView.setOnClickListener {
+            if (videoUrl.isNullOrBlank()) {
+                toast("Таймлапс пока не готов")
+            } else {
+                imageView.visibility = View.GONE
+                player.visibility = View.VISIBLE
+                player.setVideoURI(Uri.parse(videoUrl))
+                player.setOnPreparedListener { mp ->
+                    mp.isLooping = false
+                    player.start()
+                }
+            }
+        }
+        dialog.setOnDismissListener { player.stopPlayback() }
+        dialog.setContentView(container)
+        dialog.show()
+        async(work = { api.loadBitmap(photoUrl) }, success = { image ->
+            if (image != null) {
+                PhotoFrameCache.remember(photoUrl, image)
+                if (dialog.isShowing) imageView.setImageBitmap(image)
+            }
+        }, failure = {})
     }
 
     private fun showProfile() {
         currentScreen = "profile"
         currentBattleId = null
-
-        val body = compactScreen()
-        body.addView(compactHeader(t("ПРОФИЛЬ САДОВОДА"), api.currentUser?.displayName ?: t("Гость")))
-
-        val profile = game.profile()
-        body.addView(
-            compactStatStrip(
-                t("Уровень ") + profile.level,
-                profile.xp.toString() + " XP",
-                "🔥 " + profile.streak + t(" дней")
-            )
-        )
-
-        val account = compactCard().apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            val copy = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(bigText(api.currentUser?.displayName ?: t("Гость"), 17f))
-                addView(smallText(api.currentUser?.email ?: t("Аккаунт не подключён")))
-            }
-            addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            if (!api.hasSession()) {
-                addView(compactMiniButton(t("ВОЙТИ")) { showLogin() })
-            }
+        val user = api.currentUser
+        val localAvatar = user?.id?.let {
+            getSharedPreferences("battle_profile_photos", MODE_PRIVATE).getString("avatar_" + it, null)
         }
-        body.addView(
-            account,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(dp(12), dp(8), dp(12), dp(6)) }
-        )
-
-        val achievements = compactCard().apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(TextView(this@MainActivity).apply {
-                text = "🏅"
-                textSize = 26f
-            }, LinearLayout.LayoutParams(dp(42), dp(42)))
-            val copy = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(TextView(this@MainActivity).apply {
-                    text = t("ДОСТИЖЕНИЯ")
-                    setTextColor(white)
-                    textSize = 13f
-                    setTypeface(typeface, Typeface.BOLD)
-                })
-                addView(TextView(this@MainActivity).apply {
-                    text = if (profile.badges.isEmpty()) {
-                        t("Первое достижение появится уже сегодня.")
-                    } else {
-                        profile.badges.take(2).joinToString(" · ")
-                    }
-                    maxLines = 1
-                    ellipsize = android.text.TextUtils.TruncateAt.END
-                    setTextColor(muted)
-                    textSize = 12f
-                })
-            }
-            addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            setOnClickListener { showAchievementsDialog(profile) }
-        }
-        body.addView(
-            achievements,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(dp(12), 0, dp(12), dp(6)) }
-        )
-
-        val actions = GridLayout(this).apply {
-            columnCount = 2
-            rowCount = 2
-            alignmentMode = GridLayout.ALIGN_BOUNDS
-            useDefaultMargins = false
-            setPadding(dp(9), dp(2), dp(9), dp(2))
-        }
-
-        fun addProfileAction(index: Int, icon: String, label: String, action: () -> Unit) {
-            val row = index / 2
-            val column = index % 2
-            val button = profileActionButton(icon, label, action)
-            button.layoutParams = GridLayout.LayoutParams(
-                GridLayout.spec(row, 1f),
-                GridLayout.spec(column, 1f)
-            ).apply {
-                width = 0
-                height = 0
-                setMargins(dp(4), dp(4), dp(4), dp(4))
-            }
-            actions.addView(button)
-        }
-
-        addProfileAction(0, "🌐", AppLanguage.displayName(language.code)) { showLanguageDialog() }
-        addProfileAction(1, "🔒", t("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ")) { openPublicPage("/privacy") }
-        if (api.hasSession()) {
-            addProfileAction(2, "🗑", t("УДАЛИТЬ АККАУНТ И ДАННЫЕ")) { openPublicPage("/delete-account") }
-            addProfileAction(3, "↪", t("ВЫЙТИ")) {
-                async(
-                    work = { api.logout(); true },
-                    success = {
+        val avatar = if (user != null && accountPrefsLoadedFor == user.id)
+            accountAvatarUrl ?: localAvatar else localAvatar
+        fun render(server: PlayerBattleProfile?) {
+            if (currentScreen != "profile") return
+            showContent(BattleProfileScreen(
+                this, user, game.profile(), myBattles, avatar, server,
+                walletBalance = if (user != null && cachedWalletUserId == user.id)
+                    cachedWalletKisa else null,
+                onChangePhoto = { pickProfilePhoto() },
+                onLogin = { showLogin() },
+                onHistory = { showBattleHistory(); addNavigation() },
+                onRegion = {
+                    api.setRegion(!api.isRussianServer())
+                    loadAll("profile")
+                },
+                onLogout = {
+                    async(work = { api.logout(); true }, success = {
                         myBattles = emptyList()
-                        showHome()
-                    }
-                )
-            }
-        } else {
-            addProfileAction(2, "🌱", t("СОЗДАТЬ АККАУНТ")) { showRegister() }
-            addProfileAction(3, "→", t("ВОЙТИ")) { showLogin() }
+                        cachedServerProfile = null
+                        cachedWalletKisa = null
+                        cachedWalletUserId = null
+                        accountAvatarUrl = null
+                        accountPrefsLoadedFor = null
+                        showProfile()
+                    })
+                },
+                onThemeChanged = { showProfile() },
+                onLanguageChanged = { showProfile() },
+                onPreferenceChanged = { language, dark -> syncPreference(language, dark) }
+            ))
+            addNavigation()
         }
-        body.addView(
-            actions,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        body.addView(TextView(this).apply {
-            text = appVersionLabel()
-            setTextColor(muted)
-            textSize = 10f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(2), 0, dp(6))
-        })
-
-        showContent(body)
-    }
-
-    private fun showLanguageDialog() {
-        val options = AppLanguage.supported.map { it.second }.toTypedArray()
-        val selected = AppLanguage.supported.indexOfFirst { it.first == language.code }.coerceAtLeast(0)
-        AlertDialog.Builder(this)
-            .setTitle(t("Выберите язык"))
-            .setSingleChoiceItems(options, selected) { dialog, which ->
-                val code = AppLanguage.supported[which].first
-                AppLanguage.set(this, code)
-                if (api.hasSession()) {
-                    Thread { runCatching { api.updateLanguage(code) } }.start()
+        render(if (user == null) null else cachedServerProfile)
+        if (user != null) {
+            async(work = {
+                // Refresh ownership, single-slot photos and completed battles together.
+                val freshBattles = api.myBattles()
+                val preferences = runCatching { api.fetchPreferences() }.getOrNull()
+                val profileResponse = try { api.myBattleProfile() }
+                catch (error: ApiException) {
+                    if (error.statusCode != 404) throw error
+                    // Older VPS supports /battles/me without a profile endpoint.
+                    fallbackBattleProfile(freshBattles)
                 }
-                dialog.dismiss()
-                recreate()
-            }
-            .setNegativeButton(t("Отмена"), null)
-            .show()
+                val walletBalance = runCatching { api.fetchKisaBalance() }.getOrNull()
+                Triple(freshBattles, profileResponse, Pair(preferences, walletBalance))
+            }, success = {
+                if (api.currentUser?.id != user.id) return@async
+                myBattles = it.first
+                cachedServerProfile = it.second
+                cachedWalletUserId = user.id
+                cachedWalletKisa = it.third.second
+                if (it.third.first != null && accountPrefsLoadedFor != user.id) {
+                    applyRemotePreferences(it.third.first!!)
+                    showProfile()
+                } else {
+                    render(it.second)
+                }
+            }, failure = {
+                cachedServerProfile = null
+                cachedWalletKisa = null
+                cachedWalletUserId = null
+                render(null)
+                toast("Не удалось загрузить статистику профиля")
+            })
+        }
     }
 
     private fun showLogin() {
+        if (currentScreen != "login" && currentScreen != "register") {
+            authReturnScreen = currentScreen
+            authReturnBattleId = currentBattleId
+        }
+        renderAuthScreen(register = false)
+    }
+
+    private fun closeAuthScreen() {
+        pendingJoinBattleId = null
+        val screen = authReturnScreen
+        val battleId = authReturnBattleId
+        authReturnBattleId = null
+        val battle = (myBattles + publicBattles).firstOrNull { it.id == battleId }
+        when {
+            battle != null -> openBattle(battle)
+            screen == "profile" -> showProfile()
+            screen == "watch" || screen == "battle" -> showWatch()
+            else -> showHome()
+        }
+    }
+
+    private fun renderAuthScreen(register: Boolean, existingEmail: String = "") {
         stopAutoRefresh()
-        currentScreen = "login"
+        currentScreen = if (register) "register" else "login"
         currentBattleId = null
+        val language = AppLanguage(this)
+        fun t(source: String) = language.t(source)
 
         val scroll = screenScroll()
         val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader(t("ВХОД В BATTLE"), t("Ваш аккаунт KisaMore")))
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(2), dp(4), dp(12))
+        }
+        val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        heading.addView(bigText(t(if (register) "РЕГИСТРАЦИЯ" else "ВХОД В BATTLE"), 22f))
+        heading.addView(smallText(t("Ваш аккаунт KisaMore")))
+        header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(TextView(this).apply {
+            text = "✕"
+            textSize = 25f
+            gravity = Gravity.CENTER
+            setTextColor(white)
+            contentDescription = t("Закрыть окно")
+            setOnClickListener { closeAuthScreen() }
+        }, LinearLayout.LayoutParams(dp(42), dp(42)))
+        body.addView(header)
 
         val form = card()
+        val name = EditText(this).apply {
+            hint = t("Имя")
+            setHintTextColor(muted)
+            setTextColor(white)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            backgroundTintList = ColorStateList.valueOf(green)
+        }
+        if (register) form.addView(name, matchWrap())
         val email = EditText(this).apply {
             hint = "Email"
+            setText(existingEmail)
             setHintTextColor(muted)
             setTextColor(white)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
@@ -618,152 +641,93 @@ class MainActivity : Activity() {
         }
         form.addView(email, matchWrap())
         form.addView(password, matchWrap())
+        val authError = TextView(this).apply {
+            setTextColor(danger)
+            textSize = 13f
+            visibility = View.GONE
+            setPadding(0, dp(8), 0, dp(4))
+        }
+        form.addView(authError, matchWrap())
         form.addView(space(10))
-        form.addView(primaryButton(t("ВОЙТИ")) {
-            if (email.text.isBlank() || password.text.isBlank()) {
-                toast(t("Введите email и пароль"))
+        val submit = primaryButton(t(if (register) "СОЗДАТЬ АККАУНТ" else "ВОЙТИ")) {
+            val givenEmail = email.text.toString().trim()
+            val givenPassword = password.text.toString()
+            val givenName = name.text.toString().trim()
+            val problem = when {
+                givenEmail.isBlank() || givenPassword.isBlank() ->
+                    t("Введите email и пароль")
+                register && givenName.isBlank() -> t("Введите имя")
+                register && givenPassword.length < 5 -> t("Пароль минимум 5 символов")
+                else -> null
+            }
+            if (problem != null) {
+                authError.text = problem
+                authError.visibility = View.VISIBLE
             } else {
-                showLoading(t("Входим в игру…"))
+                authError.visibility = View.GONE
                 async(
-                    work = { api.login(email.text.toString(), password.text.toString()) },
+                    work = {
+                        val loggedIn = if (register) {
+                            api.register(givenName, givenEmail, givenPassword, language.code)
+                        } else {
+                            api.login(givenEmail, givenPassword)
+                        }
+                        val preferences = runCatching { api.fetchPreferences() }.getOrNull()
+                        Pair(loggedIn, preferences)
+                    },
                     success = {
                         game.openToday()
+                        accountPrefsLoadedFor = null
+                        if (it.second != null) applyRemotePreferences(it.second!!)
                         loadAll("home")
+                    },
+                    failure = { error ->
+                        if (currentScreen == "login" || currentScreen == "register") {
+                            authError.text = when (error) {
+                                is ApiException -> when (error.statusCode) {
+                                    401 -> t("Неверный email или пароль")
+                                    409 -> t("Email уже зарегистрирован")
+                                    422 -> t("Проверьте введённые данные")
+                                    429 -> t("Слишком много попыток. Попробуйте позже")
+                                    else -> t(if (register) "Ошибка регистрации: " else "Ошибка входа: ") +
+                                        (error.message ?: "HTTP " + error.statusCode)
+                                }
+                                else -> t("Нет соединения с сервером. Проверьте интернет")
+                            }
+                            authError.visibility = View.VISIBLE
+                        }
                     }
                 )
             }
-        })
-        form.addView(outlineButton(t("СОЗДАТЬ АККАУНТ")) { showRegister() })
-        form.addView(TextView(this).apply {
-            text = appVersionLabel()
-            setTextColor(muted)
-            textSize = 11f
+        }
+        form.addView(submit)
+        form.addView(space(10))
+        val switch = TextView(this).apply {
+            text = t(if (register) "Уже есть аккаунт? Войти" else "Создать аккаунт")
+            setTextColor(green)
             gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, 0)
-        })
-        body.addView(cardWithMargin(form))
-        showContent(scroll)
-    }
-
-    private fun showRegister() {
-        stopAutoRefresh()
-        currentScreen = "register"
-        currentBattleId = null
-
-        val scroll = screenScroll()
-        val body = scroll.getChildAt(0) as LinearLayout
-        body.addView(gameHeader(t("СОЗДАТЬ АККАУНТ"), t("Начните свою первую битву растений")))
-
-        val form = card()
-        val name = EditText(this).apply {
-            hint = t("Имя")
-            setHintTextColor(muted)
-            setTextColor(white)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME
-            backgroundTintList = ColorStateList.valueOf(green)
-        }
-        val email = EditText(this).apply {
-            hint = "Email"
-            setHintTextColor(muted)
-            setTextColor(white)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-            backgroundTintList = ColorStateList.valueOf(green)
-        }
-        val password = EditText(this).apply {
-            hint = t("Пароль · минимум 5 символов")
-            setHintTextColor(muted)
-            setTextColor(white)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            backgroundTintList = ColorStateList.valueOf(green)
-        }
-        val confirmPassword = EditText(this).apply {
-            hint = t("Повторите пароль")
-            setHintTextColor(muted)
-            setTextColor(white)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            backgroundTintList = ColorStateList.valueOf(green)
-        }
-
-        form.addView(name, matchWrap())
-        form.addView(email, matchWrap())
-        form.addView(password, matchWrap())
-        form.addView(confirmPassword, matchWrap())
-        form.addView(space(8))
-        form.addView(smallText(t("Создавая аккаунт, вы соглашаетесь на обработку данных, необходимую для работы KisaMore Battle.")))
-        form.addView(outlineButton(t("ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ")) {
-            openPublicPage("/privacy")
-        })
-        form.addView(primaryButton(t("СОЗДАТЬ АККАУНТ")) {
-            val displayName = name.text.toString().trim()
-            val emailValue = email.text.toString().trim()
-            val passwordValue = password.text.toString()
-            val confirmValue = confirmPassword.text.toString()
-
-            when {
-                displayName.isBlank() -> toast(t("Введите имя"))
-                emailValue.isBlank() || !emailValue.contains("@") -> toast(t("Введите корректный email"))
-                passwordValue.length < 5 -> toast(t("Пароль должен содержать минимум 5 символов"))
-                passwordValue != confirmValue -> toast(t("Пароли не совпадают"))
-                else -> {
-                    showLoading(t("Создаём аккаунт…"))
-                    async(
-                        work = { api.register(displayName, emailValue, passwordValue, language.code) },
-                        success = {
-                            game.openToday()
-                            loadAll("home")
-                        }
-                    )
-                }
+            textSize = 15f
+            setPadding(dp(8), dp(14), dp(8), dp(14))
+            setOnClickListener {
+                renderAuthScreen(register = !register, existingEmail = email.text.toString())
             }
-        })
-        form.addView(outlineButton(t("УЖЕ ЕСТЬ АККАУНТ — ВОЙТИ")) { showLogin() })
-        form.addView(TextView(this).apply {
-            text = appVersionLabel()
-            setTextColor(muted)
-            textSize = 11f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, 0)
-        })
-
+        }
+        form.addView(switch)
+        val appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+        form.addView(smallText("KisaMore Battle · v" + appVersion))
         body.addView(cardWithMargin(form))
         showContent(scroll)
     }
 
     private fun showNoBattle() {
-        currentScreen = "mine-empty"
-        currentBattleId = null
-        val body = compactScreen()
-        body.addView(compactHeader(t("МОЁ РАСТЕНИЕ"), t("Активного растения пока нет")))
-        val panel = compactCard().apply {
-            gravity = Gravity.CENTER
-            addView(TextView(this@MainActivity).apply {
-                text = "🌱"
-                textSize = 54f
-                gravity = Gravity.CENTER
-            })
-            addView(bigText(t("Следующая битва ждёт 🌱"), 20f).apply { gravity = Gravity.CENTER })
-            addView(smallText(t("Выберите открытую битву. После покупки места здесь появятся фото растения, ресурсы и кнопки управления.")).apply {
-                gravity = Gravity.CENTER
-                maxLines = 3
-            })
-            addView(compactPrimaryButton(t("ВЫБРАТЬ БИТВУ")) { showWatch() })
-        }
-        body.addView(
-            panel,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            ).apply { setMargins(dp(12), dp(10), dp(12), dp(12)) }
-        )
-        showContent(body)
+        showHome()
     }
 
-    private fun openBattle(battle: Battle, spectator: Boolean = false) {
+    private fun openBattle(battle: Battle) {
+        lastSelectedBattleId = battle.id
         currentScreen = "battle"
         currentBattleId = battle.id
-        battleViewMode = if (spectator) "spectator" else "owner"
-        showLoading(if (spectator) t("Открываем арену…") else t("Открываем растение…"))
+        showLoading("Открываем арену…")
         async(
             work = {
                 if (api.hasSession()) {
@@ -779,7 +743,7 @@ class MainActivity : Activity() {
 
     private fun refreshBattle(id: String, silent: Boolean) {
         val fallback = (myBattles + publicBattles).firstOrNull { it.id == id } ?: return
-        if (!silent) showLoading(t("Обновляем арену…"))
+        if (!silent) showLoading("Обновляем арену…")
         async(
             work = {
                 if (api.hasSession()) {
@@ -790,7 +754,10 @@ class MainActivity : Activity() {
             },
             success = {
                 replaceBattleInCaches(it)
-                if (currentScreen == "battle" && currentBattleId == id) renderBattle(it)
+                if (currentScreen == "battle" && currentBattleId == id) {
+                    val arena = contentHost.getChildAt(0) as? BattleArenaScreen
+                    if (arena?.isPlayingVideo() != true) renderBattle(it)
+                }
             },
             failure = {
                 if (!silent) showError(it)
@@ -799,140 +766,111 @@ class MainActivity : Activity() {
     }
 
     private fun renderBattle(battle: Battle) {
+        lastSelectedBattleId = battle.id
         currentScreen = "battle"
         currentBattleId = battle.id
-
-        val spectator = battleViewMode == "spectator"
-        val body = compactScreen()
-        body.addView(
-            compactArenaHeader(
-                battle,
-                if (spectator) t("АРЕНА") else t("МОЁ РАСТЕНИЕ")
-            )
+        val candidates = (myBattles + publicBattles + battle)
+            .distinctBy { it.id }
+            .filter { it.status != "finished" || it.id == battle.id }
+            .sortedWith(compareByDescending<Battle> { it.mine != null }.thenBy { it.title })
+        val screen = BattleArenaScreen(
+            host = this,
+            api = api,
+            battle = battle,
+            choices = candidates,
+            cameraPreference = selectedBattleCamera[battle.id],
+            initialPeriod = selectedActivityPeriod[battle.id] ?: 3,
+            onBattle = { chosen -> if (chosen.id != battle.id) openBattle(chosen) },
+            onCamera = { cameraId ->
+                selectedBattleCamera[battle.id] = cameraId
+                renderBattle(battle)
+            },
+            onPeriod = { days -> selectedActivityPeriod[battle.id] = days },
+            onCommand = { entry, kind -> amountDialog(battle, entry, kind) },
+            onPhoto = { url, selectedCamera -> showFullRackPhoto(url, selectedCamera) },
+            onJournal = { actions -> showActionJournal(actions) },
+            onPredict = { entry ->
+                if (api.hasSession()) sendPrediction(battle, entry) else showLogin()
+            },
+            onJoin = {
+                if (api.hasSession()) confirmJoin(battle) else showLogin()
+            }
         )
-
-        if (!spectator) {
-            battleMorningBrief(battle)?.let { brief ->
-                body.addView(
-                    brief,
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { setMargins(dp(12), dp(4), dp(12), dp(8)) }
-                )
-            }
-        }
-
-        body.addView(
-            shelfPhoto(battle, compactPhotoHeight(), compact = true),
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        if (spectator) {
-            if (battle.status == "open") {
-                body.addView(compactJoinRow(battle))
-            }
-            body.addView(compactSpectatorActions(battle))
-        } else {
-            val mineEntries = battle.entries.filter { it.isMine }
-            if (mineEntries.isEmpty()) {
-                val message = compactCard().apply {
-                    gravity = Gravity.CENTER
-                    addView(smallText(t("Это растение не привязано к вашему аккаунту.")))
-                    addView(compactPrimaryButton(t("ПЕРЕЙТИ В АРЕНУ")) {
-                        battleViewMode = "spectator"
-                        renderBattle(battle)
-                    })
-                }
-                body.addView(
-                    message,
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { setMargins(dp(12), dp(4), dp(12), dp(8)) }
-                )
-            } else {
-                // A user can own only one plant in a battle.
-                val selectedMine = mineEntries.first()
-                body.addView(compactResources(battle, selectedMine))
-                if (battle.status == "growing") {
-                    body.addView(compactCommandRow(battle, selectedMine))
-                }
-            }
-        }
-
-        showContent(body)
+        showContent(screen)
+        addNavigation()
     }
 
-    /**
-     * In-app morning report for participants without an active linked Telegram.
-     * This is shown on opening the Battle screen (not a system push), after
-     * 10:00 greenhouse time and never to guests or ordinary plant renters.
-     * The live shelf photo just below this card provides the visual progress.
-     */
-    private fun battleMorningBrief(battle: Battle): View? {
-        val mine = battle.mine ?: return null
-        if (battle.status != "growing" || battle.myTelegramLinked) return null
-        val plantedAt = battle.plantedAt?.takeIf { it.isNotBlank() } ?: return null
-        val zone = ZoneId.of("Europe/Moscow")
-        val now = ZonedDateTime.now(zone)
-        if (now.hour < 10) return null
-        val plantedDay = runCatching {
-            OffsetDateTime.parse(plantedAt).atZoneSameInstant(zone).toLocalDate()
-        }.getOrNull() ?: return null
-        val day = ChronoUnit.DAYS.between(plantedDay, now.toLocalDate()).toInt() + 1
-        if (day <= 1) return null
-
-        val today = now.toLocalDate().toString()
-        val key = listOf(api.currentUser?.id, battle.id, mine.id, today).joinToString(":")
-        val prefs = getSharedPreferences("kisamore_battle_morning", MODE_PRIVATE)
-        if (prefs.getBoolean(key, false)) return null
-
-        val card = compactCard()
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+    private fun showFullRackPhoto(path: String?, selectedCamera: BattleCamera?) {
+        val url = api.absolute(path)
+        if (url.isNullOrBlank()) {
+            toast(battleText("Фото ещё не получено", "Photo not available yet"))
+            return
         }
-        header.addView(
-            bigText(t("🌱 Утренняя сводка · день ") + day, 14f),
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        )
-        header.addView(TextView(this).apply {
-            text = "×"
-            textSize = 23f
-            gravity = Gravity.CENTER
-            setTextColor(muted)
-            setPadding(dp(12), 0, dp(3), 0)
-            contentDescription = t("Закрыть утреннюю сводку")
-            setOnClickListener {
-                prefs.edit().putBoolean(key, true).apply()
-                card.visibility = View.GONE
+        RackMediaViewer(this, api, url, selectedCamera).show()
+    }
+
+    private fun showArenaTimelapse(path: String?) {
+        val url = api.absolute(path)
+        if (url.isNullOrBlank()) {
+            toast("Таймлапс пока не готов")
+            return
+        }
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val box = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val player = android.widget.VideoView(this).apply {
+            setOnErrorListener { _, _, _ ->
+                toast("Не удалось воспроизвести таймлапс")
+                dialog.dismiss()
+                true
             }
+            setOnPreparedListener { it.isLooping = false; start() }
+        }
+        box.addView(player, FrameLayout.LayoutParams(-1, -1))
+        val close = TextView(this).apply {
+            text = "✕"
+            textSize = 27f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setOnClickListener { dialog.dismiss() }
+        }
+        box.addView(close, FrameLayout.LayoutParams(dp(52), dp(52), Gravity.TOP or Gravity.END))
+        dialog.setOnDismissListener { player.stopPlayback() }
+        dialog.setContentView(box)
+        dialog.show()
+        game.completeMission("video")
+        player.setVideoURI(Uri.parse(url))
+        player.requestFocus()
+    }
+
+    private fun showActionJournal(actions: List<BattleAction>) {
+        val sorted = actions.sortedByDescending { it.completedAt ?: it.requestedAt ?: "" }
+        val panel = ScrollView(this)
+        val rows = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(8), dp(18), dp(14))
+        }
+        panel.addView(rows)
+        if (sorted.isEmpty()) rows.addView(TextView(this).apply {
+            text = battleText("Команд пока нет", "No commands yet")
+            setPadding(0, dp(12), 0, dp(12))
         })
-        card.addView(header)
-        card.addView(
-            smallText(
-                t("Полка ") + battle.rackId + " · " +
-                    t("Контейнер ") + mine.slotNumber + " · " + battle.plantName
-            )
-        )
-        card.addView(
-            smallText(
-                t("Проверьте свежую фотографию полки и решите, нужны ли растению ресурсы сегодня.")
-            )
-        )
-        card.addView(
-            smallText(
-                "💧 " + max(0, battle.waterBudgetMl - mine.waterUsedMl) + " " + t("мл") +
-                    "   🧪 " + max(0, battle.nutrientBudgetMl - mine.nutrientUsedMl) + " " + t("мл") +
-                    "   🌘 " + max(0, battle.shadeBudgetMinutes - mine.shadeUsedMinutes) + " " + t("мин")
-            )
-        )
-        return card
+        sorted.forEach { a ->
+            val date = (a.completedAt ?: a.requestedAt).orEmpty().take(16).replace('T', ' ')
+            rows.addView(TextView(this).apply {
+                text = date + "   " + actionHuman(a) + "\n" + actionStatus(a.status)
+                textSize = 13f
+                setTextColor(Color.BLACK)
+                setPadding(0, dp(11), 0, dp(11))
+            })
+            rows.addView(View(this).apply {
+                setBackgroundColor(Color.parseColor("#E1E9E1"))
+            }, LinearLayout.LayoutParams(-1, dp(1)))
+        }
+        AlertDialog.Builder(this)
+            .setTitle(battleText("Все действия · ", "All actions · ") + sorted.size)
+            .setView(panel)
+            .setPositiveButton(battleText("Закрыть окно", "Close"), null)
+            .show()
     }
 
     private fun arenaHeader(battle: Battle): View {
@@ -948,8 +886,9 @@ class MainActivity : Activity() {
         val textBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
+        textBlock.addView(labelText("● LIVE BATTLE", green))
         textBlock.addView(bigText(battle.title, 27f))
-        textBlock.addView(smallText(battle.plantName + t(" · полка ") + battle.rackId + " · " + dayLabel(battle)))
+        textBlock.addView(smallText(battle.localizedPlantName(AppLanguage(this).code) + " · полка " + battle.rackId + " · " + dayLabel(battle)))
         row.addView(textBlock, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(statusPill(battle.status))
         box.addView(row)
@@ -964,44 +903,41 @@ class MainActivity : Activity() {
         return box
     }
 
-    private fun shelfPhoto(
-        battle: Battle,
-        imageHeightDp: Int = 260,
-        compact: Boolean = false
-    ): View {
+    private fun shelfPhoto(battle: Battle): View {
         val frame = FrameLayout(this).apply {
-            background = rounded(surface2, if (compact) 16 else 22)
+            background = rounded(surface2, 22)
             clipToOutline = true
         }
         val image = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(surface2)
-            contentDescription = t("Фото полки")
+            contentDescription = "Фото полки"
         }
         frame.addView(
             image,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(imageHeightDp)
+                dp(260)
             )
         )
 
         val grid = GridLayout(this).apply {
             rowCount = 3
             columnCount = 2
-            setPadding(dp(4), dp(4), dp(4), dp(4))
+            setPadding(dp(5), dp(5), dp(5), dp(5))
         }
         repeat(6) { index ->
             val slot = index + 1
             val entry = battle.entries.firstOrNull { it.slotNumber == slot }
             val mine = entry?.isMine == true
             val cell = TextView(this).apply {
-                text = if (mine) slot.toString() + t("  ★ ВЫ") else slot.toString()
+                text = if (mine) "#" + slot + "  ★ ВЫ" else "#" + slot
                 gravity = Gravity.TOP or Gravity.START
-                setPadding(dp(7), dp(5), dp(3), dp(3))
+                setPadding(dp(8), dp(7), dp(4), dp(4))
                 setTextColor(if (mine) gold else white)
-                textSize = if (compact) 10f else 11f
+                textSize = 11f
                 setTypeface(typeface, Typeface.BOLD)
+                background = cellDrawable(mine)
             }
             val params = GridLayout.LayoutParams(
                 GridLayout.spec(index / 2, 1f),
@@ -1009,6 +945,7 @@ class MainActivity : Activity() {
             ).apply {
                 width = 0
                 height = 0
+                setMargins(dp(3), dp(3), dp(3), dp(3))
             }
             grid.addView(cell, params)
         }
@@ -1016,78 +953,55 @@ class MainActivity : Activity() {
             grid,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(imageHeightDp)
+                dp(260)
             )
         )
 
-        val views = if (battle.cameraViews.isNotEmpty()) {
-            battle.cameraViews
-        } else {
-            battle.rackPhotoUrl?.let { listOf(CameraView("primary", true, it)) } ?: emptyList()
-        }
-
-        fun loadCamera(view: CameraView) {
+        val photoUrl = api.absolute(battle.rackPhotoUrl)
+        if (photoUrl != null) {
+            PhotoFrameCache.showPrevious(image, photoUrl)
             async(
-                work = { api.loadBitmap(api.absolute(view.photoUrl)) },
-                success = { bitmap -> if (bitmap != null) image.setImageBitmap(bitmap) },
+                work = { api.loadBitmap(photoUrl) },
+                success = { bitmap ->
+                    if (bitmap != null) {
+                        PhotoFrameCache.remember(photoUrl, bitmap)
+                        if (image.isAttachedToWindow) image.setImageBitmap(bitmap)
+                    }
+                },
                 failure = { }
             )
         }
 
-        val primaryView = views.firstOrNull { it.primary } ?: views.firstOrNull()
-        if (primaryView != null) loadCamera(primaryView)
-
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), if (compact) dp(4) else dp(8), dp(12), dp(2))
+        return FrameLayout(this).apply {
+            setPadding(dp(16), dp(8), dp(16), dp(4))
             addView(
                 frame,
-                LinearLayout.LayoutParams(
+                FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(imageHeightDp)
+                    dp(260)
                 )
             )
-
-            if (views.size > 1) {
-                val cameraRow = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    setPadding(0, dp(4), 0, 0)
-                }
-                views.forEachIndexed { index, view ->
-                    cameraRow.addView(
-                        compactMiniButton(
-                            if (view.primary) "★ " + t("Основная") else "📷 " + (index + 1)
-                        ) { loadCamera(view) },
-                        LinearLayout.LayoutParams(
-                            0,
-                            if (compact) dp(36) else ViewGroup.LayoutParams.WRAP_CONTENT,
-                            1f
-                        ).apply { setMargins(dp(2), 0, dp(2), 0) }
-                    )
-                }
-                addView(cameraRow)
-            }
         }
     }
 
     private fun resourceCard(battle: Battle, entry: BattleEntry): View {
         val c = card()
-        c.addView(bigText(t("🌱 Контейнер #") + entry.slotNumber, 19f))
-        c.addView(smallText(if (battle.status == "growing") t("Вы принимаете решения") else statusHuman(battle.status)))
+        c.addView(bigText("🌱 Контейнер #" + entry.slotNumber, 19f))
+        c.addView(smallText(if (battle.status == "growing") "Вы принимаете решения" else statusHuman(battle.status)))
         c.addView(space(8))
-        c.addView(resourceRow(t("💧 Вода"), battle.waterBudgetMl, entry.waterUsedMl, t("мл")))
-        c.addView(resourceRow(t("🧪 Питание"), battle.nutrientBudgetMl, entry.nutrientUsedMl, t("мл")))
-        c.addView(resourceRow(t("🌙 Без света"), battle.shadeBudgetMinutes, entry.shadeUsedMinutes, t("мин")))
+        c.addView(resourceRow("💧 Вода", battle.waterBudgetMl, entry.waterUsedMl, "мл"))
+        c.addView(resourceRow("🧪 Питание", battle.nutrientBudgetMl, entry.nutrientUsedMl, "мл"))
+        c.addView(resourceRow("🌙 Без света", battle.shadeBudgetMinutes, entry.shadeUsedMinutes, "мин"))
 
         if (battle.status == "growing") {
             c.addView(space(8))
-            c.addView(labelText(t("ВАШ ХОД"), gold))
+            c.addView(labelText("ВАШ ХОД", gold))
             val actions = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
             }
-            actions.addView(commandButton(t("💧\nПолить")) { amountDialog(battle, entry, "water") })
-            actions.addView(commandButton(t("🧪\nПитание")) { amountDialog(battle, entry, "nutrient") })
-            actions.addView(commandButton(t("🌙\nЗакрыть")) { amountDialog(battle, entry, "shade") })
+            actions.addView(commandButton("💧\nПолить") { amountDialog(battle, entry, "water") })
+            actions.addView(commandButton("🧪\nПитание") { amountDialog(battle, entry, "nutrient") })
+            actions.addView(commandButton("🌙\nЗакрыть") { amountDialog(battle, entry, "shade") })
             c.addView(actions)
         }
 
@@ -1131,13 +1045,13 @@ class MainActivity : Activity() {
                 setPadding(0, dp(4), 0, dp(4))
             }
             row.addView(TextView(this).apply {
-                text = (if (selected) "🌟 " else "🌱 ") + t("Контейнер #") + entry.slotNumber
+                text = (if (selected) "🌟 " else "🌱 ") + "Контейнер #" + entry.slotNumber
                 setTextColor(if (selected) gold else white)
                 textSize = 15f
                 setTypeface(typeface, Typeface.BOLD)
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(TextView(this).apply {
-                text = votes.toString() + t(" голосов")
+                text = votes.toString() + " голосов"
                 setTextColor(muted)
                 textSize = 12f
             })
@@ -1145,7 +1059,7 @@ class MainActivity : Activity() {
                 if (!api.hasSession()) {
                     showLogin()
                 } else if (battle.status == "finished") {
-                    toast(t("Прогнозы уже закрыты"))
+                    toast("Прогнозы уже закрыты")
                 } else {
                     sendPrediction(battle, entry)
                 }
@@ -1153,7 +1067,7 @@ class MainActivity : Activity() {
             c.addView(row)
         }
         c.addView(space(7))
-        c.addView(smallText(t("Можно менять выбор до окончания битвы. Прогноз не влияет на растение.")))
+        c.addView(smallText("Можно менять выбор до окончания битвы. Прогноз не влияет на растение."))
         return cardWithMargin(c)
     }
 
@@ -1161,15 +1075,15 @@ class MainActivity : Activity() {
         val c = card()
         val preferred = battle.mine ?: battle.entries.firstOrNull()
         if (preferred == null) {
-            c.addView(smallText(t("Таймлапс появится после посадки.")))
+            c.addView(smallText("Таймлапс появится после посадки."))
             return cardWithMargin(c)
         }
-        c.addView(bigText(t("Контейнер #") + preferred.slotNumber, 18f))
+        c.addView(bigText("Контейнер #" + preferred.slotNumber, 18f))
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        buttons.addView(actionButton(t("🎬 24 ЧАСА")) {
+        buttons.addView(actionButton("🎬 24 ЧАСА") {
             openVideo(preferred.timelapse24hUrl)
         })
-        buttons.addView(actionButton(t("🎞 3 ДНЯ")) {
+        buttons.addView(actionButton("🎞 3 ДНЯ") {
             openVideo(preferred.timelapse3dUrl)
         })
         c.addView(buttons)
@@ -1178,12 +1092,12 @@ class MainActivity : Activity() {
 
     private fun eventFeed(battle: Battle): View {
         val c = card()
-        c.addView(eventLine("🌿", t("Битва идёт"), battle.plantName + " · " + dayLabel(battle)))
+        c.addView(eventLine("🌿", "Битва идёт", battle.localizedPlantName(AppLanguage(this).code) + " · " + dayLabel(battle)))
         if (battle.predictionTotal > 0) {
-            c.addView(eventLine("🎯", t("Зрители спорят о победителе"), battle.predictionTotal.toString() + t(" прогнозов")))
+            c.addView(eventLine("🎯", "Зрители спорят о победителе", battle.predictionTotal.toString() + " прогнозов"))
         }
         if (battle.status == "open") {
-            c.addView(eventLine("🎟", t("Набор участников"), t("Свободно мест: ") + battle.remainingEntries))
+            c.addView(eventLine("🎟", "Набор участников", "Свободно мест: " + battle.remainingEntries))
         }
         val ownActions = battle.entries.filter { it.isMine }.flatMap { entry ->
             entry.actions.take(5).map { Pair(entry, it) }
@@ -1195,30 +1109,30 @@ class MainActivity : Activity() {
             c.addView(
                 eventLine(
                     actionIcon(action.kind),
-                    t("Ваш ход · контейнер #") + entry.slotNumber,
+                    "Ваш ход · контейнер #" + entry.slotNumber,
                     actionHuman(action) + " · " + actionStatus(action.status)
                 )
             )
         }
         if (ownActions.isEmpty() && battle.status == "growing") {
-            c.addView(eventLine("⏳", t("Следующий ход за вами"), t("Решите, стоит ли сейчас тратить ресурсы")))
+            c.addView(eventLine("⏳", "Следующий ход за вами", "Решите, стоит ли сейчас тратить ресурсы"))
         }
         return cardWithMargin(c)
     }
 
     private fun sendPrediction(battle: Battle, entry: BattleEntry) {
-        toast(t("Сохраняем прогноз…"))
+        toast(battleText("Сохраняем прогноз…", "Saving prediction…"))
         async(
             work = { api.predict(battle.id, entry.id) },
             success = { updated ->
                 game.completeMission("predict")
                 replaceBattleInCaches(updated)
                 renderBattle(updated)
-                toast(t("+10 XP · прогноз сохранён"))
+                toast(battleText("+10 XP · прогноз сохранён", "+10 XP · prediction saved"))
             },
             failure = { error ->
                 if (error is ApiException && error.statusCode == 404) {
-                    toast(t("Для прогнозов нужно обновить Battle API на сервере"))
+                    toast(battleText("Для прогнозов нужно обновить Battle API на сервере", "Predictions require a server update"))
                 } else {
                     showError(error)
                 }
@@ -1230,7 +1144,7 @@ class MainActivity : Activity() {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             setTextColor(Color.BLACK)
-            hint = if (kind == "shade") t("минуты") else t("мл")
+            hint = if (kind == "shade") battleText("минуты", "minutes") else battleText("мл", "ml")
         }
         val presets = when (kind) {
             "water" -> intArrayOf(30, 60, 100)
@@ -1238,9 +1152,9 @@ class MainActivity : Activity() {
             else -> intArrayOf(30, 60, 120)
         }
         val title = when (kind) {
-            "water" -> t("💧 Полить растение")
-            "nutrient" -> t("🧪 Добавить питание")
-            else -> t("🌙 Закрыть от света")
+            "water" -> battleText("💧 Полить растение", "💧 Water plant")
+            "nutrient" -> battleText("🧪 Добавить питание", "🧪 Add nutrients")
+            else -> battleText("🌙 Закрыть от света", "🌙 Shade plant")
         }
 
         val wrap = LinearLayout(this).apply {
@@ -1259,13 +1173,13 @@ class MainActivity : Activity() {
 
         AlertDialog.Builder(this)
             .setTitle(title)
-            .setMessage(t("Это реальная команда. Ресурс будет списан из лимита растения."))
+            .setMessage(battleText("Это реальная команда. Ресурс будет списан из лимита растения.", "This is a real command. Resources will be deducted from your plant’s allowance."))
             .setView(wrap)
-            .setNegativeButton(t("Отмена"), null)
-            .setPositiveButton(t("Отправить")) { _, _ ->
+            .setNegativeButton(battleText("Отмена", "Cancel"), null)
+            .setPositiveButton(battleText("Отправить", "Send")) { _, _ ->
                 val amount = input.text.toString().toIntOrNull() ?: 0
                 if (amount <= 0) {
-                    toast(t("Укажите количество"))
+                    toast(battleText("Укажите количество", "Enter an amount"))
                 } else {
                     executeCommand(battle, entry, kind, amount)
                 }
@@ -1274,7 +1188,7 @@ class MainActivity : Activity() {
     }
 
     private fun executeCommand(battle: Battle, entry: BattleEntry, kind: String, amount: Int) {
-        showLoading(t("Передаём команду в теплицу…"))
+        showLoading(battleText("Передаём команду в теплицу…", "Sending command to greenhouse…"))
         async(
             work = {
                 api.sendAction(battle.id, entry.id, kind, amount)
@@ -1284,18 +1198,18 @@ class MainActivity : Activity() {
                 game.completeMission("command")
                 replaceBattleInCaches(updated)
                 renderBattle(updated)
-                toast(t("+15 XP · команда принята"))
+                toast(battleText("+15 XP · команда принята", "+15 XP · command accepted"))
             }
         )
     }
 
     private fun confirmJoin(battle: Battle) {
         AlertDialog.Builder(this)
-            .setTitle(t("Занять место в битве?"))
-            .setMessage(t("Будет использована стоимость участия в Kisa. После покупки место закрепится за вашим аккаунтом."))
-            .setNegativeButton(t("Отмена"), null)
-            .setPositiveButton(t("Участвовать")) { _, _ ->
-                showLoading(t("Бронируем растение…"))
+            .setTitle(battleText("Занять место в битве?", "Join this battle?"))
+            .setMessage(battleText("Будет использована стоимость участия в Kisa. После покупки место закрепится за вашим аккаунтом.", "The entry fee will be deducted in Kisa. The slot will be reserved for your account."))
+            .setNegativeButton(battleText("Отмена", "Cancel"), null)
+            .setPositiveButton(battleText("Участвовать", "Join")) { _, _ ->
+                showLoading(battleText("Бронируем растение…", "Reserving your plant…"))
                 async(
                     work = {
                         api.joinBattle(battle.id, 1)
@@ -1311,43 +1225,34 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun openPublicPage(path: String) {
-        val url = api.absolute(path) ?: return
-        runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        }.onFailure {
-            toast(t("Не удалось открыть страницу"))
-        }
-    }
-
     private fun openVideo(path: String?) {
         val url = api.absolute(path)
         if (url.isNullOrBlank()) {
-            toast(t("Таймлапс пока не готов"))
+            toast("Таймлапс пока не готов")
             return
         }
         game.completeMission("video")
         runCatching {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            toast(t("+5 XP · наблюдение засчитано"))
+            toast("+5 XP · наблюдение засчитано")
         }.onFailure {
-            toast(t("Не удалось открыть видео"))
+            toast("Не удалось открыть видео")
         }
     }
 
     private fun battleHeroCard(battle: Battle, mine: Boolean): View {
         val c = card()
-        c.addView(labelText(if (mine) t("🎮 ВЫ В ИГРЕ") else "● LIVE", if (mine) gold else green))
+        c.addView(labelText(if (mine) "🎮 ВЫ В ИГРЕ" else "● LIVE", if (mine) gold else green))
         c.addView(bigText(battle.title, 21f))
-        c.addView(smallText(battle.plantName + " · " + dayLabel(battle)))
+        c.addView(smallText(battle.localizedPlantName(AppLanguage(this).code) + " · " + dayLabel(battle)))
         c.addView(space(8))
         c.addView(statStrip(
             battle.entriesCount.toString() + "/" + battle.maxEntries,
             "🎯 " + battle.predictionTotal,
             "🏆 " + battle.winnerRewardKisa + " K"
         ))
-        c.addView(primaryButton(if (mine) t("ОТКРЫТЬ МОЁ РАСТЕНИЕ") else t("СМОТРЕТЬ LIVE")) {
-            openBattle(battle, spectator = !mine)
+        c.addView(primaryButton(if (mine) "ОТКРЫТЬ АРЕНУ" else "СМОТРЕТЬ LIVE") {
+            openBattle(battle)
         })
         return cardWithMargin(c)
     }
@@ -1368,7 +1273,7 @@ class MainActivity : Activity() {
             setPadding(dp(10), 0, dp(8), 0)
         }
         names.addView(bigText(battle.title, 18f))
-        names.addView(smallText(battle.plantName + t(" · полка ") + battle.rackId))
+        names.addView(smallText(battle.localizedPlantName(AppLanguage(this).code) + " · полка " + battle.rackId))
         top.addView(names, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(statusPill(battle.status))
         c.addView(top)
@@ -1376,9 +1281,9 @@ class MainActivity : Activity() {
         c.addView(statStrip(
             battle.entriesCount.toString() + "/" + battle.maxEntries + " 🌱",
             "🎯 " + battle.predictionTotal,
-            if (battle.status == "open") battle.remainingEntries.toString() + t(" мест") else dayLabel(battle)
+            if (battle.status == "open") battle.remainingEntries.toString() + " мест" else dayLabel(battle)
         ))
-        c.setOnClickListener { openBattle(battle, spectator = true) }
+        c.setOnClickListener { openBattle(battle) }
         return cardWithMargin(c)
     }
 
@@ -1403,7 +1308,7 @@ class MainActivity : Activity() {
                 setTypeface(typeface, Typeface.BOLD)
             })
             mid.addView(TextView(this).apply {
-                text = if (mission.completed) t("Выполнено") else "+" + mission.reward + " XP"
+                text = if (mission.completed) "Выполнено" else "+" + mission.reward + " XP"
                 setTextColor(if (mission.completed) green else gold)
                 textSize = 12f
             })
@@ -1417,7 +1322,7 @@ class MainActivity : Activity() {
         }
         val done = profile.missions.count { it.completed }
         c.addView(space(5))
-        c.addView(smallText(t("Сегодня: ") + done + "/" + profile.missions.size + t(" заданий")))
+        c.addView(smallText("Сегодня: " + done + "/" + profile.missions.size + " заданий"))
         return cardWithMargin(c)
     }
 
@@ -1453,11 +1358,11 @@ class MainActivity : Activity() {
         eventLine(icon, title, subtitle)
 
     private fun actionHuman(action: BattleAction): String {
-        val unit = if (action.kind == "shade") t(" мин") else t(" мл")
+        val unit = if (action.kind == "shade") battleText(" мин", " min") else battleText(" мл", " ml")
         return when (action.kind) {
-            "water" -> t("Полив ") + action.amount + unit
-            "nutrient" -> t("Питание ") + action.amount + unit
-            "shade" -> t("Без света ") + action.amount + unit
+            "water" -> battleText("Полив ", "Watering ") + action.amount + unit
+            "nutrient" -> battleText("Питание ", "Nutrients ") + action.amount + unit
+            "shade" -> battleText("Без света ", "Shade ") + action.amount + unit
             else -> action.kind + " " + action.amount
         }
     }
@@ -1470,9 +1375,9 @@ class MainActivity : Activity() {
     }
 
     private fun actionStatus(status: String): String = when (status) {
-        "pending" -> t("ожидает выполнения")
-        "completed" -> t("выполнено")
-        "cancelled" -> t("отменено")
+        "pending" -> battleText("ожидает выполнения", "pending")
+        "completed" -> battleText("выполнено", "completed")
+        "cancelled" -> battleText("отменено", "cancelled")
         else -> status
     }
 
@@ -1519,7 +1424,7 @@ class MainActivity : Activity() {
     }
 
     private fun showError(error: Throwable) {
-        val message = error.message ?: t("Не удалось связаться с сервером")
+        val message = error.message ?: "Не удалось связаться с сервером"
         toast(message)
         if (currentScreen == "battle" && currentBattleId != null) {
             val fallback = (myBattles + publicBattles).firstOrNull { it.id == currentBattleId }
@@ -1548,370 +1453,6 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun compactScreen(): LinearLayout =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
-            setPadding(0, 0, 0, dp(2))
-        }
-
-    private fun compactHeader(title: String, subtitle: String): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(10))
-            background = gradientDrawable("#174B34", "#0A1A13")
-            addView(bigText(title, 21f).apply {
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
-            })
-            addView(TextView(this@MainActivity).apply {
-                text = subtitle
-                setTextColor(muted)
-                textSize = 11f
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
-            })
-        }
-
-    private fun compactCard(): LinearLayout =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(13), dp(11), dp(13), dp(11))
-            background = rounded(surface, 16)
-        }
-
-    private fun compactStatStrip(a: String, b: String, c: String): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(9), dp(7), dp(9), dp(2))
-            addView(compactStatCell(a))
-            addView(compactStatCell(b))
-            addView(compactStatCell(c))
-        }
-
-    private fun compactStatCell(value: String): View =
-        TextView(this).apply {
-            text = value
-            setTextColor(white)
-            gravity = Gravity.CENTER
-            textSize = 11f
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(dp(3), dp(7), dp(3), dp(7))
-            background = rounded(Color.parseColor("#18392B"), 10)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                setMargins(dp(3), 0, dp(3), 0)
-            }
-        }
-
-    private fun compactPrimaryButton(label: String, action: () -> Unit): Button =
-        Button(this).apply {
-            text = label
-            textSize = 11f
-            setTextColor(Color.BLACK)
-            setTypeface(typeface, Typeface.BOLD)
-            backgroundTintList = ColorStateList.valueOf(green)
-            minHeight = 0
-            minimumHeight = 0
-            setPadding(dp(8), 0, dp(8), 0)
-            setOnClickListener { action() }
-            layoutParams = matchWrap().apply {
-                height = dp(42)
-                topMargin = dp(7)
-            }
-        }
-
-    private fun compactMiniButton(label: String, action: () -> Unit): Button =
-        Button(this).apply {
-            text = label
-            textSize = 10f
-            setTextColor(white)
-            backgroundTintList = ColorStateList.valueOf(surface2)
-            minHeight = 0
-            minimumHeight = 0
-            setPadding(dp(5), 0, dp(5), 0)
-            setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                dp(38)
-            )
-        }
-
-    private fun compactBattlePanel(
-        battle: Battle,
-        label: String,
-        actionLabel: String,
-        action: () -> Unit
-    ): View =
-        compactCard().apply {
-            addView(labelText(label, if (battle.status == "growing") green else gold))
-            val row = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            val copy = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(bigText(battle.title, 18f).apply {
-                    maxLines = 1
-                    ellipsize = android.text.TextUtils.TruncateAt.END
-                })
-                addView(smallText(
-                    battle.plantName + t(" · полка ") + battle.rackId + " · " + dayLabel(battle)
-                ).apply {
-                    maxLines = 1
-                    ellipsize = android.text.TextUtils.TruncateAt.END
-                })
-            }
-            row.addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(statusPill(battle.status))
-            addView(row)
-            addView(compactStatStrip(
-                battle.entriesCount.toString() + "/" + battle.maxEntries + " 🌱",
-                "🎯 " + battle.predictionTotal,
-                "🏆 " + battle.winnerRewardKisa + " K"
-            ))
-            addView(compactPrimaryButton(actionLabel, action))
-        }
-
-    private fun compactArenaHeader(battle: Battle, contextLabel: String): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(8), dp(14), dp(7))
-            background = gradientDrawable("#174B34", "#0A1A13")
-            val copy = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(labelText(contextLabel, green))
-                addView(bigText(battle.title, 18f).apply {
-                    maxLines = 1
-                    ellipsize = android.text.TextUtils.TruncateAt.END
-                })
-                addView(TextView(this@MainActivity).apply {
-                    text = battle.plantName + t(" · полка ") + battle.rackId + " · " + dayLabel(battle)
-                    setTextColor(muted)
-                    textSize = 10f
-                    maxLines = 1
-                    ellipsize = android.text.TextUtils.TruncateAt.END
-                })
-            }
-            addView(copy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(statusPill(battle.status))
-        }
-
-    private fun compactPhotoHeight(): Int {
-        val density = resources.displayMetrics.density.coerceAtLeast(1f)
-        val screenDp = resources.displayMetrics.heightPixels / density
-        return when {
-            screenDp < 650f -> 145
-            screenDp < 740f -> 170
-            screenDp < 860f -> 205
-            else -> 230
-        }
-    }
-
-    private fun compactResources(battle: Battle, entry: BattleEntry): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(9), dp(3), dp(9), dp(2))
-        }
-        row.addView(resourceMiniCell("💧", GameRules.remaining(battle.waterBudgetMl, entry.waterUsedMl).toString() + " " + t("мл")))
-        row.addView(resourceMiniCell("🧪", GameRules.remaining(battle.nutrientBudgetMl, entry.nutrientUsedMl).toString() + " " + t("мл")))
-        row.addView(resourceMiniCell("🌙", GameRules.remaining(battle.shadeBudgetMinutes, entry.shadeUsedMinutes).toString() + " " + t("мин")))
-        return row
-    }
-
-    private fun resourceMiniCell(icon: String, value: String): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(3), dp(5), dp(3), dp(5))
-            background = rounded(surface, 11)
-            addView(TextView(this@MainActivity).apply {
-                text = icon
-                textSize = 17f
-                gravity = Gravity.CENTER
-            })
-            addView(TextView(this@MainActivity).apply {
-                text = value
-                setTextColor(white)
-                textSize = 10f
-                setTypeface(typeface, Typeface.BOLD)
-                gravity = Gravity.CENTER
-            })
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                setMargins(dp(3), 0, dp(3), 0)
-            }
-        }
-
-    private fun compactCommandRow(battle: Battle, entry: BattleEntry): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(9), dp(2), dp(9), dp(2))
-            addView(compactActionButton("💧", t("Полить")) { amountDialog(battle, entry, "water") })
-            addView(compactActionButton("🧪", t("Питание")) { amountDialog(battle, entry, "nutrient") })
-            addView(compactActionButton("🌙", t("Закрыть")) { amountDialog(battle, entry, "shade") })
-        }
-
-    private fun compactActionButton(icon: String, label: String, action: () -> Unit): View =
-        Button(this).apply {
-            text = icon + " " + label
-            textSize = 10f
-            setTextColor(white)
-            backgroundTintList = ColorStateList.valueOf(surface2)
-            minHeight = 0
-            minimumHeight = 0
-            setPadding(dp(3), 0, dp(3), 0)
-            setOnClickListener { action() }
-            layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
-                setMargins(dp(3), 0, dp(3), 0)
-            }
-        }
-
-
-    private fun compactJoinRow(battle: Battle): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(3), dp(12), dp(3))
-            addView(TextView(this@MainActivity).apply {
-                text = t("Свободно мест: ") + battle.remainingEntries
-                setTextColor(white)
-                textSize = 12f
-                setTypeface(typeface, Typeface.BOLD)
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(compactMiniButton(
-                if (api.hasSession()) t("ЗАНЯТЬ МЕСТО") else t("ВОЙТИ И УЧАСТВОВАТЬ")
-            ) {
-                if (api.hasSession()) {
-                    confirmJoin(battle)
-                } else {
-                    pendingJoinBattleId = battle.id
-                    showLogin()
-                }
-            })
-        }
-
-    private fun compactSpectatorActions(battle: Battle): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(9), dp(3), dp(9), dp(6))
-            addView(compactActionButton("🎯", t("Прогнозы")) {
-                showBattleDialog(t("ПРОГНОЗ ЗРИТЕЛЕЙ"), predictionCard(battle))
-            })
-            addView(compactActionButton("🎬", t("Таймлапсы")) {
-                showBattleDialog(t("ТАЙМЛАПС"), timelapseCard(battle))
-            })
-            addView(compactActionButton("☰", t("СОБЫТИЯ")) {
-                showBattleDialog(t("СОБЫТИЯ"), eventFeed(battle))
-            })
-        }
-
-    private fun arenaBattles(): List<Battle> =
-        when (arenaFilter) {
-            "open" -> publicBattles.filter { it.status == "open" }
-            "finished" -> publicBattles.filter { it.status in listOf("finished", "cancelled") }
-            else -> publicBattles.filter {
-                it.status in listOf("ready_to_plant", "planting", "growing", "judging")
-            }
-        }
-
-    private fun arenaFilterRow(): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(9), dp(5), dp(9), dp(2))
-            addView(arenaFilterButton("live", "LIVE"))
-            addView(arenaFilterButton("open", t("Набор").uppercase()))
-            addView(arenaFilterButton("finished", t("ЗАВЕРШЕННЫЕ")))
-        }
-
-    private fun arenaFilterButton(filter: String, label: String): View =
-        Button(this).apply {
-            text = label
-            textSize = 9f
-            setTextColor(if (arenaFilter == filter) Color.BLACK else white)
-            backgroundTintList = ColorStateList.valueOf(
-                if (arenaFilter == filter) green else surface2
-            )
-            minHeight = 0
-            minimumHeight = 0
-            setPadding(dp(2), 0, dp(2), 0)
-            setOnClickListener {
-                if (arenaFilter != filter) {
-                    arenaFilter = filter
-                    watchBattleIndex = 0
-                    showWatch()
-                }
-            }
-            layoutParams = LinearLayout.LayoutParams(0, dp(34), 1f).apply {
-                setMargins(dp(3), 0, dp(3), 0)
-            }
-        }
-
-    private fun battlePager(count: Int): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(5), dp(12), dp(1))
-            addView(compactMiniButton("‹") {
-                watchBattleIndex = (watchBattleIndex - 1 + count) % count
-                showWatch()
-            })
-            addView(TextView(this@MainActivity).apply {
-                text = (watchBattleIndex + 1).toString() + " / " + count
-                setTextColor(muted)
-                textSize = 12f
-                gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(0, dp(38), 1f))
-            addView(compactMiniButton("›") {
-                watchBattleIndex = (watchBattleIndex + 1) % count
-                showWatch()
-            })
-        }
-
-    private fun profileActionButton(icon: String, label: String, action: () -> Unit): Button =
-        Button(this).apply {
-            text = icon + "\n" + label
-            textSize = 10f
-            maxLines = 2
-            gravity = Gravity.CENTER
-            setTextColor(white)
-            backgroundTintList = ColorStateList.valueOf(surface2)
-            minHeight = 0
-            minimumHeight = 0
-            minWidth = 0
-            minimumWidth = 0
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            setOnClickListener { action() }
-        }
-
-    private fun showBattleDialog(title: String, content: View) {
-        (content.parent as? ViewGroup)?.removeView(content)
-        val scroll = ScrollView(this).apply {
-            setPadding(dp(6), dp(2), dp(6), dp(2))
-            addView(content)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(scroll)
-            .setPositiveButton("OK", null)
-            .show()
-    }
-
-    private fun showMissionsDialog(profile: GameProfile) {
-        showBattleDialog(t("ЗАДАНИЯ НА СЕГОДНЯ"), missionsCard(profile))
-    }
-
-    private fun showAchievementsDialog(profile: GameProfile) {
-        val list = card()
-        if (profile.badges.isEmpty()) {
-            list.addView(smallText(t("Первое достижение появится уже сегодня.")))
-        } else {
-            profile.badges.forEach { list.addView(bigText(it, 16f)) }
-        }
-        showBattleDialog(t("ДОСТИЖЕНИЯ"), cardWithMargin(list))
-    }
-
     private fun showContent(view: View) {
         if (view !== welcome?.rootView) {
             welcome?.release()
@@ -1925,7 +1466,10 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
-        updateNavigation()
+        val dark = getSharedPreferences("battle_settings", MODE_PRIVATE).getBoolean("dark_mode", false)
+        window.decorView.systemUiVisibility = if (dark) 0 else
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        addNavigation()
     }
 
     private fun screenScroll(): ScrollView {
@@ -1951,6 +1495,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(24), dp(20), dp(20))
             background = gradientDrawable("#174B34", "#07140F")
+            addView(labelText("KISAMORE", green))
             addView(bigText(title, 29f))
             addView(smallText(subtitle))
         }
@@ -2026,12 +1571,12 @@ class MainActivity : Activity() {
     }
 
     private fun statusHuman(status: String): String = when (status) {
-        "open" -> t("Набор")
-        "ready_to_plant" -> t("Готово к посадке")
-        "planting" -> t("Посадка")
+        "open" -> "Набор"
+        "ready_to_plant" -> "Готово к посадке"
+        "planting" -> "Посадка"
         "growing" -> "Live"
-        "judging" -> t("Финал")
-        "finished" -> t("Завершено")
+        "judging" -> "Финал"
+        "finished" -> "Завершено"
         else -> status
     }
 
@@ -2146,8 +1691,6 @@ class MainActivity : Activity() {
     private fun withAlpha(color: Int, alpha: Int): Int =
         Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 
-    private fun t(source: String): String = language.t(source)
-
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
@@ -2156,15 +1699,9 @@ class MainActivity : Activity() {
         return runCatching {
             val from = OffsetDateTime.parse(planted)
             val days = ChronoUnit.DAYS.between(from, OffsetDateTime.now()).coerceAtLeast(0) + 1
-            if (battle.growDays > 0) t("день ") + days + "/" + battle.growDays else t("день ") + days
+            if (battle.growDays > 0) "день " + days + "/" + battle.growDays else "день " + days
         }.getOrDefault(statusHuman(battle.status))
     }
-
-    @Suppress("DEPRECATION")
-    private fun appVersionLabel(): String = runCatching {
-        val info = packageManager.getPackageInfo(packageName, 0)
-        t("Версия ") + (info.versionName ?: "?") + " (build " + info.versionCode + ")"
-    }.getOrDefault(t("Версия ?"))
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()

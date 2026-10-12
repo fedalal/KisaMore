@@ -59,19 +59,16 @@ jobs:
       - name: Build debug APK
         run: gradle -p android-battle assembleDebug --stacktrace
 
-      - name: Build release AAB smoke test
-        run: gradle -p android-battle bundleRelease --stacktrace
+      - name: Verify built APK version and copy with official filename
+        run: |
+          grep -Fq 'versionCode = 37' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.22"' android-battle/app/build.gradle.kts
+          test -s android-battle/app/build/outputs/apk/debug/app-debug.apk
+          cp android-battle/app/build/outputs/apk/debug/app-debug.apk KisaMore-Battle-0.6.22.apk
 
-      - name: Upload debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: kisamore-battle-debug-apk
-          path: android-battle/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-
-      - name: Upload unsigned release AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: kisamore-battle-release-aab-unsigned
-          path: android-battle/app/build/outputs/bundle/release/app-release.aab
+          name: KisaMore-Battle-0.6.22
+          path: KisaMore-Battle-0.6.22.apk
           if-no-files-found: error

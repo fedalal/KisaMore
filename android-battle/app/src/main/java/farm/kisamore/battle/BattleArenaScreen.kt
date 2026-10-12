@@ -1,0 +1,764 @@
+package farm.kisamore.battle
+
+import android.app.Activity
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
+import android.widget.VideoView
+import android.widget.ProgressBar
+import android.net.Uri
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import kotlin.math.max
+
+/**
+ * Compact, native Battle UI built from the approved 390x844 Figma screen.
+ * It uses real battle cameras and actions, and never supplies fake demo events.
+ * On smaller screens ScrollView remains an accessibility fallback rather than
+ * cutting off a command or a chart.
+ */
+internal class BattleArenaScreen(
+    private val host: Activity,
+    private val api: ApiClient,
+    private val battle: Battle,
+    private val choices: List<Battle>,
+    cameraPreference: String?,
+    initialPeriod: Int,
+    private val onBattle: (Battle) -> Unit,
+    private val onCamera: (String) -> Unit,
+    private val onPeriod: (Int) -> Unit,
+    private val onCommand: (BattleEntry, String) -> Unit,
+    private val onPhoto: (String?, BattleCamera?) -> Unit,
+    private val onJournal: (List<BattleAction>) -> Unit,
+    private val onPredict: (BattleEntry) -> Unit,
+    private val onJoin: () -> Unit
+) : ScrollView(host) {
+    private val language = AppLanguage(host)
+    private fun tr(ru: String, en: String): String {
+        if (language.code == "ru") return ru
+        if (language.code == "en") return en
+        val localized = language.t(ru)
+        return if (localized == ru) en else localized
+    }
+    private val d = resources.displayMetrics.density
+    private fun dp(value: Int): Int = (value * d + .5f).toInt()
+    private val dark = host.getSharedPreferences("battle_settings", 0).getBoolean("dark_mode", false)
+    private val back = color(if (dark) "#101A14" else "#F8F9F6")
+    private val cardBg = color(if (dark) "#1B2A22" else "#FFFFFF")
+    private val ink = color(if (dark) "#F0F5F0" else "#26392E")
+    private val secondary = color(if (dark) "#AEBBAF" else "#728075")
+    private val green = color(if (dark) "#8CC89E" else "#4A7C59")
+    private val buttonBg = color(if (dark) "#365E42" else "#4A7C59")
+    private val line = color(if (dark) "#354B3B" else "#E4EBE3")
+    private val tint = color(if (dark) "#294333" else "#ECF3E9")
+    private val zone = ZoneId.systemDefault()
+    // Only show cameras actually published by the server. Legacy rack photo is a
+    // fallback image, never an invented extra camera button.
+    private val cameras = battle.cameraViews
+    private val camera = cameras.firstOrNull { it.cameraId == cameraPreference }
+        ?: cameras.firstOrNull { it.isPrimary } ?: cameras.firstOrNull()
+    private val mine = battle.mine
+    private var chartPeriod = initialPeriod.coerceIn(1, 7)
+    private var chartTarget: BattleActivityChart? = null
+
+    private var mediaPreview: View? = null
+    private var mediaPlayer: VideoView? = null
+    private var videoLoading: ProgressBar? = null
+    private var closeVideo: TextView? = null
+    private val videoButtons = mutableListOf<View>()
+    private var playingPeriod = -1
+
+    fun isPlayingVideo(): Boolean = playingPeriod >= 0
+
+    private fun restorePhoto() {
+        mediaPlayer?.stopPlayback()
+        mediaPlayer?.visibility = View.GONE
+        videoLoading?.visibility = View.GONE
+        closeVideo?.visibility = View.GONE
+        mediaPreview?.visibility = View.VISIBLE
+        playingPeriod = -1
+        videoButtons.forEach { view ->
+            view.background = round(tint, 9)
+            val button = view as? LinearLayout ?: return@forEach
+            for (k in 0 until button.childCount) {
+                (button.getChildAt(k) as? BattleTabGlyph)?.setTint(green)
+                (button.getChildAt(k) as? TextView)?.setTextColor(ink)
+            }
+        }
+    }
+
+    private fun playCameraVideo(path: String?, index: Int) {
+        val url = api.absolute(path)
+        if (url.isNullOrBlank()) {
+            Toast.makeText(host, tr("Таймлапс этой камеры пока не готов", "Timelapse for this camera is not ready yet"), Toast.LENGTH_SHORT).show()
+            return
+        }
+        restorePhoto()
+        val player = mediaPlayer ?: return
+        playingPeriod = index
+        mediaPreview?.visibility = View.GONE
+        player.visibility = View.VISIBLE
+        videoLoading?.visibility = View.VISIBLE
+        closeVideo?.visibility = View.VISIBLE
+        videoButtons.forEachIndexed { i, view ->
+            view.background = round(if (i == index) buttonBg else tint, 9)
+            val button = view as? LinearLayout ?: return@forEachIndexed
+            for (k in 0 until button.childCount) {
+                (button.getChildAt(k) as? BattleTabGlyph)?.setTint(if (i == index) Color.WHITE else green)
+                (button.getChildAt(k) as? TextView)?.setTextColor(if (i == index) Color.WHITE else ink)
+            }
+        }
+        player.setVideoURI(Uri.parse(url))
+        player.requestFocus()
+    }
+
+    override fun onDetachedFromWindow() {
+        mediaPlayer?.stopPlayback()
+        super.onDetachedFromWindow()
+    }
+
+
+    private fun color(hex: String) = Color.parseColor(hex)
+    private fun round(fill: Int, radius: Int, stroke: Int? = null): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(fill); cornerRadius = dp(radius).toFloat()
+            if (stroke != null) setStroke(dp(1), stroke)
+        }
+    private fun label(s: String, size: Float = 12f, bold: Boolean = false, color: Int = ink) =
+        TextView(host).apply {
+            text = s; textSize = size; setTextColor(color); includeFontPadding = false
+            if (bold) setTypeface(typeface, Typeface.BOLD)
+            maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+            gravity = Gravity.CENTER_VERTICAL
+        }
+    private fun spacedTop(n: Int) = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(n) }
+    private fun chip(s: String, selected: Boolean, width: Int = 0, click: () -> Unit): TextView =
+        label(s, 11f, selected, if (selected) Color.WHITE else ink).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(9), 0, dp(9), 0)
+            background = round(if (selected) buttonBg else cardBg, 11, if (selected) null else line)
+            minHeight = dp(32)
+            isClickable = true
+            setOnClickListener { click() }
+            if (width > 0) minWidth = dp(width)
+        }
+    private fun row(): LinearLayout = LinearLayout(host).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+    }
+    private fun column(): LinearLayout = LinearLayout(host).apply { orientation = LinearLayout.VERTICAL }
+    private fun labelHeader(s: String, margin: Int = 7): View = label(s, 11f, true).also {
+        it.setPadding(0, dp(margin), 0, dp(4))
+    }
+    private fun instant(raw: String?): Instant? {
+        if (raw.isNullOrBlank()) return null
+        return runCatching { OffsetDateTime.parse(raw).toInstant() }.getOrNull()
+            ?: runCatching { Instant.parse(raw) }.getOrNull()
+            ?: runCatching { LocalDateTime.parse(raw).atZone(zone).toInstant() }.getOrNull()
+    }
+    private fun photoAge(): String {
+        val capture = instant(camera?.capturedAt) ?: return tr("Фото: время неизвестно", "Photo: time unknown")
+        val mins = ChronoUnit.MINUTES.between(capture, Instant.now()).coerceAtLeast(0)
+        return when {
+            mins == 0L -> tr("Фото: только что", "Photo: just now")
+            mins < 60 -> tr("Фото: ", "Photo: ") + mins + tr(" мин назад", " min ago")
+            mins < 1440 -> tr("Фото: ", "Photo: ") + (mins / 60) + tr(" ч назад", " h ago")
+            else -> tr("Фото: ", "Photo: ") + (mins / 1440) + tr(" дн назад", " d ago")
+        }
+    }
+    private fun dayLabel(): String {
+        val planted = instant(battle.plantedAt)
+        return if (planted != null) {
+            tr("День ", "Day ") + (ChronoUnit.DAYS.between(planted, Instant.now()) + 1).coerceAtLeast(1)
+        } else when (battle.status) {
+            "open" -> tr("Набор участников", "Recruiting players")
+            "planting" -> tr("Посадка", "Planting")
+            "finished" -> tr("Завершена", "Finished")
+            else -> tr("Битва идёт", "Battle in progress")
+        }
+    }
+    private fun actionText(a: BattleAction): String = when (a.kind) {
+        "water" -> tr("Полив ", "Watering ") + a.amount + tr(" мл", " ml")
+        "nutrient" -> tr("Питание ", "Nutrients ") + a.amount + tr(" мл", " ml")
+        "shade" -> tr("Закрыто на ", "Shaded for ") + a.amount + tr(" мин", " min")
+        else -> tr("Команда: ", "Command: ") + a.kind
+    }
+    private fun actionIcon(kind: String) = when (kind) {
+        "water" -> "💧"; "nutrient" -> "⚗"; "shade" -> "☾"; else -> "·"
+    }
+    private fun whenText(a: BattleAction): String {
+        val date = instant(a.completedAt) ?: instant(a.requestedAt) ?: return "—"
+        val local = date.atZone(zone)
+        val today = LocalDate.now(zone)
+        return when (local.toLocalDate()) {
+            today -> local.format(DateTimeFormatter.ofPattern("HH:mm"))
+            today.minusDays(1) -> tr("Вчера", "Yesterday")
+            else -> local.format(DateTimeFormatter.ofPattern("dd.MM"))
+        }
+    }
+    private fun cameraName(value: BattleCamera, i: Int): String {
+        val id = value.cameraId
+        return if (value.isPrimary) tr("Основная", "Main")
+        else if (id.length in 3..15 && !id.matches(Regex("(?i)(video|camera|cam)[_-]?\\d+"))) id.replace('_', ' ')
+        else tr("Камера ", "Camera ") + (i + 1)
+    }
+
+    init {
+        isFillViewport = true
+        setBackgroundColor(back)
+        isVerticalScrollBarEnabled = false
+        val body = column().apply { setPadding(dp(16), dp(4), dp(16), dp(8)) }
+        addView(body, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        // One horizontally scrollable row of generously sized Battle selectors.
+        val battleRow = HorizontalScrollView(host).apply {
+            isHorizontalScrollBarEnabled = false
+        }
+        val buttons = row()
+        val switched = (choices + battle).distinctBy { it.id }
+            .filter { it.status != "finished" || it.id == battle.id }
+        switched.forEachIndexed { i, candidate ->
+            val title = candidate.title.ifBlank { tr("Битва ", "Battle ") + (i + 1) }
+            val active = candidate.id == battle.id
+            val owned = api.hasSession() && candidate.mine != null
+            val selector = row().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(7), 0, dp(7), 0)
+                background = round(if (active) buttonBg else cardBg, 11,
+                    if (active) null else line)
+                isClickable = true
+                isFocusable = true
+                contentDescription = title + if (owned) tr(", участвую", ", participating") else ""
+                setOnClickListener { onBattle(candidate) }
+            }
+            if (owned) selector.addView(BattleTabGlyph(host, "trophy",
+                if (active) Color.WHITE else green),
+                LinearLayout.LayoutParams(dp(17), dp(17)).apply { rightMargin = dp(5) })
+            selector.addView(label(title, 11f, active,
+                if (active) Color.WHITE else ink).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(0, dp(34), 1f))
+            buttons.addView(selector, LinearLayout.LayoutParams(dp(166), dp(34)).apply {
+                rightMargin = dp(8)
+            })
+        }
+        battleRow.addView(buttons)
+        body.addView(battleRow, LinearLayout.LayoutParams(-1, dp(36)))
+
+        body.addView(label(dayLabel() + "   ·   " + photoAge(), 11f, false, secondary),
+            LinearLayout.LayoutParams(-1, dp(20)))
+
+        // The LIVE header is outside the photograph and cannot conceal a tray.
+        val header = row().apply {
+            setPadding(dp(9), 0, dp(8), 0)
+            background = round(color("#31543D"), 9)
+        }
+        header.addView(label(tr("● LIVE · ПОЛКА ", "● LIVE · RACK ") + battle.rackId, 10f, true, Color.WHITE),
+            LinearLayout.LayoutParams(0, -1, 1f))
+        if (mine != null) header.addView(label(tr("МОЙ №", "MINE #") + mine.slotNumber, 10f, true,
+            color("#E3F4D5")).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), 0, dp(10), 0)
+            background = round(color("#51845D"), 9)
+        }, LinearLayout.LayoutParams(-2, dp(20)))
+        body.addView(header, LinearLayout.LayoutParams(-1, dp(24)).apply {
+            topMargin = dp(5)
+        })
+
+        // A 44dp camera rail, 6dp gap, flexible central image, 6dp gap,
+        // and a 44dp timelapse rail. Buttons reflect actual server cameras.
+        val photoRow = row()
+        val camerasRail = column().apply {
+            background = round(cardBg, 11, line)
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        }
+        val cameraScroller = ScrollView(host).apply {
+            isVerticalScrollBarEnabled = false
+            isFillViewport = false
+        }
+        val cameraButtons = column().apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            setPadding(dp(3), dp(5), dp(3), 0)
+        }
+        if (cameras.isEmpty()) {
+            cameraButtons.addView(label("—", 15f, false, secondary).apply {
+                gravity = Gravity.CENTER
+                contentDescription = tr("Камеры не подключены", "No cameras connected")
+            }, LinearLayout.LayoutParams(dp(38), dp(44)))
+        }
+        cameras.forEachIndexed { i, cam ->
+            val selected = camera?.cameraId == cam.cameraId
+            val cameraButton = column().apply {
+                gravity = Gravity.CENTER
+                background = round(if (selected) buttonBg else tint, 9)
+                isClickable = true
+                isFocusable = true
+                contentDescription = tr("Камера ", "Camera ") + (i + 1) +
+                    (if (selected) tr(", выбрана", ", selected") else "") + ", " + cameraName(cam, i)
+                setOnClickListener { if (!selected) onCamera(cam.cameraId) }
+            }
+            cameraButton.addView(BattleTabGlyph(host, "camera",
+                if (selected) Color.WHITE else green),
+                LinearLayout.LayoutParams(dp(21), dp(21)))
+            cameraButton.addView(label((if(language.code=="ru") "К" else "C") + (i + 1), 10f, selected,
+                if (selected) Color.WHITE else secondary).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(17)))
+            cameraButtons.addView(cameraButton, LinearLayout.LayoutParams(dp(38), dp(47)).apply {
+                bottomMargin = dp(6)
+            })
+        }
+        cameraScroller.addView(cameraButtons)
+        camerasRail.addView(cameraScroller, LinearLayout.LayoutParams(dp(44), -1))
+        photoRow.addView(camerasRail, LinearLayout.LayoutParams(dp(44), -1).apply {
+            rightMargin = dp(6)
+        })
+
+        val mediaFrame = FrameLayout(host)
+        val photo = photoPanel()
+        mediaFrame.addView(photo, FrameLayout.LayoutParams(-1, -1))
+        mediaPreview = photo
+        val player = VideoView(host).apply {
+            visibility = View.GONE
+            setOnPreparedListener {
+                videoLoading?.visibility = View.GONE
+                start()
+            }
+            setOnCompletionListener { restorePhoto() }
+            setOnErrorListener { _, _, _ ->
+                restorePhoto()
+                Toast.makeText(host, tr("Не удалось загрузить таймлапс", "Could not load timelapse"), Toast.LENGTH_SHORT).show()
+                true
+            }
+        }
+        mediaPlayer = player
+        mediaFrame.addView(player, FrameLayout.LayoutParams(-1, -1))
+        val loading = ProgressBar(host).apply { visibility = View.GONE }
+        videoLoading = loading
+        mediaFrame.addView(loading, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER))
+        val exit = label("✕", 20f, true, Color.WHITE).apply {
+            visibility = View.GONE
+            gravity = Gravity.CENTER
+            background = round(color("#365B40"), 10)
+            contentDescription = tr("Вернуться к фотографии", "Return to photo")
+            setOnClickListener { restorePhoto() }
+        }
+        closeVideo = exit
+        mediaFrame.addView(exit, FrameLayout.LayoutParams(dp(36), dp(36),
+            Gravity.TOP or Gravity.END).apply {
+            topMargin = dp(5)
+            rightMargin = dp(5)
+        })
+        photoRow.addView(mediaFrame, LinearLayout.LayoutParams(0, -1, 1f).apply {
+            rightMargin = dp(6)
+        })
+
+        val videosRail = column().apply {
+            background = round(cardBg, 11, line)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(3), dp(5), dp(3), 0)
+        }
+        listOf(if(language.code=="ru") "24 ч" else "24 h", tr("3 дня", "3 days"), tr("Всё", "All")).forEachIndexed { i, title ->
+            val path = when (i) {
+                0 -> camera?.timelapse24hUrl
+                1 -> camera?.timelapse3dUrl
+                else -> camera?.timelapseFullUrl
+            }
+            val videoButton = column().apply {
+                gravity = Gravity.CENTER
+                background = round(tint, 9)
+                isClickable = true
+                isFocusable = true
+                contentDescription = tr("Таймлапс ", "Timelapse ") +
+                    (if (i == 2) tr("за весь период", "for the full period") else title) + tr(" выбранной камеры", " of the selected camera")
+                setOnClickListener { playCameraVideo(path, i) }
+            }
+            videoButton.addView(BattleTabGlyph(host, "play", green),
+                LinearLayout.LayoutParams(dp(21), dp(21)))
+            videoButton.addView(label(title, 10f, false, ink).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(17)))
+            videoButtons.add(videoButton)
+            videosRail.addView(videoButton, LinearLayout.LayoutParams(dp(38), dp(47)).apply {
+                bottomMargin = dp(6)
+            })
+        }
+        photoRow.addView(videosRail, LinearLayout.LayoutParams(dp(44), -1))
+        body.addView(photoRow, LinearLayout.LayoutParams(-1, dp(174)).apply {
+            topMargin = dp(6)
+        })
+
+        if (mine != null) {
+            morningReport(mine)?.let { report ->
+                body.addView(report, spacedTop(6))
+            }
+            body.addView(labelHeader(tr("МОИ РЕСУРСЫ", "MY RESOURCES"), 6))
+            body.addView(resources(mine), LinearLayout.LayoutParams(-1, dp(117)))
+            val actionHeader = row()
+            actionHeader.addView(label(tr("ПОСЛЕДНИЕ ДЕЙСТВИЯ", "RECENT ACTIONS"), 11f, true),
+                LinearLayout.LayoutParams(0, dp(25), 1f))
+            actionHeader.addView(label(tr("Все ›", "All ›"), 11f, true, green).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener { onJournal(mine.actions) }
+            }, LinearLayout.LayoutParams(-2, dp(25)))
+            body.addView(actionHeader, spacedTop(5))
+            body.addView(journal(mine.actions), LinearLayout.LayoutParams(-1, dp(90)))
+            body.addView(chartHeader(), spacedTop(7))
+            val chartCard = FrameLayout(host).apply {
+                background = round(cardBg, 14)
+                addView(BattleActivityChart(host, mine.actions, dark, chartPeriod),
+                    FrameLayout.LayoutParams(-1, -1))
+            }
+            body.addView(chartCard, LinearLayout.LayoutParams(-1, dp(120)).apply { topMargin=dp(3) })
+            // graph selection works without rebuilding the remote photo.
+            chartTarget = chartCard.getChildAt(0) as BattleActivityChart
+        } else {
+            body.addView(spectatorBlock(), spacedTop(12))
+        }
+    }
+
+    /**
+     * A once-per-day in-app morning report for an actual battle participant
+     * who has no active Telegram link. Not a system push notification.
+     * The LIVE shelf photo above it stays visible and calibrated.
+     */
+    private fun morningReport(entry: BattleEntry): View? {
+        if (battle.status != "growing" || battle.myTelegramLinked) return null
+        val planted = instant(battle.plantedAt) ?: return null
+        val farmZone = ZoneId.of("Europe/Moscow")
+        val now = java.time.ZonedDateTime.now(farmZone)
+        if (now.hour < 10) return null
+        val plantedDate = planted.atZone(farmZone).toLocalDate()
+        val day = ChronoUnit.DAYS.between(plantedDate, now.toLocalDate()).toInt() + 1
+        if (day <= 1) return null
+
+        // User and entry IDs prevent a dismissal affecting another player.
+        val key = listOf(api.currentUser?.id, battle.id, entry.id, now.toLocalDate()).joinToString(":")
+        val prefs = host.getSharedPreferences("kisamore_battle_morning", 0)
+        if (prefs.getBoolean(key, false)) return null
+
+        val card = column().apply {
+            background = round(tint, 11, line)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+        val title = row()
+        title.addView(label(
+            tr("🌱 Утренняя сводка · день ", "🌱 Morning report · day ") + day,
+            12f, true, ink
+        ), LinearLayout.LayoutParams(0, dp(27), 1f))
+        title.addView(label("×", 21f, false, secondary).apply {
+            gravity = Gravity.CENTER
+            contentDescription = tr("Закрыть сводку", "Dismiss report")
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                prefs.edit().putBoolean(key, true).apply()
+                card.visibility = View.GONE
+            }
+        }, LinearLayout.LayoutParams(dp(29), dp(27)))
+        card.addView(title)
+        card.addView(label(
+            tr("Ваш контейнер №", "Your container #") + entry.slotNumber + " · " +
+                battle.localizedPlantName(language.code),
+            11f, false, secondary
+        ).apply { maxLines = 2; ellipsize = null }, spacedTop(3))
+        val water = (battle.waterBudgetMl - entry.waterUsedMl).coerceAtLeast(0)
+        val nutrients = (battle.nutrientBudgetMl - entry.nutrientUsedMl).coerceAtLeast(0)
+        val shade = (battle.shadeBudgetMinutes - entry.shadeUsedMinutes).coerceAtLeast(0)
+        card.addView(label(
+            "💧 $water " + tr("мл", "ml") +
+                "   🧪 $nutrients " + tr("мл", "ml") +
+                "   🌘 $shade " + tr("мин", "min"),
+            11f, false, ink
+        ), spacedTop(5))
+        card.addView(label(
+            tr("Проверьте фото полки и решите, нужен ли сегодня уход.",
+                "Check the shelf photo and decide how to care for your plant today."),
+            11f, false, secondary
+        ).apply { maxLines = 3; ellipsize = null }, spacedTop(5))
+        return card
+    }
+
+    private fun photoPanel(): View {
+        val frame = FrameLayout(host).apply {
+            background = round(color("#1E3025"), 11)
+            clipToOutline = true
+        }
+        val image = ImageView(host).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = tr("Фото полки с выбранной камеры", "Rack photo from selected camera")
+        }
+        frame.addView(image, FrameLayout.LayoutParams(-1, -1))
+        var highlight: View? = null
+        val photoUrl = api.absolute(camera?.photoUrl ?: battle.rackPhotoUrl)
+        frame.isClickable = true
+        frame.contentDescription = tr("Посмотреть фото полки крупно", "Enlarge rack photo")
+        frame.setOnClickListener { onPhoto(photoUrl, camera) }
+        if (photoUrl != null) {
+            PhotoFrameCache.current(photoUrl)?.let { image.setImageBitmap(it) }
+            Thread {
+                val newBitmap = api.loadBitmap(photoUrl)
+                if (newBitmap != null) {
+                    PhotoFrameCache.remember(photoUrl, newBitmap)
+                    host.runOnUiThread {
+                        if (!host.isFinishing && !host.isDestroyed && image.isAttachedToWindow) {
+                            image.setImageBitmap(newBitmap)
+                            highlight?.invalidate()
+                        }
+                    }
+                }
+            }.start()
+        }
+
+        // The server stores four calibrated corners per container and camera,
+        // independent of a particular battle. They are fractions of the original
+        // photo dimensions. Render them within FIT_CENTER image bounds.
+        // Until the administrator saves calibration, show a thin approximate
+        // green grid border on BOTH cameras rather than dropping the outline.
+        if (mine != null && mine.slotNumber in 1..6) {
+            val slot = mine.slotNumber
+            val calibrated = camera?.slotOutlines?.get(slot)?.takeIf { it.size == 4 }
+            val col = (slot - 1) % 2
+            val row = (slot - 1) / 2
+            val x0 = col / 2f + .018f
+            val x1 = (col + 1) / 2f - .018f
+            val y0 = row / 3f + .026f
+            val y1 = (row + 1) / 3f - .026f
+            val points = calibrated ?: listOf(
+                SlotPoint(x0, y0), SlotPoint(x1, y0),
+                SlotPoint(x1, y1), SlotPoint(x0, y1)
+            )
+            val overlay = object : View(host) {
+                private val darkBorder = android.graphics.Paint(
+                    android.graphics.Paint.ANTI_ALIAS_FLAG
+                ).apply {
+                    style = android.graphics.Paint.Style.STROKE
+                    color = Color.argb(230, 10, 27, 17)
+                    strokeWidth = dp(3).toFloat()
+                    strokeJoin = android.graphics.Paint.Join.ROUND
+                }
+                private val greenBorder = android.graphics.Paint(
+                    android.graphics.Paint.ANTI_ALIAS_FLAG
+                ).apply {
+                    style = android.graphics.Paint.Style.STROKE
+                    color = Color.rgb(110, 234, 154)
+                    strokeWidth = host.resources.displayMetrics.density * 1.5f
+                    strokeJoin = android.graphics.Paint.Join.ROUND
+                }
+                override fun onDraw(canvas: android.graphics.Canvas) {
+                    val drawable = image.drawable ?: return
+                    val photoW = drawable.intrinsicWidth.toFloat()
+                    val photoH = drawable.intrinsicHeight.toFloat()
+                    if (photoW <= 0f || photoH <= 0f) return
+                    val scale = minOf(width / photoW, height / photoH)
+                    val displayW = photoW * scale
+                    val displayH = photoH * scale
+                    val left = (width - displayW) / 2f
+                    val top = (height - displayH) / 2f
+                    val path = android.graphics.Path()
+                    points.forEachIndexed { index, xy ->
+                        val x = left + xy.x * displayW
+                        val y = top + xy.y * displayH
+                        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    path.close()
+                    canvas.drawPath(path, darkBorder)
+                    canvas.drawPath(path, greenBorder)
+                }
+            }
+            highlight = overlay
+            frame.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+        }
+        return frame
+    }
+
+    private fun resources(entry: BattleEntry): View {
+        val parent = column().apply {
+            background = round(cardBg, 14)
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+        }
+        val resources = listOf(
+            Triple(tr("Вода", "Water"), Pair(battle.waterBudgetMl,entry.waterUsedMl), "water"),
+            Triple(tr("Питание", "Nutrients"), Pair(battle.nutrientBudgetMl,entry.nutrientUsedMl), "nutrient"),
+            Triple(tr("Без света", "Shade"), Pair(battle.shadeBudgetMinutes,entry.shadeUsedMinutes), "shade")
+        )
+        resources.forEachIndexed { i, data ->
+            val (name, amounts, kind) = data
+            val (budget, used) = amounts
+            val remain = (budget - used).coerceAtLeast(0)
+            val unit = if (kind == "shade") tr("мин", "min") else tr("мл", "ml")
+            val content = row()
+            content.addView(label(when(kind){"water"->"💧";"nutrient"->"⚗";else->"☾"},18f,false,green),
+                LinearLayout.LayoutParams(dp(29), -1))
+            val lbl = column()
+            lbl.addView(label(name, 11f, true))
+            lbl.addView(label("$remain/$budget $unit", 10f, false, secondary))
+            content.addView(lbl, LinearLayout.LayoutParams(0, -2, 1f))
+            val progressTrack = FrameLayout(host).apply { background = round(line, 3) }
+            val p = View(host).apply { background = round(green, 3) }
+            progressTrack.addView(p, FrameLayout.LayoutParams(
+                dp(64*remain/max(1,budget)),dp(5),Gravity.START or Gravity.CENTER_VERTICAL))
+            content.addView(progressTrack, LinearLayout.LayoutParams(dp(64),dp(5)).apply { rightMargin=dp(7) })
+            val nameButton = when (kind) { "water" -> tr("Полить", "Water"); "nutrient" -> tr("Добавить", "Add"); else -> tr("Использовать", "Use") }
+            val enabled = battle.status == "growing" && remain > 0
+            content.addView(label(nameButton, 11f, true, Color.WHITE).apply {
+                gravity=Gravity.CENTER
+                background=round(if (enabled) buttonBg else color("#737D74"),9)
+                isEnabled=enabled
+                setOnClickListener { onCommand(entry,kind) }
+            }, LinearLayout.LayoutParams(dp(96),dp(32)))
+            parent.addView(content, LinearLayout.LayoutParams(-1,dp(37)))
+            if (i<2) parent.addView(View(host).apply { setBackgroundColor(line) },
+                LinearLayout.LayoutParams(-1,dp(1)))
+        }
+        return parent
+    }
+
+    private fun journal(actions: List<BattleAction>): View {
+        val parent=column().apply {
+            background=round(cardBg,14); setPadding(dp(11),dp(3),dp(11),dp(3))
+        }
+        val list=actions.sortedByDescending { it.completedAt ?: it.requestedAt ?: "" }.take(3)
+        if(list.isEmpty()){
+            parent.addView(label(tr("Команд пока нет", "No commands yet"),12f,false,secondary).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }, LinearLayout.LayoutParams(-1, dp(32)))
+        } else list.forEachIndexed { i,action ->
+            val r=row()
+            r.addView(label(actionIcon(action.kind),16f,false,green),
+                LinearLayout.LayoutParams(dp(27),-1))
+            r.addView(label(whenText(action),10f,false,secondary),
+                LinearLayout.LayoutParams(dp(57),-1))
+            val suffix=when(action.status){
+                "pending"->tr(" · ожидает", " · pending")
+                "cancelled"->tr(" · отменено", " · cancelled")
+                else->""
+            }
+            r.addView(label(actionText(action)+suffix,11f,i==0),
+                LinearLayout.LayoutParams(0,-1,1f))
+            parent.addView(r,LinearLayout.LayoutParams(-1,dp(27)))
+            if(i<list.lastIndex)parent.addView(View(host).apply{setBackgroundColor(line)},
+                LinearLayout.LayoutParams(-1,dp(1)))
+        }
+        return parent
+    }
+
+    private fun chartHeader(): View {
+        val r=row()
+        r.addView(label(tr("АКТИВНОСТЬ", "ACTIVITY"),11f,true),LinearLayout.LayoutParams(0,dp(28),1f))
+        for (days in listOf(1,3,7)) {
+            val selected=days==chartPeriod
+            val button=chip(if(days==1) (if(language.code=="ru") "24 ч" else "24 h") else if(language.code=="ru") "$days дня".replace("7 дня","7 дней") else "$days days",
+                selected,0) {
+                chartPeriod=days
+                onPeriod(days)
+                chartTarget?.selectPeriod(days)
+                // Refresh the active-chip appearance as well.
+                for (i in 1 until r.childCount) {
+                    val child=r.getChildAt(i) as? TextView ?: continue
+                    val period=listOf(1,3,7)[i-1]
+                    child.setTextColor(if(period==days) Color.WHITE else ink)
+                    child.background=round(if(period==days)buttonBg else cardBg,9,if(period==days)null else line)
+                }
+            }
+            r.addView(button,LinearLayout.LayoutParams(0,dp(27),1f).apply {
+                if(days!=7)rightMargin=dp(5)
+            })
+        }
+        return r
+    }
+
+    private fun spectatorBlock(): View {
+        val wrap=column()
+        val card=column().apply {
+            setPadding(dp(15),dp(14),dp(15),dp(12))
+            background=round(cardBg,14)
+        }
+        card.addView(label(tr("Вы наблюдаете за битвой", "You are watching the battle"),16f,true))
+        card.addView(label(tr("Ресурсы участников скрыты. Управляет растением только его владелец.", "Players’ resources are hidden. Only each owner controls their plant."),12f,false,secondary).apply{
+            maxLines=3;ellipsize=null
+        },LinearLayout.LayoutParams(-1,dp(52)))
+        if (battle.status=="open") card.addView(chip(tr("Занять место", "Join battle"),true){onJoin()},
+            LinearLayout.LayoutParams(-1,dp(36)))
+        wrap.addView(card)
+        wrap.addView(labelHeader(tr("УЧАСТНИКИ", "PARTICIPANTS"),10))
+        val members = HorizontalScrollView(host).apply {
+            isHorizontalScrollBarEnabled = false
+        }
+        val cards = row().apply {
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            background = round(cardBg, 14)
+        }
+        battle.entries.sortedBy { it.slotNumber }.take(6).forEach { entry ->
+            val player = entry.participantName?.trim().takeUnless { it.isNullOrBlank() }
+                ?: tr("Игрок #", "Player #") + entry.slotNumber
+            val selected = battle.myPredictionEntryId == entry.id
+            val tile = column().apply {
+                gravity = Gravity.CENTER
+                background = round(if (selected) tint else cardBg, 12,
+                    if (selected) green else line)
+                isClickable = true
+                isFocusable = true
+                contentDescription = tr("Контейнер #", "Container #") + entry.slotNumber + ": " + player
+                setOnClickListener { onPredict(entry) }
+                setPadding(dp(6), dp(7), dp(6), dp(7))
+            }
+            val avatar = FrameLayout(host)
+            val initials = label(player.take(1).uppercase(), 17f, true, green).apply {
+                gravity = Gravity.CENTER
+                background = round(tint, 25)
+            }
+            avatar.addView(initials, FrameLayout.LayoutParams(dp(38), dp(38)))
+            val photoUrl = api.absolute(entry.participantAvatarUrl)
+            if (photoUrl != null) {
+                val photo = ImageView(host).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = round(tint, 25)
+                    clipToOutline = true
+                    visibility = View.GONE
+                }
+                avatar.addView(photo, FrameLayout.LayoutParams(dp(38), dp(38)))
+                Thread {
+                    val bitmap = api.loadBitmap(photoUrl)
+                    if (bitmap != null) host.runOnUiThread {
+                        if (photo.isAttachedToWindow && !host.isFinishing) {
+                            photo.setImageBitmap(bitmap)
+                            photo.visibility = View.VISIBLE
+                        }
+                    }
+                }.start()
+            }
+            tile.addView(avatar)
+            tile.addView(label(player, 11f, true).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(22)))
+            tile.addView(label("#" + entry.slotNumber +
+                if (selected) "  ★" else "", 10f, false, if (selected) green else secondary)
+                .apply { gravity = Gravity.CENTER },
+                LinearLayout.LayoutParams(-1, dp(16)))
+            cards.addView(tile, LinearLayout.LayoutParams(dp(102), dp(95)).apply {
+                rightMargin = dp(6)
+            })
+        }
+        members.addView(cards)
+        wrap.addView(members, LinearLayout.LayoutParams(-1, dp(112)))
+        wrap.addView(label(tr("Нажмите на участника, чтобы выбрать фаворита.", "Tap a player to pick your favorite."),11f,false,secondary),
+            spacedTop(8))
+        return wrap
+    }
+}

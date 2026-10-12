@@ -1,59 +1,41 @@
-# KisaMore Battle — Android
+# KisaMore Battle — Android MVP
 
-Native Android client for KisaMore Plant Battle.
+First native Android client for KisaMore Plant Battle.
 
-## Current features
+## MVP features
 
 - public/spectator battle list;
 - login with the existing KisaMore account;
-- automatic server failover: `https://kisamore.farm` -> `https://ru.kisamore.farm`;
 - player's battle dashboard;
-- real rack photo and container numbers;
+- real rack photo with the player's container highlighted;
 - water, nutrient and shade resource meters;
 - real battle commands sent to the existing FastAPI backend;
 - 24-hour / 3-day timelapse links;
 - player's recent command history;
-- winner prediction voting;
-- local XP, streaks, daily missions and badges;
-- visible app version on the login screen.
+- winner prediction voting for players and spectators;
+- persistent session cookie and configurable server URL.
 
-## Android / Google Play
+The default server is `https://kisamore.farm`. The login screen can be switched to
+`https://ru.kisamore.farm` for testing the Russian endpoint.
 
-- applicationId: `farm.kisamore.battle`
-- minSdk: 26
-- compileSdk: 36
-- targetSdk: 36
-- current version: 0.4.3 (versionCode 11)
+## Open in Android Studio
 
-Google Play publication material is in:
-`../google-play/`
+Open the `android-battle` directory as a Gradle project, wait for Gradle sync, then run the
+`app` configuration on an Android 8.0+ device/emulator.
 
-## Local debug build
+## Command-line build
+
+A local Gradle installation can build the project:
 
 ```bash
 gradle -p android-battle testDebugUnitTest assembleDebug
 ```
 
-Debug APK:
-`android-battle/app/build/outputs/apk/debug/app-debug.apk`
+The debug APK is created at:
 
-## Release AAB
-
-An unsigned local smoke-test AAB can be built with:
-
-```bash
-gradle -p android-battle bundleRelease
+```
+android-battle/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-For a signed Google Play AAB, use the GitHub Actions workflow:
-**Android Battle — Google Play AAB**
-
-Signing credentials are read only from environment variables / GitHub Actions secrets.
-See `../google-play/signing-setup.md`.
-
-
-## Languages
-
-The Android client supports English, Russian, Chinese, German, French, Spanish,
-Italian, Portuguese and Polish. English is the default fallback; the device language
-is selected automatically on first launch and can be changed from Profile.
+GitHub Actions also builds and uploads the APK artifact on pushes to
+`feature/battle-android-mvp`.
