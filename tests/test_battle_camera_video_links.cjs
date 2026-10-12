@@ -27,5 +27,5 @@ for(const camera of ["camera_1","camera_5"]){
 const full=js.slice(js.indexOf("function arena(b,interactive){"),js.indexOf("function renderMyBattle(){"));
 assert.ok(full.includes("videoButtons(view)"),"Battle video controls follow the camera selection");
 assert.ok(!full.includes("videoButtons(selected)"),"No container-specific videos in battle panel");
-assert.ok(html.includes("battle_site.js?v=20261012-7"),"Fresh JS cache version");
+assert.ok(html.includes("battle_site.js?v=20261012-8"),"Fresh JS cache version");
 console.log("PASS: Battle 24h/3d/full use whole-rack camera, switching camera changes all timelapse URLs");

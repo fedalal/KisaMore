@@ -46,5 +46,5 @@ assert.ok(css.includes('min-width:34px;min-height:0;max-width:34px;max-height:34
 assert.ok(css.includes('flex-basis:26px;width:26px;height:26px;'),
   "mobile avatar size must stay small");
 assert.ok(html.includes("battle_site.css?v=20261012-7"));
-assert.ok(html.includes("battle_site.js?v=20261012-7"));
+assert.ok(html.includes("battle_site.js?v=20261012-8"));
 console.log("PASS: participant hover tooltip, avatar/fallback, safely escaped names, keyboard/touch, selection retained");

@@ -39,5 +39,5 @@ assert.ok(css.includes('.hero-scoreboard .mini-slot .hero-slot-avatar{'),"Scoped
 assert.ok(css.includes('min-width:44px;min-height:44px;max-width:44px;max-height:44px'),"Stable desktop avatar 44px");
 assert.ok(css.includes('min-width:34px;min-height:34px;max-width:34px;max-height:34px'),"Stable mobile avatar 34px");
 assert.ok(html.includes('battle_site.css?v=20261012-7'));
-assert.ok(html.includes('battle_site.js?v=20261012-7'));
+assert.ok(html.includes('battle_site.js?v=20261012-8'));
 console.log("PASS: hero six avatars, names, initials fallback, winner, empty slots, escaping, sizes, cache");
