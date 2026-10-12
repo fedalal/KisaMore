@@ -767,6 +767,25 @@ async def reject_action(
     action.note = payload.note.strip() or "Rejected by administrator"
     action.completed_at = datetime.now(timezone.utc)
     action.completed_by_user_id = admin.id
+    battle = await session.get(PlantBattle, entry.battle_id)
+    tg = await session.get(TelegramUser, entry.telegram_user_id) if entry.telegram_user_id else None
+    if battle is not None and tg is not None and tg.is_active:
+        lang_ru = (tg.language_code or "").lower().startswith("ru")
+        labels = (
+            {"water": "полив", "nutrient": "питательный раствор", "shade": "закрытие от света"}
+            if lang_ru else
+            {"water": "watering", "nutrient": "nutrient solution", "shade": "shade"}
+        )
+        unit = ("мин" if lang_ru else "min") if action.kind == "shade" else ("мл" if lang_ru else "ml")
+        await queue_telegram_text(
+            session,
+            telegram_user_id=tg.telegram_user_id,
+            event_key=f"battle_action_rejected:{action.id}",
+            text=battle_message(
+                tg, "action_rejected", rack=battle.rack_id, slot=entry.slot_number,
+                action=labels.get(action.kind, action.kind), amount=action.amount, unit=unit,
+            ),
+        )
     await session.commit()
     return {"ok": True, "status": action.status}
 

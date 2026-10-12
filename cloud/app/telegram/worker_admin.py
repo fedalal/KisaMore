@@ -57,6 +57,131 @@ async def _show_pending(bot, chat_id: int) -> None:
         await bot.send_message(chat_id, text, reply_markup=keyboard)
 
 
+
+def _battle_action_keyboard(action_id: str) -> dict:
+    return {"inline_keyboard": [[
+        {"text": "✅ Выполнено", "callback_data": f"adminbattle:done:{action_id}"},
+        {"text": "❌ Отклонить", "callback_data": f"adminbattle:reject:{action_id}"},
+    ]]}
+
+
+async def _show_pending_battle_actions(bot, chat_id: int) -> None:
+    from ..battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry
+
+    async with SessionLocal() as session:
+        rows = list((await session.execute(
+            select(PlantBattleAction, PlantBattleEntry, PlantBattle, User)
+            .join(PlantBattleEntry, PlantBattleEntry.id == PlantBattleAction.entry_id)
+            .join(PlantBattle, PlantBattle.id == PlantBattleEntry.battle_id)
+            .join(User, User.id == PlantBattleEntry.user_id)
+            .where(PlantBattleAction.status == "pending")
+            .order_by(PlantBattleAction.requested_at)
+            .limit(30)
+        )).all())
+    if not rows:
+        await bot.send_message(chat_id, "✅ <b>Ожидающих действий в битвах нет.</b>")
+        return
+    await bot.send_message(chat_id, f"🎮 <b>Ожидают выполнения: {len(rows)}</b>")
+    labels = {"water": "💧 Вода", "nutrient": "🧪 Питательный раствор", "shade": "🌘 Закрыть от света"}
+    for action, entry, battle, user in rows:
+        unit = "мин" if action.kind == "shade" else "мл"
+        await bot.send_message(
+            chat_id,
+            f"🎮 <b>Действие в Битве растений</b>\n\n"
+            f"Полка {battle.rack_id} · контейнер {entry.slot_number}\n"
+            f"Участник: <b>{escape(user.display_name)}</b>\n"
+            f"{labels.get(action.kind, escape(action.kind))}: <b>{action.amount} {unit}</b>\n\n"
+            "Выполните действие физически, затем отметьте результат.",
+            reply_markup=_battle_action_keyboard(action.id),
+        )
+
+
+async def _handle_admin_battle_callback(bot, query: dict) -> bool:
+    data = str(query.get("data") or "")
+    if not data.startswith("adminbattle:"):
+        return False
+    qid = query.get("id")
+    tg = query.get("from")
+    message = query.get("message") or {}
+    chat_id = (message.get("chat") or {}).get("id")
+    if not qid or not tg or chat_id is None:
+        return True
+    _, web_admin = await _authorized_admin(tg)
+    if web_admin is None:
+        await bot.answer_callback_query(qid, text="Нет прав администратора", show_alert=True)
+        return True
+    parts = data.split(":")
+    if len(parts) != 3 or len(parts[2]) != 36:
+        await bot.answer_callback_query(qid, text="Некорректная команда", show_alert=True)
+        return True
+    operation, action_id = parts[1], parts[2]
+    if operation == "reject":
+        await bot.answer_callback_query(qid)
+        await bot.send_message(
+            chat_id,
+            "❌ <b>Отклонить запрос игрока?</b>\n"
+            "При отклонении зарезервированный ресурс вернётся игроку.",
+            reply_markup={"inline_keyboard": [
+                [{"text": "❌ Да, отклонить",
+                  "callback_data": f"adminbattle:rejectconfirm:{action_id}"}],
+                [{"text": "↩️ Не отклонять",
+                  "callback_data": f"adminbattle:cancel:{action_id}"}],
+            ]},
+        )
+        return True
+    if operation == "cancel":
+        await bot.answer_callback_query(qid, text="Отмена")
+    elif operation in ("done", "rejectconfirm"):
+        from ..battle_admin_api import RejectActionIn, complete_action, reject_action
+        try:
+            async with SessionLocal() as session:
+                if operation == "done":
+                    outcome = await complete_action(action_id, admin=web_admin, session=session)
+                else:
+                    outcome = await reject_action(
+                        action_id,
+                        payload=RejectActionIn(note="Отклонено администратором в Telegram"),
+                        admin=web_admin,
+                        session=session,
+                    )
+            verb = "✅ Отмечено выполненным" if outcome["status"] == "completed" else "❌ Отклонено"
+        except HTTPException as exc:
+            if exc.status_code == 409:
+                await bot.answer_callback_query(
+                    qid, text="Запрос уже обработан другим администратором", show_alert=True
+                )
+            else:
+                await bot.answer_callback_query(
+                    qid, text="Запрос не найден или недоступен", show_alert=True
+                )
+            return True
+        except Exception:
+            core.logger.exception("Telegram battle action handling failed for %s", action_id)
+            await bot.answer_callback_query(qid, text="Ошибка обработки. Повторите позже", show_alert=True)
+            return True
+        # The database transaction is already committed; Telegram API errors
+        # must not be mistaken for a failed battle action.
+        try:
+            await bot.answer_callback_query(qid, text=verb)
+            await bot.send_message(chat_id, f"{verb}. Данные обновлены в админке KisaMore.")
+        except Exception:
+            core.logger.exception("Could not confirm completed battle action to Telegram")
+    else:
+        await bot.answer_callback_query(qid, text="Неизвестная операция", show_alert=True)
+        return True
+
+    if message.get("message_id") is not None:
+        try:
+            await bot.call("editMessageReplyMarkup", {
+                "chat_id": chat_id,
+                "message_id": message["message_id"],
+                "reply_markup": {"inline_keyboard": []},
+            })
+        except Exception:
+            # State is already committed; an expired/edited message should not undo it.
+            core.logger.info("Could not clear processed battle buttons in chat %s", chat_id)
+    return True
+
 def _gift_amount_keyboard(target_user_id: int) -> dict:
     return {
         "inline_keyboard": [
@@ -318,6 +443,7 @@ async def handle_message(bot, message: dict) -> None:
         await bot.send_message(chat_id, "⛔ Команда доступна только администратору KisaMore.")
         return
     await _show_pending(bot, chat_id)
+    await _show_pending_battle_actions(bot, chat_id)
 
 
 async def _handle_admin_user_callback(bot, query: dict) -> bool:
@@ -513,6 +639,8 @@ async def _handle_admin_plant_callback(bot, query: dict) -> bool:
 
 
 async def handle_callback(bot, query: dict) -> None:
+    if await _handle_admin_battle_callback(bot, query):
+        return
     if await _handle_admin_user_callback(bot, query):
         return
     if await _handle_admin_plant_callback(bot, query):

@@ -18,6 +18,7 @@ BATTLE_MESSAGES = {
         "started": "🌱 <b>Plant Battle has started!</b>\n\nRack {rack}. All six plants have been planted. You can now manage your resource allowance and follow photos and timelapses.",
         "cancelled": "↩️ <b>Plant Battle was cancelled.</b>\n\nⓀ {refund} were returned for container {slot}.",
         "action_done": "✅ <b>Your Plant Battle action was completed.</b>\n\nRack {rack} · Container {slot}\n{action}: {amount} {unit}",
+        "action_rejected": "❌ <b>Your Plant Battle action was declined.</b>\n\nRack {rack} · Container {slot}\n{action}: {amount} {unit}\nThe reserved resource has been returned.",
         "winner": "🏆 <b>You won the Plant Battle!</b>\n\nPrize: Ⓚ {reward}\nBadge: <b>Best Gardener</b>\n\nYour digital diploma: {certificate}",
         "finished": "🏁 <b>Plant Battle is finished.</b>\n\nContainer #{winner_slot} won. Thank you for participating. Your growth history, timelapse and digital diploma remain available: {certificate}",
     },
@@ -26,6 +27,7 @@ BATTLE_MESSAGES = {
         "started": "🌱 <b>Битва растений началась!</b>\n\nПолка {rack}. Все 6 растений посажены. Теперь вы можете управлять лимитами ресурсов и следить за фото и таймлапсами.",
         "cancelled": "↩️ <b>Битва растений отменена.</b>\n\nЗа контейнер {slot} возвращено Ⓚ {refund}.",
         "action_done": "✅ <b>Действие для вашего растения выполнено.</b>\n\nПолка {rack} · контейнер {slot}\n{action}: {amount} {unit}",
+        "action_rejected": "❌ <b>Запрос на действие отклонён.</b>\n\nПолка {rack} · контейнер {slot}\n{action}: {amount} {unit}\nРесурс возвращён в доступный остаток.",
         "winner": "🏆 <b>Вы победили в «Битве растений»!</b>\n\nНаграда: Ⓚ {reward}\nЗначок: <b>Лучший садовод</b>\n\nВаш цифровой диплом: {certificate}",
         "finished": "🏁 <b>«Битва растений» завершена.</b>\n\nПобедил контейнер №{winner_slot}. Спасибо за участие. История роста, таймлапс и цифровой диплом доступны здесь: {certificate}",
     },
@@ -93,6 +95,7 @@ async def queue_telegram_text(
     telegram_user_id: int,
     event_key: str,
     text: str,
+    reply_markup: dict | None = None,
 ) -> None:
     if await session.get(TelegramActivityDelivery, event_key) is not None:
         return
@@ -101,7 +104,7 @@ async def queue_telegram_text(
             event_key=event_key,
             telegram_user_id=telegram_user_id,
             kind="battle",
-            payload={"text": text},
+            payload={"text": text, **({"reply_markup": reply_markup} if reply_markup else {})},
             status="pending",
             attempts=0,
             created_at=datetime.now(timezone.utc),
@@ -114,6 +117,7 @@ async def queue_admin_text(
     *,
     event_prefix: str,
     text: str,
+    reply_markup: dict | None = None,
 ) -> None:
     rows = (
         await session.execute(
@@ -131,6 +135,7 @@ async def queue_admin_text(
             telegram_user_id=telegram_user.telegram_user_id,
             event_key=f"{event_prefix}:{admin.user_id}",
             text=text,
+            reply_markup=reply_markup,
         )
 
 

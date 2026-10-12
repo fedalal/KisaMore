@@ -856,10 +856,17 @@ async def request_battle_action(
         text=(
             "🎮 <b>Новое действие в Битве растений</b>\n\n"
             f"Полка {battle.rack_id} · контейнер {entry.slot_number}\n"
+            f"Участник: <b>{escape(user.display_name)}</b>\n"
             f"Ресурс: <b>{labels[payload.kind]}</b>\n"
             f"Количество: <b>{payload.amount} {unit}</b>\n\n"
-            "Выполните действие вручную и отметьте его в админке."
+            "Сначала выполните действие физически, затем нажмите «Выполнено»."
         ),
+        reply_markup={
+            "inline_keyboard": [[
+                {"text": "✅ Выполнено", "callback_data": f"adminbattle:done:{action.id}"},
+                {"text": "❌ Отклонить", "callback_data": f"adminbattle:reject:{action.id}"},
+            ]],
+        },
     )
     await session.commit()
     return {
