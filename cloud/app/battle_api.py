@@ -209,8 +209,13 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
                 ),
             }
         )
+    linked_tg = (
+        await linked_telegram_user(session, user_id=current_user_id)
+        if current_user_id is not None else None
+    )
     return {
         "id": battle.id,
+        "my_telegram_linked": linked_tg is not None if current_user_id is not None else None,
         "title": battle.title,
         "status": battle.status,
         "device_id": battle.device_id,

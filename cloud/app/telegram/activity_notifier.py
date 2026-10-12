@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from html import escape
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 from sqlalchemy import BigInteger, DateTime, Integer, JSON, String, Text, select
@@ -484,6 +485,45 @@ async def _ready_timelapse(session, delivery: TelegramActivityDelivery):
     return path, caption
 
 
+def _highlight_battle_slot(photo_path: Path, polygon: object) -> Path | None:
+    """Draw the calibrated container outline on a temporary photo for Telegram.
+
+    The source shelf photo is never modified. Invalid or unavailable calibration
+    falls back to the untouched full shelf image.
+    """
+    if not isinstance(polygon, list) or len(polygon) != 4:
+        return None
+    try:
+        points = [
+            (float(point[0]), float(point[1]))
+            for point in polygon
+            if isinstance(point, list) and len(point) == 2
+        ]
+        if len(points) != 4 or any(
+            not (0 <= x <= 1 and 0 <= y <= 1) for x, y in points
+        ):
+            return None
+        from PIL import Image, ImageDraw
+
+        with Image.open(photo_path) as original:
+            image = original.convert("RGB")
+        width, height = image.size
+        coords = [(round(x * width), round(y * height)) for x, y in points]
+        pen = ImageDraw.Draw(image)
+        pen.line(coords + [coords[0]], fill=(35, 220, 116), width=max(3, width // 400), joint="curve")
+        with tempfile.NamedTemporaryFile(prefix="kisamore-battle-morning-", suffix=".jpg", delete=False) as tmp:
+            output = Path(tmp.name)
+        try:
+            image.save(output, "JPEG", quality=88, optimize=True)
+            return output
+        except Exception:
+            output.unlink(missing_ok=True)
+            raise
+    except Exception:
+        logger.exception("Could not highlight battle slot on morning photo")
+        return None
+
+
 async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
     sent = 0
     failed = 0
@@ -526,7 +566,35 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
                     ]]
                 }
             try:
-                if delivery.kind in ("watering_done", "planting_ready"):
+                if delivery.kind == "battle_daily" and payload.get("photo_path"):
+                    # One Telegram notification only: photo with the full
+                    # morning report as caption. Missing media falls back to text.
+                    photo_path = Path(str(payload["photo_path"]))
+                    if photo_path.is_file() and photo_path.stat().st_size <= 10 * 1024 * 1024:
+                        highlighted = _highlight_battle_slot(
+                            photo_path, payload.get("slot_polygon")
+                        )
+                        try:
+                            await bot.send_photo(
+                                delivery.telegram_user_id,
+                                highlighted or photo_path,
+                                caption=str(payload.get("text") or "Plant Battle")[:1024],
+                                reply_markup=markup,
+                            )
+                        finally:
+                            if highlighted:
+                                highlighted.unlink(missing_ok=True)
+                    else:
+                        await bot.send_message(
+                            delivery.telegram_user_id,
+                            str(payload.get("text") or "Plant Battle"),
+                            reply_markup=markup,
+                        )
+                    delivery.status = "sent"
+                    delivery.sent_at = datetime.now(timezone.utc)
+                    delivery.last_error = None
+                    sent += 1
+                elif delivery.kind in ("watering_done", "planting_ready"):
                     # Send the lifecycle text first, then attach the relevant
                     # timelapse without ever duplicating the text while media
                     # is generated/prepared.

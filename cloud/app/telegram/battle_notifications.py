@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 from html import escape
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from ..battle_models import PlantBattle, PlantBattleEntry
 from ..config import get_settings
-from ..models import Plant
+from ..models import Plant, RackCameraCalibration, RackCameraPhoto
 from .activity_notifier import TelegramActivityDelivery
 from .models import TelegramUser
 
@@ -82,22 +82,54 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
 
     rows = (
         await session.execute(
-            select(PlantBattleEntry, PlantBattle, TelegramUser, Plant)
+            select(PlantBattleEntry, PlantBattle, Plant)
             .join(PlantBattle, PlantBattle.id == PlantBattleEntry.battle_id)
-            .join(TelegramUser, TelegramUser.id == PlantBattleEntry.telegram_user_id)
             .join(Plant, Plant.id == PlantBattle.plant_id)
             .where(
                 PlantBattle.status == "growing",
                 PlantBattleEntry.status == "active",
-                TelegramUser.is_active.is_(True),
             )
             .order_by(PlantBattle.id, PlantBattleEntry.slot_number)
         )
     ).all()
 
+    # Battle entries can predate Telegram linking. Resolve both direct
+    # participants and linked website accounts; ordinary rentals are excluded.
+    user_ids = {entry.user_id for entry, _, _ in rows}
+    telegram_ids = {entry.telegram_user_id for entry, _, _ in rows if entry.telegram_user_id}
+    telegram_users = []
+    if user_ids or telegram_ids:
+        telegram_users = list((await session.execute(
+            select(TelegramUser)
+            .where(
+                TelegramUser.is_active.is_(True),
+                or_(
+                    TelegramUser.marketplace_user_id.in_(user_ids),
+                    TelegramUser.id.in_(telegram_ids),
+                ),
+            )
+        )).scalars().all())
+    by_account = {tg.marketplace_user_id: tg for tg in telegram_users if tg.marketplace_user_id}
+    by_telegram = {tg.id: tg for tg in telegram_users}
+
+    camera_rows = list((await session.execute(
+        select(RackCameraPhoto)
+        .where(RackCameraPhoto.is_primary.is_(True))
+        .order_by(RackCameraPhoto.captured_at.desc())
+    )).scalars().all()) if rows else []
+    primary_photo = {(photo.device_id, photo.rack_id): photo for photo in reversed(camera_rows)}
+    calibration_rows = list((await session.execute(
+        select(RackCameraCalibration)
+    )).scalars().all()) if rows else []
+    calibrations = {
+        (item.device_id, item.rack_id, item.camera_id): item.slot_outlines
+        for item in calibration_rows
+    }
+
     created = 0
-    for entry, battle, telegram_user, plant in rows:
-        if not entry.planting_id:
+    for entry, battle, plant in rows:
+        telegram_user = by_account.get(entry.user_id) or by_telegram.get(entry.telegram_user_id)
+        if telegram_user is None or not entry.planting_id:
             continue
         planted = _aware(battle.planted_at)
         if planted is None:
@@ -125,6 +157,9 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
             nutrient=max(0, battle.nutrient_budget_ml - entry.nutrient_used_ml),
             shade=max(0, battle.shade_budget_minutes - entry.shade_used_minutes),
         )
+        photo = primary_photo.get((battle.device_id, battle.rack_id))
+        # The bot mounts the shared photo volume. A missing file is handled
+        # by the sender, which falls back to the text version.
         session.add(
             TelegramActivityDelivery(
                 event_key=event_key,
@@ -132,6 +167,13 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
                 kind="battle_daily",
                 payload={
                     "text": text,
+                    "photo_path": photo.file_path if photo else None,
+                    "slot_polygon": (
+                        calibrations.get(
+                            (battle.device_id, battle.rack_id, photo.camera_id), {}
+                        ).get(str(entry.slot_number))
+                        if photo else None
+                    ),
                     "button": tr["button"],
                     "url": (
                         f"{get_settings().public_base_url.rstrip('/')}/battle?battle={battle.id}"

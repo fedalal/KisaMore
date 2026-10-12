@@ -58,6 +58,11 @@ class AppLanguage(private val context: Context) {
             supported.firstOrNull { it.first == code }?.second ?: "English"
 
         private val rows: Map<String, Array<String>> = mapOf(
+            "🌱 Утренняя сводка · день " to arrayOf("🌱 Morning report · day ", "🌱 Morgenbericht · Tag ", "🌱 Rapport du matin · jour ", "🌱 Informe matinal · día ", "🌱 Resoconto mattutino · giorno ", "🌱 Relatório matinal · dia ", "🌱 Poranny raport · dzień ", "🌱 早间报告 · 第 "),
+            "Закрыть утреннюю сводку" to arrayOf("Dismiss morning report", "Morgenbericht schließen", "Fermer le rapport", "Cerrar el informe matinal", "Chiudi il rapporto", "Fechar relatório", "Zamknij raport", "关闭早间报告"),
+            "Проверьте свежую фотографию полки и решите, нужны ли растению ресурсы сегодня." to arrayOf("Check the latest shelf photo and decide whether to use resources today.", "Prüfe das aktuelle Regalfoto und entscheide über Ressourcen.", "Regardez la photo récente et décidez des ressources à utiliser.", "Revisa la foto de la estantería y decide si usar recursos.", "Guarda la foto recente e decidi se usare risorse oggi.", "Veja a foto recente e decida se deve usar recursos hoje.", "Sprawdź najnowsze zdjęcie i zdecyduj o użyciu zasobów.", "查看最新架子照片，决定今天是否使用资源。"),
+            "Полка " to arrayOf("Rack ", "Regal ", "Étagère ", "Estante ", "Scaffale ", "Prateleira ", "Półka ", "架子 "),
+            "Контейнер " to arrayOf("Container ", "Behälter ", "Bac ", "Contenedor ", "Contenitore ", "Recipiente ", "Pojemnik ", "容器 "),
             "Начало" to arrayOf("Start", "Start", "Accueil", "Inicio", "Inizio", "Início", "Start", "开始"),
             "Битва" to arrayOf("Battle", "Battle", "Bataille", "Batalla", "Battaglia", "Batalha", "Bitwa", "对战"),
             "ГОСТЬ" to arrayOf("GUEST", "GAST", "INVITÉ", "INVITADO", "OSPITE", "VISITANTE", "GOŚĆ", "访客"),

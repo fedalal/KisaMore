@@ -58,7 +58,8 @@ data class Battle(
     val plantId: String? = null,
     val startDate: String? = null,
     val finishedAt: String? = null,
-    val farmSlug: String? = null
+    val farmSlug: String? = null,
+    val myTelegramLinked: Boolean = false
 ) {
     val mine: BattleEntry?
         get() = entries.firstOrNull { it.isMine }

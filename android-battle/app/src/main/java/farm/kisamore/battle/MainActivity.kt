@@ -30,6 +30,8 @@ import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
 import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.max
 
@@ -809,6 +811,18 @@ class MainActivity : Activity() {
             )
         )
 
+        if (!spectator) {
+            battleMorningBrief(battle)?.let { brief ->
+                body.addView(
+                    brief,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(dp(12), dp(4), dp(12), dp(8)) }
+                )
+            }
+        }
+
         body.addView(
             shelfPhoto(battle, compactPhotoHeight(), compact = true),
             LinearLayout.LayoutParams(
@@ -852,6 +866,73 @@ class MainActivity : Activity() {
         }
 
         showContent(body)
+    }
+
+    /**
+     * In-app morning report for participants without an active linked Telegram.
+     * This is shown on opening the Battle screen (not a system push), after
+     * 10:00 greenhouse time and never to guests or ordinary plant renters.
+     * The live shelf photo just below this card provides the visual progress.
+     */
+    private fun battleMorningBrief(battle: Battle): View? {
+        val mine = battle.mine ?: return null
+        if (battle.status != "growing" || battle.myTelegramLinked) return null
+        val plantedAt = battle.plantedAt?.takeIf { it.isNotBlank() } ?: return null
+        val zone = ZoneId.of("Europe/Moscow")
+        val now = ZonedDateTime.now(zone)
+        if (now.hour < 10) return null
+        val plantedDay = runCatching {
+            OffsetDateTime.parse(plantedAt).atZoneSameInstant(zone).toLocalDate()
+        }.getOrNull() ?: return null
+        val day = ChronoUnit.DAYS.between(plantedDay, now.toLocalDate()).toInt() + 1
+        if (day <= 1) return null
+
+        val today = now.toLocalDate().toString()
+        val key = listOf(api.currentUser?.id, battle.id, mine.id, today).joinToString(":")
+        val prefs = getSharedPreferences("kisamore_battle_morning", MODE_PRIVATE)
+        if (prefs.getBoolean(key, false)) return null
+
+        val card = compactCard()
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        header.addView(
+            bigText(t("🌱 Утренняя сводка · день ") + day, 14f),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        )
+        header.addView(TextView(this).apply {
+            text = "×"
+            textSize = 23f
+            gravity = Gravity.CENTER
+            setTextColor(muted)
+            setPadding(dp(12), 0, dp(3), 0)
+            contentDescription = t("Закрыть утреннюю сводку")
+            setOnClickListener {
+                prefs.edit().putBoolean(key, true).apply()
+                card.visibility = View.GONE
+            }
+        })
+        card.addView(header)
+        card.addView(
+            smallText(
+                t("Полка ") + battle.rackId + " · " +
+                    t("Контейнер ") + mine.slotNumber + " · " + battle.plantName
+            )
+        )
+        card.addView(
+            smallText(
+                t("Проверьте свежую фотографию полки и решите, нужны ли растению ресурсы сегодня.")
+            )
+        )
+        card.addView(
+            smallText(
+                "💧 " + max(0, battle.waterBudgetMl - mine.waterUsedMl) + " " + t("мл") +
+                    "   🧪 " + max(0, battle.nutrientBudgetMl - mine.nutrientUsedMl) + " " + t("мл") +
+                    "   🌘 " + max(0, battle.shadeBudgetMinutes - mine.shadeUsedMinutes) + " " + t("мин")
+            )
+        )
+        return card
     }
 
     private fun arenaHeader(battle: Battle): View {

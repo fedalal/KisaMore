@@ -366,7 +366,8 @@ class ApiClient(context: Context) {
             plantId = obj.nullableString("plant_id"),
             startDate = obj.nullableString("start_date"),
             finishedAt = obj.nullableString("finished_at"),
-            farmSlug = obj.nullableString("farm_slug")
+            farmSlug = obj.nullableString("farm_slug"),
+            myTelegramLinked = obj.optBoolean("my_telegram_linked", false)
         )
     }
 }
