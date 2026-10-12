@@ -83,7 +83,25 @@ function resource(label,emoji,used,total,unit){used=Number(used||0);total=Number
 function actionLabel(k){return k==="water"?t("water"):k==="nutrient"?t("nutrient"):t("shade")}
 function actionIcon(k){return k==="water"?"💧":k==="nutrient"?"🧪":"🌘"}
 function timeline(entry){const a=entry.actions||[];if(!a.length)return '<div class="strategy-secret">'+esc(t("noActions"))+'</div>';return '<div class="timeline-list">'+a.map(x=>'<div class="timeline-item"><div class="timeline-icon">'+actionIcon(x.kind)+'</div><div><strong>'+esc(actionLabel(x.kind))+' · '+x.amount+' '+(x.kind==="shade"?"min":"ml")+'</strong><small>'+esc(fmtDate(x.requested_at))+(x.completed_at?' → '+esc(fmtDate(x.completed_at)):'')+'</small></div><span class="timeline-status '+esc(x.status)+'">'+esc(t(x.status))+'</span></div>').join("")+'</div>'}
-function overlay(b,selectedId){const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);return '<div class="rack-overlay">'+[1,2,3,4,5,6].map(i=>{const e=by[i],mine=e&&e.is_mine;return '<button class="rack-slot '+(mine?"mine ":"")+(e&&e.id===selectedId?"selected ":"")+(e&&e.is_winner?"winner":"")+'" data-entry-select="'+(e?e.id:"")+'" type="button"><span class="slot-tag">'+(e&&e.is_winner?"🏆 ":mine?t("you")+" · ":"")+'#'+i+'</span></button>'}).join("")+'</div>'}
+function overlay(b,selectedId){
+  const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);
+  return '<div class="rack-overlay">'+[1,2,3,4,5,6].map(i=>{
+    const e=by[i],mine=e&&e.is_mine;
+    return '<button class="rack-slot '+(mine?"mine ":"")+(e&&e.id===selectedId?"selected ":"")+
+      (e&&e.is_winner?"winner":"")+'" type="button" aria-label="'+esc(t("container"))+' #'+i+
+      '" data-entry-select="'+(e?esc(e.id):"")+'"></button>';
+  }).join("")+'</div>';
+}
+function slotPicker(b,selectedId){
+  const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);
+  return '<div class="slot-picker" aria-label="'+esc(t("container"))+'">'+[1,2,3,4,5,6].map(i=>{
+    const e=by[i],mine=e&&e.is_mine;
+    const label='#'+i+(mine?' · '+t("you"):e&&e.is_winner?' 🏆':'');
+    return '<button type="button" class="slot-pick '+(e&&e.id===selectedId?'active ':'')+
+      (mine?'mine':'')+'" data-entry-select="'+(e?esc(e.id):"")+'" '+
+      (e?'':'disabled ')+'aria-label="'+esc(t("container"))+' '+i+'">'+esc(label)+'</button>';
+  }).join("")+'</div>';
+}
 function videoButtons(e){let s='<div class="timelapse-row"><button class="button secondary" data-video="'+esc(e.timelapse_24h_url)+'" data-video-title="24h '+esc(t("timelapse"))+'">24h</button><button class="button secondary" data-video="'+esc(e.timelapse_3d_url)+'" data-video-title="3d '+esc(t("timelapse"))+'">3d</button>';if(e.timelapse_full_url)s+='<button class="button secondary" data-video="'+esc(e.timelapse_full_url)+'" data-video-title="'+esc(t("full"))+' '+esc(t("timelapse"))+'">'+esc(t("full"))+'</button>';if(e.certificate_url)s+='<button class="button secondary" data-cert="'+esc(e.certificate_url)+'">🎓 '+esc(t("diploma"))+'</button>';return s+'</div>'}
 function cameraViews(b){
   const views=Array.isArray(b.camera_views)?b.camera_views.filter(v=>v&&v.photo_url):[];
@@ -120,6 +138,12 @@ function arena(b,interactive){
         esc(cameraViewLabel(item,index))+'</button>'
       ).join("")+'</div>'
     : "";
+  const imageStage='<div class="rack-stage"><div class="rack-image-frame">'+img+
+    overlay(b,selected?selected.id:null)+'</div>'+
+    '<div class="rack-media-toolbar">'+cameraSwitcher+
+      '<button class="button secondary open-photo" type="button" data-full-photo="'+esc(b.id)+'">'+
+        esc(state.lang==="ru"?"⛶ Развернуть фото":"⛶ View full photo")+'</button></div>'+
+    slotPicker(b,selected?selected.id:null)+'</div>';
 
   let side="";
   if(selected&&selected.resources_visible){
@@ -143,8 +167,8 @@ function arena(b,interactive){
     esc(plantName(b))+'</span><h3>'+esc(b.title)+'</h3><p>'+occupied(b)+' / '+b.max_entries+' '+
     esc(t("players"))+'</p></div><div class="arena-status"><b>'+esc(statusText(b.status))+
     '</b><small>'+(d?esc(t("day")+" "+d.day+(d.total?" "+t("of")+" "+d.total:"")):"")+
-    '</small></div></div><div class="arena-grid"><div class="rack-stage">'+img+cameraSwitcher+
-    overlay(b,selected?selected.id:null)+'</div><aside class="arena-side">'+side+'</aside></div></div>';
+    '</small></div></div><div class="arena-grid">'+imageStage+
+    '<aside class="arena-side">'+side+'</aside></div></div>';
 }
 function renderMyBattle(){const active=state.mine.filter(b=>b.status!=="finished"),sec=$("#myBattleSection");if(!active.length){sec.classList.add("hidden");return}sec.classList.remove("hidden");if(!state.selectedMyBattle||!active.some(b=>b.id===state.selectedMyBattle))state.selectedMyBattle=active[0].id;const sel=$("#myBattleSelect");if(active.length>1){sel.classList.remove("hidden");sel.innerHTML=active.map(b=>'<option value="'+b.id+'" '+(b.id===state.selectedMyBattle?"selected":"")+'>'+esc(b.title)+'</option>').join("")}else sel.classList.add("hidden");smooth.replace($("#myBattleArena"),arena(active.find(b=>b.id===state.selectedMyBattle),true))}
 async function loadSession(){try{state.user=await api("/api/v1/auth/me")}catch{state.user=null}if(state.user&&T[state.user.preferred_language])state.lang=state.user.preferred_language}
@@ -186,8 +210,51 @@ async function confirmJoin(){
 }
 function openAction(btn){const b=state.mine.find(x=>x.id===btn.dataset.battle),e=b&&(b.entries||[]).find(x=>x.id===btn.dataset.entry);if(!b||!e)return;const k=btn.dataset.actionKind,total=k==="water"?e.water_budget_ml:k==="nutrient"?e.nutrient_budget_ml:e.shade_budget_minutes,used=k==="water"?e.water_used_ml:k==="nutrient"?e.nutrient_used_ml:e.shade_used_minutes,remaining=Math.max(0,total-used);state.action={battle:b,entry:e,kind:k,remaining};$("#actionTitle").textContent=actionIcon(k)+" "+actionLabel(k);$("#actionRemaining").textContent=remaining+" "+(k==="shade"?"min":"ml")+" "+t("remaining");const presets=k==="water"?[50,100,150]:k==="nutrient"?[5,10,20]:[30,60,120],allowed=presets.filter(x=>x<=remaining);$("#actionPresets").innerHTML=allowed.map((x,i)=>'<button type="button" data-preset="'+x+'" class="'+(i===0?"selected":"")+'">'+x+' '+(k==="shade"?"min":"ml")+'</button>').join("");$("#actionAmount").value=allowed[0]||remaining;$("#actionAmount").max=remaining;$("#actionError").textContent="";$("#actionDialog").showModal()}
 async function confirmAction(){const a=state.action;if(!a)return;const amount=Number($("#actionAmount").value);if(!amount||amount<1||amount>a.remaining){$("#actionError").textContent="Max "+a.remaining;return}const btn=$("#actionConfirm");btn.disabled=true;try{await api("/api/v1/battles/"+a.battle.id+"/entries/"+a.entry.id+"/actions",{method:"POST",body:JSON.stringify({kind:a.kind,amount})});$("#actionDialog").close();toast(t("sent"));await load()}catch(e){$("#actionError").textContent=e.message}finally{btn.disabled=false}}
+function renderPhotoViewer(battleId){
+  const b=state.mine.find(x=>x.id===battleId)||state.all.find(x=>x.id===battleId);
+  if(!b)return;
+  const views=cameraViews(b);
+  const selectedId=state.cameraViewByBattle[battleId];
+  const view=views.find(x=>x.camera_id===selectedId)||views.find(x=>x.primary)||views[0];
+  const title=state.lang==="ru"?"Полка ":"Rack ";
+  $("#photoViewerTitle").textContent=title+b.rack_id+" · "+(view?cameraViewLabel(view,views.indexOf(view)):"");
+  $("#photoViewerCameras").innerHTML=views.length>1?views.map((camera,index)=>
+    '<button type="button" class="'+(camera.camera_id===view.camera_id?'active':'')+
+    '" data-photo-camera="'+esc(camera.camera_id)+'" data-photo-battle="'+esc(battleId)+'">'+
+    esc(cameraViewLabel(camera,index))+'</button>'
+  ).join(""):"";
+  const img=$("#photoViewerImage"),loading=$("#photoViewerLoading");
+  const url=view&&view.photo_url?smooth.versioned(view.photo_url,view.captured_at):"";
+  const serial=state.photoLoadSerial=(state.photoLoadSerial||0)+1;
+  if(!url){img.hidden=true;loading.textContent=state.lang==="ru"?"Фото пока недоступно":"Photo unavailable";return}
+  loading.textContent=state.lang==="ru"?"Загрузка фотографии…":"Loading photo…";
+  // Keep the last decoded frame until the next one is ready.
+  const ready=new Image();
+  ready.onload=async()=>{
+    try{if(ready.decode)await ready.decode()}catch{}
+    if(serial!==state.photoLoadSerial||state.photoViewerBattleId!==battleId||!$("#photoDialog").open)return;
+    img.src=url;
+    img.hidden=false;
+    loading.textContent="";
+  };
+  ready.onerror=()=>{
+    if(serial===state.photoLoadSerial)
+      loading.textContent=state.lang==="ru"?"Не удалось загрузить фото":"Could not load photo";
+  };
+  ready.src=url;
+}
+function openFullPhoto(battleId){
+  state.photoViewerBattleId=battleId;
+  $("#photoViewerImage").hidden=true;
+  $("#photoDialog").showModal();
+  renderPhotoViewer(battleId);
+}
+$("#photoDialog").addEventListener("close",()=>{
+  state.photoViewerBattleId=null;
+  state.photoLoadSerial=(state.photoLoadSerial||0)+1;
+});
 function openVideo(url,title){if(!url)return;$("#videoTitle").textContent=title||t("timelapse");const v=$("#videoPlayer");v.src=url;v.load();$("#videoDialog").showModal();v.play().catch(()=>{})}
-document.addEventListener("click",ev=>{const c=ev.target.closest("[data-close]");if(c){const d=$("#"+c.dataset.close);if(d){if(d.id==="videoDialog"){$("#videoPlayer").pause();$("#videoPlayer").removeAttribute("src")}if(d.id==="arenaDialog")state.viewingBattleId=null;d.close()}return}const v=ev.target.closest("[data-view]");if(v){openArena(v.dataset.view);return}const j=ev.target.closest("[data-join]");if(j){openJoin(j.dataset.join);return}const cv=ev.target.closest("[data-camera-view]");if(cv){const battleId=cv.dataset.cameraBattle,cameraId=cv.dataset.cameraView;state.cameraViewByBattle[battleId]=cameraId;const b=state.all.find(x=>x.id===battleId)||state.mine.find(x=>x.id===battleId);if(b){if($("#myBattleArena").contains(cv))smooth.replace($("#myBattleArena"),arena(b,true));else smooth.replace($("#arenaDialogContent"),arena(b,false))}return}const es=ev.target.closest("[data-entry-select]");if(es&&es.dataset.entrySelect){state.selectedEntry=es.dataset.entrySelect;const mb=state.mine.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));if(mb&&$("#myBattleArena").contains(es))smooth.replace($("#myBattleArena"),arena(mb,true));else{const b=state.all.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));if(b)smooth.replace($("#arenaDialogContent"),arena(b,false))}return}const a=ev.target.closest("[data-action-kind]");if(a){openAction(a);return}const vid=ev.target.closest("[data-video]");if(vid){openVideo(vid.dataset.video,vid.dataset.videoTitle);return}const cert=ev.target.closest("[data-cert]");if(cert){window.open(cert.dataset.cert,"_blank","noopener");return}const p=ev.target.closest("[data-preset]");if(p){$$("[data-preset]",$("#actionPresets")).forEach(x=>x.classList.remove("selected"));p.classList.add("selected");$("#actionAmount").value=p.dataset.preset}});
+document.addEventListener("click",ev=>{const c=ev.target.closest("[data-close]");if(c){const d=$("#"+c.dataset.close);if(d){if(d.id==="videoDialog"){$("#videoPlayer").pause();$("#videoPlayer").removeAttribute("src")}if(d.id==="arenaDialog")state.viewingBattleId=null;if(d.id==="photoDialog"){state.photoViewerBattleId=null;state.photoLoadSerial=(state.photoLoadSerial||0)+1}d.close()}return}const full=ev.target.closest("[data-full-photo]");if(full){openFullPhoto(full.dataset.fullPhoto);return}const pc=ev.target.closest("[data-photo-camera]");if(pc){state.cameraViewByBattle[pc.dataset.photoBattle]=pc.dataset.photoCamera;renderPhotoViewer(pc.dataset.photoBattle);return}const v=ev.target.closest("[data-view]");if(v){openArena(v.dataset.view);return}const j=ev.target.closest("[data-join]");if(j){openJoin(j.dataset.join);return}const cv=ev.target.closest("[data-camera-view]");if(cv){const battleId=cv.dataset.cameraBattle,cameraId=cv.dataset.cameraView;state.cameraViewByBattle[battleId]=cameraId;const b=state.all.find(x=>x.id===battleId)||state.mine.find(x=>x.id===battleId);if(b){if($("#myBattleArena").contains(cv))smooth.replace($("#myBattleArena"),arena(b,true));else smooth.replace($("#arenaDialogContent"),arena(b,false))}return}const es=ev.target.closest("[data-entry-select]");if(es&&es.dataset.entrySelect){state.selectedEntry=es.dataset.entrySelect;const mb=state.mine.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));if(mb&&$("#myBattleArena").contains(es))smooth.replace($("#myBattleArena"),arena(mb,true));else{const b=state.all.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));if(b)smooth.replace($("#arenaDialogContent"),arena(b,false))}return}const a=ev.target.closest("[data-action-kind]");if(a){openAction(a);return}const vid=ev.target.closest("[data-video]");if(vid){openVideo(vid.dataset.video,vid.dataset.videoTitle);return}const cert=ev.target.closest("[data-cert]");if(cert){window.open(cert.dataset.cert,"_blank","noopener");return}const p=ev.target.closest("[data-preset]");if(p){$$("[data-preset]",$("#actionPresets")).forEach(x=>x.classList.remove("selected"));p.classList.add("selected");$("#actionAmount").value=p.dataset.preset}});
 $("#languageSelect").addEventListener("change",async e=>{state.lang=e.target.value;localStorage.setItem("battleLang",state.lang);if(state.user){try{await api("/api/v1/auth/me/language",{method:"PATCH",body:JSON.stringify({language:state.lang})})}catch{}}applyI18n();updateHero();renderLists();renderMyBattle()});
 $("#accountButton").addEventListener("click",toggleAccountMenu);
 $("#accountLogoutButton").addEventListener("click",async()=>{

@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#08130f">
   <title>KisaMore Battle — Grow. Decide. Win.</title>
   <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
-  <link rel="stylesheet" href="/static/battle_site.css?v=20261010-9">
+  <link rel="stylesheet" href="/static/battle_site.css?v=20261012-1">
   <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/battle_site.js?v=20261010-9" defer></script>
+  <script src="/static/battle_site.js?v=20261012-1" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -176,6 +176,18 @@
       <p class="command-hint" data-i18n="commandHint">The request is sent to the greenhouse operator. You will see when it is completed.</p>
       <p id="actionError" class="error"></p>
       <button id="actionConfirm" class="button primary large" type="button" data-i18n="sendCommand">Send command</button>
+    </div>
+  </dialog>
+
+  <dialog id="photoDialog" class="wide-dialog" aria-label="Camera photo">
+    <div class="photo-dialog-shell">
+      <button class="dialog-close" type="button" data-close="photoDialog" aria-label="Close">×</button>
+      <div class="photo-viewer-toolbar">
+        <strong id="photoViewerTitle"></strong>
+        <div id="photoViewerCameras" class="photo-viewer-cameras"></div>
+      </div>
+      <div id="photoViewerLoading" class="photo-viewer-loading"></div>
+      <img id="photoViewerImage" alt="Greenhouse camera" hidden>
     </div>
   </dialog>
 

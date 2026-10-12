@@ -51,3 +51,67 @@
   .account-avatar{display:none}
   .account-chevron{font-size:13px}
 }
+
+/* Camera stage: preserve the ENTIRE sensor frame. Previously the image was
+   forced to the resource panel's height and object-fit:cover cropped trays. */
+.arena-grid{align-items:start}
+.rack-stage{min-height:0;overflow:visible;background:#0a1712}
+.rack-image-frame{position:relative;width:100%;line-height:0;background:#0b1913;overflow:hidden}
+.rack-image-frame>img{display:block;width:100%;height:auto;min-height:0;max-width:100%;object-fit:contain}
+.rack-image-frame .rack-photo-empty{min-height:300px;aspect-ratio:4/3}
+.rack-image-frame:has(img:not([src])){min-height:260px}
+.rack-image-frame:has(img[src]){min-height:0}
+.rack-image-frame .rack-overlay{z-index:2;line-height:normal;pointer-events:none}
+.rack-image-frame .rack-overlay .rack-slot{appearance:none;-webkit-appearance:none;
+  background:transparent!important;color:inherit;padding:0;margin:3px;
+  border:1px solid transparent;border-radius:6px;box-shadow:none;
+  pointer-events:auto;transition:border-color .12s}
+.rack-image-frame .rack-overlay .rack-slot:hover{border-color:rgba(255,255,255,.65)}
+.rack-image-frame .rack-overlay .rack-slot.mine{
+  border:2px solid var(--green);box-shadow:0 0 0 1px rgba(0,0,0,.55)}
+.rack-image-frame .rack-overlay .rack-slot.selected:not(.mine){
+  border:2px solid rgba(240,255,242,.8)}
+.rack-image-frame .rack-overlay .rack-slot.winner{
+  border-color:var(--gold)}
+.rack-media-toolbar{display:flex;align-items:center;justify-content:space-between;
+  gap:8px;flex-wrap:wrap;padding:10px 12px;background:#0d2017;
+  border-top:1px solid var(--line)}
+.rack-media-toolbar .camera-switcher{position:static;inset:auto;z-index:auto;
+  max-width:none;display:flex;padding:0;border:0;border-radius:0;
+  background:transparent;backdrop-filter:none}
+.rack-media-toolbar .open-photo{margin-left:auto;font-size:12px;
+  padding:8px 10px;border-radius:9px;white-space:nowrap}
+.slot-picker{display:flex;gap:6px;flex-wrap:wrap;align-items:center;
+  padding:0 12px 11px;background:#0d2017}
+.slot-pick{background:#10251a;border:1px solid #315441;border-radius:8px;
+  color:#aec9b9;padding:6px 9px;min-width:36px;font-size:12px;font-weight:750}
+.slot-pick.mine{color:var(--green);border-color:rgba(121,255,154,.5)}
+.slot-pick.active{color:#07110d;background:var(--green);border-color:var(--green)}
+.slot-pick:disabled{opacity:.35;cursor:default}
+#photoDialog{width:min(96vw,1500px);max-width:1500px;
+  max-height:96dvh;overflow:auto;background:#06100b}
+#photoDialog .photo-dialog-shell{position:relative;padding:14px;display:grid;gap:12px}
+#photoDialog .dialog-close{z-index:5;right:14px;top:10px}
+.photo-viewer-toolbar{display:flex;align-items:center;gap:10px;
+  min-height:40px;padding-right:50px;flex-wrap:wrap}
+.photo-viewer-toolbar strong{margin-right:auto;font-size:14px}
+.photo-viewer-cameras{display:flex;gap:6px;flex-wrap:wrap}
+.photo-viewer-cameras button{border:1px solid #345742;
+  background:#11291e;color:#e6f6eb;border-radius:10px;padding:7px 11px}
+.photo-viewer-cameras button.active{background:var(--green);color:#07110d;border-color:var(--green)}
+#photoViewerImage{display:block;width:100%;height:auto;max-height:calc(95dvh - 115px);
+  object-fit:contain;background:#040b07;border-radius:8px}
+#photoViewerImage[hidden]{display:none}
+.photo-viewer-loading{color:var(--muted);font-size:13px;min-height:30px}
+@media(max-width:980px){
+  .rack-stage,.rack-stage img{min-height:0}
+}
+@media(max-width:620px){
+  .rack-stage,.rack-stage img{min-height:0}
+  .rack-image-frame:has(img:not([src])){min-height:180px}
+  .slot-picker{padding:0 8px 9px}
+  .slot-pick{padding:6px 7px;font-size:11px}
+  .photo-viewer-toolbar{padding-right:40px}
+  #photoDialog .photo-dialog-shell{padding:10px}
+  #photoViewerImage{max-height:calc(95dvh - 150px)}
+}
