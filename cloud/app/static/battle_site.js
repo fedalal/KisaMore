@@ -108,9 +108,21 @@ function overlay(b,selectedId){
   const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);
   return '<div class="rack-overlay">'+[1,2,3,4,5,6].map(i=>{
     const e=by[i],mine=e&&e.is_mine;
+    const name=e?String(e.participant_name||((state.lang==="ru"?"Игрок ":"Player ")+i)):"";
+    // Only existing public battle identity fields are shown. Never reveal
+    // email, Telegram handle, contact details or a user's resource budget.
+    const avatar=e&&e.participant_avatar_url
+      ? '<img class="rack-slot-avatar" loading="lazy" src="'+esc(e.participant_avatar_url)+'" alt="">'
+      : '<span class="rack-slot-avatar rack-slot-avatar-initial" aria-hidden="true">'+
+        esc((Array.from(name)[0]||"?").toUpperCase())+'</span>';
+    const tip=e?'<span class="rack-slot-tooltip" role="tooltip">'+avatar+
+      '<span class="rack-slot-tooltip-text"><strong>'+esc(name)+'</strong><small>'+
+      esc(t("container"))+' #'+i+(mine?' · '+esc(t("you")):'')+
+      '</small></span></span>':"";
     return '<button class="rack-slot '+(mine?"mine ":"")+(e&&e.id===selectedId?"selected ":"")+
-      (e&&e.is_winner?"winner":"")+'" type="button" aria-label="'+esc(t("container"))+' #'+i+
-      '" data-entry-select="'+(e?esc(e.id):"")+'"></button>';
+      (e&&e.is_winner?"winner":"")+'" type="button" aria-label="'+
+      esc(t("container"))+' #'+i+(e?' · '+esc(name):'')+
+      '" data-entry-select="'+(e?esc(e.id):"")+'">'+tip+'</button>';
   }).join("")+'</div>';
 }
 function slotPicker(b,selectedId){
@@ -309,7 +321,25 @@ $("#photoDialog").addEventListener("close",()=>{
   state.photoLoadSerial=(state.photoLoadSerial||0)+1;
 });
 function openVideo(url,title){if(!url)return;$("#videoTitle").textContent=title||t("timelapse");const v=$("#videoPlayer");v.src=url;v.load();$("#videoDialog").showModal();v.play().catch(()=>{})}
-document.addEventListener("click",ev=>{const c=ev.target.closest("[data-close]");if(c){const d=$("#"+c.dataset.close);if(d){if(d.id==="videoDialog"){$("#videoPlayer").pause();$("#videoPlayer").removeAttribute("src")}if(d.id==="photoDialog"){state.photoViewerBattleId=null;state.photoLoadSerial=(state.photoLoadSerial||0)+1}d.close()}return}const full=ev.target.closest("[data-full-photo]");if(full){openFullPhoto(full.dataset.fullPhoto);return}const pc=ev.target.closest("[data-photo-camera]");if(pc){state.cameraViewByBattle[pc.dataset.photoBattle]=pc.dataset.photoCamera;renderPhotoViewer(pc.dataset.photoBattle);return}const v=ev.target.closest("[data-view]");if(v){openArena(v.dataset.view);return}const j=ev.target.closest("[data-join]");if(j){openJoin(j.dataset.join);return}const cv=ev.target.closest("[data-camera-view]");if(cv){const battleId=cv.dataset.cameraBattle,cameraId=cv.dataset.cameraView;state.cameraViewByBattle[battleId]=cameraId;const b=state.all.find(x=>x.id===battleId)||state.mine.find(x=>x.id===battleId);if(b){if($("#myBattleArena").contains(cv))smooth.replace($("#myBattleArena"),arena(b,true));else smooth.replace($("#battleDetailArena"),arena(b,false))}return}const es=ev.target.closest("[data-entry-select]");if(es&&es.dataset.entrySelect){state.selectedEntry=es.dataset.entrySelect;const mb=state.mine.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));if(mb&&$("#myBattleArena").contains(es))smooth.replace($("#myBattleArena"),arena(mb,true));else{const b=state.all.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));if(b)smooth.replace($("#battleDetailArena"),arena(b,false))}return}const a=ev.target.closest("[data-action-kind]");if(a){openAction(a);return}const vid=ev.target.closest("[data-video]");if(vid){openVideo(vid.dataset.video,vid.dataset.videoTitle);return}const cert=ev.target.closest("[data-cert]");if(cert){window.open(cert.dataset.cert,"_blank","noopener");return}const p=ev.target.closest("[data-preset]");if(p){$$("[data-preset]",$("#actionPresets")).forEach(x=>x.classList.remove("selected"));p.classList.add("selected");$("#actionAmount").value=p.dataset.preset}});
+document.addEventListener("click",ev=>{const c=ev.target.closest("[data-close]");if(c){const d=$("#"+c.dataset.close);if(d){if(d.id==="videoDialog"){$("#videoPlayer").pause();$("#videoPlayer").removeAttribute("src")}if(d.id==="photoDialog"){state.photoViewerBattleId=null;state.photoLoadSerial=(state.photoLoadSerial||0)+1}d.close()}return}const full=ev.target.closest("[data-full-photo]");if(full){openFullPhoto(full.dataset.fullPhoto);return}const pc=ev.target.closest("[data-photo-camera]");if(pc){state.cameraViewByBattle[pc.dataset.photoBattle]=pc.dataset.photoCamera;renderPhotoViewer(pc.dataset.photoBattle);return}const v=ev.target.closest("[data-view]");if(v){openArena(v.dataset.view);return}const j=ev.target.closest("[data-join]");if(j){openJoin(j.dataset.join);return}const cv=ev.target.closest("[data-camera-view]");if(cv){const battleId=cv.dataset.cameraBattle,cameraId=cv.dataset.cameraView;state.cameraViewByBattle[battleId]=cameraId;const b=state.all.find(x=>x.id===battleId)||state.mine.find(x=>x.id===battleId);if(b){if($("#myBattleArena").contains(cv))smooth.replace($("#myBattleArena"),arena(b,true));else smooth.replace($("#battleDetailArena"),arena(b,false))}return}const es=ev.target.closest("[data-entry-select]");if(es&&es.dataset.entrySelect){
+  state.selectedEntry=es.dataset.entrySelect;
+  const onPhoto=es.classList.contains("rack-slot");
+  const myRoot=$("#myBattleArena"),detailRoot=$("#battleDetailArena");
+  let root;
+  const mb=state.mine.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));
+  if(mb&&myRoot.contains(es)){root=myRoot;smooth.replace(root,arena(mb,true))}
+  else{
+    const b=state.all.find(x=>(x.entries||[]).some(e=>e.id===state.selectedEntry));
+    if(b){root=detailRoot;smooth.replace(root,arena(b,false))}
+  }
+  // On touch devices the original DOM is replaced after selection. Restore
+  // focus on the new hotspot so its identity popup appears on tap as well.
+  if(root&&onPhoto&&window.matchMedia&&window.matchMedia("(hover: none)").matches){
+    const hotspot=$$(".rack-slot",root).find(x=>x.dataset.entrySelect===state.selectedEntry);
+    if(hotspot)hotspot.focus({preventScroll:true});
+  }
+  return
+}const a=ev.target.closest("[data-action-kind]");if(a){openAction(a);return}const vid=ev.target.closest("[data-video]");if(vid){openVideo(vid.dataset.video,vid.dataset.videoTitle);return}const cert=ev.target.closest("[data-cert]");if(cert){window.open(cert.dataset.cert,"_blank","noopener");return}const p=ev.target.closest("[data-preset]");if(p){$$("[data-preset]",$("#actionPresets")).forEach(x=>x.classList.remove("selected"));p.classList.add("selected");$("#actionAmount").value=p.dataset.preset}});
 $("#languageSelect").addEventListener("change",async e=>{state.lang=e.target.value;localStorage.setItem("battleLang",state.lang);if(state.user){try{await api("/api/v1/auth/me/language",{method:"PATCH",body:JSON.stringify({language:state.lang})})}catch{}}applyI18n();updateHero();renderLists();renderMyBattle()});
 $("#battleDetailClose").addEventListener("click",closeBattleDetail);
 $("#accountButton").addEventListener("click",toggleAccountMenu);

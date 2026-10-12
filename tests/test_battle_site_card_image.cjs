@@ -41,6 +41,6 @@ assert.ok(missing.includes("battle-card-no-photo"),"camera missing gracefully ha
 assert.ok(css.includes(".battle-card-top{position:relative;aspect-ratio:auto;min-height:0"),"legacy 16:9 crop overridden");
 assert.ok(css.includes(".battle-card-top img{display:block;width:100%;height:auto;min-height:0"),"natural image aspect ratio");
 assert.ok(css.includes("object-fit:contain"),"no cover cropping");
-assert.ok(html.includes("battle_site.js?v=20261012-4"),"JS cache busted");
-assert.ok(html.includes("battle_site.css?v=20261012-3"),"CSS cache busted");
+assert.ok(html.includes("battle_site.js?v=20261012-5"),"JS cache busted");
+assert.ok(html.includes("battle_site.css?v=20261012-5"),"CSS cache busted");
 console.log("PASS full-frame live/upcoming cards, text below photo, no shade, buttons, fallback, caching");
