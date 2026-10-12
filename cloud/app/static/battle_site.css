@@ -137,3 +137,26 @@
   #battleDetailArena .arena-head{padding:16px}
   #battleDetailArena .arena-side{padding:16px}
 }
+
+/* LIVE, UPCOMING and PAST battle cards must show the entire camera frame.
+   Titles and status are BELOW the image, never overlapping the seed trays. */
+.battle-card-top{position:relative;aspect-ratio:auto;min-height:0;background:#0b1913}
+.battle-card-top img{display:block;width:100%;height:auto;min-height:0;
+  max-width:100%;object-fit:contain}
+.battle-card-no-photo{aspect-ratio:4/3;background:linear-gradient(145deg,#10271b,#06120c)}
+.battle-card-meta{padding:16px 18px 0;min-width:0}
+.battle-card-meta-head{display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap}
+.battle-card-meta-head>small{color:#b0dcc0;font-size:12px}
+.battle-card-meta .card-live{position:static;top:auto;left:auto;display:inline-flex;
+  align-items:center;gap:7px;padding:5px 9px;background:#173427;
+  border:1px solid #2a6041;font-size:11px;font-weight:850;flex-shrink:0}
+.battle-card-meta h3{font-size:24px;line-height:1.2;letter-spacing:-.02em;
+  margin:9px 0 5px;overflow-wrap:anywhere}
+.battle-card-meta p{margin:0;color:var(--muted);font-size:13px}
+.battle-card-meta+.battle-card-body{padding-top:15px}
+@media(max-width:620px){
+  .battle-card-meta{padding:13px 14px 0}
+  .battle-card-meta h3{font-size:21px}
+  .battle-card-meta+.battle-card-body{padding-top:12px}
+}

@@ -69,10 +69,31 @@ function isUpcoming(b){return ["open","ready_to_plant","planting"].includes(b.st
 function occupied(b){return (b.entries||[]).filter(e=>["active","finished"].includes(e.status)).length}
 function miniSlots(b){const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);return [1,2,3,4,5,6].map(i=>{const e=by[i];return '<div class="mini-slot '+(e?"taken":"")+(e&&e.is_winner?" winner":"")+'">'+(e?(e.is_winner?"🏆":"🌱"):i)+'</div>'}).join("")}
 function updateHero(){const b=state.all.find(isLive)||state.all.find(x=>x.status==="open")||state.all[0];if(!b){$("#heroBattleTitle").textContent="KisaMore Battle";$("#heroBattleMeta").textContent="";$("#heroBattleStatus").textContent="—";$("#heroSlots").innerHTML=[1,2,3,4,5,6].map(i=>'<div class="mini-slot">'+i+'</div>').join("");return}const d=dayInfo(b);$("#heroBattleTitle").textContent=b.title||plantName(b);$("#heroBattleMeta").textContent=plantName(b)+(d?" · "+t("day")+" "+d.day:"");$("#heroBattleStatus").textContent=statusText(b.status);$("#heroSlots").innerHTML=miniSlots(b);$("#heroEntries").textContent=occupied(b)+"/"+b.max_entries+" "+t("players");$("#heroPrize").textContent="🏆 Ⓚ "+b.winner_reward_kisa+" "+t("prize")}
-function battleCard(b){const live=isLive(b),d=dayInfo(b),taken=occupied(b),progress=pct(taken,b.max_entries);const primary=cameraViews(b).find(v=>v.primary)||cameraViews(b)[0];
-const photo=b.rack_photo_url
-  ? '<img data-smooth-photo="battle-card-'+esc(b.id)+'" data-photo-url="'+esc(smooth.versioned(b.rack_photo_url,primary&&primary.captured_at))+'" alt="">'
-  : "";let action='<button class="button secondary" data-view="'+b.id+'">'+t("viewBattle")+'</button>';if(b.status==="open"&&b.remaining_entries>0)action+='<button class="button primary" data-join="'+b.id+'">'+t("joinBattle")+'</button>';return '<article class="battle-card"><div class="battle-card-top">'+photo+'<div class="photo-shade"></div><div class="card-live"><i></i>'+esc(live?"LIVE":statusText(b.status).toUpperCase())+'</div><div class="card-title-over"><small>'+esc(plantName(b))+'</small><h3>'+esc(b.title)+'</h3><p>'+(d?esc(t("day")+" "+d.day+(d.total?" "+t("of")+" "+d.total:"")):esc(statusText(b.status)))+'</p></div></div><div class="battle-card-body"><div class="battle-card-stats"><div><small>'+esc(t("players"))+'</small><strong>'+taken+' / '+b.max_entries+'</strong></div><div><small>Kisa</small><strong>Ⓚ '+b.entry_price_kisa+'</strong></div><div><small>'+esc(t("prize"))+'</small><strong>Ⓚ '+b.winner_reward_kisa+'</strong></div></div><div class="progress" style="margin-top:14px"><i style="width:'+progress+'%"></i></div><div class="card-actions">'+action+'</div></div></article>'}
+function battleCard(b){
+  const live=isLive(b),d=dayInfo(b),taken=occupied(b),progress=pct(taken,b.max_entries);
+  const primary=cameraViews(b).find(v=>v.primary)||cameraViews(b)[0];
+  const photo=b.rack_photo_url
+    ? '<img data-smooth-photo="battle-card-'+esc(b.id)+'" data-photo-url="'+
+        esc(smooth.versioned(b.rack_photo_url,primary&&primary.captured_at))+
+        '" alt="'+esc(plantName(b))+'">'
+    : '<div class="battle-card-no-photo"></div>';
+  let action='<button class="button secondary" data-view="'+esc(b.id)+'">'+t("viewBattle")+'</button>';
+  if(b.status==="open"&&b.remaining_entries>0)action+='<button class="button primary" data-join="'+esc(b.id)+'">'+t("joinBattle")+'</button>';
+  return '<article class="battle-card">'+
+    '<div class="battle-card-top">'+photo+'</div>'+
+    '<div class="battle-card-meta"><div class="battle-card-meta-head">'+
+      '<small>'+esc(plantName(b))+'</small>'+
+      '<span class="card-live"><i></i>'+esc(live?"LIVE":statusText(b.status).toUpperCase())+'</span>'+
+    '</div><h3>'+esc(b.title)+'</h3>'+
+    '<p>'+(d?esc(t("day")+" "+d.day+(d.total?" "+t("of")+" "+d.total:"")):
+      esc(statusText(b.status)))+'</p></div>'+
+    '<div class="battle-card-body"><div class="battle-card-stats">'+
+      '<div><small>'+esc(t("players"))+'</small><strong>'+taken+' / '+b.max_entries+'</strong></div>'+
+      '<div><small>Kisa</small><strong>Ⓚ '+b.entry_price_kisa+'</strong></div>'+
+      '<div><small>'+esc(t("prize"))+'</small><strong>Ⓚ '+b.winner_reward_kisa+'</strong></div>'+
+    '</div><div class="progress" style="margin-top:14px"><i style="width:'+progress+'%"></i></div>'+
+    '<div class="card-actions">'+action+'</div></div></article>';
+}
 function renderLists(){
   const live=state.all.filter(isLive),up=state.all.filter(isUpcoming),past=state.all.filter(b=>b.status==="finished");
   smooth.replace($("#liveBattles"),live.length?live.map(battleCard).join(""):'<div class="empty-card">'+t("noLive")+'</div>');
