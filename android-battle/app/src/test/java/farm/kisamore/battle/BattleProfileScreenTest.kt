@@ -91,7 +91,11 @@ class BattleProfileScreenTest {
         throw IllegalArgumentException("Label missing: " + label)
     }
 
-    private fun createProfile(activity: Activity) = BattleProfileScreen(
+    private fun createProfile(activity: Activity): BattleProfileScreen {
+        // Older test expectations explicitly concern the Russian interface.
+        // Do not rely on Robolectric's device locale.
+        AppLanguage.set(activity, "ru")
+        return BattleProfileScreen(
         activity,
         null,
         GameProfile(0, 1, 0, emptyList(), emptyList()),
@@ -102,5 +106,6 @@ class BattleProfileScreenTest {
         onHistory = {},
         onRegion = {},
         onLogout = {}
-    )
+        )
+    }
 }
