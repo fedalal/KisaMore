@@ -42,8 +42,8 @@ class BattleProfileScreen(
     private val languageCodes = arrayOf("en", "ru", "zh", "de", "fr", "es", "it", "pt", "pl")
     private val languageNames = arrayOf("English", "Русский", "中文", "Deutsch", "Français", "Español", "Italiano", "Português", "Polski")
     private val night = host.getSharedPreferences("battle_settings", 0).getBoolean("dark_mode", false)
-    private val languageCode = host.getSharedPreferences("battle_settings", 0).getString("language", "ru") ?: "ru"
-    private val english = host.getSharedPreferences("battle_settings", 0).getString("language", "ru") == "en"
+    private val languageCode = AppLanguage(host).code
+    private val english = languageCode == "en"
     private val translations: Map<String, Map<String, String>> = mapOf(
             "Гость" to mapOf("en" to "Guest", "zh" to "访客", "de" to "Gast", "fr" to "Invité", "es" to "Invitado", "it" to "Ospite", "pt" to "Visitante", "pl" to "Gość"),
             "Войдите в аккаунт" to mapOf("en" to "Sign in to your account", "zh" to "登录账号", "de" to "Bitte anmelden", "fr" to "Connectez-vous", "es" to "Inicia sesión", "it" to "Accedi al tuo account", "pt" to "Entre na sua conta", "pl" to "Zaloguj się"),
@@ -342,8 +342,7 @@ class BattleProfileScreen(
                 .setSingleChoiceItems(languageNames,
                     languageCodes.indexOf(languageCode).coerceAtLeast(0)) { dialog, which ->
                     val code = languageCodes[which]
-                    host.getSharedPreferences("battle_settings", 0).edit()
-                        .putString("language", code).apply()
+                    AppLanguage.set(host, code)
                     dialog.dismiss()
                     onPreferenceChanged(code, null)
                     onLanguageChanged()

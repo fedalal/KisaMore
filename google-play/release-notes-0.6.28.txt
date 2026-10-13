@@ -1,0 +1,7 @@
+<en-US>
+Fixed Battle screen language switching for players and spectators. English and other selected languages now remain consistent when returning from Profile, including after background account preference synchronization.
+</en-US>
+
+<ru-RU>
+Исправлено переключение языка на экране «Битва» для участников и зрителей. Выбранный язык сохраняется при переходах из профиля и обновлении настроек с сервера.
+</ru-RU>

@@ -17,8 +17,8 @@ android {
         applicationId = "farm.kisamore.battle"
         minSdk = 26
         targetSdk = 36
-        versionCode = 42
-        versionName = "0.6.27"
+        versionCode = 43
+        versionName = "0.6.28"
     }
 
     // Google Play: use the EXISTING upload keystore. Missing credentials must

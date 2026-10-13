@@ -6,8 +6,10 @@ import android.widget.ImageView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -110,6 +112,57 @@ class BattleArenaLocalizationTest {
         assertTrue(labels.toString(), labels.contains("ACTIVITY"))
         assertTrue(labels.toString(), labels.any { it.contains("MY") || it.contains("MINE") })
         assertFalse(labels.toString(), labels.any { it == "МОИ РЕСУРСЫ" || it == "ПОСЛЕДНИЕ ДЕЙСТВИЯ" })
+    }
+
+    @Test fun switchingToEnglishUpdatesBothSpectatorAndOwnerArenasWithoutRestart() {
+        val host = activity("ru")
+        val spectator = BattleEntry(
+            id = "spectator1", slotNumber = 1, status = "active",
+            isMine = false, resourcesVisible = false,
+            waterUsedMl = 0, nutrientUsedMl = 0, shadeUsedMinutes = 0,
+            actions = emptyList(), timelapse24hUrl = null,
+            timelapse3dUrl = null, certificateUrl = null, photoUrl = null,
+            participantName = "Alice"
+        )
+        val owner = spectator.copy(id = "mine1", isMine = true, resourcesVisible = true)
+        assertTrue(labels(screen(host, battle(listOf(spectator)))).contains("УЧАСТНИКИ"))
+        assertTrue(labels(screen(host, battle(listOf(owner)))).contains("МОИ РЕСУРСЫ"))
+
+        AppLanguage.set(host, "en")
+        assertEquals("en", AppLanguage(host).code)
+        assertEquals("en",
+            host.getSharedPreferences("battle_settings", 0).getString("language", null))
+        assertTrue(labels(screen(host, battle(listOf(spectator)))).contains("PARTICIPANTS"))
+        assertTrue(labels(screen(host, battle(listOf(owner)))).contains("MY RESOURCES"))
+        assertFalse(labels(screen(host, battle(listOf(owner)))).contains("МОИ РЕСУРСЫ"))
+
+        AppLanguage.set(host, "ru")
+        assertTrue(labels(screen(host, battle(listOf(owner)))).contains("МОИ РЕСУРСЫ"))
+    }
+
+    @Test fun delayedProfileResponseCannotUndoExplicitEnglishChoice() {
+        // A pending profile fetch can finish after the language picker closes.
+        // Regression: this used to restore "ru" and leave the Battle screen Russian.
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
+        MainActivity::class.java.getDeclaredField("api").apply {
+            isAccessible = true
+            set(activity, ApiClient(activity))
+        }
+        AppLanguage.set(activity, "en")
+        MainActivity::class.java.getDeclaredField("languageSelectedInThisSession").apply {
+            isAccessible = true
+            setBoolean(activity, true)
+        }
+        MainActivity::class.java.getDeclaredMethod(
+            "applyRemotePreferences", JSONObject::class.java
+        ).apply {
+            isAccessible = true
+            invoke(activity, JSONObject().put("language", "ru").put("theme", "light"))
+        }
+        assertEquals("en", AppLanguage(activity).code)
+        assertEquals("en",
+            activity.getSharedPreferences("battle_settings", 0).getString("language", null))
+        assertTrue(labels(screen(activity, battle())).contains("PARTICIPANTS"))
     }
 
     @Test fun russianArenaStillShowsRussianLabels() {

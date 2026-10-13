@@ -45,8 +45,8 @@ jobs:
           set -euo pipefail
           AAB=android-battle/app/build/outputs/bundle/release/app-release.aab
           test -s "$AAB"
-          grep -Fq 'versionCode = 42' android-battle/app/build.gradle.kts
-          grep -Fq 'versionName = "0.6.27"' android-battle/app/build.gradle.kts
+          grep -Fq 'versionCode = 43' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.28"' android-battle/app/build.gradle.kts
           # jarsigner -verify exits 0 even for UNSIGNED JARs; inspect actual
           # signing blocks, not its exit code.
           if unzip -Z1 "$AAB" | grep -Ei '^META-INF/.*\.(RSA|DSA|EC|SF)$'; then
@@ -54,12 +54,12 @@ jobs:
             exit 1
           fi
           unzip -t "$AAB" > /dev/null
-          cp "$AAB" KisaMore-Battle-0.6.27-UNSIGNED.aab
+          cp "$AAB" KisaMore-Battle-0.6.28-UNSIGNED.aab
           echo "Unsigned bundle ready for private local signing."
       - name: Upload staging AAB
         uses: actions/upload-artifact@v4
         with:
-          name: KisaMore-Battle-0.6.27-UNSIGNED-for-offline-signing
-          path: KisaMore-Battle-0.6.27-UNSIGNED.aab
+          name: KisaMore-Battle-0.6.28-UNSIGNED-for-offline-signing
+          path: KisaMore-Battle-0.6.28-UNSIGNED.aab
           if-no-files-found: error
           retention-days: 30

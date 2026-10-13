@@ -160,8 +160,7 @@ class MainActivity : Activity() {
         navBar.setBackgroundColor(Color.parseColor(if (
             getSharedPreferences("battle_settings", MODE_PRIVATE).getBoolean("dark_mode", false)
         ) "#1B2A22" else "#FFFFFF"))
-        val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
-            .getString("language", "ru") ?: "ru"
+        val language = AppLanguage(this).code
         val navLabels = mapOf(
             "ru" to listOf("Битва", "История", "Профиль"),
             "en" to listOf("Battle", "History", "Profile"),
@@ -442,19 +441,37 @@ class MainActivity : Activity() {
 
     private var accountAvatarUrl: String? = null
     private var accountPrefsLoadedFor: String? = null
+    // A delayed server GET/PATCH must not undo a language just chosen by
+    // the user while their profile (and its asynchronous fetch) is open.
+    private var languageSelectedInThisSession = false
 
     private fun syncPreference(language: String?, dark: Boolean?) {
+        if (language != null) {
+            AppLanguage.set(this, language)
+            languageSelectedInThisSession = true
+        }
         if (!api.hasSession()) return
         async(work = { api.savePreferences(language, dark) }, success = {
             applyRemotePreferences(it)
-        }, failure = { toast("Не удалось сохранить настройки на сервере") })
+        }, failure = {
+            toast(battleText("Не удалось сохранить настройки на сервере",
+                "Could not save settings on server"))
+        })
     }
 
     private fun applyRemotePreferences(data: org.json.JSONObject) {
-        getSharedPreferences("battle_settings", MODE_PRIVATE).edit()
-            .putString("language", data.optString("language", "ru"))
-            .putBoolean("dark_mode", data.optString("theme", "light") == "dark")
-            .apply()
+        val editor = getSharedPreferences("battle_settings", MODE_PRIVATE).edit()
+        // The server can respond to an earlier read AFTER the user has chosen
+        // a new language. Treat the explicit local choice as authoritative for
+        // the remainder of the session; it is separately sent to the server.
+        if (!languageSelectedInThisSession) {
+            val remoteLanguage = data.optString("language", "")
+            if (AppLanguage.supported.any { it.first == remoteLanguage }) {
+                editor.putString("language", remoteLanguage)
+                AppLanguage.set(this, remoteLanguage)
+            }
+        }
+        editor.putBoolean("dark_mode", data.optString("theme", "light") == "dark").apply()
         accountAvatarUrl = api.absolute(data.optString("avatar_url").takeIf { it.isNotBlank() })
         accountPrefsLoadedFor = api.currentUser?.id
     }
@@ -867,7 +884,7 @@ class MainActivity : Activity() {
         lastSelectedBattleId = battle.id
         currentScreen = "battle"
         currentBattleId = battle.id
-        showLoading("Открываем арену…")
+        showLoading(battleText("Открываем арену…", "Opening battle…"))
         async(
             work = {
                 if (api.hasSession()) {
@@ -883,7 +900,7 @@ class MainActivity : Activity() {
 
     private fun refreshBattle(id: String, silent: Boolean) {
         val fallback = (myBattles + publicBattles).firstOrNull { it.id == id } ?: return
-        if (!silent) showLoading("Обновляем арену…")
+        if (!silent) showLoading(battleText("Обновляем арену…", "Updating battle…"))
         async(
             work = {
                 if (api.hasSession()) {

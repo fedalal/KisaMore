@@ -51,6 +51,14 @@ class AppLanguage(private val context: Context) {
 
         fun set(context: Context, code: String) {
             if (supported.none { it.first == code }) return
+            // The entire app (including the arena, guest pages and profile)
+            // must read the same selected language. Legacy language preferences
+            // used a separate SharedPreferences file; write both for existing
+            // installations instead of letting the arena fall back to Russian.
+            context.getSharedPreferences("battle_settings", Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY, code)
+                .apply()
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY, code)
