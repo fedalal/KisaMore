@@ -175,10 +175,9 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
                         if photo else None
                     ),
                     "button": tr["button"],
-                    "url": (
-                        f"{get_settings().public_base_url.rstrip('/')}/battle?battle={battle.id}"
-                        f"&entry={entry.id}"
-                    ),
+                    # Telegram callback, not a URL. Opens the participant's
+                    # Battle information inside this bot.
+                    "callback_data": f"battle:open:{entry.id}",
                     "planting_id": entry.planting_id,
                     "battle_id": battle.id,
                 },

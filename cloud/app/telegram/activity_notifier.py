@@ -547,21 +547,21 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
             markup = None
             if isinstance(payload.get("reply_markup"), dict):
                 markup = payload["reply_markup"]
-            elif payload.get("url"):
-                markup = {
-                    "inline_keyboard": [[
-                        {
-                            "text": str(payload.get("button") or "🌱 KisaMore")[:60],
-                            "url": str(payload["url"]),
-                        }
-                    ]]
-                }
             elif payload.get("callback_data"):
                 markup = {
                     "inline_keyboard": [[
                         {
                             "text": str(payload.get("button") or "🌱 KisaMore")[:60],
                             "callback_data": str(payload["callback_data"])[:64],
+                        }
+                    ]]
+                }
+            elif payload.get("url"):
+                markup = {
+                    "inline_keyboard": [[
+                        {
+                            "text": str(payload.get("button") or "🌱 KisaMore")[:60],
+                            "url": str(payload["url"]),
                         }
                     ]]
                 }

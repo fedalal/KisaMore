@@ -90,7 +90,8 @@ async def main():
     assert "875" in d.payload["text"]  # water budget remainder
     assert d.payload["photo_path"].endswith("latest.jpeg")
     assert len(d.payload["slot_polygon"]) == 4
-    assert "battle-01" in d.payload["url"]
+    assert d.payload["callback_data"] == "battle:open:battle-entry-01"
+    assert "url" not in d.payload
 
     unlinked = context(False)
     count = await discover_battle_daily_updates(
