@@ -12,6 +12,11 @@ from .profile_locales import BOT_PROFILE_LOCALIZATIONS, DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
 
+# httpx INFO logs include full Telegram API URLs with the bot secret in
+# the path. Never emit these request URLs into production/container logs.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 HELP_COMMAND_DESCRIPTIONS = {
     "en": "Help",
     "ru": "Помощь",

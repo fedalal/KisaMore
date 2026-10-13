@@ -103,6 +103,9 @@ def context(photo_dir, linked_user=USER, telegram_entry_id=None, has_photo=True)
 
 
 async def main():
+    import logging
+    from cloud.app.telegram import bot as telegram_transport
+    assert logging.getLogger("httpx").level >= logging.WARNING, "Do not log URLs with bot secrets"
     assert "url" not in {"callback_data":battle_player.open_callback(ENTRY)}
     assert len(battle_player.video_callback(ENTRY,"full","camera_5").encode()) <= 64
 
