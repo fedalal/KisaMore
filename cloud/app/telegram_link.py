@@ -139,6 +139,34 @@ async def consume_telegram_link_token(
                 .where(model.user_id == old_marketplace_user_id)
                 .values(user_id=website_user.id)
             )
+        # Native Telegram Battle purchases use the same technical website
+        # identity as Telegram-first rentals. Move Battle ownership on link.
+        # Keep the one-entry-per-battle rule: reject an ambiguous merge rather
+        # than silently exposing two plants under a single account.
+        from .battle_models import PlantBattleEntry
+        previous_battles = list((await session.execute(
+            select(PlantBattleEntry.battle_id)
+            .where(
+                PlantBattleEntry.user_id == old_marketplace_user_id,
+                PlantBattleEntry.status.in_(("active", "finished")),
+            )
+        )).scalars().all())
+        if previous_battles:
+            overlapping = (await session.execute(
+                select(PlantBattleEntry.id)
+                .where(
+                    PlantBattleEntry.user_id == website_user.id,
+                    PlantBattleEntry.battle_id.in_(previous_battles),
+                    PlantBattleEntry.status.in_(("active", "finished")),
+                ).limit(1)
+            )).scalar_one_or_none()
+            if overlapping is not None:
+                raise ValueError("battle_entry_merge_conflict")
+        await session.execute(
+            update(PlantBattleEntry)
+            .where(PlantBattleEntry.user_id == old_marketplace_user_id)
+            .values(user_id=website_user.id)
+        )
 
     # Transfer the website-only Kisa balance into the existing Telegram wallet.
     # The debit and credit ledgers are written in the same transaction.

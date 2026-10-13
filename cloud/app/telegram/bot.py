@@ -32,6 +32,24 @@ HELP_COMMAND_DESCRIPTIONS = {
 
 def _commands_for(language_code: str, locale: dict) -> list[dict]:
     commands = list(locale["commands"])
+    if not any(item.get("command") == "battle" for item in commands):
+        battle_description = {
+            "ru": "Битвы растений — участие и мои растения",
+            "en": "Plant Battles — join and watch",
+            "de": "Pflanzen-Battles – mitspielen",
+            "fr": "Batailles de plantes – participer",
+            "es": "Batallas de plantas – participar",
+            "it": "Battaglie di piante – partecipa",
+            "pt": "Batalhas de plantas – participar",
+            "pl": "Bitwy roślin – weź udział",
+            "zh": "植物对战 – 参与比赛",
+        }
+        commands.insert(
+            next((i for i, item in enumerate(commands)
+                  if item.get("command") == "wallet"), len(commands)),
+            {"command": "battle",
+             "description": battle_description.get(language_code, battle_description["en"])},
+        )
     if not any(item.get("command") == "help" for item in commands):
         commands.append(
             {

@@ -39,7 +39,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "support_not_configured": "Support contact is not configured yet.",
         "invoice_description": "Add {kisa} Kisa to your KisaMore balance.",
         "precheckout_error": "We could not verify this order. Please create a new invoice in the KisaMore wallet.",
-        "help": "ℹ️ <b>KisaMore help</b>\n\n🌱 /plants — browse plants\n🪴 /garden — your garden\n🪙 /wallet — Kisa wallet\n👤 /profile — profile\n📄 /terms — terms\n💳 /paysupport — payment support",
+        "help": "ℹ️ <b>KisaMore help</b>\n\n🌱 /plants — browse plants\n🪴 /garden — your garden\n🏆 /battle — plant battles\n🪙 /wallet — Kisa wallet\n👤 /profile — profile\n📄 /terms — terms\n💳 /paysupport — payment support",
     },
     "ru": {
         "menu_plants": "🌱 Растения",
@@ -68,7 +68,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "support_not_configured": "Контакт поддержки пока не настроен.",
         "invoice_description": "Пополнение внутреннего баланса KisaMore на {kisa} Kisa.",
         "precheckout_error": "Не удалось проверить заказ. Создайте новый счёт в кошельке KisaMore.",
-        "help": "ℹ️ <b>Помощь KisaMore</b>\n\n🌱 /plants — растения\n🪴 /garden — мой сад\n🪙 /wallet — кошелёк Kisa\n👤 /profile — профиль\n📄 /terms — условия\n💳 /paysupport — поддержка по оплате",
+        "help": "ℹ️ <b>Помощь KisaMore</b>\n\n🌱 /plants — растения\n🪴 /garden — мой сад\n🏆 /battle — битвы растений\n🪙 /wallet — кошелёк Kisa\n👤 /profile — профиль\n📄 /terms — условия\n💳 /paysupport — поддержка по оплате",
     },
     "de": {
         "menu_plants": "🌱 Pflanzen", "menu_garden": "🪴 Mein Garten", "menu_community": "💬 Community", "menu_wallet": "🪙 Wallet", "menu_profile": "👤 Profil", "back_home": "◀️ Hauptmenü", "back": "◀️ Zurück",

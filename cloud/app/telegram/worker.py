@@ -320,7 +320,7 @@ async def handle_message(bot, message: dict) -> None:
             await session.commit()
         await bot.send_message(chat_id, tr["ok"], reply_markup=core.main_keyboard(lang))
     except ValueError as exc:
-        key = "busy" if str(exc) in ("telegram_already_linked", "website_already_linked") else "expired"
+        key = "busy" if str(exc) in ("telegram_already_linked", "website_already_linked", "battle_entry_merge_conflict") else "expired"
         await bot.send_message(chat_id, tr[key], reply_markup=core.main_keyboard(lang))
 
 
