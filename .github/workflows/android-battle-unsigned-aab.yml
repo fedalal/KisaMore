@@ -6,6 +6,7 @@ on:
   push:
     branches: [feature/plant-battle]
     paths:
+      - "android-battle/**"
       - ".github/workflows/android-battle-unsigned-aab.yml"
   workflow_dispatch:
 
