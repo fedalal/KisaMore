@@ -586,6 +586,38 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Event settings are persisted on the server, so they follow the account. */
+    private fun showBattleNotificationSettings() {
+        if (!api.hasSession()) { showLogin(); return }
+        val ru = getSharedPreferences("battle_settings", MODE_PRIVATE)
+            .getString("language", "ru") == "ru"
+        val keys = arrayOf("start", "end_soon", "finished", "winner",
+            "resource_low", "action_done", "new_battles")
+        val titlesRu = arrayOf("Начало битвы", "24 часа до завершения",
+            "Завершение выращивания", "Объявление победителя",
+            "Ресурсы заканчиваются", "Действие выполнено", "Новые битвы")
+        val titlesEn = arrayOf("Battle started", "24 hours before planned end",
+            "Growing finished", "Winner announced",
+            "Resources running low", "Action completed", "New Battles")
+        async(work = { api.battleNotificationPreferences() }, success = { current ->
+            val checked = BooleanArray(keys.size) { current.optBoolean(keys[it], it != 6) }
+            AlertDialog.Builder(this)
+                .setTitle(if (ru) "Настройки уведомлений" else "Notification settings")
+                .setMultiChoiceItems(if (ru) titlesRu else titlesEn, checked) { _, which, isChecked ->
+                    checked[which] = isChecked
+                }
+                .setNegativeButton(if (ru) "Отмена" else "Cancel", null)
+                .setPositiveButton(if (ru) "Сохранить" else "Save") { _, _ ->
+                    val payload = org.json.JSONObject()
+                    keys.forEachIndexed { i, key -> payload.put(key, checked[i]) }
+                    async(work = { api.updateBattleNotificationPreferences(payload) },
+                        success = { toast(if (ru) "Настройки сохранены" else "Settings saved") },
+                        failure = { toast(it.message ?: "Error") })
+                }
+                .show()
+        }, failure = { toast(it.message ?: "Error") })
+    }
+
     /** Messages remain available after relaunch, even without Telegram. */
     private fun showBattleMessages() {
         if (!api.hasSession()) { showLogin(); return }
@@ -609,6 +641,9 @@ class MainActivity : Activity() {
         val dialog = AlertDialog.Builder(this)
             .setTitle(if (ru) "📨 Сообщения битв" else "📨 Battle messages")
             .setView(scroll)
+            .setNeutralButton(if (ru) "⚙ Настройки" else "⚙ Settings") { _, _ ->
+                showBattleNotificationSettings()
+            }
             .setNegativeButton(if (ru) "Закрыть" else "Close", null)
             .create()
         dialog.show()

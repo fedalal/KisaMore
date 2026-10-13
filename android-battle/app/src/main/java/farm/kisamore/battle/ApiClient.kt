@@ -189,6 +189,12 @@ class ApiClient(context: Context) {
             JSONObject().put("token",token).toString())
     }
 
+    fun battleNotificationPreferences(): JSONObject =
+        JSONObject(request("GET", "/api/v1/battles/notification-preferences"))
+
+    fun updateBattleNotificationPreferences(patch: JSONObject): JSONObject =
+        JSONObject(request("PATCH", "/api/v1/battles/notification-preferences", patch.toString()))
+
     fun battleInbox(): JSONObject =
         JSONObject(request("GET", "/api/v1/battles/inbox"))
 

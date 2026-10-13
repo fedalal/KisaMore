@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .account_preferences_api import AccountPreferences
 from .admin_models import AdminAuditLog
 from .battle_models import BATTLE_BLOCKING_STATUSES, PlantBattle, PlantBattleAction, PlantBattleEntry
+from .battle_events import notify_new_battle,notify_action_done,notify_battle_members
 from .battle_service import battle_message, queue_telegram_text, rack_has_blocking_battle
 from .marketplace_service import process_waitlist
 from .models import Allocation, Device, Offer, Plant, RackSlot, User
@@ -418,6 +419,7 @@ async def create_battle(
         updated_at=now,
     )
     session.add(battle)
+    await notify_new_battle(session,battle)
     session.add(
         AdminAuditLog(
             admin_user_id=admin.id,
@@ -700,6 +702,7 @@ async def complete_action(
     action.status = "completed"
     action.completed_at = now
     action.completed_by_user_id = admin.id
+    await notify_action_done(session,battle=battle,entry=entry,action=action)
     tg = await session.get(TelegramUser, entry.telegram_user_id) if entry.telegram_user_id else None
     if tg is not None and tg.is_active:
         lang_ru = (tg.language_code or "").lower().startswith("ru")
@@ -884,6 +887,11 @@ async def choose_winner(
             text=text,
         )
 
+    await notify_battle_members(
+        session,battle=battle,kind="winner",now=now,
+        ru=f"🏆 Результаты битвы «{battle.title}» готовы! Победил контейнер №{entry.slot_number}. Проверьте диплом.",
+        en=f"🏆 {battle.title} results are ready! Container #{entry.slot_number} won. View your certificate.",
+    )
     await process_waitlist(session, battle.device_id)
     session.add(
         AdminAuditLog(

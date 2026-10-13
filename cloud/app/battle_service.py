@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import BATTLE_BLOCKING_STATUSES, PlantBattle, PlantBattleEntry
+from .battle_events import notify_battle_members
 from .models import Planting
 from .telegram.activity_notifier import TelegramActivityDelivery, user_language
 from .telegram.admin_models import TelegramAdmin
@@ -198,6 +199,11 @@ async def sync_battles_from_plantings(
             battle.planted_at = min(planted_times) if planted_times else now
             battle.updated_at = now
             changed += 1
+            await notify_battle_members(
+                session,battle=battle,kind="start",now=now,
+                ru=f"🌱 Битва «{battle.title}» началась! Все растения посажены.",
+                en=f"🌱 {battle.title} has started! All plants are planted.",
+            )
 
             seen_users: set[str] = set()
             for entry in entries:
@@ -223,6 +229,11 @@ async def sync_battles_from_plantings(
                 battle.status = "judging"
                 battle.updated_at = now
                 changed += 1
+                await notify_battle_members(
+                    session,battle=battle,kind="finished",now=now,
+                    ru=f"🏁 Выращивание в битве «{battle.title}» завершено. Ожидаем результаты.",
+                    en=f"🏁 Growing finished in {battle.title}. Results are coming.",
+                )
                 await queue_admin_text(
                     session,
                     event_prefix=f"battle_judging:{battle.id}",

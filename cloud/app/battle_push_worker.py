@@ -10,6 +10,8 @@ from .db import SessionLocal,create_tables
 from .battle_message_models import BattleAdminMessage,BattleMessageReceipt
 from .battle_models import PlantBattle
 from .battle_push_models import BattlePushDevice,BattlePushDelivery
+from .battle_event_models import BattleEventNotification,BattleEventPushDelivery
+from .battle_events import notify_end_soon
 
 logger=logging.getLogger(__name__)
 RETRY_LIMIT=6
@@ -100,6 +102,44 @@ async def deliver_pending(*,now:datetime|None=None,limit:int=50)->dict:
                 delivery.status="sent"
                 delivery.sent_at=datetime.now(timezone.utc)
                 success+=1
+        # Automatic events have a dedicated outbox, while admin messages keep
+        # using the original receipts and delivery table.
+        events=list((await session.execute(
+            select(BattleEventPushDelivery,BattlePushDevice,BattleEventNotification,PlantBattle)
+            .join(BattlePushDevice,BattlePushDevice.token_hash==BattleEventPushDelivery.token_hash)
+            .join(BattleEventNotification,BattleEventNotification.id==BattleEventPushDelivery.notification_id)
+            .join(PlantBattle,PlantBattle.id==BattleEventNotification.battle_id)
+            .where(BattleEventPushDelivery.status=="pending",
+                   BattleEventPushDelivery.next_attempt_at<=now)
+            .order_by(BattleEventPushDelivery.next_attempt_at)
+            .limit(limit)
+            .with_for_update(of=BattleEventPushDelivery,skip_locked=True)
+        )).all())
+        for delivery,device,notification,battle in events:
+            attempted+=1
+            if not device.active or device.user_id!=notification.user_id:
+                delivery.status="skipped"
+                continue
+            try:
+                await asyncio.to_thread(send_one,device.token,notification.id,battle.title,notification.body)
+            except Exception as exc:
+                delivery.attempts+=1
+                delivery.last_error=safe_error(exc)
+                if invalid_device(exc):
+                    delivery.status="failed"
+                    device.active=False
+                elif delivery.attempts>=RETRY_LIMIT:
+                    delivery.status="failed"
+                else:
+                    delivery.next_attempt_at=now+timedelta(
+                        seconds=min(3600,30*2**(delivery.attempts-1))
+                    )
+                failed+=1
+                logger.warning("FCM event attempt failed: %s",delivery.last_error)
+            else:
+                delivery.status="sent"
+                delivery.sent_at=datetime.now(timezone.utc)
+                success+=1
         await session.commit()
     return {"attempted":attempted,"sent":success,"failed":failed}
 
@@ -108,8 +148,17 @@ async def main():
     await create_tables()
     if not firebase_ready():
         logger.warning("Firebase service account not configured; push worker idle")
+    next_deadline_check=datetime.now(timezone.utc)
     while True:
         try:
+            now=datetime.now(timezone.utc)
+            if now>=next_deadline_check:
+                async with SessionLocal() as session:
+                    count=await notify_end_soon(session,now=now)
+                    await session.commit()
+                    if count:
+                        logger.info("Scheduled Battle notices: %s",count)
+                next_deadline_check=now+timedelta(minutes=5)
             result=await deliver_pending()
             if result.get("attempted"):
                 logger.info("FCM delivery: %s sent, %s failed",

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
+from .battle_events import notify_resource_low
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
 from .account_preferences_api import AccountAchievement, AccountPreferences
 from .models import Device, Farm, Plant, RackCameraPhoto, RackCameraCalibration, User
@@ -854,6 +855,10 @@ async def request_battle_action(
         requested_at=now,
     )
     session.add(action)
+    await notify_resource_low(
+        session,battle=battle,entry=entry,kind=payload.kind,
+        remaining=budget-(used+payload.amount),budget=budget,
+    )
     labels = {"water": "вода", "nutrient": "питательный раствор", "shade": "закрытие от света"}
     await queue_admin_text(
         session,

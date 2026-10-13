@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models import User
 from .battle_message_models import BattleAdminMessage, BattleMessageReceipt
 from .battle_push_models import BattlePushDevice, BattlePushDelivery
+from .battle_event_models import BattleEventNotification, BattleNotificationPreferences
+from .battle_events import KINDS
 from .battle_models import PlantBattle, PlantBattleEntry
 from .security import get_admin_user, get_current_user, get_session
 from .telegram.activity_notifier import TelegramActivityDelivery
@@ -198,6 +200,44 @@ async def admin_battle_message_history(
     return result
 
 
+class NotificationSettingsPatch(BaseModel):
+    start: bool | None = None
+    end_soon: bool | None = None
+    finished: bool | None = None
+    winner: bool | None = None
+    resource_low: bool | None = None
+    action_done: bool | None = None
+    new_battles: bool | None = None
+
+
+def _notification_preferences(row:BattleNotificationPreferences|None)->dict:
+    return {key:(getattr(row,key) if row is not None else key!="new_battles") for key in KINDS}
+
+
+@router.get("/battles/notification-preferences")
+async def get_battle_notification_preferences(
+    user:User=Depends(get_current_user), session:AsyncSession=Depends(get_session),
+):
+    return _notification_preferences(await session.get(BattleNotificationPreferences,user.id))
+
+
+@router.patch("/battles/notification-preferences")
+async def update_battle_notification_preferences(
+    payload:NotificationSettingsPatch,user:User=Depends(get_current_user),
+    session:AsyncSession=Depends(get_session),
+):
+    row=await session.get(BattleNotificationPreferences,user.id)
+    if row is None:
+        row=BattleNotificationPreferences(user_id=user.id)
+        for k,v in _notification_preferences(None).items():
+            setattr(row,k,v)
+        session.add(row)
+    for key,value in payload.model_dump(exclude_none=True).items():
+        setattr(row,key,value)
+    await session.commit()
+    return _notification_preferences(row)
+
+
 @router.get("/battles/inbox")
 async def battle_inbox(
     user:User=Depends(get_current_user),
@@ -210,8 +250,21 @@ async def battle_inbox(
       .where(BattleMessageReceipt.user_id==user.id)
       .order_by(BattleAdminMessage.created_at.desc()).limit(100)
     )).all())
-    return {"messages":[_receipt_data(m,r,b) for r,m,b in rows],
-            "unread_count":sum(r.read_at is None for r,m,b in rows)}
+    event_rows=list((await session.execute(
+      select(BattleEventNotification,PlantBattle)
+      .join(PlantBattle,PlantBattle.id==BattleEventNotification.battle_id)
+      .where(BattleEventNotification.user_id==user.id)
+      .order_by(BattleEventNotification.created_at.desc()).limit(100)
+    )).all())
+    messages=[_receipt_data(m,r,b) for r,m,b in rows]
+    messages.extend({
+       "id":notice.id,"battle_id":battle.id,"battle_title":battle.title,
+       "entry_id":notice.entry_id,"body":notice.body,
+       "created_at":notice.created_at,"read_at":notice.read_at,
+    } for notice,battle in event_rows)
+    messages.sort(key=lambda m:m["created_at"],reverse=True)
+    messages=messages[:100]
+    return {"messages":messages,"unread_count":sum(m["read_at"] is None for m in messages)}
 
 
 @router.post("/battles/inbox/{receipt_id}/read")
@@ -219,6 +272,8 @@ async def read_battle_message(receipt_id:str,
     user:User=Depends(get_current_user),session:AsyncSession=Depends(get_session)
 ):
     receipt=await session.get(BattleMessageReceipt,receipt_id)
+    if receipt is None:
+        receipt=await session.get(BattleEventNotification,receipt_id)
     if receipt is None or receipt.user_id!=user.id:
         raise HTTPException(status_code=404,detail="Message not found")
     if receipt.read_at is None:
