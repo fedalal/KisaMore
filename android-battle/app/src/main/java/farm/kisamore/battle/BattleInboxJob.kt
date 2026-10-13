@@ -14,6 +14,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import org.json.JSONObject
 
 /** Periodic system notifications; messages are persistent on the server.
@@ -25,18 +26,32 @@ class BattleInboxJob : JobService() {
         private const val CHANNEL = "battle_admin_messages"
 
         fun schedule(context: Context) {
-            val api = ApiClient(context.applicationContext)
-            val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            if (!api.hasSession()) {
-                scheduler.cancel(JOB_ID)
-                return
+            // Background notifications are optional. Missing OS permissions,
+            // OEM JobScheduler restrictions and invalid job configuration must
+            // NEVER crash login, onResume or cold app launch.
+            try {
+                val api = ApiClient(context.applicationContext)
+                val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE)
+                    as? JobScheduler ?: return
+                if (!api.hasSession()) {
+                    scheduler.cancel(JOB_ID)
+                    return
+                }
+                // onCreate and onResume both call this. Do not re-register an
+                // existing persisted job on every screen unlock.
+                if (scheduler.getPendingJob(JOB_ID) != null) return
+
+                val job = JobInfo.Builder(JOB_ID, ComponentName(context, BattleInboxJob::class.java))
+                    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                    .setPeriodic(15 * 60 * 1000L)
+                    .setPersisted(true)
+                    .build()
+                if (scheduler.schedule(job) != JobScheduler.RESULT_SUCCESS) {
+                    Log.w("BattleInboxJob", "Background notification job was not scheduled")
+                }
+            } catch (exc: RuntimeException) {
+                Log.e("BattleInboxJob", "Could not schedule notifications; app will continue", exc)
             }
-            val job = JobInfo.Builder(JOB_ID, ComponentName(context, BattleInboxJob::class.java))
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                .setPeriodic(15 * 60 * 1000L)
-                .setPersisted(true)
-                .build()
-            scheduler.schedule(job)
         }
 
         fun notifyNew(context: Context, json: JSONObject) {
