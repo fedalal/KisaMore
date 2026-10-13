@@ -233,3 +233,13 @@
     height:34px;min-width:34px;min-height:34px;max-width:34px;max-height:34px}
   .hero-scoreboard .mini-slot .hero-slot-initial{font-size:17px}
 }
+
+/* Private participant inbox, independent from Telegram delivery. */
+.battle-messages-list{display:grid;gap:12px;max-height:65vh;overflow-y:auto}
+.battle-message-item{border:1px solid var(--line);border-radius:14px;padding:13px;background:#0b2319}
+.battle-message-item.unread{border-color:rgba(121,255,154,.6)}
+.battle-message-meta{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:space-between}
+.battle-message-meta small{color:var(--muted)}
+.battle-message-item p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+#battleMessagesOpen{width:100%}
+#battleMessagesBadge:not(:empty){color:var(--green)}

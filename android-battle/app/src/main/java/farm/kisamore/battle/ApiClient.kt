@@ -171,6 +171,15 @@ class ApiClient(context: Context) {
     }
 
 
+    /** Private, persistent inbox shared with the web Battle account. */
+    fun battleInbox(): JSONObject =
+        JSONObject(request("GET", "/api/v1/battles/inbox"))
+
+    fun markBattleMessageRead(id: String) {
+        require(id.matches(Regex("[0-9a-fA-F-]{36}"))) { "Invalid message ID" }
+        request("POST", "/api/v1/battles/inbox/$id/read")
+    }
+
     fun myBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/battles/me")))
 

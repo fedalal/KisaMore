@@ -155,6 +155,7 @@
       var rows=await api("/api/v1/admin/battles");
       battleRows={};
       rows.forEach(function(b){battleRows[b.id]=b;});
+      updateMessageBattles();
       body.innerHTML=rows.length
         ? rows.map(battleRow).join("")
         : '<tr><td colspan="6" class="muted">Битв пока нет.</td></tr>';
@@ -166,6 +167,82 @@
   }
 
   window.loadBattles=loadBattles;
+
+  var messageBattle=document.getElementById("battleMessageBattle");
+  var messageAll=document.getElementById("battleMessageAll");
+  var messageRecipients=document.getElementById("battleMessageRecipients");
+  var messageHistory=document.getElementById("battleMessageHistory");
+  var messageForm=document.getElementById("battleMessageForm");
+
+  function selectedMessageBattle(){
+    return battleRows[messageBattle.value]||null;
+  }
+  function updateMessageRecipients(){
+    var battle=selectedMessageBattle();
+    var entries=battle?(battle.entries||[]).filter(e=>["active","finished"].includes(e.status)):[];
+    messageRecipients.innerHTML=entries.length?entries.map(function(e){
+      return '<label class="battle-message-check"><input type="checkbox" value="'+esc(e.id)+
+        '" class="battle-message-recipient" '+(messageAll.checked?'checked disabled':'')+'>'+
+        ' #'+esc(e.slot_number)+' · '+esc(e.user_name||"Участник")+'</label>';
+    }).join(""):'<span class="muted">Нет участников.</span>';
+  }
+  async function loadMessageHistory(){
+    var battle=selectedMessageBattle();
+    if(!battle){messageHistory.textContent="Выберите битву.";return;}
+    var id=battle.id;
+    try{
+      var rows=await api("/api/v1/admin/battles/"+id+"/messages");
+      if(id!==messageBattle.value)return;
+      messageHistory.innerHTML=rows.length?rows.map(function(m){
+        var statuses=m.recipients.map(function(r){
+          var telegram=r.telegram_status?" · Telegram: "+r.telegram_status:"";
+          return '#'+esc(r.slot_number)+(r.read_at?' · прочитано':' · не прочитано')+esc(telegram);
+        });
+        return '<article class="battle-message-log"><div class="username">'+esc(fmtDate(m.created_at))+
+        ' · '+m.recipients.length+' получателей</div><div class="battle-message-text">'+
+        esc(m.body)+'</div><small>'+statuses.join(' · ')+'</small></article>';
+      }).join(""):'<span class="muted">Сообщений пока нет.</span>';
+    }catch(err){messageHistory.textContent="Не удалось загрузить историю: "+err.message;}
+  }
+  function updateMessageBattles(){
+    var previous=messageBattle.value;
+    var battles=Object.values(battleRows).filter(b=>b.status!=="cancelled");
+    messageBattle.innerHTML=battles.map(function(b){
+      return '<option value="'+esc(b.id)+'">'+esc(b.title)+' · полка '+esc(b.rack_id)+'</option>';
+    }).join("");
+    if(battleRows[previous])messageBattle.value=previous;
+    updateMessageRecipients();
+    loadMessageHistory();
+  }
+  messageBattle.addEventListener("change",function(){updateMessageRecipients();loadMessageHistory();});
+  messageAll.addEventListener("change",updateMessageRecipients);
+  messageForm.addEventListener("submit",async function(event){
+    event.preventDefault();
+    var battle=selectedMessageBattle();
+    if(!battle)return;
+    var body=document.getElementById("battleMessageText").value.trim();
+    if(!body)return;
+    var recipients=messageAll.checked?null:[...messageRecipients.querySelectorAll(".battle-message-recipient:checked")]
+      .map(x=>x.value);
+    if(recipients!==null&&!recipients.length){toast("Выберите получателей.");return;}
+    var count=recipients===null
+      ?battle.entries.filter(e=>["active","finished"].includes(e.status)).length
+      :recipients.length;
+    if(!count){toast("У выбранной битвы нет участников.");return;}
+    if(!confirm("Отправить сообщение "+count+" участникам?"))return;
+    var btn=document.getElementById("battleMessageSend");
+    btn.disabled=true;
+    try{
+      var sent=await api("/api/v1/admin/battles/"+battle.id+"/messages",{
+        method:"POST",body:JSON.stringify({body:body,recipient_entry_ids:recipients})
+      });
+      toast("Сообщение сохранено для "+sent.recipients+" участников; Telegram в очереди: "+sent.telegram_queued);
+      document.getElementById("battleMessageText").value="";
+      await loadMessageHistory();
+    }catch(err){toast("Ошибка отправки: "+err.message);}
+    finally{btn.disabled=false;}
+  });
+
 
   form.addEventListener("submit",async function(ev){
     ev.preventDefault();

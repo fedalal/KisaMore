@@ -237,7 +237,55 @@ function renderMyBattle(){const active=state.mine.filter(b=>b.status!=="finished
 async function loadSession(){try{state.user=await api("/api/v1/auth/me")}catch{state.user=null}if(state.user&&T[state.user.preferred_language])state.lang=state.user.preferred_language}
 async function load(){await loadSession();state.wallet=state.user?await api("/api/v1/account/kisa-wallet").catch(()=>null):null;
 const balance=$("#walletBalance");balance.hidden=!state.user;balance.textContent=state.wallet?"Ⓚ "+state.wallet.balance:"";
-const allPromise=api("/api/v1/public/battles");let mine=[];if(state.user){try{mine=await api("/api/v1/battles/me")}catch{mine=[]}}state.all=await allPromise;state.mine=mine;const m=new Map(mine.map(b=>[b.id,b]));state.all=state.all.map(b=>m.get(b.id)||b);const params=new URLSearchParams(location.search),battleParam=params.get("battle"),entryParam=params.get("entry");if(battleParam&&mine.some(b=>b.id===battleParam))state.selectedMyBattle=battleParam;if(entryParam)state.selectedEntry=entryParam;applyI18n();$("#languageSelect").value=state.lang;updateHero();renderLists();renderMyBattle();if(state.viewingBattleId){renderBattleDetail()}if(battleParam&&state.user)setTimeout(()=>$("#myBattleSection")?.scrollIntoView({behavior:"smooth"}),60)}
+const allPromise=api("/api/v1/public/battles");let mine=[];if(state.user){try{mine=await api("/api/v1/battles/me")}catch{mine=[]}}state.all=await allPromise;state.mine=mine;const m=new Map(mine.map(b=>[b.id,b]));state.all=state.all.map(b=>m.get(b.id)||b);const params=new URLSearchParams(location.search),battleParam=params.get("battle"),entryParam=params.get("entry");if(battleParam&&mine.some(b=>b.id===battleParam))state.selectedMyBattle=battleParam;if(entryParam)state.selectedEntry=entryParam;applyI18n();$("#languageSelect").value=state.lang;updateHero();renderLists();renderMyBattle();refreshBattleMessages().catch(()=>{});if(state.viewingBattleId){renderBattleDetail()}if(battleParam&&state.user)setTimeout(()=>$("#myBattleSection")?.scrollIntoView({behavior:"smooth"}),60)}
+const messagesState={messages:[],unread:0,initialized:false,userId:null};
+function updateMessagesBadge(){
+  const node=$("#battleMessagesBadge"),count=messagesState.unread;
+  node.textContent=count?"("+count+")":"";
+  $("#battleMessagesOpen").textContent=(state.lang==="ru"?"📨 Сообщения ":"📨 Messages ")+(count?"("+count+")":"");
+}
+async function refreshBattleMessages(){
+  if(!state.user){
+    messagesState.messages=[];messagesState.unread=0;messagesState.userId=null;
+    messagesState.initialized=false;updateMessagesBadge();return;
+  }
+  const userId=state.user.id;
+  const data=await api("/api/v1/battles/inbox");
+  if(!state.user||state.user.id!==userId)return;
+  const prev=messagesState.unread;
+  const wasLoaded=messagesState.initialized&&messagesState.userId===userId;
+  messagesState.userId=userId;messagesState.initialized=true;
+  messagesState.messages=data.messages||[];
+  messagesState.unread=data.unread_count||0;
+  updateMessagesBadge();
+  if(wasLoaded&&messagesState.unread>prev)
+    toast(state.lang==="ru"?"Новое сообщение от администратора битвы":"New Battle message from the administrator");
+  if($("#battleMessagesDialog").open)renderBattleMessages();
+}
+function renderBattleMessages(){
+  $("#battleMessagesTitle").textContent=state.lang==="ru"?"📨 Сообщения битв":"📨 Battle messages";
+  const rows=messagesState.messages;
+  $("#battleMessagesList").innerHTML=rows.length?rows.map(m=>
+    '<article class="battle-message-item '+(m.read_at?"":"unread")+'">'+
+    '<div class="battle-message-meta"><strong>'+esc(m.battle_title)+'</strong><small>'+esc(fmtDate(m.created_at))+'</small></div>'+
+    '<p>'+esc(m.body)+'</p>'+
+    (m.read_at?"":'<button class="button secondary" data-message-read="'+esc(m.id)+'">'+
+      (state.lang==="ru"?"Отметить прочитанным":"Mark as read")+'</button>')+
+    '</article>').join(""):'<p class="muted">'+(state.lang==="ru"?"Сообщений пока нет.":"No messages yet.")+'</p>';
+}
+$("#battleMessagesOpen").addEventListener("click",()=>{
+  setAccountMenu(false);renderBattleMessages();$("#battleMessagesDialog").showModal();
+});
+$("#battleMessagesClose").addEventListener("click",()=>$("#battleMessagesDialog").close());
+$("#battleMessagesList").addEventListener("click",async e=>{
+  const button=e.target.closest("[data-message-read]");
+  if(!button)return;
+  button.disabled=true;
+  try{await api("/api/v1/battles/inbox/"+encodeURIComponent(button.dataset.messageRead)+"/read",{method:"POST"});
+      await refreshBattleMessages();}
+  catch(error){button.disabled=false;toast(error.message);}
+});
+
 function renderBattleDetail(){
   const section=$("#battleDetailSection"),b=state.all.find(x=>x.id===state.viewingBattleId);
   if(!b){section.classList.add("hidden");return}
@@ -368,6 +416,7 @@ $("#accountLogoutButton").addEventListener("click",async()=>{
     state.user=null;
     state.mine=[];
     state.wallet=null;
+    messagesState.initialized=false;messagesState.messages=[];messagesState.unread=0;
     await load();
   }catch(e){toast(e.message)}
   finally{button.disabled=false}

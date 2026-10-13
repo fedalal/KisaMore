@@ -9,6 +9,7 @@ from .config import get_settings
 from .models import Base
 from .site_wallet import SiteWallet, SiteWalletTransaction  # noqa: F401 - website Kisa wallets
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry  # noqa: F401 - register battle tables
+from .battle_message_models import BattleAdminMessage, BattleMessageReceipt  # noqa: F401
 from .telegram_link import WebsiteTelegramLinkToken  # noqa: F401 - register website/Telegram linking table
 from . import site_analytics_models  # noqa: F401 - register analytics tables
 from .plant_fact_models import PlantFactPool  # noqa: F401 - register table in Base metadata

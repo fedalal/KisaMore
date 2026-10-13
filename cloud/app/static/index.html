@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="/static/battle.css?v=20260930-1">
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
   <script src="/static/dashboard.js?v=20261010-7" defer></script>
+  <link rel="stylesheet" href="/static/battle_inbox_home.css?v=20261013-1">
+  <script src="/static/battle_inbox_home.js?v=20261013-1" defer></script>
   <script src="/static/battle.js?v=20260930-1" defer></script>
   <script src="/static/analytics.js?v=20260924-2" defer></script>
 </head>
@@ -45,6 +47,7 @@
           <option value="pl">Polski</option>
           <option value="zh">中文</option>
         </select>
+        <button id="battleInboxHomeButton" class="secondary-button battle-notif-btn" type="button" hidden>📨 Сообщения</button>
         <button id="accountButton" class="secondary-button" type="button" data-i18n="signIn">Sign in</button>
       </nav>
     </header>
@@ -348,6 +351,14 @@
         <button type="button" data-gift-code="trophy">🏆 <strong>50</strong> KISA</button>
       </div>
       <p id="giftError" class="form-error hidden"></p>
+    </section>
+  </dialog>
+  <dialog id="battleInboxHomeDialog" class="battle-home-dialog">
+    <section class="battle-home-modal">
+      <header><h2 id="battleInboxHomeTitle">📨 Messages</h2>
+        <button id="battleInboxHomeClose" class="secondary-button" type="button">×</button>
+      </header>
+      <div id="battleInboxHomeList" class="battle-home-message-list"></div>
     </section>
   </dialog>
 </body>

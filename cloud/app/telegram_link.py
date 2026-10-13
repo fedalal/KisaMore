@@ -167,6 +167,12 @@ async def consume_telegram_link_token(
             .where(PlantBattleEntry.user_id == old_marketplace_user_id)
             .values(user_id=website_user.id)
         )
+        from .battle_message_models import BattleMessageReceipt
+        await session.execute(
+            update(BattleMessageReceipt)
+            .where(BattleMessageReceipt.user_id == old_marketplace_user_id)
+            .values(user_id=website_user.id)
+        )
 
     # Transfer the website-only Kisa balance into the existing Telegram wallet.
     # The debit and credit ledgers are written in the same transaction.

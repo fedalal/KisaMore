@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#08130f">
   <title>KisaMore Battle — Grow. Decide. Win.</title>
   <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
-  <link rel="stylesheet" href="/static/battle_site.css?v=20261012-7">
+  <link rel="stylesheet" href="/static/battle_site.css?v=20261013-1">
   <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/battle_site.js?v=20261012-8" defer></script>
+  <script src="/static/battle_site.js?v=20261013-1" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -43,6 +43,7 @@
             <span>Telegram</span>
             <span id="accountTelegram">—</span>
           </div>
+          <button id="battleMessagesOpen" class="button secondary" type="button">📨 Messages <span id="battleMessagesBadge"></span></button>
           <button id="accountLogoutButton" class="button secondary account-logout"
                   data-i18n="signOut" type="button">Sign out</button>
         </div>
@@ -189,6 +190,14 @@
       </div>
       <div id="photoViewerLoading" class="photo-viewer-loading"></div>
       <img id="photoViewerImage" alt="Greenhouse camera" hidden>
+    </div>
+  </dialog>
+
+  <dialog id="battleMessagesDialog" aria-label="Battle messages">
+    <div class="dialog-shell">
+      <button id="battleMessagesClose" class="dialog-close" type="button">×</button>
+      <h2 id="battleMessagesTitle">📨 Messages</h2>
+      <div id="battleMessagesList" class="battle-messages-list"></div>
     </div>
   </dialog>
 

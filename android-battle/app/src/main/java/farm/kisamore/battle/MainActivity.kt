@@ -80,6 +80,21 @@ class MainActivity : Activity() {
         game.openToday()
         buildShell()
         loadAll("home")
+        BattleInboxJob.schedule(this)
+        if (intent?.getBooleanExtra("open_battle_inbox",false)==true)
+            contentHost.postDelayed({showBattleMessages()},1200)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::api.isInitialized) BattleInboxJob.schedule(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra("open_battle_inbox",false))
+            contentHost.post {showBattleMessages()}
     }
 
     override fun onDestroy() {
@@ -508,12 +523,14 @@ class MainActivity : Activity() {
                 onChangePhoto = { pickProfilePhoto() },
                 onLogin = { showLogin() },
                 onHistory = { showBattleHistory(); addNavigation() },
+                onMessages = { showBattleMessages() },
                 onRegion = {
                     api.setRegion(!api.isRussianServer())
                     loadAll("profile")
                 },
                 onLogout = {
                     async(work = { api.logout(); true }, success = {
+                        BattleInboxJob.schedule(this)
                         myBattles = emptyList()
                         cachedServerProfile = null
                         cachedWalletKisa = null
@@ -563,6 +580,88 @@ class MainActivity : Activity() {
                 toast("Не удалось загрузить статистику профиля")
             })
         }
+    }
+
+    /** Messages remain available after relaunch, even without Telegram. */
+    private fun showBattleMessages() {
+        if (!api.hasSession()) { showLogin(); return }
+        val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
+            .getString("language", "ru") ?: "ru"
+        val ru = language == "ru"
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 8204)
+        }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(8), dp(18), dp(12))
+        }
+        layout.addView(TextView(this).apply {
+            text = if (ru) "Загрузка сообщений…" else "Loading messages…"
+            textSize = 16f
+        })
+        val scroll = ScrollView(this).apply { addView(layout) }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (ru) "📨 Сообщения битв" else "📨 Battle messages")
+            .setView(scroll)
+            .setNegativeButton(if (ru) "Закрыть" else "Close", null)
+            .create()
+        dialog.show()
+        async(work = { api.battleInbox() }, success = { response ->
+            if (!dialog.isShowing) return@async
+            val messages = response.optJSONArray("messages") ?: org.json.JSONArray()
+            layout.removeAllViews()
+            if (messages.length() == 0) {
+                layout.addView(TextView(this).apply {
+                    text = if (ru) "Сообщений пока нет." else "No messages yet."
+                    textSize = 16f
+                })
+            }
+            for (i in 0 until messages.length()) {
+                val message = messages.getJSONObject(i)
+                val messageId = message.optString("id")
+                val battle = message.optString("battle_title")
+                val body = message.optString("body")
+                val unread = message.isNull("read_at")
+                val label = TextView(this).apply {
+                    text = (if (unread) "●  " else "") + battle + "\n" + body
+                    textSize = 15f
+                    setTextColor(if (unread) green else
+                        if (getSharedPreferences("battle_settings", MODE_PRIVATE)
+                                .getBoolean("dark_mode", false)) white else Color.DKGRAY)
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                }
+                layout.addView(label)
+                if (unread) {
+                    layout.addView(Button(this).apply {
+                        text = if (ru) "Прочитано ✓" else "Mark read ✓"
+                        setOnClickListener {
+                            isEnabled = false
+                            async(work = { api.markBattleMessageRead(messageId) },
+                                success = {
+                                    label.setTextColor(white)
+                                    visibility = View.GONE
+                                },
+                                failure = {
+                                    isEnabled = true
+                                    toast(it.message ?: "Error")
+                                })
+                        }
+                    })
+                }
+            }
+            dialog.window?.setLayout((resources.displayMetrics.widthPixels * .92).toInt(), -2)
+        }, failure = {
+            if (dialog.isShowing) {
+                layout.removeAllViews()
+                layout.addView(TextView(this).apply {
+                    text = (if (ru) "Не удалось загрузить сообщения: " else "Could not load messages: ") +
+                        (it.message ?: "Error")
+                    textSize = 16f
+                })
+            }
+        })
     }
 
     private fun showLogin() {
@@ -677,6 +776,7 @@ class MainActivity : Activity() {
                     },
                     success = {
                         game.openToday()
+                        BattleInboxJob.schedule(this)
                         accountPrefsLoadedFor = null
                         if (it.second != null) applyRemotePreferences(it.second!!)
                         loadAll("home")

@@ -1,0 +1,13 @@
+
+.battle-notif-btn[hidden]{display:none!important}
+.battle-notif-btn.has-new{border-color:#26a568;color:#166444}
+.battle-home-dialog{max-width:min(96vw,540px);width:100%;max-height:90vh;padding:0;border:0;border-radius:18px;box-shadow:0 16px 70px rgba(0,0,0,.28)}
+.battle-home-dialog::backdrop{background:rgba(0,0,0,.6)}
+.battle-home-modal{padding:20px;display:grid;gap:14px}
+.battle-home-modal header{display:flex;align-items:center;justify-content:space-between}
+.battle-home-modal h2{margin:0;font-size:23px;color:#1d4735}
+.battle-home-message-list{display:grid;gap:10px;max-height:65vh;overflow-y:auto}
+.battle-home-message{padding:13px;border:1px solid #d7e2dc;border-radius:12px;background:#fff;display:grid;gap:7px}
+.battle-home-message.unread{border-color:#32a56e;background:#f1fbf3}
+.battle-home-message small{color:#718575}
+.battle-home-message p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}

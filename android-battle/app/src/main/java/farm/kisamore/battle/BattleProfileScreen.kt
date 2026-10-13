@@ -32,6 +32,7 @@ class BattleProfileScreen(
     private val onChangePhoto: () -> Unit,
     private val onLogin: () -> Unit,
     private val onHistory: () -> Unit,
+    private val onMessages: () -> Unit = {},
     private val onRegion: () -> Unit,
     private val onLogout: () -> Unit,
     private val onThemeChanged: () -> Unit = {},
@@ -330,11 +331,7 @@ class BattleProfileScreen(
 
     private fun settingAction(index: Int) {
         when (index) {
-            0 -> try {
-                host.startActivity(Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
-                    putExtra("android.provider.extra.APP_PACKAGE", host.packageName)
-                })
-            } catch (_: Exception) { }
+            0 -> onMessages()
             1 -> {
                 val prefs = host.getSharedPreferences("battle_settings", 0)
                 prefs.edit().putBoolean("dark_mode", !prefs.getBoolean("dark_mode", false)).apply()

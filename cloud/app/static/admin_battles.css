@@ -29,3 +29,15 @@ a.battle-participant-telegram:hover{text-decoration:underline}
 .battle-edit-resources label input{width:100%;margin:0}
 .battle-edit-resources-hint{grid-column:1/-1;color:#72867d;font-size:12px;margin:3px 0 0}
 @media(max-width:470px){.battle-edit-resources{grid-template-columns:1fr}}
+
+.battle-message-form{display:grid;gap:12px;max-width:780px;margin-top:12px}
+.battle-message-form label{display:grid;gap:7px;font-size:13px;font-weight:650}
+.battle-message-form textarea{width:100%;min-height:95px;resize:vertical}
+.battle-message-form .battle-message-audience{border:1px solid #dce9de;border-radius:12px;padding:12px;display:grid;gap:8px}
+.battle-message-form .battle-message-check{display:flex;align-items:center;gap:8px;font-weight:500}
+.battle-message-check input{width:auto;flex:0 0 auto}
+.battle-message-recipients{display:flex;flex-wrap:wrap;gap:9px 16px}
+.battle-message-history{display:grid;gap:9px;max-width:1000px}
+.battle-message-log{border:1px solid #dce9de;border-radius:12px;padding:12px;background:#f8fbf9}
+.battle-message-log small{font-size:11px;color:#6c7f72}
+.battle-message-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}
