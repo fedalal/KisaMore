@@ -1,0 +1,7 @@
+<en-US>
+Fixed localization on the History screen and the startup greenhouse connection message. The selected language is now used for history headings, completed battles, actions and empty states.
+</en-US>
+
+<ru-RU>
+Исправлены переводы на экране «История» и сообщение о подключении к теплице при запуске. Все элементы истории отображаются на выбранном языке.
+</ru-RU>

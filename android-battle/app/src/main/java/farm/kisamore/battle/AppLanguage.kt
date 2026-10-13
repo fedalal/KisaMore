@@ -69,6 +69,22 @@ class AppLanguage(private val context: Context) {
             supported.firstOrNull { it.first == code }?.second ?: "English"
 
         private val rows: Map<String, Array<String>> = mapOf(
+            "История" to arrayOf("History", "Verlauf", "Historique", "Historial", "Cronologia", "Histórico", "Historia", "历史"),
+            "Ваши завершённые соревнования" to arrayOf("Your completed battles", "Deine abgeschlossenen Battles", "Vos batailles terminées", "Tus batallas finalizadas", "Le tue sfide concluse", "Suas batalhas concluídas", "Twoje zakończone bitwy", "你已完成的对战"),
+            "Пока нет завершённых битв" to arrayOf("No completed battles yet", "Noch keine abgeschlossenen Battles", "Aucune bataille terminée pour le moment", "Aún no hay batallas finalizadas", "Ancora nessuna sfida conclusa", "Ainda não há batalhas concluídas", "Brak zakończonych bitew", "暂无已完成的对战"),
+            "Когда ваша битва закончится, здесь появятся результаты, фотографии, таймлапсы и цифровой диплом." to arrayOf("When your battle ends, you’ll see results, photos, timelapses and your digital certificate here.", "Nach deinem Battle findest du hier Ergebnisse, Fotos, Zeitraffer und dein digitales Zertifikat.", "À la fin de votre bataille, retrouvez ici les résultats, photos, timelapses et votre diplôme numérique.", "Cuando termine tu batalla, aquí verás resultados, fotos, timelapses y tu diploma digital.", "Al termine della sfida, qui troverai risultati, foto, timelapse e il diploma digitale.", "Quando a batalha terminar, você verá resultados, fotos, timelapses e seu diploma digital aqui.", "Po zakończeniu bitwy zobaczysz tu wyniki, zdjęcia, timelapse i cyfrowy dyplom.", "对战结束后，这里会显示结果、照片、延时视频和电子证书。"),
+            "Смотреть текущую битву" to arrayOf("Watch current battle", "Aktuelles Battle ansehen", "Voir la bataille en cours", "Ver batalla actual", "Guarda la sfida in corso", "Ver batalha atual", "Oglądaj bieżącą bitwę", "观看当前对战"),
+            "ЗАВЕРШЕНО" to arrayOf("COMPLETED", "ABGESCHLOSSEN", "TERMINÉES", "FINALIZADAS", "CONCLUSE", "CONCLUÍDAS", "ZAKOŃCZONE", "已完成"),
+            "ПОБЕДЫ" to arrayOf("WINS", "SIEGE", "VICTOIRES", "VICTORIAS", "VITTORIE", "VITÓRIAS", "ZWYCIĘSTWA", "胜利"),
+            "ДИПЛОМЫ" to arrayOf("CERTIFICATES", "ZERTIFIKATE", "DIPLÔMES", "DIPLOMAS", "DIPLOMI", "DIPLOMAS", "DYPLOMY", "证书"),
+            "Завершённые битвы" to arrayOf("Completed battles", "Abgeschlossene Battles", "Batailles terminées", "Batallas finalizadas", "Sfide concluse", "Batalhas concluídas", "Zakończone bitwy", "已完成的对战"),
+            "Победа" to arrayOf("Victory", "Sieg", "Victoire", "Victoria", "Vittoria", "Vitória", "Zwycięstwo", "胜利"),
+            "Участие" to arrayOf("Participated", "Teilnahme", "Participation", "Participación", "Partecipazione", "Participação", "Udział", "已参加"),
+            "Завершено: " to arrayOf("Finished: ", "Beendet: ", "Terminée le : ", "Finalizada: ", "Terminata: ", "Concluída: ", "Zakończono: ", "完成于："),
+            "QR-код диплома" to arrayOf("Certificate QR code", "Zertifikat-QR-Code", "Code QR du diplôme", "Código QR del diploma", "Codice QR del diploma", "QR code do diploma", "Kod QR dyplomu", "证书二维码"),
+            "Фото" to arrayOf("Photo", "Foto", "Photo", "Foto", "Foto", "Foto", "Zdjęcie", "照片"),
+            "Таймлапс" to arrayOf("Timelapse", "Zeitraffer", "Timelapse", "Timelapse", "Timelapse", "Timelapse", "Timelapse", "延时视频"),
+            "Диплом" to arrayOf("Certificate", "Zertifikat", "Diplôme", "Diploma", "Diploma", "Diploma", "Dyplom", "证书"),
             "🌱 Утренняя сводка · день " to arrayOf("🌱 Morning report · day ", "🌱 Morgenbericht · Tag ", "🌱 Rapport du matin · jour ", "🌱 Informe matinal · día ", "🌱 Rapporto mattutino · giorno ", "🌱 Relatório matinal · dia ", "🌱 Poranny raport · dzień ", "🌱 早间报告 · 第 "),
             "Закрыть сводку" to arrayOf("Dismiss report", "Bericht schließen", "Fermer le rapport", "Cerrar informe", "Chiudi rapporto", "Fechar relatório", "Zamknij raport", "关闭报告"),
             "Ваш контейнер №" to arrayOf("Your container #", "Dein Behälter Nr. ", "Votre bac nº ", "Tu contenedor n.º ", "Il tuo contenitore n. ", "Seu recipiente nº ", "Twój pojemnik nr ", "你的容器编号"),

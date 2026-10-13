@@ -297,7 +297,7 @@ class MainActivity : Activity() {
 
     private fun loadAll(target: String) {
         currentScreen = target
-        showLoading("Подключаемся к теплице…")
+        showLoading(AppLanguage(this).t("Подключаемся к теплице…"))
         async(
             work = {
                 val pub = api.publicBattles()

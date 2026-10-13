@@ -28,6 +28,7 @@ internal class BattleHistoryScreen(
     private val onCertificate: (String) -> Unit,
     private val onCurrentBattle: () -> Unit
 ) : ScrollView(host) {
+    private val language = AppLanguage(host)
     private val dark = host.getSharedPreferences("battle_settings", 0).getBoolean("dark_mode", false)
     private val back = color(if (dark) "#101A14" else "#F8F9F6")
     private val surface = color(if (dark) "#1B2A22" else "#FFFFFF")
@@ -104,17 +105,17 @@ internal class BattleHistoryScreen(
                     orientation = LinearLayout.VERTICAL
                     setPadding(dp(14), 0, dp(4), 0)
                 }
-                column.addView(label(battle.localizedPlantName(AppLanguage(host).code), 16f, true))
+                column.addView(label(battle.localizedPlantName(language.code), 16f, true))
                 column.addView(label(if (entry.isWinner) "Победа" else "Участие", 13f, true).apply {
                     setTextColor(green)
                 })
-                column.addView(label("Завершено: " + formatDate(battle.finishedAt), 12f))
+                column.addView(label(language.t("Завершено: ") + formatDate(battle.finishedAt), 12f))
                 first.addView(column, LinearLayout.LayoutParams(0, -2, 1f))
                 val certificate = entry.certificateUrl?.let { api.absolute(it) }
                     ?: api.absolute("/api/v1/battle-certificate/${entry.id}")
                 if (certificate != null) {
                     val qr = ImageView(host).apply {
-                        contentDescription = "QR-код диплома"
+                        contentDescription = language.t("QR-код диплома")
                         setImageBitmap(makeQr(certificate))
                         setOnClickListener { onCertificate(certificate) }
                     }
@@ -156,7 +157,7 @@ internal class BattleHistoryScreen(
         }, LinearLayout.LayoutParams(0, dp(32), 1f))
     }
     private fun label(value: String, size: Float, strong: Boolean = false) = TextView(host).apply {
-        text = value
+        text = language.t(value)
         textSize = size
         setTextColor(if (strong) textColor else muted)
         if (strong) setTypeface(typeface, Typeface.BOLD)
