@@ -8,6 +8,9 @@ contacts, or third-party SDKs are added.
 
 Current manifest:
 - INTERNET
+- ACCESS_NETWORK_STATE
+- POST_NOTIFICATIONS (user permission)
+- RECEIVE_BOOT_COMPLETED
 
 The app does **not** currently request:
 - precise or approximate location;
@@ -51,6 +54,14 @@ not as plaintext passwords.
 ## Data sharing
 
 The current Android app has no advertising SDK and no third-party analytics SDK.
+It DOES include Firebase Cloud Messaging (FCM), which uses a Firebase
+installation identifier / registration token to deliver notifications through
+Google's infrastructure. The app registers its FCM token with KisaMore servers,
+bound to the logged-in account; the token is revoked server-side on logout.
+Review Google Play Data safety declarations for Device or other IDs and
+service-provider processing, and update the public privacy policy to describe
+notifications. FCM service and device data may involve Google's service
+infrastructure. Do not claim there is no third-party data processing.
 Backend service providers may process data on KisaMore's behalf for hosting and email delivery.
 Optional Telegram linking is a separate user-initiated integration.
 
@@ -70,7 +81,7 @@ under the current Google Play Data safety definitions.
 - Photos and videos uploaded from the device
 - Audio files / microphone
 - Health and fitness
-- Messages collected from the Android client
+- Private messages typed by users into the Android app (admin notifications are received from KisaMore)
 - Advertising data
 - Device advertising ID
 - Crash analytics SDK data

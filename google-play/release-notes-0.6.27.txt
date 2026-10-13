@@ -1,0 +1,7 @@
+<en-US>
+New Battle notifications: alerts when growing starts or finishes, the winner is announced, and actions are completed. Receive reminders about the final day and low resources. Subscribe to new Battles in notification settings. Firebase push delivery, improved camera viewer and plant controls.
+</en-US>
+
+<ru-RU>
+Новые уведомления о событиях «Битвы растений»: начало и завершение роста, результаты, выполненные действия, остатки ресурсов и напоминание за сутки. В настройках можно подписаться на новые битвы. Push-уведомления Firebase и улучшенное управление растениями.
+</ru-RU>

@@ -41,7 +41,8 @@ Do not use fabricated UI screenshots. Capture them from the release build.
 - Complete App access using `review-access.md`.
 
 ## Release
-- Configure GitHub signing secrets.
+- Configure ORIGINAL Google Play signing secrets and Firebase Android configuration.
+- Verify upload certificate fingerprint against existing Play Console upload certificate, not a newly generated key.
 - Run **Android Battle — Google Play AAB**.
 - Download the signed `app-release.aab` artifact.
 - Create an Internal testing release first.

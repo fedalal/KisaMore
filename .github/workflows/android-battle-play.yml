@@ -13,8 +13,7 @@ on:
 jobs:
   play_bundle:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,7 +35,15 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Validate signing secrets
+      - name: Install mandatory Firebase configuration
+        env:
+          FIREBASE_ANDROID_JSON_B64: ${{ secrets.KISAMORE_FIREBASE_ANDROID_JSON_B64 }}
+        run: |
+          test -n "$FIREBASE_ANDROID_JSON_B64" || (echo "Missing Firebase Android config secret" && exit 1)
+          printf '%s' "$FIREBASE_ANDROID_JSON_B64" | base64 --decode > android-battle/app/google-services.json
+          python3 -c 'import json; from pathlib import Path; p=Path("android-battle/app/google-services.json"); d=json.loads(p.read_text()); assert d.get("project_info",{}).get("project_id")=="kisamore-3079f", "Wrong Firebase project"; assert any(c.get("client_info",{}).get("android_client_info",{}).get("package_name")=="farm.kisamore.battle" for c in d.get("client", [])), "Wrong Android package"; print("Firebase Android config loaded")'
+
+      - name: Validate original Google Play upload signing secrets
         shell: bash
         env:
           KEYSTORE_B64: ${{ secrets.KISAMORE_UPLOAD_KEYSTORE_BASE64 }}
@@ -44,23 +51,30 @@ jobs:
           KEY_ALIAS: ${{ secrets.KISAMORE_UPLOAD_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KISAMORE_UPLOAD_KEY_PASSWORD }}
         run: |
-          test -n "$KEYSTORE_B64" || (echo "Missing KISAMORE_UPLOAD_KEYSTORE_BASE64" && exit 1)
+          test -n "$KEYSTORE_B64" || (echo "Missing ORIGINAL upload key: KISAMORE_UPLOAD_KEYSTORE_BASE64" && exit 1)
           test -n "$STORE_PASSWORD" || (echo "Missing KISAMORE_UPLOAD_STORE_PASSWORD" && exit 1)
           test -n "$KEY_ALIAS" || (echo "Missing KISAMORE_UPLOAD_KEY_ALIAS" && exit 1)
           test -n "$KEY_PASSWORD" || (echo "Missing KISAMORE_UPLOAD_KEY_PASSWORD" && exit 1)
 
-      - name: Restore upload keystore
+      - name: Restore and verify ORIGINAL upload keystore
         shell: bash
         env:
           KEYSTORE_B64: ${{ secrets.KISAMORE_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.KISAMORE_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KISAMORE_UPLOAD_KEY_ALIAS }}
         run: |
-          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/kisamore-upload-key.jks"
-          keytool -list -keystore "$RUNNER_TEMP/kisamore-upload-key.jks"             -storepass "${{ secrets.KISAMORE_UPLOAD_STORE_PASSWORD }}"             -alias "${{ secrets.KISAMORE_UPLOAD_KEY_ALIAS }}" >/dev/null
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/kisamore-upload-key.jks"
+          chmod 600 "$RUNNER_TEMP/kisamore-upload-key.jks"
+          # Fingerprint pinned from the previously accepted original Play upload certificate.
+          EXPECTED="13:CC:46:3F:9A:EE:39:28:BF:BA:AA:7A:9A:6C:94:46:B1:17:AE:F1:A6:4D:8F:C7:4B:48:B5:51:63:FE:DE:03"
+          ACTUAL="$(keytool -list -v -keystore "$RUNNER_TEMP/kisamore-upload-key.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"
+          test "$ACTUAL" = "$EXPECTED" || (echo "Upload signing certificate MISMATCH: refusing to build Play update" && exit 1)
+          echo "Original upload certificate verified."
 
-      - name: Unit tests
+      - name: Android unit tests
         run: gradle -p android-battle testDebugUnitTest --stacktrace
 
-      - name: Build signed release AAB
+      - name: Build signed Google Play AAB
         env:
           KISAMORE_UPLOAD_STORE_FILE: ${{ runner.temp }}/kisamore-upload-key.jks
           KISAMORE_UPLOAD_STORE_PASSWORD: ${{ secrets.KISAMORE_UPLOAD_STORE_PASSWORD }}
@@ -68,13 +82,26 @@ jobs:
           KISAMORE_UPLOAD_KEY_PASSWORD: ${{ secrets.KISAMORE_UPLOAD_KEY_PASSWORD }}
         run: gradle -p android-battle bundleRelease --stacktrace
 
-      - name: Verify AAB signature
-        run: jarsigner -verify -verbose -certs android-battle/app/build/outputs/bundle/release/app-release.aab
+      - name: Verify release bundle and upload certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE=android-battle/app/build/outputs/bundle/release/app-release.aab
+          test -s "$BUNDLE"
+          grep -Fq 'versionCode = 42' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.27"' android-battle/app/build.gradle.kts
+          jarsigner -verify "$BUNDLE"
+          EXPECTED="13:CC:46:3F:9A:EE:39:28:BF:BA:AA:7A:9A:6C:94:46:B1:17:AE:F1:A6:4D:8F:C7:4B:48:B5:51:63:FE:DE:03"
+          ACTUAL="$(keytool -printcert -jarfile "$BUNDLE" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"
+          test "$ACTUAL" = "$EXPECTED" || (echo "Signed bundle certificate mismatch" && exit 1)
+          unzip -p "$BUNDLE" base/dex/classes.dex >/dev/null
+          cp "$BUNDLE" KisaMore-Battle-0.6.27-GooglePlay.aab
+          echo "SIGNED PLAY BUNDLE VERIFIED: 0.6.27 (42), original upload key."
 
-      - name: Upload Google Play AAB
+      - name: Upload signed Google Play bundle
         uses: actions/upload-artifact@v4
         with:
-          name: kisamore-battle-google-play-aab
-          path: android-battle/app/build/outputs/bundle/release/app-release.aab
+          name: KisaMore-Battle-0.6.27-GooglePlay-SIGNED
+          path: KisaMore-Battle-0.6.27-GooglePlay.aab
           if-no-files-found: error
           retention-days: 90
