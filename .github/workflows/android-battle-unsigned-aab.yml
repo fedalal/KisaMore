@@ -1,0 +1,63 @@
+name: Android Battle — Unsigned AAB for offline signing
+
+# Produces an UNSIGNED bundle to sign locally with the EXISTING Google Play
+# upload key. This artifact is NOT suitable for uploading directly to Play.
+on:
+  push:
+    branches: [feature/plant-battle]
+    paths:
+      - ".github/workflows/android-battle-unsigned-aab.yml"
+  workflow_dispatch:
+
+jobs:
+  offline_unsigned_bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK
+        run: |
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Restore required Firebase config
+        env:
+          FIREBASE_ANDROID_JSON_B64: ${{ secrets.KISAMORE_FIREBASE_ANDROID_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$FIREBASE_ANDROID_JSON_B64"
+          printf '%s' "$FIREBASE_ANDROID_JSON_B64" | base64 --decode > android-battle/app/google-services.json
+          python3 -c 'import json; from pathlib import Path; d=json.loads(Path("android-battle/app/google-services.json").read_text()); assert d["project_info"]["project_id"] == "kisamore-3079f"'
+      - name: Unit tests
+        run: gradle -p android-battle testDebugUnitTest --stacktrace
+      - name: Build unsigned Android App Bundle
+        env:
+          KISAMORE_BUILD_UNSIGNED_BUNDLE_FOR_OFFLINE_SIGNING: "true"
+        run: gradle -p android-battle bundleRelease --stacktrace
+      - name: Verify unsigned artifact
+        run: |
+          set -euo pipefail
+          AAB=android-battle/app/build/outputs/bundle/release/app-release.aab
+          test -s "$AAB"
+          grep -Fq 'versionCode = 42' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.27"' android-battle/app/build.gradle.kts
+          if jarsigner -verify "$AAB" >/dev/null 2>&1; then
+            echo "Refusing to publish an unexpectedly signed AAB"
+            exit 1
+          fi
+          unzip -t "$AAB" > /dev/null
+          cp "$AAB" KisaMore-Battle-0.6.27-UNSIGNED.aab
+          echo "Unsigned bundle ready for private local signing."
+      - name: Upload staging AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: KisaMore-Battle-0.6.27-UNSIGNED-for-offline-signing
+          path: KisaMore-Battle-0.6.27-UNSIGNED.aab
+          if-no-files-found: error
+          retention-days: 30
