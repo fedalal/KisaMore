@@ -188,13 +188,22 @@ def install(core) -> None:
 
     def main_keyboard(lang: str) -> dict:
         markup = previous_main_keyboard(lang)
-        rows = list(markup.get("inline_keyboard") or [])
-        rows.append([
-            {
-                "text": BUTTON_TEXT.get(lang, BUTTON_TEXT["en"]),
-                "callback_data": "lang:menu",
-            }
-        ])
+        rows = [list(row) for row in (markup.get("inline_keyboard") or [])]
+        language_button = {
+            "text": BUTTON_TEXT.get(lang, BUTTON_TEXT["en"]),
+            "callback_data": "lang:menu",
+        }
+        # Put Profile + Language on the same two-column row, like Plants
+        # and My garden. Other modules add rows after this installer.
+        profile_row = next(
+            (row for row in rows if len(row) == 1
+             and row[0].get("callback_data") == "menu:profile"),
+            None,
+        )
+        if profile_row is not None:
+            profile_row.append(language_button)
+        else:
+            rows.append([language_button])
         return {"inline_keyboard": rows}
 
     async def show_language_menu(bot, chat_id: int, tg: dict) -> None:
