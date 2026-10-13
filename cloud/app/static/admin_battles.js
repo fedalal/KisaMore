@@ -196,7 +196,8 @@
       messageHistory.innerHTML=rows.length?rows.map(function(m){
         var statuses=m.recipients.map(function(r){
           var telegram=r.telegram_status?" · Telegram: "+r.telegram_status:"";
-          return '#'+esc(r.slot_number)+(r.read_at?' · прочитано':' · не прочитано')+esc(telegram);
+          var push=r.push_status&&r.push_status.length?" · Push: "+r.push_status.join(", "):"";
+          return '#'+esc(r.slot_number)+(r.read_at?' · прочитано':' · не прочитано')+esc(telegram+push);
         });
         return '<article class="battle-message-log"><div class="username">'+esc(fmtDate(m.created_at))+
         ' · '+m.recipients.length+' получателей</div><div class="battle-message-text">'+

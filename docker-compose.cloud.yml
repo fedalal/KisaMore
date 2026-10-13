@@ -97,6 +97,21 @@ services:
     volumes:
       - kisamore-photos:/srv/kisamore/data/photos
 
+  battle-push-worker:
+    build:
+      context: .
+      dockerfile: cloud/Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "cloud.app.battle_push_worker"]
+    environment:
+      KISAMORE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KISAMORE_FIREBASE_CREDENTIALS_PATH: /run/secrets/kisamore/firebase-service-account.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - /etc/kisamore/firebase:/run/secrets/kisamore:ro
+
   watering-worker:
     build:
       context: .

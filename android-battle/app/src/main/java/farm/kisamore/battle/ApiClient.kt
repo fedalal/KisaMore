@@ -99,6 +99,12 @@ class ApiClient(context: Context) {
     }
 
     fun logout() {
+        // Revoke before removing the authenticated cookie. This prevents
+        // cross-account notifications when the phone changes owners.
+        val oldToken = prefs.getString("fcm_push_token",null)
+        if (!oldToken.isNullOrBlank()) {
+            runCatching { revokePushDevice(oldToken) }
+        }
         runCatching { request("POST", "/api/v1/auth/logout") }
         sessionCookie = null
         currentUser = null
@@ -172,6 +178,17 @@ class ApiClient(context: Context) {
 
 
     /** Private, persistent inbox shared with the web Battle account. */
+    fun registerPushDevice(token:String) {
+        require(token.length in 20..4096)
+        request("POST","/api/v1/battles/push-devices",
+            JSONObject().put("token",token).toString())
+    }
+
+    fun revokePushDevice(token:String) {
+        request("DELETE","/api/v1/battles/push-devices",
+            JSONObject().put("token",token).toString())
+    }
+
     fun battleInbox(): JSONObject =
         JSONObject(request("GET", "/api/v1/battles/inbox"))
 

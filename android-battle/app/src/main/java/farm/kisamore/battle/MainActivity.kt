@@ -81,13 +81,17 @@ class MainActivity : Activity() {
         buildShell()
         loadAll("home")
         BattleInboxJob.schedule(this)
+        BattleFirebase.refresh(this)
         if (intent?.getBooleanExtra("open_battle_inbox",false)==true)
             contentHost.postDelayed({showBattleMessages()},1200)
     }
 
     override fun onResume() {
         super.onResume()
-        if (::api.isInitialized) BattleInboxJob.schedule(this)
+        if (::api.isInitialized) {
+            BattleInboxJob.schedule(this)
+            BattleFirebase.refresh(this)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -777,6 +781,7 @@ class MainActivity : Activity() {
                     success = {
                         game.openToday()
                         BattleInboxJob.schedule(this)
+                        BattleFirebase.refresh(this)
                         accountPrefsLoadedFor = null
                         if (it.second != null) applyRemotePreferences(it.second!!)
                         loadAll("home")

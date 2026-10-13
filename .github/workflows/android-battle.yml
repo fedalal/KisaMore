@@ -53,6 +53,17 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
+      - name: Install Firebase Android configuration (when connected)
+        env:
+          FIREBASE_ANDROID_JSON_B64: ${{ secrets.KISAMORE_FIREBASE_ANDROID_JSON_B64 }}
+        run: |
+          if [ -n "$FIREBASE_ANDROID_JSON_B64" ]; then
+            printf '%s' "$FIREBASE_ANDROID_JSON_B64" | base64 --decode > android-battle/app/google-services.json
+            python3 -c 'import json; from pathlib import Path; p=Path("android-battle/app/google-services.json"); d=json.loads(p.read_text()); assert any(c.get("client_info",{}).get("android_client_info",{}).get("package_name")=="farm.kisamore.battle" for c in d.get("client", [])), "Firebase package does not match"; print("Firebase Android config loaded")'
+          else
+            echo "Firebase Android config not configured; inbox polling remains enabled."
+          fi
+
       - name: Unit tests
         run: gradle -p android-battle testDebugUnitTest --stacktrace
 
@@ -61,14 +72,14 @@ jobs:
 
       - name: Verify built APK version and copy with official filename
         run: |
-          grep -Fq 'versionCode = 39' android-battle/app/build.gradle.kts
-          grep -Fq 'versionName = "0.6.24"' android-battle/app/build.gradle.kts
+          grep -Fq 'versionCode = 40' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.25"' android-battle/app/build.gradle.kts
           test -s android-battle/app/build/outputs/apk/debug/app-debug.apk
-          cp android-battle/app/build/outputs/apk/debug/app-debug.apk KisaMore-Battle-0.6.24.apk
+          cp android-battle/app/build/outputs/apk/debug/app-debug.apk KisaMore-Battle-0.6.25.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: KisaMore-Battle-0.6.24
-          path: KisaMore-Battle-0.6.24.apk
+          name: KisaMore-Battle-0.6.25
+          path: KisaMore-Battle-0.6.25.apk
           if-no-files-found: error

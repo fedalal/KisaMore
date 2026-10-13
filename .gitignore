@@ -69,3 +69,9 @@ data/plant-images/
 
 # ---- Cloud service local data ----
 cloud-data/
+
+# Firebase client config is supplied privately in CI, never in Git
+android-battle/app/google-services.json
+
+# Firebase private service account is NEVER stored in the repository
+cloud/secrets/

@@ -3,6 +3,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// The app can be built/tested before a Firebase project is connected.
+// CI supplies google-services.json from an encrypted GitHub secret.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "farm.kisamore.battle"
     compileSdk = 36
@@ -11,8 +17,8 @@ android {
         applicationId = "farm.kisamore.battle"
         minSdk = 26
         targetSdk = 36
-        versionCode = 39
-        versionName = "0.6.24"
+        versionCode = 40
+        versionName = "0.6.25"
     }
 
     // Google Play: use the EXISTING upload keystore. Missing credentials must
@@ -63,6 +69,8 @@ android {
 
 dependencies {
     implementation("com.google.zxing:core:3.5.3")
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-messaging")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
 }

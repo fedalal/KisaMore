@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import User
 from .battle_message_models import BattleAdminMessage, BattleMessageReceipt
+from .battle_push_models import BattlePushDevice, BattlePushDelivery
 from .battle_models import PlantBattle, PlantBattleEntry
 from .security import get_admin_user, get_current_user, get_session
 from .telegram.activity_notifier import TelegramActivityDelivery
@@ -17,6 +19,49 @@ from .telegram.models import TelegramUser
 from html import escape
 
 router=APIRouter(prefix="/api/v1",tags=["battle-messages"])
+
+class FcmRegistration(BaseModel):
+    token: str = Field(min_length=20,max_length=4096)
+
+def fcm_token_hash(token:str)->str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+@router.post("/battles/push-devices")
+async def register_battle_push_device(
+    payload:FcmRegistration,
+    user:User=Depends(get_current_user),
+    session:AsyncSession=Depends(get_session),
+):
+    # Tokens are scoped to the currently logged-in user, never supplied by the client.
+    token=payload.token.strip()
+    if not token or len(token)<20:
+        raise HTTPException(422,"Invalid FCM token")
+    now=datetime.now(timezone.utc)
+    digest=fcm_token_hash(token)
+    device=await session.get(BattlePushDevice,digest)
+    if device is None:
+        device=BattlePushDevice(token_hash=digest,user_id=user.id,token=token,
+                               active=True,created_at=now,updated_at=now)
+        session.add(device)
+    else:
+        device.user_id=user.id
+        device.token=token
+        device.active=True
+        device.updated_at=now
+    await session.commit()
+    return {"registered":True}
+
+@router.delete("/battles/push-devices")
+async def revoke_battle_push_device(
+    payload:FcmRegistration,
+    user:User=Depends(get_current_user),
+    session:AsyncSession=Depends(get_session),
+):
+    device=await session.get(BattlePushDevice,fcm_token_hash(payload.token.strip()))
+    if device is not None and device.user_id==user.id:
+        device.active=False
+        await session.commit()
+    return {"revoked":True}
 
 
 class ComposeBattleMessage(BaseModel):
@@ -71,10 +116,27 @@ async def compose_battle_message(
        author_user_id=admin.id,body=content,created_at=now)
     session.add(message)
     sent_to_tg=0
+    push_queued=0
+    push_devices=list((await session.execute(
+        select(BattlePushDevice).where(
+            BattlePushDevice.user_id.in_(user_ids),
+            BattlePushDevice.active.is_(True),
+        )
+    )).scalars().all())
+    push_by_user={}
+    for device in push_devices:
+        push_by_user.setdefault(device.user_id,[]).append(device)
     for entry in entries:
         receipt=BattleMessageReceipt(id=str(uuid4()),message_id=message.id,
                            entry_id=entry.id,user_id=entry.user_id)
         session.add(receipt)
+        for device in push_by_user.get(entry.user_id,[]):
+            session.add(BattlePushDelivery(
+                id=str(uuid4()),receipt_id=receipt.id,
+                token_hash=device.token_hash,status="pending",
+                attempts=0,next_attempt_at=now,
+            ))
+            push_queued+=1
         tg=linked_by_user.get(entry.user_id) or direct_by_id.get(entry.telegram_user_id)
         if tg is not None:
             session.add(TelegramActivityDelivery(
@@ -92,7 +154,8 @@ async def compose_battle_message(
             sent_to_tg+=1
     await session.commit()
     return {"message_id":message.id,"recipients":len(entries),
-            "telegram_queued":sent_to_tg,"inbox_saved":len(entries)}
+            "telegram_queued":sent_to_tg,"push_queued":push_queued,
+            "inbox_saved":len(entries)}
 
 
 @router.get("/admin/battles/{battle_id}/messages")
@@ -120,9 +183,17 @@ async def admin_battle_message_history(
              .where(TelegramActivityDelivery.event_key.in_(keys))
         )).all()) if keys else []
         tg_status={k:v for k,v in deliveries}
+        push_delivery_rows=list((await session.execute(
+            select(BattlePushDelivery.receipt_id,BattlePushDelivery.status)
+            .where(BattlePushDelivery.receipt_id.in_([r.id for r,_ in receipts]))
+        )).all()) if receipts else []
+        push_status={}
+        for receipt_id,status in push_delivery_rows:
+            push_status.setdefault(receipt_id,[]).append(status)
         result.append({"id":msg.id,"body":msg.body,"created_at":msg.created_at,
             "recipients":[{"slot_number":number,"entry_id":r.entry_id,
-              "read_at":r.read_at,"telegram_status":tg_status.get("battle_admin:"+r.id)}
+              "read_at":r.read_at,"telegram_status":tg_status.get("battle_admin:"+r.id),
+              "push_status":push_status.get(r.id,[])}
               for r,number in receipts]})
     return result
 
