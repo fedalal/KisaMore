@@ -8,6 +8,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .admin_models import AdminAuditLog
+from .battle_models import PlantBattleEntry
 from .models import Allocation, Plant, Planting, User, WateringTask
 from .security import get_admin_user, get_session
 from .watering_service import aware_utc, farm_zone, refresh_watering_tasks
@@ -67,7 +68,11 @@ async def list_watering_tasks(
                 or_(
                     (WateringTask.scheduled_at >= start) & (WateringTask.scheduled_at < end),
                     (WateringTask.status == "pending") & (WateringTask.scheduled_at < start),
-                )
+                ),
+                ~WateringTask.planting_id.in_(
+                    select(PlantBattleEntry.planting_id)
+                    .where(PlantBattleEntry.planting_id.is_not(None))
+                ),
             )
             .order_by(WateringTask.scheduled_at, WateringTask.rack_id, WateringTask.slot_number)
             .limit(1000)
@@ -142,6 +147,16 @@ async def complete_watering_task(
     ).scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=404, detail="Watering task not found")
+    # The generic watering queue must never fulfil a Battle watering, even
+    # when the task was created by an older scheduler or an API client uses
+    # a previously copied task ID. Player requests use PlantBattleAction.
+    battle_entry = (await session.execute(
+        select(PlantBattleEntry.id).where(
+            PlantBattleEntry.planting_id == task.planting_id
+        ).limit(1)
+    )).scalar_one_or_none()
+    if battle_entry is not None:
+        raise HTTPException(status_code=409, detail="Battle watering is controlled by participants")
     if task.status == "done":
         return {"ok": True, "status": "done", "actual_ml": task.actual_ml}
     if task.status != "pending":

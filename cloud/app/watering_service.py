@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .battle_models import PlantBattleEntry
 from .config import get_settings
 from .models import Allocation, Plant, Planting, RackSlot, WateringTask
 
@@ -230,7 +231,18 @@ async def refresh_watering_tasks(
             .order_by(RackSlot.rack_id, RackSlot.slot_number, Planting.planted_at)
         )
     ).all()
-    active_ids = {planting.id for planting, _, _ in rows}
+    # Battle plantings belong to a separate, player-controlled watering flow:
+    # only PlantBattleAction requests may cause a manual watering. The normal
+    # plant species' schedule must never generate tasks for those plantings.
+    battle_planting_ids = set((await session.execute(
+        select(PlantBattleEntry.planting_id).where(
+            PlantBattleEntry.planting_id.is_not(None)
+        )
+    )).scalars().all())
+    active_ids = {
+        planting.id for planting, _, _ in rows
+        if planting.id not in battle_planting_ids
+    }
 
     existing = list(
         (
@@ -254,6 +266,8 @@ async def refresh_watering_tasks(
     skipped = 0
 
     for planting, plant, slot in rows:
+        if planting.id in battle_planting_ids:
+            continue
         planted_at = aware_utc(planting.planted_at)
         if planted_at is None:
             continue
@@ -302,6 +316,11 @@ async def refresh_watering_tasks(
     # If the operator changes a plant schedule, obsolete future tasks must not
     # remain in the admin queue. Completed history is never modified.
     for task in existing:
+        if task.status == "pending" and task.planting_id in battle_planting_ids:
+            task.status = "skipped"
+            task.note = "Plant Battle: watering only by participant request"
+            skipped += 1
+            continue
         key = (task.planting_id, aware_utc(task.scheduled_at))
         scheduled_at = aware_utc(task.scheduled_at)
         if (
@@ -327,7 +346,11 @@ async def refresh_watering_tasks(
         ).scalars().all()
     )
     for task in stale:
-        if task.planting_id not in active_ids:
+        if task.planting_id in battle_planting_ids:
+            task.status = "skipped"
+            task.note = "Plant Battle: watering only by participant request"
+            skipped += 1
+        elif task.planting_id not in active_ids:
             task.status = "skipped"
             task.note = "Planting is ready or no longer active"
             skipped += 1
