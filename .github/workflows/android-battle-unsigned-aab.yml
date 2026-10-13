@@ -47,7 +47,9 @@ jobs:
           test -s "$AAB"
           grep -Fq 'versionCode = 42' android-battle/app/build.gradle.kts
           grep -Fq 'versionName = "0.6.27"' android-battle/app/build.gradle.kts
-          if jarsigner -verify "$AAB" >/dev/null 2>&1; then
+          # jarsigner -verify exits 0 even for UNSIGNED JARs; inspect actual
+          # signing blocks, not its exit code.
+          if unzip -Z1 "$AAB" | grep -Ei '^META-INF/.*\.(RSA|DSA|EC|SF)$'; then
             echo "Refusing to publish an unexpectedly signed AAB"
             exit 1
           fi
