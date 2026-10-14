@@ -36,6 +36,9 @@ import kotlin.math.max
 class MainActivity : Activity() {
     private lateinit var api: ApiClient
     private lateinit var game: GameStore
+    private lateinit var activityTracker: AppActivityTracker
+    private var lastActivityScreen: String? = null
+    private var resumedAtMs: Long = 0L
     private lateinit var contentHost: FrameLayout
     private lateinit var navBar: LinearLayout
     private var welcome: GuestHomeScreen? = null
@@ -54,6 +57,43 @@ class MainActivity : Activity() {
     private val selectedActivityPeriod = mutableMapOf<String, Int>()
 
     private val handler = Handler(Looper.getMainLooper())
+    private val activityHeartbeat = object : Runnable {
+        override fun run() {
+            sendForegroundDuration()
+            resumedAtMs = android.os.SystemClock.elapsedRealtime()
+            handler.postDelayed(this, 30_000L)
+        }
+    }
+
+    private fun sendForegroundDuration() {
+        if (resumedAtMs == 0L || !::activityTracker.isInitialized) return
+        val elapsed = ((android.os.SystemClock.elapsedRealtime() - resumedAtMs) / 1000)
+            .toInt().coerceIn(0, 60)
+        if (elapsed > 0) activityTracker.record("heartbeat", trackingScreen(), seconds = elapsed)
+    }
+
+    private fun trackingScreen(): String = when (currentScreen) {
+        "watch" -> "battle"
+        "home", "battle", "history", "profile", "login", "register", "viewer", "inbox" -> currentScreen
+        else -> "other"
+    }
+
+    /** Called by the arena when a user presses a camera or timelapse control. */
+    fun trackAppEvent(kind: String, label: String = "") {
+        if (::activityTracker.isInitialized) activityTracker.record(kind, trackingScreen(), label)
+    }
+
+    private fun trackOneScreen(screen: String) {
+        if (::activityTracker.isInitialized) activityTracker.record("screen", screen)
+    }
+
+    private fun trackActivityScreen() {
+        val screen = trackingScreen()
+        if (screen != lastActivityScreen && ::activityTracker.isInitialized) {
+            lastActivityScreen = screen
+            activityTracker.record("screen", screen)
+        }
+    }
     private val autoRefresh = object : Runnable {
         override fun run() {
             val battleId = currentBattleId
@@ -76,6 +116,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         api = ApiClient(applicationContext)
+        activityTracker = AppActivityTracker(applicationContext, api)
         game = GameStore(applicationContext)
         game.openToday()
         buildShell()
@@ -88,10 +129,23 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (::activityTracker.isInitialized) {
+            activityTracker.record("launch", trackingScreen())
+            resumedAtMs = android.os.SystemClock.elapsedRealtime()
+            handler.removeCallbacks(activityHeartbeat)
+            handler.postDelayed(activityHeartbeat, 30_000L)
+        }
         if (::api.isInitialized) {
             BattleInboxJob.schedule(this)
             BattleFirebase.refresh(this)
         }
+    }
+
+    override fun onPause() {
+        sendForegroundDuration()
+        resumedAtMs = 0L
+        handler.removeCallbacks(activityHeartbeat)
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -103,6 +157,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         handler.removeCallbacks(autoRefresh)
+        handler.removeCallbacks(activityHeartbeat)
         welcome?.release()
         super.onDestroy()
     }
@@ -638,6 +693,7 @@ class MainActivity : Activity() {
     /** Messages remain available after relaunch, even without Telegram. */
     private fun showBattleMessages() {
         if (!api.hasSession()) { showLogin(); return }
+        trackOneScreen("inbox")
         val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
             .getString("language", "ru") ?: "ru"
         val ru = language == "ru"
@@ -940,11 +996,12 @@ class MainActivity : Activity() {
             onBattle = { chosen -> if (chosen.id != battle.id) openBattle(chosen) },
             onCamera = { cameraId ->
                 selectedBattleCamera[battle.id] = cameraId
+                trackAppEvent("camera", cameraId)
                 renderBattle(battle)
             },
             onPeriod = { days -> selectedActivityPeriod[battle.id] = days },
             onCommand = { entry, kind -> amountDialog(battle, entry, kind) },
-            onPhoto = { url, selectedCamera -> showFullRackPhoto(url, selectedCamera) },
+            onPhoto = { url, selectedCamera -> trackOneScreen("viewer"); showFullRackPhoto(url, selectedCamera) },
             onJournal = { actions -> showActionJournal(actions) },
             onPredict = { entry ->
                 if (api.hasSession()) sendPrediction(battle, entry) else showLogin()
@@ -1383,6 +1440,7 @@ class MainActivity : Activity() {
     }
 
     private fun openVideo(path: String?) {
+        trackAppEvent("timelapse", "24h")
         val url = api.absolute(path)
         if (url.isNullOrBlank()) {
             toast("Таймлапс пока не готов")
@@ -1604,7 +1662,14 @@ class MainActivity : Activity() {
                 }
             } catch (t: Throwable) {
                 runOnUiThread {
-                    if (!isFinishing && !isDestroyed) failure(t)
+                    if (!isFinishing && !isDestroyed) {
+                        // Errors are reported by this single boundary, including
+                        // callers that intentionally suppress UI notifications.
+                        trackAppEvent("error", t.javaClass.simpleName.take(35).let {
+                            if (it.endsWith("Exception") || it.endsWith("Error")) it else "UnknownError"
+                        })
+                        failure(t)
+                    }
                 }
             }
         }.start()
@@ -1627,6 +1692,7 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = if (dark) 0 else
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         addNavigation()
+        trackActivityScreen()
     }
 
     private fun screenScroll(): ScrollView {

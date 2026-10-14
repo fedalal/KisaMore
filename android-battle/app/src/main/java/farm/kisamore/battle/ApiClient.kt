@@ -274,6 +274,11 @@ class ApiClient(context: Context) {
         }
     }
 
+    /** Optional telemetry. Never blocks or changes app behaviour when unavailable. */
+    fun sendActivity(event: JSONObject) {
+        request("POST", "/api/v1/app/activity", event.toString())
+    }
+
     private fun request(method: String, path: String, body: String? = null): String {
         val host = baseUrl
         return try {

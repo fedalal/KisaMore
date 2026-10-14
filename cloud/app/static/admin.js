@@ -3,6 +3,7 @@ const qsa = (s) => [...document.querySelectorAll(s)];
 
 const titles = {
   analytics: ["Посещаемость", "Посетители, реклама и регистрации сайта"],
+  appactivity: ["Активность приложения", "Действия пользователей Android по дням и экранам"],
   overview: ["Обзор", "Состояние KisaMore"],
   users: ["Пользователи", "Аккаунты сайта и Telegram · начисление Kisa"],
   promotions: ["Акции", "Автоматические бонусы Kisa для новых и существующих пользователей"],
@@ -128,6 +129,7 @@ function selectSection(name) {
   qs("#pageSubtitle").textContent = titles[name][1];
   if (name === "overview") loadOverview();
   if (name === "analytics") loadAnalytics();
+  if (name === "appactivity") loadAppActivity();
   if (name === "users") loadUsers();
   if (name === "rentals") loadRentals();
   if (name === "cameras") loadRackPhotos();

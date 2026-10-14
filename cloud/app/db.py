@@ -14,6 +14,7 @@ from .battle_push_models import BattlePushDevice, BattlePushDelivery  # noqa: F4
 from .battle_event_models import BattleEventNotification, BattleEventPushDelivery, BattleNotificationPreferences  # noqa: F401
 from .telegram_link import WebsiteTelegramLinkToken  # noqa: F401 - register website/Telegram linking table
 from . import site_analytics_models  # noqa: F401 - register analytics tables
+from . import app_activity_models  # noqa: F401 - register Android telemetry tables
 from .plant_fact_models import PlantFactPool  # noqa: F401 - register table in Base metadata
 from .telegram.models import (  # noqa: F401 - register core Telegram tables in Base metadata
     TelegramUser,

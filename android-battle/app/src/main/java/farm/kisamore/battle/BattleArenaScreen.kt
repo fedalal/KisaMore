@@ -110,6 +110,7 @@ internal class BattleArenaScreen(
             Toast.makeText(host, tr("Таймлапс этой камеры пока не готов", "Timelapse for this camera is not ready yet"), Toast.LENGTH_SHORT).show()
             return
         }
+        host.trackAppEvent("timelapse", when(index) { 0 -> "24h"; 1 -> "3d"; else -> "full" })
         restorePhoto()
         val player = mediaPlayer ?: return
         playingPeriod = index
