@@ -20,6 +20,7 @@ import android.widget.Toast
 import android.widget.VideoView
 import java.io.File
 import java.util.UUID
+import kotlin.math.roundToInt
 
 /**
  * Full-screen camera viewer for pinch zoom, drag, sharing a JPEG and
@@ -64,18 +65,40 @@ internal class RackMediaViewer(
 
     fun show() {
         val dialog = Dialog(host, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-        val root = FrameLayout(host).apply { setBackgroundColor(Color.BLACK) }
+        // Reserve a dedicated, central media area between the header and actions.
+        // Previously VideoView filled the whole Dialog, so its playback surface
+        // could sit under the top toolbar instead of being centred like the photo.
+        val root = LinearLayout(host).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.BLACK)
+        }
+        val mediaArea = FrameLayout(host)
         val photo = ZoomableRackImageView(host).apply {
             contentDescription = tr(
                 "Фото полки. Для увеличения разведите пальцы или коснитесь дважды.",
                 "Rack photo. Pinch or double tap to zoom."
             )
         }
-        root.addView(photo, FrameLayout.LayoutParams(-1, -1))
+        mediaArea.addView(photo, FrameLayout.LayoutParams(-1, -1))
         val video = VideoView(host).apply { visibility = View.GONE }
-        root.addView(video, FrameLayout.LayoutParams(-1, -1))
+        mediaArea.addView(video, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        var videoWidth = 0
+        var videoHeight = 0
+        fun sizeVideoToFit() {
+            if (videoWidth <= 0 || videoHeight <= 0) return
+            if (mediaArea.width <= 0 || mediaArea.height <= 0) return
+            val (width, height) = fitRackVideo(
+                videoWidth, videoHeight, mediaArea.width, mediaArea.height
+            )
+            val params = video.layoutParams as FrameLayout.LayoutParams
+            if (params.width == width && params.height == height) return
+            video.layoutParams = FrameLayout.LayoutParams(width, height, Gravity.CENTER)
+        }
+        mediaArea.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            sizeVideoToFit()
+        }
         val loading = ProgressBar(host).apply { visibility = View.GONE }
-        root.addView(loading, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER))
+        mediaArea.addView(loading, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.CENTER))
 
         val header = LinearLayout(host).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -146,7 +169,20 @@ internal class RackMediaViewer(
             loading.visibility = View.VISIBLE
             headerTitle.text = tr("Таймлапс", "Timelapse")
             photoControl?.alpha = .7f
-            video.setOnPreparedListener { loading.visibility = View.GONE; video.start() }
+            video.setOnPreparedListener { player ->
+                videoWidth = player.videoWidth
+                videoHeight = player.videoHeight
+                player.setOnVideoSizeChangedListener { _, width, height ->
+                    videoWidth = width
+                    videoHeight = height
+                    mediaArea.post { sizeVideoToFit() }
+                }
+                // The media area has already been laid out when the async player
+                // prepares. Fit before starting so the first visible frame is centred.
+                sizeVideoToFit()
+                loading.visibility = View.GONE
+                video.start()
+            }
             video.setOnCompletionListener { restorePhoto() }
             video.setOnErrorListener { _, _, _ ->
                 restorePhoto()
@@ -180,8 +216,6 @@ internal class RackMediaViewer(
             foot.addView(clipControls,
                 LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(8) })
         }
-        root.addView(foot, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
-
         lateinit var shareButton: TextView
         shareButton = button(tr("↗ Поделиться", "↗ Share")) {
             val bitmap = currentPhoto
@@ -230,7 +264,11 @@ internal class RackMediaViewer(
         header.addView(shareButton)
         header.addView(button("✕") { dialog.dismiss() },
             LinearLayout.LayoutParams(dp(49), dp(45)).apply { leftMargin = dp(7) })
-        root.addView(header, FrameLayout.LayoutParams(-1, dp(64), Gravity.TOP))
+        // Both the zoomable photo and the fitted video use this same centred
+        // viewport. Neither can be drawn behind the toolbar or clip buttons.
+        root.addView(header, LinearLayout.LayoutParams(-1, dp(64)))
+        root.addView(mediaArea, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(foot, LinearLayout.LayoutParams(-1, -2))
 
         dialog.setOnDismissListener { video.stopPlayback() }
         dialog.setContentView(root)
@@ -256,4 +294,20 @@ internal class RackMediaViewer(
             }
         }.start()
     }
+}
+
+
+/** Aspect-preserving fit within the fullscreen viewer (never crop the movie). */
+internal fun fitRackVideo(
+    videoWidth: Int, videoHeight: Int, areaWidth: Int, areaHeight: Int
+): Pair<Int, Int> {
+    if (videoWidth <= 0 || videoHeight <= 0 || areaWidth <= 0 || areaHeight <= 0) {
+        return 1 to 1
+    }
+    val factor = minOf(
+        areaWidth.toDouble() / videoWidth,
+        areaHeight.toDouble() / videoHeight
+    )
+    return (videoWidth * factor).roundToInt().coerceIn(1, areaWidth) to
+        (videoHeight * factor).roundToInt().coerceIn(1, areaHeight)
 }

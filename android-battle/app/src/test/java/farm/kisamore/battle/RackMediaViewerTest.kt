@@ -42,6 +42,19 @@ class RackMediaViewerTest {
         assertEquals(1f, view.zoomFactor, 0.001f)
     }
 
+    @Test fun timelapseIsCentredAndFitsWithoutCropping() {
+        // Portrait phone, landscape MP4: video uses the full width, centred vertically.
+        assertEquals(390 to 219, fitRackVideo(1920, 1080, 390, 660))
+        // Tall MP4: video uses the available height and stays inside the viewport.
+        assertEquals(371 to 660, fitRackVideo(1080, 1920, 390, 660))
+        // A 4:3 camera is also fitted rather than clipped.
+        assertEquals(390 to 293, fitRackVideo(2048, 1536, 390, 660))
+        // Never exceed the viewport, even on very small phones.
+        val size = fitRackVideo(3840, 2160, 240, 180)
+        assertTrue(size.first <= 240 && size.second <= 180)
+        assertEquals(1 to 1, fitRackVideo(0, 0, 390, 660))
+    }
+
     @Test fun shareProviderNeverExportsArbitraryFiles() {
         val provider = Robolectric.buildContentProvider(RackPhotoShareProvider::class.java).create().get()
         val invalid = Uri.parse("content://farm.kisamore.battle.photos/shared/../../private.jpg")
