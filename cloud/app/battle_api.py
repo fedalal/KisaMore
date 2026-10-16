@@ -761,6 +761,26 @@ async def join_battle(
         },
     )
 
+    # Tell enabled Telegram administrators about EVERY new participant, not
+    # only when the battle reaches capacity. The durable outbox is committed
+    # atomically with the paid entry, so failed/rolled-back joins send nothing.
+    occupied_after_join = len(active_entries) + len(created)
+    for entry in created:
+        await queue_admin_text(
+            session,
+            event_prefix=f"battle_join:{entry.id}",
+            text=(
+                "👤 <b>Новый участник Битвы растений</b>\n\n"
+                f"Битва: <b>{escape(battle.title)}</b>\n"
+                f"Участник: <b>{escape(user.display_name)}</b>\n"
+                f"Email: <code>{escape(user.email)}</code>\n"
+                f"Полка {battle.rack_id} · контейнер №{entry.slot_number}\n"
+                f"Мест занято: {occupied_after_join}/{battle.max_entries}\n"
+                f"Свободных мест: {max(0, battle.max_entries - occupied_after_join)}\n"
+                f"Стоимость участия: Ⓚ {entry.price_kisa}"
+            ),
+        )
+
     if len(active_entries) + len(created) == battle.max_entries:
         battle.status = "ready_to_plant"
         battle.filled_at = now
