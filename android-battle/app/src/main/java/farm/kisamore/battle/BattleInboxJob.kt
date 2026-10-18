@@ -33,7 +33,7 @@ class BattleInboxJob : JobService() {
                 val api = ApiClient(context.applicationContext)
                 val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE)
                     as? JobScheduler ?: return
-                if (!api.hasSession()) {
+                if (!api.hasSession() || !BattleNotificationConsent.enabled(context)) {
                     scheduler.cancel(JOB_ID)
                     return
                 }
@@ -55,6 +55,7 @@ class BattleInboxJob : JobService() {
         }
 
         fun notifyNew(context: Context, json: JSONObject) {
+            if (!BattleNotificationConsent.enabled(context)) return
             if (Build.VERSION.SDK_INT >= 33 &&
                 context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
                     PackageManager.PERMISSION_GRANTED) return

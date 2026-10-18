@@ -16,7 +16,7 @@ object BattleFirebase {
 
     fun refresh(context: Context) {
         val app = context.applicationContext
-        if (!ApiClient(app).hasSession()) return
+        if (!ApiClient(app).hasSession() || !BattleNotificationConsent.enabled(app)) return
         // Missing google-services.json MUST NOT prevent login or launch.
         try {
             if (FirebaseApp.getApps(app).isEmpty()) {
@@ -33,6 +33,7 @@ object BattleFirebase {
     }
 
     fun register(context: Context, token: String) {
+        if (!BattleNotificationConsent.enabled(context)) return
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
             .putString("fcm_push_token", token).apply()
         Thread {
@@ -55,7 +56,8 @@ class BattleFirebaseService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        if (message.data["type"] != "battle_admin_message") return
+        if (!BattleNotificationConsent.enabled(applicationContext) ||
+            message.data["type"] != "battle_admin_message") return
         val id = message.data["receipt_id"].orEmpty()
         if (id.isBlank()) return
         val api = ApiClient(applicationContext)

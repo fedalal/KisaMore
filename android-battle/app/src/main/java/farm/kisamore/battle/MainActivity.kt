@@ -51,6 +51,8 @@ class MainActivity : Activity() {
     private var myBattles: List<Battle> = emptyList()
     private var currentScreen = "home"
     private val avatarRequestCode = 4201
+    private val notificationPermissionRequestCode = 8205
+    private var notificationConsentDialogVisible = false
     private var currentBattleId: String? = null
     private var lastSelectedBattleId: String? = null
     private val selectedBattleCamera = mutableMapOf<String, String>()
@@ -393,6 +395,9 @@ class MainActivity : Activity() {
                         }
                     }
                 }
+                // Only after authentication and the first successful server
+                // refresh; never interrupt guests or repeatedly prompt at launch.
+                if (api.hasSession()) contentHost.post { maybeOfferNotifications() }
             }
         )
     }
@@ -658,6 +663,75 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Consent is stored on this installation and survives in-place updates. */
+    private fun setNotificationConsent(enabled: Boolean) {
+        BattleNotificationConsent.record(this, enabled)
+        BattleInboxJob.schedule(this)
+        if (enabled) {
+            BattleFirebase.refresh(this)
+        } else {
+            // Stop server pushes for this phone as well as local notifications.
+            val token = getSharedPreferences("kisamore_battle_api", MODE_PRIVATE)
+                .getString("fcm_push_token", null)
+            if (!token.isNullOrBlank() && api.hasSession()) {
+                Thread { runCatching { ApiClient(applicationContext).revokePushDevice(token) } }.start()
+            }
+        }
+    }
+
+    private fun maybeOfferNotifications() {
+        if (notificationConsentDialogVisible || !api.hasSession()) return
+        if (BattleNotificationConsent.shouldOfferAfterLogin(this)) {
+            showNotificationConsentDialog()
+        } else if (BattleNotificationConsent.enabled(this)) {
+            BattleInboxJob.schedule(this)
+            BattleFirebase.refresh(this)
+        }
+    }
+
+    private fun showNotificationConsentDialog() {
+        if (!api.hasSession() || notificationConsentDialogVisible) return
+        val language = AppLanguage(this)
+        if (BattleNotificationConsent.enabled(this)) return
+        notificationConsentDialogVisible = true
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(language.t("Включить уведомления?"))
+            .setMessage(language.t(
+                "Получайте сообщения о битвах, действиях с растениями и результатах прямо на телефон. Вы сможете изменить это решение в настройках."
+            ))
+            .setPositiveButton(language.t("Включить")) { _, _ ->
+                if (Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+                        android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(
+                        arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                        notificationPermissionRequestCode
+                    )
+                } else {
+                    setNotificationConsent(true)
+                }
+            }
+            .setNegativeButton(language.t("Не сейчас")) { _, _ ->
+                setNotificationConsent(false)
+            }
+            .setCancelable(false)
+            .create()
+        dialog.setOnDismissListener { notificationConsentDialogVisible = false }
+        dialog.show()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == notificationPermissionRequestCode) {
+            setNotificationConsent(
+                grantResults.isNotEmpty() &&
+                    grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            )
+        }
+    }
+
     /** Event settings are persisted on the server, so they follow the account. */
     private fun showBattleNotificationSettings() {
         if (!api.hasSession()) { showLogin(); return }
@@ -673,7 +747,7 @@ class MainActivity : Activity() {
             "Resources running low", "Action completed", "New Battles")
         async(work = { api.battleNotificationPreferences() }, success = { current ->
             val checked = BooleanArray(keys.size) { current.optBoolean(keys[it], it != 6) }
-            AlertDialog.Builder(this)
+            val builder = AlertDialog.Builder(this)
                 .setTitle(if (ru) "Настройки уведомлений" else "Notification settings")
                 .setMultiChoiceItems(if (ru) titlesRu else titlesEn, checked) { _, which, isChecked ->
                     checked[which] = isChecked
@@ -686,7 +760,13 @@ class MainActivity : Activity() {
                         success = { toast(if (ru) "Настройки сохранены" else "Settings saved") },
                         failure = { toast(it.message ?: "Error") })
                 }
-                .show()
+            // If the user opted out earlier, allow an explicit retry from Profile.
+            if (!BattleNotificationConsent.enabled(this)) {
+                builder.setNeutralButton(AppLanguage(this).t("Разрешить уведомления")) { _, _ ->
+                    showNotificationConsentDialog()
+                }
+            }
+            builder.show()
         }, failure = { toast(it.message ?: "Error") })
     }
 
@@ -697,11 +777,6 @@ class MainActivity : Activity() {
         val language = getSharedPreferences("battle_settings", MODE_PRIVATE)
             .getString("language", "ru") ?: "ru"
         val ru = language == "ru"
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
-                android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 8204)
-        }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(8), dp(18), dp(12))
@@ -926,8 +1001,7 @@ class MainActivity : Activity() {
             }
         }
         form.addView(switch)
-        val appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
-        form.addView(smallText("KisaMore Battle · v" + appVersion))
+        form.addView(smallText(appVersionLabel()))
         body.addView(cardWithMargin(form))
         showContent(scroll)
     }
@@ -1617,23 +1691,39 @@ class MainActivity : Activity() {
         currentBattleId = null
     }
 
+    private fun appVersionLabel(): String {
+        val version = runCatching {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        }.getOrNull() ?: "?"
+        return "KisaMore Battle · v$version"
+    }
+
     private fun showLoading(message: String) {
-        val wrap = LinearLayout(this).apply {
+        val wrap = FrameLayout(this).apply { setBackgroundColor(bg) }
+        val center = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(30), dp(30), dp(30), dp(30))
-            setBackgroundColor(bg)
         }
         val progress = ProgressBar(this).apply {
             indeterminateTintList = ColorStateList.valueOf(green)
         }
-        wrap.addView(progress, LinearLayout.LayoutParams(dp(52), dp(52)))
-        wrap.addView(space(14))
-        wrap.addView(TextView(this).apply {
+        center.addView(progress, LinearLayout.LayoutParams(dp(52), dp(52)))
+        center.addView(space(14))
+        center.addView(TextView(this).apply {
             text = message
             setTextColor(muted)
             textSize = 14f
             gravity = Gravity.CENTER
+        })
+        wrap.addView(center, FrameLayout.LayoutParams(-1, -1))
+        wrap.addView(TextView(this).apply {
+            text = appVersionLabel()
+            setTextColor(muted)
+            textSize = 12f
+            gravity = Gravity.CENTER
+        }, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
+            bottomMargin = dp(20)
         })
         showContent(wrap)
     }
