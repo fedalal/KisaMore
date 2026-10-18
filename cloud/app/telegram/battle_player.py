@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from ..battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry
+from ..battle_calendar import battle_progress
 from ..camera_timelapse_service import camera_battle_timelapse_path
 from ..config import get_settings
 from ..db import SessionLocal
@@ -20,7 +21,7 @@ from .models import TelegramUser
 TEXTS = {
     "ru": {
         "heading": "🌱 <b>Моё растение в Битве</b>", "rack": "Полка", "slot": "Контейнер",
-        "day": "День выращивания", "water": "Вода", "nutrient": "Питание",
+        "day": "День битвы", "water": "Вода", "nutrient": "Питание",
         "shade": "Затемнение", "left": "Осталось ресурсов", "latest": "Последний кадр",
         "actions": "Последние действия", "pending": "ожидает", "completed": "выполнено",
         "rejected": "отклонено", "refresh": "🔄 Обновить", "photo": "📷 Камера",
@@ -31,7 +32,7 @@ TEXTS = {
     },
     "en": {
         "heading": "🌱 <b>My Plant Battle plant</b>", "rack": "Rack", "slot": "Container",
-        "day": "Growing day", "water": "Water", "nutrient": "Nutrients",
+        "day": "Battle day", "water": "Water", "nutrient": "Nutrients",
         "shade": "Shade", "left": "Resources left", "latest": "Latest photo",
         "actions": "Recent actions", "pending": "pending", "completed": "completed",
         "rejected": "rejected", "refresh": "🔄 Refresh", "photo": "📷 Camera",
@@ -122,13 +123,12 @@ def _brief(entry, battle, plant, actions, photo, lang: str) -> str:
     names = plant.names or {}
     language = _lang(lang)
     name = names.get(language) or names.get("en") or names.get("ru") or plant.code
-    start = _aware(battle.planted_at)
-    day = (datetime.now(timezone.utc).astimezone(_zone()).date() -
-           start.astimezone(_zone()).date()).days + 1 if start else 0
+    day, total = battle_progress(battle.start_date, battle.end_date)
+    day_text = (f"{day} / {total}" if day is not None and total is not None else "—")
     result = [
         tr["heading"], f"<b>{escape(str(name))}</b>",
         f"{tr['rack']} {battle.rack_id} · {tr['slot']} {entry.slot_number}",
-        f"{tr['day']}: {max(day, 0)}",
+        f"{tr['day']}: {day_text}",
         "", f"<b>{tr['left']}:</b>",
         f"💧 {tr['water']}: <b>{max(0, battle.water_budget_ml - entry.water_used_ml)} {tr['ml']}</b>",
         f"🧪 {tr['nutrient']}: <b>{max(0, battle.nutrient_budget_ml - entry.nutrient_used_ml)} {tr['ml']}</b>",

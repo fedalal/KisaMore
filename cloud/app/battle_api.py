@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
+from .battle_calendar import battle_progress
 from .battle_events import notify_resource_low
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
 from .account_preferences_api import AccountAchievement, AccountPreferences
@@ -210,6 +211,7 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
                 ),
             }
         )
+    battle_day, battle_total_days = battle_progress(battle.start_date, battle.end_date)
     linked_tg = (
         await linked_telegram_user(session, user_id=current_user_id)
         if current_user_id is not None else None
@@ -225,6 +227,8 @@ async def _battle_payload(session: AsyncSession, battle: PlantBattle, current_us
         "plant_name": _plant_name(plant) if plant else "Plant",
         "plant_names": plant.names if plant else {},
         "grow_days": plant.grow_days if plant else None,
+        "battle_day": battle_day if battle.planted_at else None,
+        "battle_total_days": battle_total_days,
         "farm_slug": farm_slug,
         "rack_photo_url": f"/api/v1/public/farms/{farm_slug}/racks/{battle.rack_id}/photo",
         "camera_views": camera_views,

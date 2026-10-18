@@ -46,7 +46,7 @@ for(const [lang,expectedWater,expectedShade,wrongWater,wrongShade] of [
  }
  assert.ok(!water.includes("850 "+wrongWater));
 }
-assert.ok(html.includes("battle_site.js?v=20261013-1"));
+assert.ok(html.includes("battle_site.js?v=20261018-1"));
 assert.ok(!/selected\.water_budget_ml,"ml"\)/.test(js));
 assert.ok(!/k==="shade"\?"min":"ml"/.test(js));
 console.log("PASS: ru uses мл/мин and en uses ml/min in resources, action history and command dialog");

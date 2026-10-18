@@ -460,6 +460,9 @@ class ApiClient(context: Context) {
             plantId = obj.nullableString("plant_id"),
             farmSlug = obj.nullableString("farm_slug"),
             startDate = obj.nullableString("start_date"),
+            endDate = obj.nullableString("end_date"),
+            battleDay = obj.optInt("battle_day").takeIf { !obj.isNull("battle_day") && it > 0 },
+            battleTotalDays = obj.optInt("battle_total_days").takeIf { !obj.isNull("battle_total_days") && it > 0 },
             myTelegramLinked = obj.optBoolean("my_telegram_linked", false)
         )
     }

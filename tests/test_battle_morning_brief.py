@@ -1,6 +1,6 @@
 """Battle-only morning briefing checks with no production DB or Telegram calls."""
 import asyncio
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace as NS
 
 from cloud.app.telegram.battle_notifications import discover_battle_daily_updates
@@ -55,6 +55,7 @@ def context(linked):
         device_id="device-01",
         rack_id=1,
         planted_at=datetime(2026, 10, 12, 10, 53, tzinfo=timezone.utc),
+        start_date=date(2026, 10, 12), end_date=date(2026, 10, 18),
         water_budget_ml=1000,
         nutrient_budget_ml=100,
         shade_budget_minutes=480,
@@ -86,7 +87,7 @@ async def main():
     d = on_day_two.deliveries[0]
     assert isinstance(d,TelegramActivityDelivery)
     assert d.kind == "battle_daily"
-    assert "день 2" in d.payload["text"]
+    assert "день 2 из 7" in d.payload["text"]
     assert "875" in d.payload["text"]  # water budget remainder
     assert d.payload["photo_path"].endswith("latest.jpeg")
     assert len(d.payload["slot_polygon"]) == 4

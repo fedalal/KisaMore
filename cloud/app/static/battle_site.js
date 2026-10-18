@@ -13,7 +13,7 @@ async function api(path,opt={}){const headers=new Headers(opt.headers||{});if(op
 function plantName(b){const n=b.plant_names||{};return n[state.lang]||n.en||n.ru||b.plant_name||"Plant"}
 function statusText(s){return t(s)||s}
 function fmtDate(v){if(!v)return "—";return new Intl.DateTimeFormat(state.lang==="ru"?"ru-RU":"en-GB",{dateStyle:"medium",timeStyle:"short"}).format(new Date(v))}
-function dayInfo(b){if(!b.planted_at)return null;return{day:Math.max(1,Math.floor((Date.now()-new Date(b.planted_at).getTime())/86400000)+1),total:b.grow_days||null}}
+function dayInfo(b){if(!b.planted_at||!b.battle_day)return null;return{day:b.battle_day,total:b.battle_total_days||null}}
 function pct(n,d){return d?Math.max(0,Math.min(100,Math.round(n/d*100))):0}
 function toast(msg){const e=$("#toast");e.textContent=msg;e.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>e.classList.remove("show"),3000)}
 function setAccountMenu(open){
@@ -83,7 +83,7 @@ function miniSlots(b){
       (e.is_winner?'<span class="hero-slot-winner" aria-label="Winner">🏆</span>':'')+'</div>';
   }).join("");
 }
-function updateHero(){const b=state.all.find(isLive)||state.all.find(x=>x.status==="open")||state.all[0];if(!b){$("#heroBattleTitle").textContent="KisaMore Battle";$("#heroBattleMeta").textContent="";$("#heroBattleStatus").textContent="—";$("#heroSlots").innerHTML=[1,2,3,4,5,6].map(i=>'<div class="mini-slot">'+i+'</div>').join("");return}const d=dayInfo(b);$("#heroBattleTitle").textContent=b.title||plantName(b);$("#heroBattleMeta").textContent=plantName(b)+(d?" · "+t("day")+" "+d.day:"");$("#heroBattleStatus").textContent=statusText(b.status);$("#heroSlots").innerHTML=miniSlots(b);$("#heroEntries").textContent=occupied(b)+"/"+b.max_entries+" "+t("players");$("#heroPrize").textContent="🏆 Ⓚ "+b.winner_reward_kisa+" "+t("prize")}
+function updateHero(){const b=state.all.find(isLive)||state.all.find(x=>x.status==="open")||state.all[0];if(!b){$("#heroBattleTitle").textContent="KisaMore Battle";$("#heroBattleMeta").textContent="";$("#heroBattleStatus").textContent="—";$("#heroSlots").innerHTML=[1,2,3,4,5,6].map(i=>'<div class="mini-slot">'+i+'</div>').join("");return}const d=dayInfo(b);$("#heroBattleTitle").textContent=b.title||plantName(b);$("#heroBattleMeta").textContent=plantName(b)+(d?" · "+t("day")+" "+d.day+(d.total?" "+t("of")+" "+d.total:""):"");$("#heroBattleStatus").textContent=statusText(b.status);$("#heroSlots").innerHTML=miniSlots(b);$("#heroEntries").textContent=occupied(b)+"/"+b.max_entries+" "+t("players");$("#heroPrize").textContent="🏆 Ⓚ "+b.winner_reward_kisa+" "+t("prize")}
 function battleCard(b){
   const live=isLive(b),d=dayInfo(b),taken=occupied(b),progress=pct(taken,b.max_entries);
   const primary=cameraViews(b).find(v=>v.primary)||cameraViews(b)[0];

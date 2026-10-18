@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import or_, select
 
 from ..battle_models import PlantBattle, PlantBattleEntry
+from ..battle_calendar import battle_progress
 from ..battle_event_models import BattleEventNotification
 from ..battle_events import planned_end_utc
 from ..config import get_settings
@@ -17,39 +18,39 @@ from .models import TelegramUser
 
 TEXTS = {
     "en": {
-        "text": "🌿 <b>Plant Battle · day {day}</b>\n\n{plant}\nRack {rack} · Container {slot}\n\nResources left:\n💧 water: <b>{water} ml</b>\n🧪 nutrient solution: <b>{nutrient} ml</b>\n🌘 shade: <b>{shade} min</b>\n\nOpen your plant for the latest photo and timelapse.",
+        "text": "🌿 <b>Plant Battle · day {day} of {total}</b>\n\n{plant}\nRack {rack} · Container {slot}\n\nResources left:\n💧 water: <b>{water} ml</b>\n🧪 nutrient solution: <b>{nutrient} ml</b>\n🌘 shade: <b>{shade} min</b>\n\nOpen your plant for the latest photo and timelapse.",
         "button": "🌱 Open my battle plant",
     },
     "ru": {
-        "text": "🌿 <b>Битва растений · день {day}</b>\n\n{plant}\nПолка {rack} · контейнер {slot}\n\nОсталось ресурсов:\n💧 вода: <b>{water} мл</b>\n🧪 питательный раствор: <b>{nutrient} мл</b>\n🌘 закрытие от света: <b>{shade} мин</b>\n\nОткройте растение, чтобы увидеть свежее фото и таймлапс.",
+        "text": "🌿 <b>Битва растений · день {day} из {total}</b>\n\n{plant}\nПолка {rack} · контейнер {slot}\n\nОсталось ресурсов:\n💧 вода: <b>{water} мл</b>\n🧪 питательный раствор: <b>{nutrient} мл</b>\n🌘 закрытие от света: <b>{shade} мин</b>\n\nОткройте растение, чтобы увидеть свежее фото и таймлапс.",
         "button": "🌱 Открыть моё растение",
     },
     "de": {
-        "text": "🌿 <b>Pflanzenbattle · Tag {day}</b>\n\n{plant}\nRegal {rack} · Behälter {slot}\n\nVerbleibend: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nÖffne deine Pflanze für Foto und Zeitraffer.",
+        "text": "🌿 <b>Pflanzenbattle · Tag {day} von {total}</b>\n\n{plant}\nRegal {rack} · Behälter {slot}\n\nVerbleibend: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nÖffne deine Pflanze für Foto und Zeitraffer.",
         "button": "🌱 Meine Pflanze öffnen",
     },
     "fr": {
-        "text": "🌿 <b>Bataille des plantes · jour {day}</b>\n\n{plant}\nÉtagère {rack} · bac {slot}\n\nRestant : 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nOuvrez votre plante pour la photo et le timelapse.",
+        "text": "🌿 <b>Bataille des plantes · jour {day} sur {total}</b>\n\n{plant}\nÉtagère {rack} · bac {slot}\n\nRestant : 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nOuvrez votre plante pour la photo et le timelapse.",
         "button": "🌱 Ouvrir ma plante",
     },
     "es": {
-        "text": "🌿 <b>Batalla de plantas · día {day}</b>\n\n{plant}\nEstante {rack} · contenedor {slot}\n\nRestante: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nAbre tu planta para ver la foto y el timelapse.",
+        "text": "🌿 <b>Batalla de plantas · día {day} de {total}</b>\n\n{plant}\nEstante {rack} · contenedor {slot}\n\nRestante: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nAbre tu planta para ver la foto y el timelapse.",
         "button": "🌱 Abrir mi planta",
     },
     "it": {
-        "text": "🌿 <b>Battaglia delle piante · giorno {day}</b>\n\n{plant}\nScaffale {rack} · contenitore {slot}\n\nRisorse rimaste: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nApri la pianta per foto e timelapse.",
+        "text": "🌿 <b>Battaglia delle piante · giorno {day} di {total}</b>\n\n{plant}\nScaffale {rack} · contenitore {slot}\n\nRisorse rimaste: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nApri la pianta per foto e timelapse.",
         "button": "🌱 Apri la mia pianta",
     },
     "pt": {
-        "text": "🌿 <b>Batalha de plantas · dia {day}</b>\n\n{plant}\nPrateleira {rack} · recipiente {slot}\n\nRestante: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nAbra sua planta para ver foto e timelapse.",
+        "text": "🌿 <b>Batalha de plantas · dia {day} de {total}</b>\n\n{plant}\nPrateleira {rack} · recipiente {slot}\n\nRestante: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nAbra sua planta para ver foto e timelapse.",
         "button": "🌱 Abrir minha planta",
     },
     "pl": {
-        "text": "🌿 <b>Bitwa roślin · dzień {day}</b>\n\n{plant}\nPółka {rack} · pojemnik {slot}\n\nPozostało: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nOtwórz roślinę, aby zobaczyć zdjęcie i timelapse.",
+        "text": "🌿 <b>Bitwa roślin · dzień {day} z {total}</b>\n\n{plant}\nPółka {rack} · pojemnik {slot}\n\nPozostało: 💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} min\n\nOtwórz roślinę, aby zobaczyć zdjęcie i timelapse.",
         "button": "🌱 Otwórz moją roślinę",
     },
     "zh": {
-        "text": "🌿 <b>植物对战 · 第 {day} 天</b>\n\n{plant}\n架子 {rack} · 容器 {slot}\n\n剩余资源：💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} 分钟\n\n打开植物查看最新照片和延时视频。",
+        "text": "🌿 <b>植物对战 · 第 {day}/{total} 天</b>\n\n{plant}\n架子 {rack} · 容器 {slot}\n\n剩余资源：💧 {water} ml · 🧪 {nutrient} ml · 🌘 {shade} 分钟\n\n打开植物查看最新照片和延时视频。",
         "button": "🌱 打开我的植物",
     },
 }
@@ -136,10 +137,12 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
         planted = _aware(battle.planted_at)
         if planted is None:
             continue
-        planted_local = planted.astimezone(_zone()).date()
-        day = (local_now.date() - planted_local).days + 1
-        # Planting-start notification already covers day 1.
-        if day <= 1:
+        day, total = battle_progress(
+            battle.start_date, battle.end_date, today=local_now.date()
+        )
+        # Morning updates describe the competition calendar, not the plant's
+        # grow_days or physical sowing date. Do not send after the scheduled end.
+        if day is None or total is None or day <= 1 or local_now.date() > battle.end_date:
             continue
 
         event_key = f"battle_daily:{entry.id}:{local_now.date().isoformat()}"
@@ -152,6 +155,7 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
         plant_name = names.get(lang) or names.get("en") or names.get("ru") or plant.code
         text = tr["text"].format(
             day=day,
+            total=total,
             plant=escape(str(plant_name)),
             rack=battle.rack_id,
             slot=entry.slot_number,

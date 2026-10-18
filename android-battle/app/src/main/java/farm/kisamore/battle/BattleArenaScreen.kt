@@ -184,10 +184,7 @@ internal class BattleArenaScreen(
         }
     }
     private fun dayLabel(): String {
-        val planted = instant(battle.plantedAt)
-        return if (planted != null) {
-            tr("День ", "Day ") + (ChronoUnit.DAYS.between(planted, Instant.now()) + 1).coerceAtLeast(1)
-        } else when (battle.status) {
+        return BattleDayLabel.text(battle, language.code) ?: when (battle.status) {
             "open" -> tr("Набор участников", "Recruiting players")
             "planting" -> tr("Посадка", "Planting")
             "finished" -> tr("Завершена", "Finished")
@@ -440,13 +437,12 @@ internal class BattleArenaScreen(
      */
     private fun morningReport(entry: BattleEntry): View? {
         if (battle.status != "growing" || battle.myTelegramLinked) return null
-        val planted = instant(battle.plantedAt) ?: return null
+        val day = battle.battleDay ?: return null
         val farmZone = ZoneId.of("Europe/Moscow")
         val now = java.time.ZonedDateTime.now(farmZone)
-        if (now.hour < 10) return null
-        val plantedDate = planted.atZone(farmZone).toLocalDate()
-        val day = ChronoUnit.DAYS.between(plantedDate, now.toLocalDate()).toInt() + 1
-        if (day <= 1) return null
+        if (now.hour < 10 || day <= 1) return null
+        if (battle.endDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?.isBefore(now.toLocalDate()) == true) return null
 
         // User and entry IDs prevent a dismissal affecting another player.
         val key = listOf(api.currentUser?.id, battle.id, entry.id, now.toLocalDate()).joinToString(":")
@@ -459,7 +455,8 @@ internal class BattleArenaScreen(
         }
         val title = row()
         title.addView(label(
-            tr("🌱 Утренняя сводка · день ", "🌱 Morning report · day ") + day,
+            tr("🌱 Утренняя сводка · ", "🌱 Morning report · ") +
+                (BattleDayLabel.text(battle, language.code) ?: day.toString()),
             12f, true, ink
         ), LinearLayout.LayoutParams(0, dp(27), 1f))
         title.addView(label("×", 21f, false, secondary).apply {

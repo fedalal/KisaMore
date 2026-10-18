@@ -70,6 +70,9 @@ data class Battle(
     val plantId: String? = null,
     val farmSlug: String? = null,
     val startDate: String? = null,
+    val endDate: String? = null,
+    val battleDay: Int? = null,
+    val battleTotalDays: Int? = null,
     // Keep translations from the API. The language may change after battles
     // were downloaded, so the displayed name is resolved when drawing.
     val plantNames: Map<String, String> = emptyMap(),

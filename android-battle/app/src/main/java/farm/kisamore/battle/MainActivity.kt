@@ -1917,14 +1917,8 @@ class MainActivity : Activity() {
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
-    private fun dayLabel(battle: Battle): String {
-        val planted = battle.plantedAt ?: return statusHuman(battle.status)
-        return runCatching {
-            val from = OffsetDateTime.parse(planted)
-            val days = ChronoUnit.DAYS.between(from, OffsetDateTime.now()).coerceAtLeast(0) + 1
-            if (battle.growDays > 0) "день " + days + "/" + battle.growDays else "день " + days
-        }.getOrDefault(statusHuman(battle.status))
-    }
+    private fun dayLabel(battle: Battle): String =
+        BattleDayLabel.text(battle, AppLanguage(this).code) ?: statusHuman(battle.status)
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()

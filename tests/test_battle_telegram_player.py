@@ -1,7 +1,7 @@
 
 """Regression tests: Battle morning button stays in Telegram and enforces ownership."""
 import asyncio
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace as NS
@@ -88,7 +88,8 @@ def context(photo_dir, linked_user=USER, telegram_entry_id=None, has_photo=True)
     battle=NS(id=BATTLE, device_id="device01", rack_id=1,
               title="Plant Battle", water_budget_ml=1000, nutrient_budget_ml=100,
               shade_budget_minutes=2000,
-              planted_at=datetime(2026,10,12,10,53,tzinfo=timezone.utc))
+              planted_at=datetime(2026,10,12,10,53,tzinfo=timezone.utc),
+              start_date=date(2026,10,12),end_date=date(2026,10,18))
     plant=NS(names={"ru":"Редис Ред коралл","en":"Radish"},code="radish")
     if has_photo:
         src=photo_dir/"shelf.jpg"
@@ -119,6 +120,7 @@ async def main():
         chat_id,path,caption,keyboard=b.photos[0]
         assert chat_id==111
         assert "Редис Ред коралл" in caption
+        assert "День битвы: 7 / 7" in caption
         assert "850 мл" in caption and "1970 мин" in caption
         assert path.endswith(".jpg")
         assert not Path(path).exists(), "Temporary highlighted photo cleaned up"

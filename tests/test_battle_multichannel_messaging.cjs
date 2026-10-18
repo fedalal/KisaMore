@@ -21,7 +21,7 @@ assert.ok(battleJs.includes('"/api/v1/battles/inbox/"+encodeURIComponent(button.
 assert.ok(battleJs.includes('esc(m.body)'),"Player inbox escapes all incoming text");
 assert.ok(battleJs.includes('refreshBattleMessages().catch(()=>{})'),
   "Web app polls messages while signed in");
-assert.ok(battle.includes('battle_site.js?v=20261013-1'));
+assert.ok(battle.includes('battle_site.js?v=20261018-1'));
 assert.ok(admin.includes('admin_battles.js?v=20261013-1'));
 const client=fs.readFileSync("android-battle/app/src/main/java/farm/kisamore/battle/ApiClient.kt","utf8");
 const app=fs.readFileSync("android-battle/app/src/main/java/farm/kisamore/battle/MainActivity.kt","utf8");
