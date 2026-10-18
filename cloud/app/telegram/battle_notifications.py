@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import or_, select
 
 from ..battle_models import PlantBattle, PlantBattleEntry
+from ..battle_event_models import BattleEventNotification
+from ..battle_events import planned_end_utc
 from ..config import get_settings
 from ..models import Plant, RackCameraCalibration, RackCameraPhoto
 from .activity_notifier import TelegramActivityDelivery
@@ -193,6 +195,101 @@ async def discover_battle_daily_updates(activity_notifier, session, now: datetim
     return created
 
 
+
+END_SOON_TEXTS = {
+    "ru": (
+        "⏳ <b>Сегодня последний день битвы растений!</b>\n\n"
+        "<b>{battle}</b>\n"
+        "До планового завершения осталось менее 24 часов. "
+        "Проверьте растение и используйте оставшиеся ресурсы."
+    ),
+    "en": (
+        "⏳ <b>Last day of your Plant Battle!</b>\n\n"
+        "<b>{battle}</b>\n"
+        "Less than 24 hours remain until the planned end. "
+        "Check your plant and use your remaining resources."
+    ),
+}
+
+
+async def discover_end_soon_telegram(session, now: datetime) -> int:
+    """Deliver existing end_soon inbox events via Telegram, once per event.
+
+    The push worker creates the shared notice for each participating user,
+    regardless of device. Telegram only mirrors that durable notice, never
+    creates a second inbox item or a second FCM notification.
+    """
+    notices = list((await session.execute(
+        select(BattleEventNotification, PlantBattle)
+        .join(PlantBattle, PlantBattle.id == BattleEventNotification.battle_id)
+        .where(
+            BattleEventNotification.event_key.like("%:end_soon:%"),
+            BattleEventNotification.created_at >= now - timedelta(days=2),
+            PlantBattle.status == "growing",
+        )
+    )).all())
+    notices = [
+        (notice, battle) for notice, battle in notices
+        if (end := planned_end_utc(battle)) is not None
+        and end - timedelta(hours=24) <= now < end
+    ]
+    if not notices:
+        return 0
+
+    entry_ids = {n.entry_id for n, _ in notices if n.entry_id}
+    entries = list((await session.execute(
+        select(PlantBattleEntry).where(PlantBattleEntry.id.in_(entry_ids))
+    )).scalars().all()) if entry_ids else []
+    by_entry = {entry.id: entry for entry in entries}
+    user_ids = {notice.user_id for notice, _ in notices}
+    direct_ids = {
+        entry.telegram_user_id for entry in entries if entry.telegram_user_id
+    }
+    linked = list((await session.execute(
+        select(TelegramUser).where(
+            TelegramUser.is_active.is_(True),
+            or_(
+                TelegramUser.marketplace_user_id.in_(user_ids),
+                TelegramUser.id.in_(direct_ids),
+            ),
+        )
+    )).scalars().all())
+    by_account = {tg.marketplace_user_id: tg for tg in linked if tg.marketplace_user_id}
+    by_id = {tg.id: tg for tg in linked}
+
+    created = 0
+    for notice, battle in notices:
+        entry = by_entry.get(notice.entry_id)
+        tg = by_account.get(notice.user_id)
+        if tg is None and entry is not None and entry.user_id == notice.user_id:
+            tg = by_id.get(entry.telegram_user_id)
+        if tg is None:
+            continue
+        key = f"battle_end_soon:{notice.id}"
+        if await session.get(TelegramActivityDelivery, key) is not None:
+            continue
+        language = _lang(tg.language_code)
+        locale = "ru" if language == "ru" else "en"
+        session.add(TelegramActivityDelivery(
+            event_key=key,
+            telegram_user_id=tg.telegram_user_id,
+            kind="battle_end_soon",
+            payload={
+                "text": END_SOON_TEXTS[locale].format(battle=escape(battle.title)),
+                "button": "🌱 Открыть битву" if locale == "ru" else "🌱 Open Battle",
+                "url": "https://ru.kisamore.farm/battle" if locale == "ru"
+                       else "https://kisamore.farm/battle",
+                "battle_id": battle.id,
+            },
+            status="pending",
+            attempts=0,
+            created_at=now,
+        ))
+        created += 1
+    if created:
+        await session.commit()
+    return created
+
 def install(activity_notifier) -> None:
     if getattr(activity_notifier, "_battle_notifications_installed", False):
         return
@@ -201,6 +298,7 @@ def install(activity_notifier) -> None:
     async def discover_activity(session, now):
         created = await original_discover(session, now)
         created += await discover_battle_daily_updates(activity_notifier, session, now)
+        created += await discover_end_soon_telegram(session, now)
         return created
 
     activity_notifier.discover_activity = discover_activity
