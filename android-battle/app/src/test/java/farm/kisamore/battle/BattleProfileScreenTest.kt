@@ -26,6 +26,8 @@ class BattleProfileScreenTest {
         assertTrue("Empty rewards clearly labeled", containsLabel(screen, "Наград пока нет"))
         assertTrue("Redundant My Plants block has been removed", !containsLabel(screen, "Мои растения"))
         assertTrue("Help setting exists", containsLabel(screen, "Помощь"))
+        assertTrue("Review shortcut exists", containsLabel(screen, "Оценить приложение"))
+        assertTrue("Invite shortcut exists", containsLabel(screen, "Пригласить друга"))
         assertTrue("Server setting removed", !containsLabel(screen, "Сервер"))
         assertTrue("Photo section must exist", screen.getChildAt(0).visibility == View.VISIBLE)
     }

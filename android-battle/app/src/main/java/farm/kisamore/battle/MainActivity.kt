@@ -395,9 +395,13 @@ class MainActivity : Activity() {
                         }
                     }
                 }
-                // Only after authentication and the first successful server
-                // refresh; never interrupt guests or repeatedly prompt at launch.
-                if (api.hasSession()) contentHost.post { maybeOfferNotifications() }
+                // Guide first-time spectators and players after content is ready.
+                // Postpone the permission prompt until the walkthrough is finished.
+                contentHost.post {
+                    if (!BattleOnboarding.showIfNeeded(this) {
+                            if (api.hasSession()) maybeOfferNotifications()
+                        } && api.hasSession()) maybeOfferNotifications()
+                }
             }
         )
     }
@@ -623,6 +627,9 @@ class MainActivity : Activity() {
                 },
                 onThemeChanged = { showProfile() },
                 onLanguageChanged = { showProfile() },
+                onShowTutorial = { BattleOnboarding.show(this) },
+                onRateApp = { rateKisaMore() },
+                onShareApp = { shareKisaMore() },
                 onPreferenceChanged = { language, dark -> syncPreference(language, dark) }
             ))
             addNavigation()
@@ -664,6 +671,29 @@ class MainActivity : Activity() {
     }
 
     /** Consent is stored on this installation and survives in-place updates. */
+    private fun rateKisaMore() {
+        val id = packageName
+        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$id"))
+        val web = Intent(Intent.ACTION_VIEW,
+            Uri.parse("https://play.google.com/store/apps/details?id=$id"))
+        try {
+            startActivity(market)
+        } catch (_: android.content.ActivityNotFoundException) {
+            startActivity(web)
+        }
+    }
+
+    private fun shareKisaMore() {
+        val language = AppLanguage(this)
+        val link = "https://play.google.com/store/apps/details?id=$packageName"
+        val share = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, language.t("Присоединяйся к битве настоящих растений!") +
+                "\n" + link)
+        }
+        startActivity(Intent.createChooser(share, language.t("Пригласить друга")))
+    }
+
     private fun setNotificationConsent(enabled: Boolean) {
         BattleNotificationConsent.record(this, enabled)
         BattleInboxJob.schedule(this)

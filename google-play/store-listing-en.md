@@ -1,35 +1,35 @@
-# English store listing
+# Google Play store listing — English
 
 ## App name
 KisaMore Battle
 
 ## Short description
-Grow a real plant, manage resources and compete in live greenhouse battles.
+Grow real plants, watch greenhouse cameras and win live plant battles.
 
 ## Full description
-KisaMore Battle turns real greenhouse growing into a long-running strategy game.
+**Grow a real plant. Make every drop count. Compete with other gardeners.**
 
-Join a plant battle and take responsibility for a real plant growing in the KisaMore greenhouse. Every participant starts with the same conditions and a limited set of resources. Your decisions determine how those resources are used during the growing cycle.
+KisaMore Battle is a strategy game connected to a real greenhouse. Six players grow the same type of plant under comparable conditions. Each player decides how to use limited resources during a live plant-growing competition.
 
-### Real plants, real decisions
-Watch the greenhouse rack and follow the progress of your plant from your phone. Decide when to water, when to use nutrient solution and when to shade the plant from light.
+**Watch a real greenhouse**
+Follow plant growth through greenhouse cameras, regularly updated photos and timelapse videos. Zoom in on the rack and see the changes day by day.
 
-### Fair competition
-Participants in a battle grow the same type of plant under comparable starting conditions. The challenge is to manage limited resources better than the other gardeners.
+**Choose your strategy**
+As a participant, decide when to water, provide nutrients or shade your plant from light. Your choices control the real equipment assigned to your plant. Every player has a limited resource budget — thoughtful timing matters.
 
-### Follow the battle live
-See current battle status, greenhouse photos, resource balances, recent actions and timelapses. The arena refreshes automatically as the plants grow.
+**Follow battles for free**
+Not playing yet? Watch ongoing competitions, switch cameras, check the progress and learn how different growing strategies work.
 
-### Predict the winner
-Players and spectators can make predictions about which plant will win the battle.
+**Earn recognition**
+Follow your battle through its final results. Participants receive a digital certificate, and the winner earns Kisa rewards.
 
-### Build your gardener profile
-Complete daily activities, maintain a streak, earn XP and unlock achievements while following your plants through the full growing cycle.
+**Make it your game**
+View recent actions, follow the competition timeline, build your gardener profile and receive notifications about important battle events.
 
-### Real greenhouse experience
-KisaMore Battle is connected to the KisaMore greenhouse platform. Commands in an active battle can affect the resources assigned to a real plant.
+Unlike virtual farming simulators, KisaMore Battle shows plants actually growing in a greenhouse. Gardening, plant care and friendly strategy competition come together in one place.
 
-Features available depend on the current battle stage and your KisaMore account.
+Features and participation depend on the stage of each battle, available places and your account. Internet access is required.
 
 Website: https://kisamore.farm
-Privacy: https://kisamore.farm/privacy
+Support: support@kisamore.farm
+Privacy policy: https://kisamore.farm/privacy

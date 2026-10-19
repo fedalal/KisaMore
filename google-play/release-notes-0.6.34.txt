@@ -1,0 +1,10 @@
+<en-US>
+Added a first-launch walkthrough explaining real plant battles, cameras, timelapses and player resources.
+Added Rate App and Invite a Friend actions in Profile.
+Improved localization and compact-screen layout.
+</en-US>
+<ru-RU>
+Добавлено обучение при первом запуске: правила битв, камеры, таймлапсы и ресурсы игрока.
+В профиле появились кнопки «Оценить приложение» и «Пригласить друга».
+Улучшены переводы и размещение элементов на небольших экранах.
+</ru-RU>

@@ -93,20 +93,20 @@ jobs:
           set -euo pipefail
           BUNDLE=android-battle/app/build/outputs/bundle/release/app-release.aab
           test -s "$BUNDLE"
-          grep -Fq 'versionCode = 46' android-battle/app/build.gradle.kts
-          grep -Fq 'versionName = "0.6.31"' android-battle/app/build.gradle.kts
+          grep -Fq 'versionCode = 49' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.34"' android-battle/app/build.gradle.kts
           jarsigner -verify "$BUNDLE"
           EXPECTED="13:CC:46:3F:9A:EE:39:28:BF:BA:AA:7A:9A:6C:94:46:B1:17:AE:F1:A6:4D:8F:C7:4B:48:B5:51:63:FE:DE:03"
           ACTUAL="$(keytool -printcert -jarfile "$BUNDLE" | sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"
           test "$ACTUAL" = "$EXPECTED" || (echo "Signed bundle certificate mismatch" && exit 1)
           unzip -p "$BUNDLE" base/dex/classes.dex >/dev/null
-          cp "$BUNDLE" KisaMore-Battle-0.6.31-GooglePlay.aab
-          echo "SIGNED PLAY BUNDLE VERIFIED: 0.6.31 (46), original upload key."
+          cp "$BUNDLE" KisaMore-Battle-0.6.34-GooglePlay.aab
+          echo "SIGNED PLAY BUNDLE VERIFIED: 0.6.34 (49), original upload key."
 
       - name: Upload signed Google Play bundle
         uses: actions/upload-artifact@v4
         with:
-          name: KisaMore-Battle-0.6.31-GooglePlay-SIGNED
-          path: KisaMore-Battle-0.6.31-GooglePlay.aab
+          name: KisaMore-Battle-0.6.34-GooglePlay-SIGNED
+          path: KisaMore-Battle-0.6.34-GooglePlay.aab
           if-no-files-found: error
           retention-days: 90

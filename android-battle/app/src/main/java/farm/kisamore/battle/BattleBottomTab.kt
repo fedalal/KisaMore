@@ -133,6 +133,22 @@ internal class BattleTabGlyph(context: Context, private val glyph: String, priva
                 canvas.drawRoundRect(10f, 9f, 14f, 21f, 1f, 1f, p)
                 canvas.drawRoundRect(17f, 3f, 21f, 21f, 1f, 1f, p)
             }
+            "star" -> {
+                val star = Path().apply {
+                    moveTo(12f, 2f); lineTo(15.2f, 8.6f); lineTo(22f, 9.5f)
+                    lineTo(17f, 14.5f); lineTo(18.3f, 21.5f); lineTo(12f, 18.2f)
+                    lineTo(5.7f, 21.5f); lineTo(7f, 14.5f); lineTo(2f, 9.5f)
+                    lineTo(8.8f, 8.6f); close()
+                }
+                canvas.drawPath(star, p)
+            }
+            "share" -> {
+                canvas.drawCircle(18f, 5f, 2f, p)
+                canvas.drawCircle(6f, 12f, 2f, p)
+                canvas.drawCircle(18f, 19f, 2f, p)
+                canvas.drawLine(8f, 11f, 16f, 6f, p)
+                canvas.drawLine(8f, 13f, 16f, 18f, p)
+            }
             "bell" -> {
                 val bell = Path().apply {moveTo(6f, 9f); cubicTo(6f, 1f, 18f, 1f, 18f, 9f); lineTo(18f, 16f); lineTo(21f, 19f); lineTo(3f, 19f); lineTo(6f, 16f); close()}
                 canvas.drawPath(bell, p); canvas.drawArc(10f, 18f, 14f, 23f, 0f, 180f, false, p)

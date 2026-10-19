@@ -37,6 +37,9 @@ class BattleProfileScreen(
     private val onLogout: () -> Unit,
     private val onThemeChanged: () -> Unit = {},
     private val onLanguageChanged: () -> Unit = {},
+    private val onShowTutorial: () -> Unit = {},
+    private val onRateApp: () -> Unit = {},
+    private val onShareApp: () -> Unit = {},
     private val onPreferenceChanged: (String?, Boolean?) -> Unit = { _, _ -> }
 ) : LinearLayout(host) {
     private val languageCodes = arrayOf("en", "ru", "zh", "de", "fr", "es", "it", "pt", "pl")
@@ -93,15 +96,15 @@ class BattleProfileScreen(
 
     private fun populate() {
         // Natural content heights instead of weights filling the screen.
-        addView(profileCard(), LayoutParams(-1, dp(if (shortScreen) 82 else 99)))
+        addView(profileCard(), LayoutParams(-1, dp(if (shortScreen) 82 else 92)))
         gap()
         addView(statsRow(), LayoutParams(-1, dp(if (shortScreen) 52 else 58)))
         gap()
-        addView(rewardsCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 99)))
+        addView(rewardsCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 92)))
         gap()
-        addView(historyCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 99)))
+        addView(historyCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 92)))
         gap()
-        addView(settingsCard(), LayoutParams(-1, dp(if (shortScreen) 149 else 209)))
+        addView(settingsCard(), LayoutParams(-1, dp(if (shortScreen) 200 else 259)))
     }
 
     private fun profileCard(): View {
@@ -306,6 +309,26 @@ class BattleProfileScreen(
             } else line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
             card.addView(line, LayoutParams(-1, dp(if (shortScreen) 27 else 39)))
         }
+        val extra = row().apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, 0)
+        }
+        fun extraAction(label: String, glyph: String, action: () -> Unit): View =
+            row().apply {
+                gravity = Gravity.CENTER
+                background = rounded(pale, 11)
+                isClickable = true
+                isFocusable = true
+                contentDescription = label
+                setOnClickListener { action() }
+                addView(icon(glyph, 19, accent), LayoutParams(dp(25), dp(21)))
+                addView(text(label, if (shortScreen) 12f else 13f, ink, single = true))
+            }
+        extra.addView(extraAction(AppLanguage(host).t("Оценить приложение"), "star", onRateApp),
+            LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(5) })
+        extra.addView(extraAction(AppLanguage(host).t("Пригласить друга"), "share", onShareApp),
+            LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(5) })
+        card.addView(extra, LayoutParams(-1, dp(51)))
         return card
     }
 
@@ -359,6 +382,7 @@ class BattleProfileScreen(
                 "и управления освещением. Следите за ростом по фотографиям и таймлапсам, " +
                 "принимайте решения и соревнуйтесь за награды.\\n\\n" +
                 "У вас есть вопрос или предложение? Свяжитесь с командой проекта.")
+            .setNeutralButton(AppLanguage(host).t("Повторить обучение")) { _, _ -> onShowTutorial() }
             .setNegativeButton("Закрыть", null)
             .setPositiveButton("Задать вопрос") { _, _ ->
                 val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@kisamore.farm"))
