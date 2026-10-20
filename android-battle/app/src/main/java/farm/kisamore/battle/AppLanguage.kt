@@ -69,6 +69,7 @@ class AppLanguage(private val context: Context) {
             supported.firstOrNull { it.first == code }?.second ?: "English"
 
         private val rows: Map<String, Array<String>> = mapOf(
+            "Назад" to arrayOf("Back", "Zurück", "Retour", "Atrás", "Indietro", "Voltar", "Wstecz", "返回"),
             "Действия и участники" to arrayOf("Actions and players", "Aktionen und Spieler", "Actions et participants", "Acciones y jugadores", "Azioni e giocatori", "Ações e jogadores", "Działania i uczestnicy", "操作与参赛者"),
             "Ниже фотографии есть ещё несколько полезных блоков:" to arrayOf("More useful controls are shown below the photo:", "Unter dem Foto findest du weitere Funktionen:", "D'autres outils se trouvent sous la photo :", "Hay más controles debajo de la foto:", "Altri controlli sono sotto la foto:", "Há mais controlos abaixo da foto:", "Pod zdjęciem są też inne funkcje:", "照片下方还有这些功能："),
             "Последние действия / Все ›" to arrayOf("Recent actions / All ›", "Letzte Aktionen / Alle ›", "Actions récentes / Tout ›", "Acciones recientes / Todas ›", "Azioni recenti / Tutte ›", "Ações recentes / Todas ›", "Ostatnie działania / Wszystkie ›", "最近操作 / 全部 ›"),

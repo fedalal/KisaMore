@@ -7,12 +7,15 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.widget.FrameLayout
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 
 /**
@@ -88,13 +91,17 @@ internal object BattleOnboarding {
                     Tip("Помощь", "Через «Помощь» можно повторить обучение или написать команде KisaMore.")
                 ))
         )
+        var selectedPage = 0
+        var movePage: (Int) -> Unit = {}
+        val swipeLayer = OnboardingSwipeFrame(activity) { delta -> movePage(delta) }
         val screen = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(7, 20, 15))
         }
         val dialog = Dialog(activity, android.R.style.Theme_Material_NoActionBar)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(screen)
+        swipeLayer.addView(screen, FrameLayout.LayoutParams(-1, -1))
+        dialog.setContentView(swipeLayer)
         dialog.window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             statusBarColor = Color.rgb(7, 20, 15)
@@ -126,131 +133,209 @@ internal object BattleOnboarding {
             cornerRadius = activity.dp(radius).toFloat()
         }
 
-        // All text remains available on small screens: artwork/content scroll,
-        // while navigation buttons remain fixed and easy to reach.
+        // The six illustrated pages are fixed-height: no vertical scrolling.
+        // Artwork shrinks first; text scales gently only for very small phones
+        // and long translations. The footer remains fixed and always visible.
         fun page(index: Int) {
             if (closed || activity.isFinishing || activity.isDestroyed) return
+            selectedPage = index
             screen.removeAllViews()
             val ink = Color.rgb(242, 248, 239)
             val muted = Color.rgb(164, 188, 171)
             val green = Color.rgb(129, 220, 157)
-            val horizontal = activity.dp(23f)
+            val horizontal = activity.dp(17f)
+            val compact = activity.resources.configuration.screenHeightDp < 660
             val header = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(horizontal, activity.dp(24f), horizontal, activity.dp(8f))
+                setPadding(horizontal, activity.dp(if (compact) 5f else 11f),
+                    horizontal, activity.dp(2f))
             }
-            header.addView(text("KisaMore", 19f, green, true).apply {
-                gravity = Gravity.START
-                letterSpacing = 0.03f
-            }, LinearLayout.LayoutParams(0, activity.dp(42f), 1f))
-            val skip = text("Пропустить обучение", 13f, muted).apply {
+            header.addView(text("KisaMore", 17f, green, true).apply {
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            }, LinearLayout.LayoutParams(0, activity.dp(35f), 1f))
+            header.addView(text("Пропустить обучение", 12f, muted).apply {
                 gravity = Gravity.CENTER
-                setPadding(activity.dp(9f), 0, activity.dp(9f), 0)
+                setPadding(activity.dp(5f), 0, activity.dp(5f), 0)
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { finish() }
-            }
-            header.addView(skip, LinearLayout.LayoutParams(-2, activity.dp(44f)))
-            screen.addView(header)
+            }, LinearLayout.LayoutParams(-2, activity.dp(40f)))
+            screen.addView(header, LinearLayout.LayoutParams(-1, -2))
 
-            val scroll = ScrollView(activity).apply {
-                setFillViewport(true)
-                isVerticalScrollBarEnabled = false
-                clipToPadding = false
-            }
             val body = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(horizontal, activity.dp(8f), horizontal, activity.dp(10f))
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                setPadding(horizontal, 0, horizontal, 0)
+                clipChildren = false
             }
-            scroll.addView(body)
-            screen.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+            screen.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
 
-            val artHeight = when {
-                activity.resources.configuration.screenHeightDp < 650 -> 178f
-                activity.resources.configuration.screenHeightDp < 780 -> 220f
-                else -> 252f
+            val titleSp = if (compact) 19f else 21f
+            val descSp = if (compact) 11.6f else 12.4f
+            val headingSp = if (compact) 11.8f else 12.5f
+            val explanationSp = if (compact) 10.5f else 11.2f
+            val scalable = mutableListOf<Pair<TextView, Float>>()
+
+            val art = BattleOnboardingArtwork(activity, index)
+            val initialArt = when {
+                activity.resources.configuration.screenHeightDp < 570 -> 48f
+                compact -> 65f
+                else -> 94f
             }
-            body.addView(BattleOnboardingArtwork(activity, index),
-                LinearLayout.LayoutParams(-1, activity.dp(artHeight)))
-            body.addView(text(pages[index].title, 26f, ink, true).apply {
-                setPadding(activity.dp(3f), activity.dp(16f),
-                    activity.dp(3f), activity.dp(5f))
-                maxLines = 3
+            body.addView(art, LinearLayout.LayoutParams(-1, activity.dp(initialArt)))
+
+            fun copy(value: String, size: Float, color: Int, strong: Boolean = false): TextView =
+                text(value, size, color, strong).also { scalable.add(it to size) }
+
+            body.addView(copy(pages[index].title, titleSp, ink, true).apply {
+                setPadding(0, activity.dp(5f), 0, 0)
+                maxLines = 2
             }, LinearLayout.LayoutParams(-1, -2))
-            body.addView(text(pages[index].description, 14f, muted).apply {
-                setPadding(activity.dp(5f), activity.dp(4f), activity.dp(5f),
-                    activity.dp(12f))
+            body.addView(copy(pages[index].description, descSp, muted).apply {
+                setPadding(0, activity.dp(2f), 0, activity.dp(5f))
             }, LinearLayout.LayoutParams(-1, -2))
 
+            val cards = mutableListOf<LinearLayout>()
             pages[index].tips.forEachIndexed { tipIndex, tip ->
                 val card = LinearLayout(activity).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(activity.dp(10f), activity.dp(9f),
-                        activity.dp(10f), activity.dp(9f))
-                    background = rounded(Color.rgb(24, 55, 39), 14f)
+                    setPadding(activity.dp(8f), activity.dp(4f),
+                        activity.dp(8f), activity.dp(4f))
+                    background = rounded(Color.rgb(24, 55, 39), 10f)
                 }
-                val number = text("%02d".format(tipIndex + 1), 13f, green, true)
-                card.addView(number, LinearLayout.LayoutParams(activity.dp(33f), -2))
-                val copy = LinearLayout(activity).apply {
+                card.addView(copy("%02d".format(tipIndex + 1),
+                    11f, green, true), LinearLayout.LayoutParams(activity.dp(25f), -2))
+                val info = LinearLayout(activity).apply {
                     orientation = LinearLayout.VERTICAL
                 }
-                copy.addView(text(tip.control, 14f, ink, true).apply {
+                info.addView(copy(tip.control, headingSp, ink, true).apply {
                     gravity = Gravity.START
                 })
-                copy.addView(text(tip.explanation, 12.5f, muted).apply {
+                info.addView(copy(tip.explanation, explanationSp, muted).apply {
                     gravity = Gravity.START
-                    setLineSpacing(activity.dp(2f).toFloat(), 1f)
-                    setPadding(0, activity.dp(3f), 0, 0)
+                    setPadding(0, activity.dp(1f), 0, 0)
                 })
-                card.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
+                card.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
+                cards.add(card)
                 body.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
-                    bottomMargin = activity.dp(7f)
+                    bottomMargin = activity.dp(4f)
                 })
             }
 
+            // After Android lays out the translated text, free space is checked
+            // against the ACTUAL body height (not just the screen size).
+            // We do not truncate instructions or allow off-screen cards.
+            fun fitContent(round: Int) {
+                body.post {
+                    if (body.parent !== screen || selectedPage != index || round > 4) return@post
+                    val last = body.getChildAt(body.childCount - 1) ?: return@post
+                    val excess = last.bottom + body.paddingBottom - body.height
+                    if (excess <= activity.dp(2f)) return@post
+                    when (round) {
+                        0 -> {
+                            val params = art.layoutParams
+                            params.height = (params.height - excess - activity.dp(4f))
+                                .coerceAtLeast(activity.dp(24f))
+                            art.layoutParams = params
+                        }
+                        1, 2 -> {
+                            val factor = if (round == 1) .88f else .76f
+                            scalable.forEach { (label, original) ->
+                                label.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                                    (original * factor).coerceAtLeast(9.0f))
+                            }
+                            cards.forEach { card ->
+                                card.setPadding(activity.dp(6f), activity.dp(2f),
+                                    activity.dp(6f), activity.dp(2f))
+                                (card.layoutParams as LinearLayout.LayoutParams)
+                                    .bottomMargin = activity.dp(2f)
+                            }
+                        }
+                        3 -> art.visibility = View.GONE
+                        4 -> {
+                            scalable.forEach { (label, original) ->
+                                label.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                                    (original * .69f).coerceAtLeast(8.6f))
+                            }
+                        }
+                    }
+                    body.requestLayout()
+                    fitContent(round + 1)
+                }
+            }
+            fitContent(0)
+
             val footer = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(horizontal, activity.dp(12f),
-                    horizontal, activity.dp(18f))
+                setPadding(horizontal, activity.dp(4f), horizontal,
+                    activity.dp(if (compact) 7f else 11f))
             }
             val dots = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
             }
-            repeat(pages.size) { dotIndex ->
+            repeat(pages.size) { i ->
                 dots.addView(View(activity).apply {
                     background = rounded(
-                        if (dotIndex == index) green else Color.rgb(58, 87, 67),
-                        6f
+                        if (i == index) green else Color.rgb(58, 87, 67), 5f
                     )
-                    contentDescription = "${dotIndex + 1}/${pages.size}"
-                }, LinearLayout.LayoutParams(
-                    activity.dp(if (dotIndex == index) 32f else 8f), activity.dp(7f)
-                ).apply {
+                    contentDescription = "${i + 1}/${pages.size}"
+                    isClickable = true
+                    setOnClickListener { if (i != selectedPage) page(i) }
+                }, LinearLayout.LayoutParams(activity.dp(if (i == index) 26f else 7f),
+                    activity.dp(6f)).apply {
                     leftMargin = activity.dp(4f); rightMargin = activity.dp(4f)
                 })
             }
-            footer.addView(dots, LinearLayout.LayoutParams(-1, activity.dp(22f)))
+            footer.addView(dots, LinearLayout.LayoutParams(-1, activity.dp(16f)))
+            val nav = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val back = Button(activity).apply {
+                isAllCaps = false
+                text = language.t("Назад")
+                textSize = 14f
+                setTextColor(ink)
+                background = rounded(Color.rgb(29, 64, 45), 12f)
+                isEnabled = index > 0
+                alpha = if (isEnabled) 1f else .32f
+                setOnClickListener { if (selectedPage > 0) page(selectedPage - 1) }
+            }
+            nav.addView(back, LinearLayout.LayoutParams(0, activity.dp(43f), 1f).apply {
+                rightMargin = activity.dp(7f)
+            })
             val next = Button(activity).apply {
                 isAllCaps = false
                 text = language.t(if (index == pages.lastIndex) "Начать" else "Далее")
-                textSize = 16f
+                textSize = 14f
                 setTextColor(Color.rgb(5, 36, 22))
-                background = rounded(green, 16f)
-                elevation = activity.dp(2f).toFloat()
+                background = rounded(green, 12f)
                 stateListAnimator = null
                 contentDescription = text.toString()
                 setOnClickListener {
-                    if (index == pages.lastIndex) finish() else page(index + 1)
+                    if (selectedPage == pages.lastIndex) finish()
+                    else page(selectedPage + 1)
                 }
             }
-            footer.addView(next, LinearLayout.LayoutParams(-1, activity.dp(54f)).apply {
-                topMargin = activity.dp(10f)
-            })
-            screen.addView(footer)
+            nav.addView(next, LinearLayout.LayoutParams(0, activity.dp(43f), 1.5f))
+            footer.addView(nav)
+            screen.addView(footer, LinearLayout.LayoutParams(-1, -2))
+        }
+        movePage = { delta ->
+            val target = selectedPage + delta
+            if (target in pages.indices) page(target)
+        }
+        // Hardware/software Android Back navigates a step before leaving.
+        dialog.setOnKeyListener { _, code, event ->
+            if (code != KeyEvent.KEYCODE_BACK) false else {
+                if (event.action == KeyEvent.ACTION_UP) {
+                    if (selectedPage > 0) page(selectedPage - 1) else finish()
+                }
+                true
+            }
         }
         page(0)
         dialog.show()
@@ -265,3 +350,56 @@ internal object BattleOnboarding {
 }
 
 private fun Context.dp(value: Float): Int = (resources.displayMetrics.density * value + 0.5f).toInt()
+
+/** Horizontal gestures work even when a TextView consumes the initial down event. */
+internal fun onboardingSwipeDelta(dx: Float, dy: Float, threshold: Float): Int {
+    return when {
+        kotlin.math.abs(dx) < threshold -> 0
+        kotlin.math.abs(dx) < kotlin.math.abs(dy) * 1.35f -> 0
+        dx < 0f -> 1
+        else -> -1
+    }
+}
+
+internal class OnboardingSwipeFrame(
+    context: Context,
+    private val onNavigate: (Int) -> Unit
+) : FrameLayout(context) {
+    private var startX = 0f
+    private var startY = 0f
+    private var tracking = false
+    private val threshold = context.dp(60f).toFloat()
+
+    init { isClickable = true }
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                startX = event.x
+                startY = event.y
+                tracking = false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (onboardingSwipeDelta(event.x - startX,
+                        event.y - startY, threshold) != 0) {
+                    tracking = true
+                    return true
+                }
+            }
+        }
+        return super.onInterceptTouchEvent(event)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_UP) {
+            if (tracking) {
+                val direction = onboardingSwipeDelta(
+                    event.x - startX, event.y - startY, threshold)
+                if (direction != 0) onNavigate(direction)
+            }
+            tracking = false
+        }
+        if (event.actionMasked == MotionEvent.ACTION_CANCEL) tracking = false
+        return true
+    }
+}

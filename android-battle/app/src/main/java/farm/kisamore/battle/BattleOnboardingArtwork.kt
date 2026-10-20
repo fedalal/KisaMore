@@ -12,7 +12,7 @@ import android.view.View
 import kotlin.math.min
 
 /**
- * Four lightweight, original vector scenes that scale to any Android display.
+ * Six lightweight vector scenes, with dedicated compact onboarding banners.
  * Assets are built into the app — no network, image cropping or remote files.
  */
 internal class BattleOnboardingArtwork(
@@ -81,6 +81,10 @@ internal class BattleOnboardingArtwork(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        if (height < width * .52f) {
+            drawCompactBanner(canvas)
+            return
+        }
         val scale = min(width / 360f, height / 310f)
         canvas.save()
         canvas.translate((width - 360f * scale) / 2f, (height - 310f * scale) / 2f)
@@ -104,6 +108,101 @@ internal class BattleOnboardingArtwork(
             4 -> activity(canvas)
             5 -> trophy(canvas)
             else -> greenhouse(canvas)
+        }
+        canvas.restore()
+    }
+
+    /** A deliberately shallow 360×100 scene, not a squashed full-page drawing. */
+    private fun drawCompactBanner(canvas: Canvas) {
+        val scale = min(width / 360f, height / 100f)
+        canvas.save()
+        canvas.translate((width - 360f * scale) / 2f, (height - 100f * scale) / 2f)
+        canvas.scale(scale, scale)
+        val bg = color(dark)
+        bg.shader = LinearGradient(0f, 0f, 360f, 100f,
+            Color.rgb(36, 78, 53), Color.rgb(11, 44, 31), Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(2f, 2f, 358f, 98f, 17f, 17f, bg)
+        bg.shader = null
+        circle(canvas, 329f, 8f, 58f, moss, 22)
+        circle(canvas, 32f, 105f, 55f, moss, 22)
+
+        when (scene) {
+            0 -> {
+                rect(canvas, 28f, 15f, 306f, 72f, 11f, Color.rgb(22, 60, 39))
+                label(canvas, "KISAMORE", 45f, 38f, 16f, mint, true)
+                rect(canvas, 44f, 50f, 129f, 25f, 8f, moss)
+                label(canvas, "JOIN  >", 71f, 67f, 12f, ink, true)
+                rect(canvas, 182f, 50f, 134f, 25f, 8f, Color.rgb(61, 105, 76))
+                label(canvas, "WATCH  >", 211f, 67f, 12f, ink, true)
+            }
+            1 -> {
+                rect(canvas, 49f, 10f, 260f, 79f, 11f, Color.rgb(23, 58, 40))
+                for (i in 0..1) {
+                    rect(canvas, 57f, 19f + i * 33f, 30f, 27f, 7f, moss)
+                    label(canvas, "C" + (i + 1), 64f, 38f + i * 33f, 14f, ink, true)
+                }
+                rect(canvas, 95f, 18f, 168f, 62f, 8f, Color.rgb(43, 94, 57))
+                rect(canvas, 99f, 63f, 160f, 5f, 2f, amber)
+                for (i in 0..3) {
+                    val x = 105f + i * 38f
+                    rect(canvas, x, 51f, 28f, 11f, 3f, Color.rgb(185, 119, 79))
+                    line(canvas, x + 14f, 50f, x + 14f, 29f, mint, 2f)
+                    leaf(canvas, x + 14f, 43f, 7f, true, mint)
+                }
+                listOf("24H", "3D").forEachIndexed { i, v ->
+                    rect(canvas, 271f, 19f + i * 33f, 30f, 27f, 7f, moss)
+                    label(canvas, v, 274f, 38f + i * 33f, 11f, ink, true)
+                }
+            }
+            2 -> {
+                rect(canvas, 46f, 10f, 268f, 80f, 11f, Color.rgb(16, 42, 30))
+                rect(canvas, 58f, 18f, 244f, 37f, 6f, Color.rgb(46, 104, 60))
+                for (i in 0..3) {
+                    val x = 68f + i * 55f
+                    line(canvas, x, 50f, x + 9f, 32f, mint, 3f)
+                    leaf(canvas, x + 9f, 40f, 8f, true, moss)
+                }
+                listOf("−", "FIT", "+", "▶ 24H", "X").forEachIndexed { i, v ->
+                    val w = if (i == 3) 65f else 39f
+                    val x = listOf(62f, 106f, 151f, 195f, 265f)[i]
+                    rect(canvas, x, 62f, w, 21f, 6f, moss)
+                    label(canvas, v, x + 6f, 77f, 12f, ink, true)
+                }
+            }
+            3 -> {
+                listOf("WATER", "NUTRIENTS", "SHADE").forEachIndexed { i, v ->
+                    val x = 23f + i * 110f
+                    rect(canvas, x, 17f, 100f, 68f, 13f, Color.rgb(39, 93, 58))
+                    circle(canvas, x + 17f, 39f, 7f,
+                        if (i == 0) Color.rgb(127, 222, 246) else if (i == 1) amber else mint)
+                    label(canvas, v, x + 31f, 43f, 12f, ink, true)
+                    rect(canvas, x + 10f, 57f, 80f, 15f, 6f, moss)
+                    label(canvas, "USE", x + 37f, 68f, 10f, ink, true)
+                }
+            }
+            4 -> {
+                rect(canvas, 32f, 13f, 295f, 76f, 12f, Color.rgb(29, 67, 42))
+                label(canvas, "RECENT ACTIONS", 46f, 35f, 14f, ink, true)
+                rect(canvas, 265f, 22f, 47f, 22f, 8f, moss)
+                label(canvas, "ALL >", 269f, 37f, 11f, ink, true)
+                for (i in 0..2) {
+                    circle(canvas, 51f, 51f + i * 13f, 3f, mint)
+                    rect(canvas, 63f, 49f + i * 13f, 110f - i * 14f, 5f, 2f, moss)
+                }
+                val ys = floatArrayOf(72f, 67f, 78f, 58f, 64f, 50f)
+                for (i in 0..4) line(canvas, 195f + 23f * i, ys[i],
+                    195f + 23f * (i + 1), ys[i + 1], mint, 2.5f)
+            }
+            else -> {
+                rect(canvas, 53f, 20f, 76f, 62f, 9f, Color.rgb(215, 236, 201))
+                rect(canvas, 65f, 34f, 52f, 7f, 3f, moss)
+                for (i in 0..2) rect(canvas, 65f, 48f + i * 9f, 42f, 4f, 2f, moss)
+                circle(canvas, 185f, 45f, 22f, amber)
+                rect(canvas, 178f, 64f, 14f, 15f, 3f, amber)
+                rect(canvas, 163f, 79f, 44f, 5f, 3f, amber)
+                rect(canvas, 237f, 23f, 75f, 56f, 12f, Color.rgb(39, 90, 57))
+                label(canvas, "KISA", 248f, 57f, 19f, ink, true)
+            }
         }
         canvas.restore()
     }

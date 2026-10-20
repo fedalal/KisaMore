@@ -1,0 +1,11 @@
+<ru-RU>
+Улучшено обучение: компактные иллюстрации и адаптивное расположение текста без вертикальной прокрутки.
+Добавлены кнопка «Назад», свайпы влево и вправо и переход по индикаторам страниц.
+Улучшено отображение подсказок на небольших экранах.
+</ru-RU>
+
+<en-US>
+Improved onboarding with smaller illustrations and adaptive text layout without vertical scrolling.
+Added a Back button, left/right swipe navigation, and tappable progress indicators.
+Improved readability on smaller screens.
+</en-US>
