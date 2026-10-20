@@ -1,0 +1,12 @@
+<en-US>
+Redesigned the first-launch tutorial with four fullscreen, illustrated steps and clear progress indicators.
+Added concise explanations of live greenhouse cameras, resources, and rewards in all supported languages.
+Moved Invite a Friend below Rate App in Profile for easier tapping.
+Improved the layout on smaller phones.
+</en-US>
+<ru-RU>
+Полностью обновлено обучение: четыре красивых полноэкранных шага с иллюстрациями и индикатором прогресса.
+Добавлены короткие объяснения камер, ресурсов и наград на всех языках приложения.
+Кнопка «Пригласить друга» теперь находится под «Оценить приложение».
+Улучшен интерфейс на небольших экранах.
+</ru-RU>

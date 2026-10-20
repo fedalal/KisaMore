@@ -104,7 +104,7 @@ class BattleProfileScreen(
         gap()
         addView(historyCard(), LayoutParams(-1, dp(if (shortScreen) 77 else 92)))
         gap()
-        addView(settingsCard(), LayoutParams(-1, dp(if (shortScreen) 200 else 259)))
+        addView(settingsCard(), LayoutParams(-1, dp(if (shortScreen) 242 else 304)))
     }
 
     private fun profileCard(): View {
@@ -309,26 +309,31 @@ class BattleProfileScreen(
             } else line.addView(text(item.third, if (shortScreen) 13f else 14f, secondary))
             card.addView(line, LayoutParams(-1, dp(if (shortScreen) 27 else 39)))
         }
-        val extra = row().apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(2), 0, 0)
+        // Independent full-width actions: accessible even with long translations.
+        val extras = column().apply {
+            setPadding(0, dp(3), 0, 0)
         }
         fun extraAction(label: String, glyph: String, action: () -> Unit): View =
             row().apply {
-                gravity = Gravity.CENTER
-                background = rounded(pale, 11)
+                gravity = Gravity.CENTER_VERTICAL
+                background = rounded(pale, 12)
                 isClickable = true
                 isFocusable = true
                 contentDescription = label
                 setOnClickListener { action() }
-                addView(icon(glyph, 19, accent), LayoutParams(dp(25), dp(21)))
-                addView(text(label, if (shortScreen) 12f else 13f, ink, single = true))
+                setPadding(dp(10), 0, dp(10), 0)
+                addView(icon(glyph, 21, accent), LayoutParams(dp(30), dp(25)))
+                addView(text(label, if (shortScreen) 14f else 15f, ink, single = true)
+                    .apply { setPadding(dp(5), 0, 0, 0) },
+                    LayoutParams(0, -2, 1f))
+                addView(icon("chevron", 17, secondary), LayoutParams(dp(17), dp(18)))
             }
-        extra.addView(extraAction(AppLanguage(host).t("Оценить приложение"), "star", onRateApp),
-            LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(5) })
-        extra.addView(extraAction(AppLanguage(host).t("Пригласить друга"), "share", onShareApp),
-            LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(5) })
-        card.addView(extra, LayoutParams(-1, dp(51)))
+        extras.addView(extraAction(AppLanguage(host).t("Оценить приложение"),
+            "star", onRateApp), LayoutParams(-1, dp(if (shortScreen) 43 else 46)))
+        extras.addView(extraAction(AppLanguage(host).t("Пригласить друга"),
+            "share", onShareApp), LayoutParams(-1, dp(if (shortScreen) 43 else 46))
+            .apply { topMargin = dp(5) })
+        card.addView(extras, LayoutParams(-1, dp(if (shortScreen) 96 else 101)))
         return card
     }
 

@@ -46,8 +46,8 @@ jobs:
           set -euo pipefail
           AAB=android-battle/app/build/outputs/bundle/release/app-release.aab
           test -s "$AAB"
-          grep -Fq 'versionCode = 49' android-battle/app/build.gradle.kts
-          grep -Fq 'versionName = "0.6.34"' android-battle/app/build.gradle.kts
+          grep -Fq 'versionCode = 50' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.35"' android-battle/app/build.gradle.kts
           # jarsigner -verify exits 0 even for UNSIGNED JARs; inspect actual
           # signing blocks, not its exit code.
           if unzip -Z1 "$AAB" | grep -Ei '^META-INF/.*\.(RSA|DSA|EC|SF)$'; then
@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
           unzip -t "$AAB" > /dev/null
-          cp "$AAB" KisaMore-Battle-0.6.34-UNSIGNED.aab
+          cp "$AAB" KisaMore-Battle-0.6.35-UNSIGNED.aab
           echo "Unsigned bundle ready for private local signing."
       - name: Build unsigned APK for private offline signing
         env:
@@ -67,21 +67,21 @@ jobs:
           mkdir -p apk-offline-signing
           APK="$(find android-battle/app/build/outputs/apk/release -maxdepth 1 -name '*unsigned*.apk' -print -quit)"
           test -n "$APK" && test -s "$APK"
-          cp "$APK" apk-offline-signing/KisaMore-Battle-0.6.34-UNSIGNED.apk
+          cp "$APK" apk-offline-signing/KisaMore-Battle-0.6.35-UNSIGNED.apk
           cp /usr/local/lib/android/sdk/build-tools/36.0.0/lib/apksigner.jar apk-offline-signing/apksigner.jar
-          unzip -t apk-offline-signing/KisaMore-Battle-0.6.34-UNSIGNED.apk >/dev/null
+          unzip -t apk-offline-signing/KisaMore-Battle-0.6.35-UNSIGNED.apk >/dev/null
           echo "Unsigned APK and APK Signature Scheme v2/v3 tool staged."
       - name: Upload unsigned APK for local original-key signing
         uses: actions/upload-artifact@v4
         with:
-          name: KisaMore-Battle-0.6.34-UNSIGNED-APK-offline
+          name: KisaMore-Battle-0.6.35-UNSIGNED-APK-offline
           path: apk-offline-signing/
           if-no-files-found: error
           retention-days: 30
       - name: Upload staging AAB
         uses: actions/upload-artifact@v4
         with:
-          name: KisaMore-Battle-0.6.34-UNSIGNED-for-offline-signing
-          path: KisaMore-Battle-0.6.34-UNSIGNED.aab
+          name: KisaMore-Battle-0.6.35-UNSIGNED-for-offline-signing
+          path: KisaMore-Battle-0.6.35-UNSIGNED.aab
           if-no-files-found: error
           retention-days: 30

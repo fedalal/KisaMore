@@ -61,6 +61,15 @@ class BattleProfileScreenTest {
         val settings = screen.getChildAt(8) as android.view.ViewGroup
         assertTrue("Last settings row must fit within the card",
             settings.getChildAt(settings.childCount - 1).bottom <= settings.height)
+        val extraActions = settings.getChildAt(settings.childCount - 1) as android.view.ViewGroup
+        assertEquals("Rate and share each have their own full-width row", 2, extraActions.childCount)
+        val rate = extraActions.getChildAt(0)
+        val invite = extraActions.getChildAt(1)
+        assertTrue("Invite must appear below rate", invite.top > rate.top)
+        assertEquals("Both actions share the same width", rate.measuredWidth, invite.measuredWidth)
+        assertTrue("Tap targets remain at least 43dp on compact screens",
+            rate.measuredHeight >= 43 * activity.resources.displayMetrics.density - 1)
+
         val notificationLabel = findLabel(settings, "Уведомления")
         assertTrue("Settings labels should be at least 14sp",
             notificationLabel.textSize / activity.resources.displayMetrics.scaledDensity >= 13.8f)
