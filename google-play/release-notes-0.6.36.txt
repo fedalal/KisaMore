@@ -1,0 +1,10 @@
+<en-US>
+Updated the onboarding to explain the actual screens and buttons: Home, Battle cameras and timelapses, fullscreen viewer, player resources, activity, predictions, Profile and History.
+Added step-by-step explanations of Water, Add and Use, including how command amounts and confirmation work.
+Refined six in-app illustrations and localized guidance for all supported languages.
+</en-US>
+<ru-RU>
+Обучение теперь подробно объясняет настоящие экраны и кнопки: «Начало», «Битва», камеры и таймлапсы, просмотр фото, ресурсы игрока, историю действий, прогнозы, профиль и историю битв.
+Добавлены пояснения к командам «Полить», «Добавить» и «Использовать», выбору количества и подтверждению.
+Обновлены шесть иллюстраций и переводы на все языки приложения.
+</ru-RU>

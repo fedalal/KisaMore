@@ -21,7 +21,7 @@ import android.widget.TextView
  */
 internal object BattleOnboarding {
     private const val PREF = "kisamore_battle_onboarding"
-    private const val DONE = "walkthrough_v1_finished"
+    private const val DONE = "walkthrough_v2_finished"
     private var showing = false
 
     fun shouldShow(context: Context): Boolean =
@@ -47,18 +47,46 @@ internal object BattleOnboarding {
         showing = true
         val language = AppLanguage(activity)
         val pages = listOf(
-            Page("Вы выращиваете настоящее растение",
-                "Растения растут в реальной теплице. Наблюдайте за битвами или станьте участником соревнования.",
-                listOf("Настоящая теплица", "6 участников", "Живой рост")),
-            Page("Следите за ростом вживую",
-                "Переключайте камеры, открывайте фото на весь экран и смотрите таймлапсы роста.",
-                listOf("Фото полки", "Несколько камер", "Таймлапсы")),
-            Page("Ресурсы ограничены — стратегия важна",
-                "У игроков есть вода, питание и время укрытия от света. Каждое решение влияет на настоящее растение.",
-                listOf("Вода", "Питание", "Укрытие")),
-            Page("Побеждайте и получайте награды",
-                "Следите за результатами. Все участники получают цифровой диплом, а победитель — награду Kisa.",
-                listOf("Диплом", "Награда Kisa", "История битв"))
+            Page("Начало и вкладки", "Как перейти к просмотру или участию:",
+                listOf(
+                    Tip("Присоединиться к битве", "Открывает участие в ближайшей битве. Вход и подтверждение списания Kisa потребуются до бронирования места."),
+                    Tip("Смотреть битвы без входа", "Открывает битвы для зрителя без регистрации. Управлять чужим растением нельзя."),
+                    Tip("Нижнее меню", "«Начало» — будущие битвы; «Битва» — фото и участники; «Профиль» — аккаунт. «История» доступна после входа, а у активного игрока «Начало» скрыто.")
+                )),
+            Page("Битва: фото и камеры", "Эти кнопки расположены вокруг фото полки:",
+                listOf(
+                    Tip("К1 / К2 слева", "Переключают камеры полки. Зелёным выделена выбранная камера."),
+                    Tip("24 ч / 3 дня / Всё справа", "Запускают таймлапс за выбранный период и с текущей камеры. Крестик возвращает фотографию."),
+                    Tip("Название битвы сверху", "Позволяет выбрать другую битву. Значок кубка показывает битву, в которой вы участвуете."),
+                    Tip("Фото полки", "Нажмите для просмотра крупно. Тонкая зелёная рамка отмечает ваш контейнер.")
+                )),
+            Page("Просмотр фотографии", "Откройте фото полки и попробуйте:",
+                listOf(
+                    Tip("− / По размеру / +", "Уменьшить фото, сбросить масштаб или увеличить. Также можно раздвигать пальцы и дважды нажимать."),
+                    Tip("Фото / ▶ 24 ч / ▶ 3 дня / ▶ Всё", "Переключают фотографию и доступные таймлапсы выбранной камеры прямо в просмотрщике."),
+                    Tip("↗ Поделиться / ✕", "Отправляет фотографию через меню Android или закрывает просмотрщик.")
+                )),
+            Page("Мои ресурсы", "Появляются только у игрока со своим контейнером:",
+                listOf(
+                    Tip("Остаток / лимит", "Числа в мл и минутах показывают, сколько ресурса осталось из общего запаса."),
+                    Tip("Полить", "Нажмите, выберите объём воды в мл и подтвердите команду кнопкой «Отправить»."),
+                    Tip("Добавить", "Так же укажите количество питательного раствора в мл."),
+                    Tip("Использовать", "Укажите минуты укрытия от света. Все эти кнопки отправляют настоящие команды только после подтверждения.")
+                )),
+            Page("Действия и участники", "Ниже фотографии есть ещё несколько полезных блоков:",
+                listOf(
+                    Tip("Последние действия / Все ›", "Показывают историю ваших команд и их статус. «Все» открывает полный журнал."),
+                    Tip("Активность: 24 ч / 3 дня / 7 дней", "Меняет период графика действий, а не длительность таймлапса."),
+                    Tip("Занять место", "Зритель увидит эту кнопку, пока открыт набор. При участии потребуется подтверждение стоимости в Kisa."),
+                    Tip("Участники", "Нажмите на участника, чтобы выбрать его в своём прогнозе победителя. Для прогноза нужен вход.")
+                )),
+            Page("Профиль и история", "Где найти сообщения, настройки и диплом:",
+                listOf(
+                    Tip("Профиль", "Здесь показаны ваш баланс Kisa, награды, сообщения и настройки уведомлений, языка и темы."),
+                    Tip("История", "После входа показывает завершённые битвы, фото, таймлапсы и цифровой диплом с QR-кодом."),
+                    Tip("Оценить / Пригласить друга", "Первая кнопка открывает Google Play, вторая — отправку ссылки на приложение."),
+                    Tip("Помощь", "Через «Помощь» можно повторить обучение или написать команде KisaMore.")
+                ))
         )
         val screen = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -140,40 +168,48 @@ internal object BattleOnboarding {
             screen.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
             val artHeight = when {
-                activity.resources.configuration.screenHeightDp < 650 -> 214f
-                activity.resources.configuration.screenHeightDp < 760 -> 265f
-                else -> 317f
+                activity.resources.configuration.screenHeightDp < 650 -> 178f
+                activity.resources.configuration.screenHeightDp < 780 -> 220f
+                else -> 252f
             }
             body.addView(BattleOnboardingArtwork(activity, index),
                 LinearLayout.LayoutParams(-1, activity.dp(artHeight)))
-            body.addView(text(pages[index].title, 27f, ink, true).apply {
-                setPadding(activity.dp(3f), activity.dp(24f),
-                    activity.dp(3f), activity.dp(6f))
+            body.addView(text(pages[index].title, 26f, ink, true).apply {
+                setPadding(activity.dp(3f), activity.dp(16f),
+                    activity.dp(3f), activity.dp(5f))
                 maxLines = 3
             }, LinearLayout.LayoutParams(-1, -2))
-            body.addView(text(pages[index].description, 15f, muted).apply {
-                setLineSpacing(activity.dp(4f).toFloat(), 1f)
-                setPadding(activity.dp(5f), activity.dp(7f), activity.dp(5f), 0)
-                maxLines = 5
+            body.addView(text(pages[index].description, 14f, muted).apply {
+                setPadding(activity.dp(5f), activity.dp(4f), activity.dp(5f),
+                    activity.dp(12f))
             }, LinearLayout.LayoutParams(-1, -2))
 
-            val chipRow = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                setPadding(0, activity.dp(21f), 0, 0)
-            }
-            pages[index].chips.forEachIndexed { chipIndex, caption ->
-                val label = text(caption, 11f, if (chipIndex == 0) green else ink).apply {
-                    setPadding(activity.dp(5f), 0, activity.dp(5f), 0)
-                    maxLines = 2
-                    minHeight = activity.dp(38f)
-                    background = rounded(Color.rgb(24, 55, 39), 10f)
+            pages[index].tips.forEachIndexed { tipIndex, tip ->
+                val card = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(activity.dp(10f), activity.dp(9f),
+                        activity.dp(10f), activity.dp(9f))
+                    background = rounded(Color.rgb(24, 55, 39), 14f)
                 }
-                chipRow.addView(label, LinearLayout.LayoutParams(0, -2, 1f).apply {
-                    if (chipIndex > 0) leftMargin = activity.dp(6f)
+                val number = text("%02d".format(tipIndex + 1), 13f, green, true)
+                card.addView(number, LinearLayout.LayoutParams(activity.dp(33f), -2))
+                val copy = LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+                copy.addView(text(tip.control, 14f, ink, true).apply {
+                    gravity = Gravity.START
+                })
+                copy.addView(text(tip.explanation, 12.5f, muted).apply {
+                    gravity = Gravity.START
+                    setLineSpacing(activity.dp(2f).toFloat(), 1f)
+                    setPadding(0, activity.dp(3f), 0, 0)
+                })
+                card.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
+                body.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
+                    bottomMargin = activity.dp(7f)
                 })
             }
-            body.addView(chipRow, LinearLayout.LayoutParams(-1, -2))
 
             val footer = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -224,7 +260,8 @@ internal object BattleOnboarding {
         )
     }
 
-    private data class Page(val title: String, val description: String, val chips: List<String>)
+    private data class Tip(val control: String, val explanation: String)
+    private data class Page(val title: String, val description: String, val tips: List<Tip>)
 }
 
 private fun Context.dp(value: Float): Int = (resources.displayMetrics.density * value + 0.5f).toInt()

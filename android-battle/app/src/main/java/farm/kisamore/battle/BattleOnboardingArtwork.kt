@@ -99,8 +99,11 @@ internal class BattleOnboardingArtwork(
         when (scene) {
             0 -> greenhouse(canvas)
             1 -> camera(canvas)
-            2 -> resources(canvas)
-            else -> trophy(canvas)
+            2 -> viewer(canvas)
+            3 -> resources(canvas)
+            4 -> activity(canvas)
+            5 -> trophy(canvas)
+            else -> greenhouse(canvas)
         }
         canvas.restore()
     }
@@ -174,6 +177,64 @@ internal class BattleOnboardingArtwork(
         val rec = color(amber); rec.style = Paint.Style.STROKE; rec.strokeWidth = 3f
         c.drawCircle(289f, 124f, 13f, rec)
         circle(c, 289f, 124f, 5f, amber)
+    }
+
+    /** Preview of the real fullscreen viewer controls without interactive actions. */
+    private fun viewer(c: Canvas) {
+        rect(c, 67f, 13f, 226f, 284f, 24f, Color.rgb(7, 17, 12))
+        rect(c, 77f, 22f, 206f, 32f, 8f, Color.rgb(32, 65, 44))
+        label(c, "PHOTO", 90f, 43f, 14f, ink, true)
+        rect(c, 207f, 27f, 45f, 20f, 7f, moss)
+        label(c, "SHARE", 211f, 41f, 10f, ink, true)
+        label(c, "×", 264f, 43f, 24f, ink, true)
+        rect(c, 80f, 61f, 200f, 150f, 12f, Color.rgb(29, 73, 47))
+        rect(c, 92f, 160f, 176f, 8f, 4f, Color.rgb(147, 113, 80))
+        repeat(4) { i ->
+            val x = 103f + i * 41f
+            rect(c, x, 141f, 28f, 18f, 5f, Color.rgb(172, 120, 77))
+            line(c, x + 14f, 142f, x + 14f, 115f - i * 3f, moss)
+            leaf(c, x + 13f, 125f - i * 3f, 10f, true, mint)
+            leaf(c, x + 13f, 117f - i * 3f, 10f, false, mint)
+        }
+        rect(c, 96f, 174f, 59f, 8f, 4f, Color.rgb(20, 42, 30))
+        rect(c, 105f, 218f, 40f, 29f, 8f, moss)
+        rect(c, 150f, 218f, 60f, 29f, 8f, moss)
+        rect(c, 215f, 218f, 40f, 29f, 8f, moss)
+        label(c, "−", 118f, 239f, 24f, ink)
+        label(c, "FIT", 166f, 238f, 13f, ink, true)
+        label(c, "+", 228f, 239f, 21f, ink)
+        val b = listOf("PHOTO","24H","3D","ALL")
+        b.forEachIndexed { i, text ->
+            rect(c, 77f + i * 52f, 256f, 47f, 27f, 7f, if(i==0) moss else Color.rgb(42, 80, 52))
+            label(c, text, 84f + i * 52f, 274f, 10f, ink, true)
+        }
+    }
+
+    /** Recent activity and chart period controls shown below player commands. */
+    private fun activity(c: Canvas) {
+        rect(c, 28f, 33f, 304f, 245f, 24f, Color.rgb(18, 45, 30))
+        label(c, "RECENT ACTIONS", 46f, 67f, 17f, ink, true)
+        rect(c, 252f, 45f, 58f, 29f, 12f, moss)
+        label(c, "ALL ›", 262f, 64f, 13f, ink, true)
+        val times = listOf("09:40","11:15","12:05")
+        times.forEachIndexed { i, time ->
+            val y = 91f + i * 39f
+            circle(c, 52f, y, 11f, if(i==0) mint else moss)
+            label(c, time, 71f, y + 4f, 12f, ink)
+            rect(c, 154f, y - 7f, 119f - i * 17f, 14f, 7f,
+                Color.rgb(70, 119, 78))
+        }
+        label(c, "ACTIVITY", 46f, 218f, 16f, ink, true)
+        listOf("24H","3D","7D").forEachIndexed { i, name ->
+            rect(c, 151f + i * 53f, 197f, 46f, 29f, 10f,
+                if(i==1) moss else Color.rgb(39, 78, 53))
+            label(c, name, 160f + i * 53f, 217f, 13f, ink, true)
+        }
+        val values = listOf(251f,242f,255f,240f,249f,236f,244f)
+        for(i in 0 until values.lastIndex) {
+            line(c, 48f + i * 42f, values[i], 48f + (i+1) * 42f,
+                values[i+1], mint, 3f)
+        }
     }
 
     private fun resources(c: Canvas) {

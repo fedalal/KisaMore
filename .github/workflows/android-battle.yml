@@ -72,14 +72,14 @@ jobs:
 
       - name: Verify built APK version and copy with official filename
         run: |
-          grep -Fq 'versionCode = 50' android-battle/app/build.gradle.kts
-          grep -Fq 'versionName = "0.6.35"' android-battle/app/build.gradle.kts
+          grep -Fq 'versionCode = 51' android-battle/app/build.gradle.kts
+          grep -Fq 'versionName = "0.6.36"' android-battle/app/build.gradle.kts
           test -s android-battle/app/build/outputs/apk/debug/app-debug.apk
-          cp android-battle/app/build/outputs/apk/debug/app-debug.apk KisaMore-Battle-0.6.35.apk
+          cp android-battle/app/build/outputs/apk/debug/app-debug.apk KisaMore-Battle-0.6.36.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: KisaMore-Battle-0.6.35
-          path: KisaMore-Battle-0.6.35.apk
+          name: KisaMore-Battle-0.6.36
+          path: KisaMore-Battle-0.6.36.apk
           if-no-files-found: error

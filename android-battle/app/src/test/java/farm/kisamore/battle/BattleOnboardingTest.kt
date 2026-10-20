@@ -37,7 +37,13 @@ class BattleOnboardingTest {
             "Следите за ростом вживую",
             "Ресурсы ограничены — стратегия важна",
             "Побеждайте и получайте награды",
-            "Начать", "Далее", "Оценить приложение", "Пригласить друга"
+            "Начать", "Далее", "Оценить приложение", "Пригласить друга",
+            "Начало и вкладки", "Битва: фото и камеры", "Просмотр фотографии",
+            "Мои ресурсы", "Действия и участники", "Профиль и история",
+            "К1 / К2 слева", "24 ч / 3 дня / Всё справа",
+            "− / По размеру / +", "Фото / ▶ 24 ч / ▶ 3 дня / ▶ Всё",
+            "Остаток / лимит", "Активность: 24 ч / 3 дня / 7 дней",
+            "Название битвы сверху", "Нижнее меню", "Занять место"
         )
         for (code in listOf("en", "ru", "zh", "de", "fr", "es", "it", "pt", "pl")) {
             AppLanguage.set(activity, code)
@@ -53,7 +59,7 @@ class BattleOnboardingTest {
     @Test
     fun artworkMeasuresAndDrawsForAllStepsOnCompactPhones() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-        for (step in 0..3) {
+        for (step in 0..5) {
             val view = BattleOnboardingArtwork(activity, step)
             val width = (300 * activity.resources.displayMetrics.density).toInt()
             val height = (215 * activity.resources.displayMetrics.density).toInt()
