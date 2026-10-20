@@ -127,7 +127,7 @@ internal object BattleOnboarding {
             screen.addView(header)
 
             val scroll = ScrollView(activity).apply {
-                fillViewport = true
+                setFillViewport(true)
                 isVerticalScrollBarEnabled = false
                 clipToPadding = false
             }
