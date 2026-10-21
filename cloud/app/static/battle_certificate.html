@@ -66,6 +66,26 @@
       </div>
     </div>
 
+    {% if final_video_url %}
+    <section class="section final-video-section" id="final-video" aria-labelledby="final-video-title">
+      <div class="section-heading">
+        <div>
+          <div class="section-index">✦ {{ t.final_video_label }}</div>
+          <h2 id="final-video-title">{{ t.final_video_title }}</h2>
+          <p>{{ t.final_video_description }}</p>
+        </div>
+        <div class="section-motif">✦</div>
+      </div>
+      <div class="film turntable-film">
+        <video controls playsinline preload="metadata" aria-label="{{ t.final_video_title }}">
+          <source src="{{ final_video_url }}" type="video/mp4">
+          {{ t.video_unsupported }}
+        </video>
+        <div class="film-footer"><span>✦ {{ t.final_video_label }}</span><a href="{{ final_video_url }}" target="_blank" rel="noopener">{{ t.open_video }} ↗</a></div>
+      </div>
+    </section>
+    {% endif %}
+
     <section class="section" id="video" aria-labelledby="video-title">
       <div class="section-heading"><div><div class="section-index">01 / {{ t.archive }}</div><h2 id="video-title">{{ t.video_title }}</h2><p>{{ t.video_description }}</p></div><div class="section-motif">↗</div></div>
       <div class="film">

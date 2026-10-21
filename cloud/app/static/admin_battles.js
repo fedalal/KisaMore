@@ -85,6 +85,25 @@
       ? '<a class="battle-participant-telegram" target="_blank" rel="noopener noreferrer" href="https://t.me/'+esc(username)+'">@'+esc(username)+'</a>'
       : tg ? '<span class="battle-participant-telegram">Telegram ID: '+esc(tg)+'</span>'
       : '<span class="battle-participant-empty">Telegram не привязан</span>';
+    var videoSection="";
+    if(current){
+      var ready=!!e.final_video_ready;
+      var uploadAllowed=["planting","growing","judging"].includes(b.status);
+      var base="/api/v1/admin/battles/"+encodeURIComponent(b.id)+
+        "/entries/"+encodeURIComponent(e.id)+"/final-video";
+      videoSection='<div class="battle-final-video">'+
+        '<span class="battle-final-status '+(ready?"ready":"missing")+'">'+
+        (ready?"✓ Итоговое видео загружено":"○ Итоговое видео отсутствует")+'</span>'+
+        (ready?'<a href="'+base+'" target="_blank" rel="noopener">▶ Смотреть</a>':"")+
+        (uploadAllowed?
+          '<label class="battle-final-upload">📹 '+(ready?"Заменить":"Загрузить MP4")+
+          '<input type="file" class="battle-final-video-file" data-battle="'+esc(b.id)+
+          '" data-entry="'+esc(e.id)+'" accept=".mp4,video/mp4" hidden></label>'+
+          (ready?'<button type="button" class="battle-final-delete" data-battle="'+esc(b.id)+
+          '" data-entry="'+esc(e.id)+'">Удалить</button>':"")
+        :"")+
+        '</div>';
+    }
     return '<div class="battle-admin-entry'+(current?'':' battle-admin-entry-refunded')+'">'+
       '<div class="battle-participant">'+
         '<span class="battle-participant-slot">#'+esc(e.slot_number)+esc(archived)+'</span>'+icon+
@@ -100,6 +119,7 @@
         '<span>🌘 '+esc(e.shade_used_minutes)+'/'+esc(b.shade_budget_minutes)+' мин</span>'+
         winner+
       '</div>'+
+      videoSection+
       '</div>';
   }
 
@@ -245,6 +265,35 @@
   });
 
 
+  document.getElementById("section-battles").addEventListener("change",async function(ev){
+    var input=ev.target.closest(".battle-final-video-file");
+    if(!input || !input.files || !input.files.length)return;
+    var file=input.files[0];
+    if(file.size>45*1024*1024){
+      toast("Видео не должно превышать 45 МБ, иначе Telegram не сможет его отправить.");
+      input.value="";
+      return;
+    }
+    var box=input.closest(".battle-final-video");
+    var status=box.querySelector(".battle-final-status");
+    if(status)status.textContent="⏳ Загружаем "+file.name+"…";
+    input.disabled=true;
+    try{
+      var data=new FormData();
+      data.append("video",file,file.name);
+      await api("/api/v1/admin/battles/"+encodeURIComponent(input.dataset.battle)+
+        "/entries/"+encodeURIComponent(input.dataset.entry)+"/final-video",{
+          method:"POST",body:data,
+        });
+      toast("Итоговое видео загружено. После выбора победителя оно будет отправлено участнику в Telegram.");
+      await loadBattles();
+    }catch(err){
+      toast("Ошибка видео: "+err.message);
+      if(status)status.textContent="Не удалось загрузить видео";
+      input.disabled=false;
+    }
+  });
+
   form.addEventListener("submit",async function(ev){
     ev.preventDefault();
     var parts=rack.value.split("|");
@@ -358,9 +407,26 @@
       return;
     }
 
+    b=ev.target.closest(".battle-final-delete");
+    if(b){
+      if(!confirm("Удалить итоговое видео этого контейнера?"))return;
+      b.disabled=true;
+      try{
+        await api("/api/v1/admin/battles/"+encodeURIComponent(b.dataset.battle)+
+          "/entries/"+encodeURIComponent(b.dataset.entry)+"/final-video",{method:"DELETE"});
+        toast("Итоговое видео удалено.");
+        await loadBattles();
+      }catch(e){toast("Ошибка: "+e.message);b.disabled=false;}
+      return;
+    }
+
     b=ev.target.closest(".battle-winner");
     if(b){
-      if(!confirm("Назначить этот контейнер победителем? Будет начислен приз."))return;
+      var battle=battleRows[b.dataset.battle];
+      var missing=battle?battle.entries.filter(e=>["active","finished"].includes(e.status)&&!e.final_video_ready).length:0;
+      var note="Назначить этот контейнер победителем? Будет начислен приз и разосланы итоговые видео участникам с привязанным Telegram.";
+      if(missing)note+="\nВнимание: для "+missing+" контейнеров итоговое видео не загружено. Их участники получат только диплом.";
+      if(!confirm(note))return;
       try{
         await api("/api/v1/admin/battles/"+b.dataset.battle+"/winner",{
           method:"POST",

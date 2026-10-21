@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_api import _certificate_context
 from .battle_models import PlantBattleAction
+from .battle_final_video_api import final_video_exists
 from .config import get_settings
 from .models import Planting
 from .security import get_session
@@ -68,6 +69,9 @@ I18N = {
         "final_text": "В KisaMore растения выращиваются на настоящей полке, а результат зависит от решений игроков. Присоединяйтесь к следующей битве!",
         "explore_battles": "Смотреть битвы", "footer_text": "Настоящие растения · Настоящие решения",
         "link_copied": "Ссылка скопирована",
+        "final_video_label": "ИТОГОВЫЙ ВИДЕОПОРТРЕТ",
+        "final_video_title": "Ваше растение во всей красе",
+        "final_video_description": "Профессиональная съёмка выращенного растения на поворотном столе. Это ваше итоговое видео после завершения битвы.",
     },
     "en": {
         "page_description": "A real KisaMore plant's story: certificate, growth photos, timelapse and player actions.",
@@ -104,6 +108,9 @@ I18N = {
         "final_text": "KisaMore plants grow on real racks, and the outcome depends on player choices. Join the next battle!",
         "explore_battles": "Explore battles", "footer_text": "Real plants · Real decisions",
         "link_copied": "Link copied",
+        "final_video_label": "FINAL PLANT PORTRAIT",
+        "final_video_title": "Your plant in all its glory",
+        "final_video_description": "A close-up turntable video of your real, fully grown plant, filmed at the end of the competition.",
     },
 }
 
@@ -272,6 +279,10 @@ async def _certificate_page_context(session, entry, battle, plant, user, lang):
         },
         "qr_url": f"/api/v1/public/battle-entries/{entry.id}/qr",
         "video_url": video_url,
+        "final_video_url": (
+            f"/api/v1/public/battle-entries/{entry.id}/final-video"
+            if final_video_exists(entry.id) else None
+        ),
         "photo_urls": photo_urls,
         "photos": photos,
         "resources": resources, "actions": entries,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,6 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .account_preferences_api import AccountPreferences
 from .admin_models import AdminAuditLog
 from .battle_models import BATTLE_BLOCKING_STATUSES, PlantBattle, PlantBattleAction, PlantBattleEntry
+from .battle_final_video_api import final_video_exists, final_video_path
+from .telegram.activity_notifier import TelegramActivityDelivery, user_language
+from html import escape
 from .battle_events import notify_new_battle,notify_action_done,notify_battle_members
 from .battle_service import battle_message, queue_telegram_text, rack_has_blocking_battle
 from .marketplace_service import process_waitlist
@@ -182,6 +185,12 @@ async def _serialize(session: AsyncSession, battle: PlantBattle) -> dict:
                 "status": entry.status,
                 "allocation_id": entry.allocation_id,
                 "planting_id": entry.planting_id,
+                "final_video_ready": final_video_exists(entry.id),
+                "final_video_url": (
+                    f"/api/v1/public/battle-entries/{entry.id}/final-video"
+                    if battle.status == "finished" and final_video_exists(entry.id)
+                    else None
+                ),
                 "water_used_ml": entry.water_used_ml,
                 "nutrient_used_ml": entry.nutrient_used_ml,
                 "shade_used_minutes": entry.shade_used_minutes,
@@ -857,12 +866,15 @@ async def choose_winner(
     for participant in entries:
         if participant.status == "active":
             participant.status = "finished"
-        if participant.telegram_user_id in notified:
-            continue
-        notified.add(participant.telegram_user_id)
+        # Some site accounts link Telegram after joining the battle.
         tg = await session.get(TelegramUser, participant.telegram_user_id) if participant.telegram_user_id else None
-        if tg is None or not tg.is_active:
+        if tg is None:
+            tg = (await session.execute(
+                select(TelegramUser).where(TelegramUser.marketplace_user_id == participant.user_id)
+            )).scalar_one_or_none()
+        if tg is None or not tg.is_active or tg.telegram_user_id in notified:
             continue
+        notified.add(tg.telegram_user_id)
         certificate = (
             f"{get_settings().public_base_url.rstrip('/')}/api/v1/battle-certificate/{participant.id}"
         )
@@ -886,6 +898,34 @@ async def choose_winner(
             event_key=f"battle_finished:{battle.id}:{tg.id}",
             text=text,
         )
+        # Independent durable outbox item: one personal turntable video per
+        # participant, delivered AFTER the result/diploma message.
+        if final_video_exists(participant.id):
+            lang = user_language(tg.language_code)
+            caption = (
+                f"🎬 <b>Итоговое видео вашего выращенного растения</b>\n"
+                f"Битва: {escape(battle.title)}\n"
+                f"Полка {battle.rack_id} · контейнер №{participant.slot_number}\n"
+                f"🌱 Ваш диплом и история роста: {certificate}"
+                if lang == "ru" else
+                f"🎬 <b>Final video of your grown plant</b>\n"
+                f"Battle: {escape(battle.title)}\n"
+                f"Rack {battle.rack_id} · container #{participant.slot_number}\n"
+                f"🌱 Your certificate and growth story: {certificate}"
+            )
+            key = f"battle_final_video:{battle.id}:{participant.id}"
+            if await session.get(TelegramActivityDelivery, key) is None:
+                session.add(TelegramActivityDelivery(
+                    event_key=key,
+                    telegram_user_id=tg.telegram_user_id,
+                    kind="battle_final_video",
+                    payload={
+                        "video_path": str(final_video_path(participant.id)),
+                        "caption": caption[:1024],
+                        "url": certificate, "button": "🌱 KisaMore",
+                    },
+                    status="pending", attempts=0, created_at=datetime.now(timezone.utc) + timedelta(milliseconds=100),
+                ))
 
     await notify_battle_members(
         session,battle=battle,kind="winner",now=now,

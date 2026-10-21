@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
+from .battle_final_video_api import final_video_exists
 from .battle_calendar import battle_progress
 from .battle_events import notify_resource_low
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
@@ -303,6 +304,11 @@ async def public_battle_entry(
         "timelapse_full_url": (
             f"/api/v1/public/plantings/{entry.planting_id}/timelapse/full"
             if entry.planting_id
+            else None
+        ),
+        "final_video_url": (
+            f"/api/v1/public/battle-entries/{entry.id}/final-video"
+            if final_video_exists(entry.id)
             else None
         ),
     }

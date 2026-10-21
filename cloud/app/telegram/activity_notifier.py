@@ -566,7 +566,22 @@ async def send_pending(bot: TelegramBotAPI) -> tuple[int, int]:
                     ]]
                 }
             try:
-                if delivery.kind == "battle_daily" and payload.get("photo_path"):
+                if delivery.kind == "battle_final_video":
+                    # File lives on the shared photos volume, not a transient
+                    # API container. The outbox retries Telegram errors.
+                    path = Path(str(payload.get("video_path") or ""))
+                    if not path.is_file():
+                        raise FileNotFoundError("Final battle video is missing")
+                    await bot.send_video(
+                        delivery.telegram_user_id, path,
+                        caption=str(payload.get("caption") or "")[:1024],
+                        reply_markup=markup,
+                    )
+                    delivery.status = "sent"
+                    delivery.sent_at = datetime.now(timezone.utc)
+                    delivery.last_error = None
+                    sent += 1
+                elif delivery.kind == "battle_daily" and payload.get("photo_path"):
                     # One Telegram notification only: photo with the full
                     # morning report as caption. Missing media falls back to text.
                     photo_path = Path(str(payload["photo_path"]))

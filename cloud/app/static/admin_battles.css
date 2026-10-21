@@ -41,3 +41,15 @@ a.battle-participant-telegram:hover{text-decoration:underline}
 .battle-message-log{border:1px solid #dce9de;border-radius:12px;padding:12px;background:#f8fbf9}
 .battle-message-log small{font-size:11px;color:#6c7f72}
 .battle-message-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}
+
+
+/* One final turntable film per growing container, uploaded before judging. */
+.battle-final-video{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:6px 8px;margin-left:36px;border-top:1px dashed #dce6dd;font-size:11px;color:#627569}
+.battle-final-video a{color:#167b5e;font-weight:750;text-decoration:none}
+.battle-final-video a:hover{text-decoration:underline}
+.battle-final-status.ready{color:#23734e;font-weight:750}
+.battle-final-status.missing{color:#a77b48}
+.battle-final-upload{display:inline-flex;align-items:center;gap:5px;border:1px solid #b8d4c2;background:#eef8f0;padding:6px 9px;border-radius:7px;color:#215a3d;font-weight:750;cursor:pointer}
+.battle-final-upload:hover{background:#e2f5e8}
+.battle-final-delete{border:1px solid #d6e3d9;color:#7b554b;background:#fff;border-radius:7px}
+@media(max-width:600px){.battle-final-video{margin-left:0}}
