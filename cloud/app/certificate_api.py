@@ -6,6 +6,9 @@ Only finished battles can be viewed through these public endpoints.
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
+from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -18,7 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_api import _certificate_context
 from .battle_models import PlantBattleAction
-from .battle_final_video_api import final_video_exists
+from .battle_final_video_api import final_video_exists, final_video_path
+from .battle_certificate_urls import certificate_base_url
+from .telegram_link import linked_telegram_user
 from .config import get_settings
 from .models import Planting
 from .security import get_session
@@ -69,6 +74,20 @@ I18N = {
         "final_text": "В KisaMore растения выращиваются на настоящей полке, а результат зависит от решений игроков. Присоединяйтесь к следующей битве!",
         "explore_battles": "Смотреть битвы", "footer_text": "Настоящие растения · Настоящие решения",
         "link_copied": "Ссылка скопирована",
+        "premium_heading": "СЕРТИФИКАТ",
+        "premium_awarded": "НАГРАЖДАЕТСЯ",
+        "premium_plant_prefix": "за выращивание",
+        "premium_first_frame": "ПЕРВЫЙ КАДР",
+        "premium_battle": "ПЕРВАЯ БИТВА РАСТЕНИЙ",
+        "premium_slogan": "ВЫРАЩИВАЙ. НАБЛЮДАЙ. ПОБЕЖДАЙ.",
+        "premium_no_photo": "Итоговое фото пока недоступно",
+
+        "certificate_heading": "СЕРТИФИКАТ",
+        "awarded_to": "НАГРАЖДАЕТСЯ",
+        "certificate_grew": "за выращивание растения",
+        "first_frame": "ПЕРВЫЙ КАДР",
+        "plant_photo_alt": "Первый кадр итогового видео выращенного растения",
+        "certificate_slogan": "ВЫРАЩИВАЙ. НАБЛЮДАЙ. ПОБЕЖДАЙ.",
         "final_video_label": "ИТОГОВЫЙ ВИДЕОПОРТРЕТ",
         "final_video_title": "Ваше растение во всей красе",
         "final_video_description": "Профессиональная съёмка выращенного растения на поворотном столе. Это ваше итоговое видео после завершения битвы.",
@@ -108,6 +127,20 @@ I18N = {
         "final_text": "KisaMore plants grow on real racks, and the outcome depends on player choices. Join the next battle!",
         "explore_battles": "Explore battles", "footer_text": "Real plants · Real decisions",
         "link_copied": "Link copied",
+        "premium_heading": "CERTIFICATE",
+        "premium_awarded": "AWARDED TO",
+        "premium_plant_prefix": "for growing",
+        "premium_first_frame": "FIRST FRAME",
+        "premium_battle": "PLANT BATTLE",
+        "premium_slogan": "GROW. WATCH. COMPETE.",
+        "premium_no_photo": "Final plant photo unavailable",
+
+        "certificate_heading": "CERTIFICATE",
+        "awarded_to": "AWARDED TO",
+        "certificate_grew": "for growing",
+        "first_frame": "FIRST FRAME",
+        "plant_photo_alt": "First frame of the plant's final turntable video",
+        "certificate_slogan": "GROW. WATCH. COMPETE.",
         "final_video_label": "FINAL PLANT PORTRAIT",
         "final_video_title": "Your plant in all its glory",
         "final_video_description": "A close-up turntable video of your real, fully grown plant, filmed at the end of the competition.",
@@ -180,6 +213,53 @@ def _photo_file(*, photo_dir: str, device_id: str, rack_id: int,
             image.save(temporary, "JPEG", quality=85, optimize=True)
     temporary.replace(target)
     return target
+
+
+def _first_video_frame(entry_id: str) -> Path | None:
+    """Extract exactly frame zero; cache it on the persistent shared photo volume.
+
+    A missing video has no thumbnail. QR links and other archival media do not
+    change. The first frame deliberately uses no timestamp seeking.
+    """
+    video = final_video_path(entry_id)
+    if not video.is_file():
+        return None
+    target = video.with_suffix(".first.jpg")
+    if target.is_file() and target.stat().st_size > 0:
+        return target
+    temporary = target.parent / f".{entry_id}-{uuid4().hex}.jpg"
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-i", str(video), "-frames:v", "1",
+                "-vf", "scale='min(960,iw)':-2", "-q:v", "3",
+                "-y", str(temporary),
+            ],
+            check=True, capture_output=True, timeout=40,
+        )
+        if not temporary.is_file() or temporary.stat().st_size <= 0:
+            return None
+        from PIL import Image
+        with Image.open(temporary) as image:
+            image.convert("RGB").save(temporary, "JPEG", quality=86, optimize=True)
+        os.replace(temporary, target)
+        return target
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+        return None
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+@router.get("/public/battle-entries/{entry_id}/first-frame", include_in_schema=False)
+async def battle_first_frame(entry_id: str, session: AsyncSession = Depends(get_session)):
+    entry, _battle, _plant, _user = await _certificate_context(session, entry_id)
+    path = await asyncio.to_thread(_first_video_frame, entry.id)
+    if path is None:
+        raise HTTPException(404, "Final video first frame is not available")
+    return FileResponse(path, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400",
+                                 "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/public/battle-entries/{entry_id}/growth-photo/{index}",
@@ -265,18 +345,33 @@ async def _certificate_page_context(session, entry, battle, plant, user, lang):
         if planting is not None and planting_timelapse_path(
             get_settings().photo_dir, planting.id).is_file() else None
     )
+    telegram_user = await linked_telegram_user(session, user_id=user.id)
+    public_base = certificate_base_url(
+        user.preferred_language, telegram_user.language_code if telegram_user else None
+    )
     return {
+        "brand_website_url": f"{public_base}/",
+        "brand_website_label": public_base.removeprefix("https://"),
+        "telegram_bot_url": "https://t.me/KisaMoreBot",
+        "first_frame_url": (
+            f"/api/v1/public/battle-entries/{entry.id}/first-frame"
+            if final_video_exists(entry.id) else None
+        ),
+        "fallback_photo_url": f"/api/v1/public/battle-entries/{entry.id}/growth-photo/4",
         "lang": lang, "alt_lang": "en" if lang == "ru" else "ru",
         "t": t,
         "battle": {
             "title": battle.title, "rack": battle.rack_id,
             "start_date": _date(start, lang=lang),
             "finished_date": _date(end, lang=lang),
+            "finished_year": end.year,
         },
         "person": {
             "name": user.display_name, "plant": str(plant_name),
             "slot": entry.slot_number, "winner": bool(entry.is_winner),
         },
+        "site_url": f"{public_base}/",
+        "site_label": public_base.removeprefix("https://"),
         "qr_url": f"/api/v1/public/battle-entries/{entry.id}/qr",
         "video_url": video_url,
         "final_video_url": (

@@ -9,14 +9,15 @@
   <meta property="og:description" content="{{ t.page_description }}">
   <meta property="og:type" content="article">
   <title>{{ t.diploma }} · {{ person.name }} — KisaMore</title>
-  <link rel="stylesheet" href="/static/battle_certificate.css?v=2">
+  <link rel="stylesheet" href="/static/battle_certificate.css?v=3">
+  <link rel="stylesheet" href="/static/battle_certificate_premium.css?v=1">
   <script defer src="/static/battle_certificate.js?v=2"></script>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner wrap">
       <a class="brand" href="/battle" aria-label="KisaMore Battle home">
-        <span class="brand-mark">✳</span><span>Kisa<span class="brand-accent">More</span></span>
+        <span class="brand-mark"><img src="/static/kisamore-telegram-icon.png" alt="" width="42" height="42"></span><span>Kisa<span class="brand-accent">More</span></span>
         <span class="brand-sub">BATTLE</span>
       </a>
       <div class="topbar-right">
@@ -36,27 +37,53 @@
       </div>
     </section>
 
-    <section id="diploma" class="diploma {% if person.winner %}is-winner{% endif %}" aria-labelledby="diploma-title">
-      <div class="diploma-ornament ornament-top">✳ &nbsp; KISAMORE &nbsp; ✳</div>
-      <div class="diploma-titlebar">
-        <div><div class="kicker">{{ t.official_result }}</div><h2 id="diploma-title">{{ t.diploma }}</h2></div>
-        <div class="medallion" aria-hidden="true">{% if person.winner %}🏆{% else %}🌱{% endif %}</div>
+    <section id="diploma" class="diploma cert-premium {% if person.winner %}is-winner{% endif %}" aria-labelledby="diploma-title">
+      <div class="cert-border">
+        <header class="cert-band">
+          <a class="cert-brand" href="{{ site_url }}" aria-label="KisaMore">
+            <img src="/static/kisamore-telegram-icon.png" width="64" height="64" alt="KisaMore" />
+            <span><strong>KisaMore</strong><small>REAL PLANTS · REAL GROWTH</small></span>
+          </a>
+          <div class="cert-issue">№ 01 · {{ battle.finished_year }}</div>
+        </header>
+        <div class="cert-body">
+          <h2 id="diploma-title">{{ t.certificate_heading }}</h2>
+          <p class="cert-series">{{ battle.title }} &nbsp; · &nbsp; {{ battle.start_date }} — {{ battle.finished_date }}</p>
+          <div class="cert-divider" aria-hidden="true"><i></i>✦<i></i></div>
+
+          <figure class="cert-portrait">
+            {% if first_frame_url %}
+            <img src="{{ first_frame_url }}" alt="{{ t.plant_photo_alt }}: {{ person.plant }}" loading="eager" fetchpriority="high">
+            {% elif fallback_photo_url %}
+            <img src="{{ fallback_photo_url }}" alt="{{ t.plant_photo_alt }}: {{ person.plant }}" loading="eager">
+            {% else %}
+            <div class="cert-photo-placeholder" role="img" aria-label="{{ t.plant_photo_alt }}">🌱</div>
+            {% endif %}
+            <figcaption>✦ &nbsp; {{ t.first_frame }} · № {{ "%02d"|format(person.slot) }}</figcaption>
+          </figure>
+
+          <p class="cert-awarded">{{ t.awarded_to }}</p>
+          <div class="cert-recipient">{{ person.name }}</div>
+          <p class="cert-crop">{{ t.certificate_grew }} <strong>{{ person.plant }}</strong></p>
+          <div class="cert-award {% if person.winner %}gold{% endif %}">
+            ✦ &nbsp; {% if person.winner %}{{ t.best_gardener|upper }}{% else %}{{ t.participant|upper }}{% endif %} &nbsp; ✦
+          </div>
+
+          <div class="cert-facts">
+            <span>{{ t.rack }} {{ battle.rack }}</span>
+            <span>{{ t.container }} № {{ "%02d"|format(person.slot) }}</span>
+            <span>{{ battle.start_date }} — {{ battle.finished_date }}</span>
+          </div>
+          <footer class="cert-footer">
+            <div class="cert-qr"><img src="{{ qr_url }}" width="93" height="93" alt="{{ t.qr_alt }}"></div>
+            <div class="cert-links">
+              <a href="{{ site_url }}" target="_blank" rel="noopener noreferrer">↗ &nbsp; {{ site_label }}</a>
+              <a href="https://t.me/KisaMoreBot" target="_blank" rel="noopener noreferrer">✈ &nbsp; t.me/KisaMoreBot</a>
+              <small>{{ t.certificate_slogan }}</small>
+            </div>
+          </footer>
+        </div>
       </div>
-      <p class="diploma-intro">{{ t.certifies }}</p>
-      <div class="participant-name">{{ person.name }}</div>
-      <div class="diploma-plant">{{ t.grew }} <strong>{{ person.plant }}</strong></div>
-      <div class="result-ribbon">{% if person.winner %}🏆 {{ t.best_gardener }}{% else %}✦ {{ t.participant }}{% endif %}</div>
-      <div class="diploma-facts">
-        <div><span>{{ t.battle }}</span><strong>{{ battle.title }}</strong></div>
-        <div><span>{{ t.position }}</span><strong>{{ t.rack }} {{ battle.rack }} · #{{ person.slot }}</strong></div>
-        <div><span>{{ t.start }}</span><strong>{{ battle.start_date }}</strong></div>
-        <div><span>{{ t.finish }}</span><strong>{{ battle.finished_date }}</strong></div>
-      </div>
-      <div class="diploma-footer">
-        <div class="diploma-seal"><span class="seal-leaf">✳</span><span>KisaMore<br><small>REAL GREENHOUSE</small></span></div>
-        <div class="qr-wrap"><img width="118" height="118" src="{{ qr_url }}" alt="{{ t.qr_alt }}"><span>{{ t.scan_qr }}</span></div>
-      </div>
-      <div class="diploma-bottom">KISAMORE.FARM <span>{{ t.digital_record }}</span></div>
     </section>
     <div class="certificate-toolbar no-print">
       <span>✓ {{ t.permanent_record }}</span>
@@ -77,7 +104,7 @@
         <div class="section-motif">✦</div>
       </div>
       <div class="film turntable-film">
-        <video controls playsinline preload="metadata" aria-label="{{ t.final_video_title }}">
+        <video controls playsinline preload="metadata" poster="{{ first_frame_url or '' }}" aria-label="{{ t.final_video_title }}">
           <source src="{{ final_video_url }}" type="video/mp4">
           {{ t.video_unsupported }}
         </video>

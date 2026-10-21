@@ -1,0 +1,108 @@
+/* KisaMore premium certificate, faithful to editable Figma award layouts.
+   Scoped overrides preserve the existing media archive, timeline and gallery. */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+.topbar-logo{width:40px;height:40px;object-fit:contain;border-radius:50%;flex:none}
+.cert-premium{
+ max-width:704px;margin:0 auto;background:#fffef8;padding:16px;
+ color:#193b2d;border:2px solid #cedaca;border-radius:5px;
+ box-shadow:0 16px 50px rgba(29,57,38,.10);
+}
+.cert-premium.is-winner{border-color:#cab989}
+.cert-premium::before,.cert-premium::after{display:none}
+.cert-border{border:1px solid #d9e4d5;min-height:0}
+.cert-premium.is-winner .cert-border{border-color:#dad0b7}
+.cert-band{min-height:108px;margin:11px 11px 0;padding:16px 30px;
+ background:#193b2d;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.cert-brand{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none;min-width:0}
+.cert-brand img{width:60px;height:60px;object-fit:contain;flex:none}
+.cert-brand>span{display:flex;flex-direction:column;gap:0;min-width:0}
+.cert-brand strong{font:600 40px/1 "Cormorant Garamond",Georgia,serif;letter-spacing:-.02em;color:#fff}
+.cert-brand small{font:700 10px/1.5 "DM Sans",sans-serif;letter-spacing:.03em;color:#bcd7bc}
+.cert-issue{font-size:11px;color:#d2d8bd;font-weight:600;white-space:nowrap}
+.cert-body{padding:12px 27px 25px}
+.cert-premium h2{
+ font:600 clamp(46px,8vw,68px)/1.04 "Cormorant Garamond",Georgia,serif;
+ text-align:center;letter-spacing:0;margin:3px 0 1px;color:#193b2d
+}
+.cert-series{text-transform:uppercase;text-align:center;color:#397653;
+ font-size:11px;font-weight:800;letter-spacing:.02em;line-height:1.65;margin:0 0 13px}
+.cert-divider{display:flex;align-items:center;gap:11px;
+ color:#b18a43;justify-content:center;font-size:20px;margin:2px 0 13px}
+.cert-divider i{display:block;height:1px;background:#d2dabb;flex:1}
+.cert-premium.is-winner .cert-divider i{background:#c5af85}
+.cert-portrait{position:relative;margin:0;width:100%;aspect-ratio:616/310;
+ border-radius:4px;overflow:hidden;background:#e4eadf}
+.cert-portrait>img{width:100%;height:100%;object-fit:cover;display:block}
+.cert-photo-placeholder{height:100%;display:grid;place-items:center;color:#7aa48a;font-size:64px}
+.cert-portrait figcaption{
+ position:absolute;left:13px;bottom:12px;background:#193b2d;
+ color:#fff;font-size:11px;font-weight:800;letter-spacing:.02em;
+ padding:11px 15px;border-radius:4px;
+}
+.cert-awarded{text-align:center;font-size:12px;font-weight:800;color:#3f7458;
+ margin:23px 0 1px;letter-spacing:.07em}
+.cert-recipient{text-align:center;line-height:1.12;font:600 clamp(39px,6.2vw,59px)/1.15 "Cormorant Garamond",Georgia,serif;
+ color:#193b2d;overflow-wrap:anywhere}
+.cert-crop{text-align:center;font:400 22px/1.4 "Cormorant Garamond",Georgia,serif;
+ color:#708576;margin:5px 0 16px}
+.cert-crop strong{font-weight:600;color:#526c5b}
+.cert-award{margin:0 auto;max-width:402px;min-height:50px;
+ display:flex;align-items:center;justify-content:center;text-align:center;
+ border-radius:5px;background:#e6efe4;color:#3f7458;
+ text-transform:uppercase;font-size:12px;letter-spacing:.055em;font-weight:800;padding:12px}
+.cert-award.gold{background:#f4e9cf;color:#805f2d}
+.cert-facts{display:flex;justify-content:space-between;gap:15px;
+ flex-wrap:wrap;font-size:12px;font-weight:800;text-transform:uppercase;
+ margin:23px 0 0;padding:4px 0 20px;border-bottom:1px solid #d0dcd1}
+.cert-premium.is-winner .cert-facts{border-color:#cdbb92}
+.cert-footer{display:flex;align-items:center;justify-content:flex-start;gap:20px;
+ min-height:115px;padding:12px 0 0}
+.cert-qr{width:95px;height:95px;flex:none;align-self:flex-start}
+.cert-qr img{display:block;width:95px;height:95px;object-fit:contain;background:#fff;border:3px solid #fff}
+.cert-links{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cert-links a{font:800 17px/1.3 "DM Sans",sans-serif;color:#193b2d;text-decoration:none;overflow-wrap:anywhere}
+.cert-links a:nth-child(2){color:#3f7458;font-size:15px}
+.cert-links a:hover{text-decoration:underline}
+.cert-links small{font:600 10px/1.5 "DM Sans",sans-serif;color:#6d8175;letter-spacing:.025em}
+@media(max-width:640px){
+ .cert-premium{padding:10px;width:100%}
+ .cert-band{min-height:82px;padding:10px 12px;margin:7px 7px 0;gap:7px}
+ .cert-brand img{width:46px;height:46px}.cert-brand{gap:7px}
+ .cert-brand strong{font-size:30px}.cert-brand small{font-size:7px}
+ .cert-issue{font-size:9px}
+ .cert-body{padding:10px 15px 14px}
+ .cert-premium h2{font-size:clamp(33px,9vw,52px)}
+ .cert-series{font-size:9px}
+ .cert-portrait figcaption{font-size:9px;padding:7px 10px;bottom:8px;left:8px}
+ .cert-awarded{margin-top:17px}
+ .cert-recipient{font-size:clamp(36px,9vw,50px)}
+ .cert-crop{font-size:19px}
+ .cert-facts{font-size:10px;gap:7px;padding-bottom:15px}
+ .cert-footer{gap:13px;padding-top:13px}
+ .cert-qr,.cert-qr img{width:78px;height:78px}
+ .cert-links a{font-size:13px}.cert-links a:nth-child(2){font-size:12px}
+ .cert-links small{font-size:8px}
+}
+@media(max-width:360px){.cert-issue{display:none}.cert-facts{gap:8px}.cert-facts span{flex-basis:45%}}
+@media print{
+ @page{size:A4 portrait;margin:12mm}
+ body{background:white!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .topbar,.hero,.no-print,.section,.closing,.site-footer,.lightbox{display:none!important}
+ main.wrap{width:100%;max-width:none;padding:0;margin:0}
+ .cert-premium{width:180mm!important;max-width:180mm;height:auto!important;min-height:0!important;
+ margin:0 auto;padding:3.5mm!important;border:1.5px solid #cab989!important;box-shadow:none;break-inside:avoid}
+ .cert-border{height:auto!important;min-height:0!important}
+ .cert-band{height:27mm!important;min-height:27mm!important;margin:2mm 2mm 0!important}
+ .cert-body{padding:3mm 5mm 5mm!important}
+ .cert-premium h2{font-size:43pt!important}
+ .cert-series{font-size:8pt!important}
+ .cert-divider{margin:1mm 0 3mm!important}
+ .cert-portrait{height:72mm!important;aspect-ratio:auto}
+ .cert-awarded{margin:5mm 0 1mm!important;font-size:9pt}
+ .cert-recipient{font-size:43pt!important}
+ .cert-crop{font-size:18pt!important;margin:0 0 4mm!important}
+ .cert-award{min-height:12mm!important;padding:3mm!important}
+ .cert-facts{margin-top:5mm!important;padding-bottom:5mm!important}
+ .cert-footer{min-height:28mm!important;padding:3mm 0 0!important}
+ .cert-qr,.cert-qr img{width:24mm!important;height:24mm!important}
+}
