@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102b20">
+  <meta name="description" content="{{ t.page_description }}">
+  <meta property="og:title" content="{{ t.diploma }} · {{ battle.title }}">
+  <meta property="og:description" content="{{ t.page_description }}">
+  <meta property="og:type" content="article">
+  <title>{{ t.diploma }} · {{ person.name }} — KisaMore</title>
+  <link rel="stylesheet" href="/static/battle_certificate.css?v=2">
+  <script defer src="/static/battle_certificate.js?v=2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner wrap">
+      <a class="brand" href="/battle" aria-label="KisaMore Battle home">
+        <span class="brand-mark">✳</span><span>Kisa<span class="brand-accent">More</span></span>
+        <span class="brand-sub">BATTLE</span>
+      </a>
+      <div class="topbar-right">
+        <a class="lang-switch" href="?lang={{ alt_lang }}" aria-label="{{ t.change_language }}">{{ alt_lang.upper() }}</a>
+        <a class="topbar-back" href="/battle">{{ t.all_battles }} <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="eyebrow"><span class="live-dot"></span>{{ t.hall_of_fame }} <span class="hero-number">/ {{ battle.finished_date }}</span></div>
+      <h1 id="hero-title">{{ t.story_title }}<em>{{ t.story_accent }}</em></h1>
+      <p class="hero-caption">{{ t.story_subtitle }}</p>
+      <div class="hero-meta">
+        <span>✳ {{ battle.title }}</span>
+        <span>{{ t.rack }} {{ battle.rack }} · {{ t.container }} #{{ person.slot }}</span>
+      </div>
+    </section>
+
+    <section id="diploma" class="diploma {% if person.winner %}is-winner{% endif %}" aria-labelledby="diploma-title">
+      <div class="diploma-ornament ornament-top">✳ &nbsp; KISAMORE &nbsp; ✳</div>
+      <div class="diploma-titlebar">
+        <div><div class="kicker">{{ t.official_result }}</div><h2 id="diploma-title">{{ t.diploma }}</h2></div>
+        <div class="medallion" aria-hidden="true">{% if person.winner %}🏆{% else %}🌱{% endif %}</div>
+      </div>
+      <p class="diploma-intro">{{ t.certifies }}</p>
+      <div class="participant-name">{{ person.name }}</div>
+      <div class="diploma-plant">{{ t.grew }} <strong>{{ person.plant }}</strong></div>
+      <div class="result-ribbon">{% if person.winner %}🏆 {{ t.best_gardener }}{% else %}✦ {{ t.participant }}{% endif %}</div>
+      <div class="diploma-facts">
+        <div><span>{{ t.battle }}</span><strong>{{ battle.title }}</strong></div>
+        <div><span>{{ t.position }}</span><strong>{{ t.rack }} {{ battle.rack }} · #{{ person.slot }}</strong></div>
+        <div><span>{{ t.start }}</span><strong>{{ battle.start_date }}</strong></div>
+        <div><span>{{ t.finish }}</span><strong>{{ battle.finished_date }}</strong></div>
+      </div>
+      <div class="diploma-footer">
+        <div class="diploma-seal"><span class="seal-leaf">✳</span><span>KisaMore<br><small>REAL GREENHOUSE</small></span></div>
+        <div class="qr-wrap"><img width="118" height="118" src="{{ qr_url }}" alt="{{ t.qr_alt }}"><span>{{ t.scan_qr }}</span></div>
+      </div>
+      <div class="diploma-bottom">KISAMORE.FARM <span>{{ t.digital_record }}</span></div>
+    </section>
+    <div class="certificate-toolbar no-print">
+      <span>✓ {{ t.permanent_record }}</span>
+      <div class="toolbar-buttons">
+        <button type="button" class="btn-secondary" id="share-certificate">{{ t.share }} <span aria-hidden="true">↗</span></button>
+        <button type="button" class="btn-primary" id="print-certificate">{{ t.save_print }} <span aria-hidden="true">↓</span></button>
+      </div>
+    </div>
+
+    <section class="section" id="video" aria-labelledby="video-title">
+      <div class="section-heading"><div><div class="section-index">01 / {{ t.archive }}</div><h2 id="video-title">{{ t.video_title }}</h2><p>{{ t.video_description }}</p></div><div class="section-motif">↗</div></div>
+      <div class="film">
+        {% if video_url %}
+          <video controls playsinline preload="metadata" poster="{{ photo_urls[-1] if photo_urls else '' }}" aria-label="{{ t.video_title }}">
+            <source src="{{ video_url }}" type="video/mp4">
+            {{ t.video_unsupported }}
+          </video>
+          <div class="film-footer"><span>● {{ t.real_footage }}</span><a href="{{ video_url }}" target="_blank" rel="noopener">{{ t.open_video }} ↗</a></div>
+        {% else %}
+          <div class="empty-video"><span>▶</span><strong>{{ t.video_unavailable }}</strong><p>{{ t.video_unavailable_detail }}</p></div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="section" id="growth" aria-labelledby="growth-title">
+      <div class="section-heading"><div><div class="section-index">02 / {{ t.plant_diary }}</div><h2 id="growth-title">{{ t.growth_title }}</h2><p>{{ t.growth_description }}</p></div><span class="section-motif">✳</span></div>
+      <div class="photo-grid">
+        {% for snap in photos %}
+        <button type="button" class="photo-card" data-photo="{{ snap.url }}" data-caption="{{ snap.label }}" aria-label="{{ t.enlarge }}: {{ snap.label }}">
+          <div class="photo-img"><img src="{{ snap.url }}" alt="{{ snap.label }}" loading="lazy"><span class="photo-zoom">↗</span></div>
+          <div class="photo-meta"><strong>{{ snap.label }}</strong><span>{{ snap.date }}</span></div>
+        </button>
+        {% endfor %}
+      </div>
+      <p class="photo-note">{{ t.photo_note }}</p>
+    </section>
+
+    <section class="section" id="resources" aria-labelledby="resource-title">
+      <div class="section-heading"><div><div class="section-index">03 / {{ t.strategy }}</div><h2 id="resource-title">{{ t.resources_title }}</h2><p>{{ t.resources_description }}</p></div><span class="section-motif">◉</span></div>
+      <div class="resource-grid">
+        {% for resource in resources %}
+        <div class="resource-card">
+          <div class="resource-top"><span class="resource-icon">{{ resource.icon }}</span><span>{{ resource.name }}</span></div>
+          <div class="resource-number">{{ resource.used }} <small>/ {{ resource.budget }} {{ resource.unit }}</small></div>
+          <div class="resource-meter" role="meter" aria-label="{{ resource.name }}" aria-valuemin="0" aria-valuemax="{{ resource.budget }}" aria-valuenow="{{ resource.used }}"><span style="width:{{ resource.percent }}%"></span></div>
+          <div class="resource-foot">{{ t.remaining }}: <b>{{ resource.remaining }} {{ resource.unit }}</b></div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="activity-summary"><strong>{{ action_count }}</strong> {{ t.actions_completed }} <span>·</span> {{ t.strategy_note }}</div>
+    </section>
+
+    <section class="section" id="timeline" aria-labelledby="timeline-title">
+      <div class="section-heading"><div><div class="section-index">04 / {{ t.activity }}</div><h2 id="timeline-title">{{ t.timeline_title }}</h2><p>{{ t.timeline_description }}</p></div><span class="section-motif">≋</span></div>
+      {% if actions %}
+      <div class="timeline">
+        {% for action in actions %}
+        <div class="timeline-item">
+          <div class="timeline-dot kind-{{ action.kind }}">{{ action.icon }}</div>
+          <div class="timeline-date">{{ action.date }}</div>
+          <div class="timeline-content"><strong>{{ action.label }} · {{ action.amount }} {{ action.unit }}</strong><small>{{ action.state }}</small></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-actions">{{ t.no_actions }}</div>
+      {% endif %}
+    </section>
+
+    <section class="closing">
+      <span class="closing-icon">✳</span>
+      <h2>{{ t.final_title }}</h2>
+      <p>{{ t.final_text }}</p>
+      <a class="btn-primary closing-link" href="/battle">{{ t.explore_battles }} ↗</a>
+    </section>
+  </main>
+  <footer class="site-footer wrap"><span>KisaMore © 2026</span><span>{{ t.footer_text }}</span></footer>
+  <div class="lightbox" id="photo-lightbox" hidden role="dialog" aria-modal="true" aria-label="{{ t.enlarge }}">
+    <button class="lightbox-close" type="button" aria-label="{{ t.close }}">×</button>
+    <img alt=""><div class="lightbox-label"></div>
+  </div>
+  <div id="share-feedback" role="status" aria-live="polite" class="sr-only">{{ t.link_copied }}</div>
+</body>
+</html>

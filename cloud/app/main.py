@@ -15,6 +15,7 @@ from .api import router
 from .auth_api import router as auth_router
 from .account_preferences_api import router as preferences_router
 from .battle_api import router as battle_router
+from .certificate_api import router as certificate_router
 from .battle_admin_api import router as battle_admin_router
 from .battle_messages_api import router as battle_messages_router
 from .rack_calibration_api import router as rack_calibration_router
@@ -149,6 +150,7 @@ app.include_router(app_activity_router)
 app.include_router(marketplace_router)
 app.include_router(battle_messages_router)
 app.include_router(battle_router)
+app.include_router(certificate_router)
 app.include_router(battle_admin_router)
 app.include_router(rack_calibration_router)
 app.include_router(plant_sos_admin_router)
