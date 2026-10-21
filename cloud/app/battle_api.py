@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry, PlantBattlePrediction
 from .battle_final_video_api import final_video_exists
+from .battle_certificate_urls import certificate_url
 from .battle_calendar import battle_progress
 from .battle_events import notify_resource_low
 from .battle_service import battle_message, queue_admin_text, queue_telegram_text
@@ -275,6 +276,8 @@ async def _certificate_context(session: AsyncSession, entry_id: str):
     entry, battle, plant, user = row
     if battle.status != "finished":
         raise HTTPException(status_code=409, detail="Diploma is available after the battle is finished")
+    if entry.status != "finished":
+        raise HTTPException(status_code=404, detail="Participant certificate not found")
     return entry, battle, plant, user
 
 
@@ -319,9 +322,12 @@ async def battle_entry_qr(
     entry_id: str,
     session: AsyncSession = Depends(get_session),
 ):
-    entry, _battle, _plant, _user = await _certificate_context(session, entry_id)
-    base = get_settings().public_base_url.rstrip("/")
-    url = f"{base}/api/v1/battle-certificate/{entry.id}"
+    entry, _battle, _plant, user = await _certificate_context(session, entry_id)
+    telegram_user = await linked_telegram_user(session, user_id=user.id)
+    url = certificate_url(
+        entry.id, user.preferred_language,
+        telegram_user.language_code if telegram_user else None,
+    )
     image = qrcode.make(url)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")

@@ -14,6 +14,7 @@ from .account_preferences_api import AccountPreferences
 from .admin_models import AdminAuditLog
 from .battle_models import BATTLE_BLOCKING_STATUSES, PlantBattle, PlantBattleAction, PlantBattleEntry
 from .battle_final_video_api import final_video_exists, final_video_path
+from .battle_certificate_urls import certificate_url
 from .telegram.activity_notifier import TelegramActivityDelivery, user_language
 from html import escape
 from .battle_events import notify_new_battle,notify_action_done,notify_battle_members
@@ -864,6 +865,10 @@ async def choose_winner(
     )
     notified: set[int] = set()
     for participant in entries:
+        # Refunded/cancelled applications never receive a diploma. A user
+        # can have an old refunded entry and a later active one in a battle.
+        if participant.status not in ("active", "finished"):
+            continue
         if participant.status == "active":
             participant.status = "finished"
         # Some site accounts link Telegram after joining the battle.
@@ -875,10 +880,13 @@ async def choose_winner(
         if tg is None or not tg.is_active or tg.telegram_user_id in notified:
             continue
         notified.add(tg.telegram_user_id)
-        certificate = (
-            f"{get_settings().public_base_url.rstrip('/')}/api/v1/battle-certificate/{participant.id}"
+        participant_user = await session.get(User, participant.user_id)
+        certificate = certificate_url(
+            participant.id,
+            participant_user.preferred_language if participant_user else None,
+            tg.language_code,
         )
-        if participant.telegram_user_id == entry.telegram_user_id:
+        if participant.id == entry.id:
             text = battle_message(
                 tg,
                 "winner",
