@@ -73,6 +73,13 @@ async def run():
         assert "/public/battle-entries/" in html and "growth-photo/4" in html
         assert "static/battle_certificate.js" in html and "static/battle_certificate.css" in html
         assert "/api/v1/public/battle-entries/" in html
+        assert 'class="cert-band"' in html
+        assert "kisamore-telegram-icon.png" in html
+        assert "battle_certificate_premium.css" in html
+        assert "https://ru.kisamore.farm/" in html
+        assert "https://t.me/KisaMoreBot" in html
+        assert "ПЕРВЫЙ КАДР" in html
+        assert 'class="cert-qr"' in html
         assert "is-winner" not in html
         assert response.headers["Content-Security-Policy"].startswith("default-src")
         english = (await battle_certificate_page(entry.id, "en", session)).body.decode()
@@ -81,7 +88,7 @@ async def run():
         entry.is_winner = True
         await session.commit()
         winner = (await battle_certificate_page(entry.id, "ru", session)).body.decode()
-        assert "Лучший садовод" in winner and "is-winner" in winner
+        assert "ЛУЧШИЙ САДОВОД" in winner and "is-winner" in winner
         battle.status = "growing"
         await session.commit()
         try:

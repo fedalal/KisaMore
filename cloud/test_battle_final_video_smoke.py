@@ -21,7 +21,7 @@ from cloud.app.battle_final_video_api import (
     upload_final_video, delete_final_video, admin_final_video, public_final_video,
     final_video_exists, final_video_path,
 )
-from cloud.app.certificate_api import battle_certificate_page
+from cloud.app.certificate_api import battle_certificate_page, battle_first_frame
 from cloud.app.models import Base, Device, Farm, Plant, User
 
 
@@ -103,9 +103,31 @@ async def run():
 
                 public = await public_final_video(entry.id, session)
                 assert public.status_code == 200
+                frame_response = await battle_first_frame(entry.id, session)
+                assert frame_response.status_code == 200 and frame_response.media_type == "image/jpeg"
+                frame_path = final_video_path(entry.id).with_suffix(".first.jpg")
+                assert frame_path.is_file() and frame_path.stat().st_size > 0
+                from PIL import Image
+                with Image.open(frame_path) as frame:
+                    assert frame.width >= 160 and frame.height >= 120
+                    pixel = frame.convert("RGB").getpixel((frame.width//2,frame.height//2))
+                    assert pixel[1] > pixel[0] + 40 and pixel[1] > pixel[2] + 40
+                assert str((await battle_first_frame(entry.id, session)).path) == str(frame_path)
                 html = (await battle_certificate_page(entry.id, "ru", session)).body.decode()
+                assert f"/public/battle-entries/{entry.id}/first-frame" in html
+                assert "kisamore-telegram-icon.png" in html
                 assert "ИТОГОВЫЙ ВИДЕОПОРТРЕТ" in html
                 assert f"/public/battle-entries/{entry.id}/final-video" in html
+
+                battle.status = "growing"
+                await session.commit()
+                try:
+                    await battle_first_frame(entry.id, session)
+                    raise AssertionError("Unfinished entry's photo exposed")
+                except HTTPException as err:
+                    assert err.status_code == 409
+                battle.status = "finished"
+                await session.commit()
 
                 try:
                     await delete_final_video(battle.id, entry.id, owner, session)

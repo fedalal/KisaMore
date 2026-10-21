@@ -1,0 +1,132 @@
+/* KisaMore premium portrait diploma • based on the approved Figma concept.
+   Only .diploma and header branding are changed; archive sections retain their styling. */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+
+.brand-mark{display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.brand-mark img{display:block;width:42px;height:42px;object-fit:contain;filter:none}
+.diploma{
+  position:relative;width:100%;max-width:744px;margin:0 auto;
+  padding:28px;background:#fffef8;border:2px solid #d5dfd0;
+  border-radius:5px;overflow:visible;isolation:isolate;
+  box-shadow:0 22px 65px rgba(21,52,38,.09);
+  color:#193b2d;font-family:"DM Sans",sans-serif;
+}
+.diploma.is-winner{border-color:#cbb988}
+.diploma::after{display:none}
+.diploma::before{z-index:0;inset:13px;border:1px solid #d9e4d5;pointer-events:none}
+.diploma.is-winner::before{border-color:#dfd1ab}
+.diploma>*{position:relative;z-index:1}
+.cert-band{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:18px 24px;background:#193b2d;min-height:108px;color:#fff;border-radius:2px}
+.cert-brand{display:flex;align-items:center;gap:14px;min-width:0}
+.cert-brand-logo{width:67px;height:67px;flex:0 0 67px;object-fit:contain}
+.cert-brand-name{font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:39px;font-weight:600;line-height:.94;letter-spacing:-.8px;color:#fff}
+.cert-brand-sub{font-size:10px;letter-spacing:1.1px;color:#d0e3cb;
+  font-weight:700;margin-top:10px}
+.cert-edition{text-align:right;white-space:nowrap;font-size:11px;color:#dae1c5;font-weight:600}
+.cert-heading{text-align:center;margin:26px auto 0}
+.diploma .cert-heading h2{font-family:"Cormorant Garamond",Georgia,serif;
+  font-size:clamp(42px,7.6vw,69px);font-weight:600;line-height:1.08;
+  letter-spacing:.02em;margin:0;text-transform:uppercase}
+.cert-subtitle{font-weight:800;color:#3f7458;font-size:11px;line-height:1.5;
+  letter-spacing:.85px;overflow-wrap:anywhere}
+.cert-divider{display:flex;gap:16px;align-items:center;color:#3f7458;
+  font-size:20px;margin:10px 20px 18px}
+.cert-divider::before,.cert-divider::after{content:"";height:1px;flex:1;background:#d5e6d1}
+.is-winner .cert-divider{color:#b18a43}
+.is-winner .cert-divider::before,.is-winner .cert-divider::after{background:#cbb988}
+.cert-portrait{position:relative;margin:0 10px;aspect-ratio:616/310;
+  overflow:hidden;background:#e2e9dd;border-radius:3px}
+.cert-portrait>img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.cert-portrait-missing{width:100%;height:100%;display:grid;place-items:center;color:#668575;font-size:15px}
+.cert-photo-tag{position:absolute;left:12px;bottom:12px;background:#193b2d;color:#fff;
+  padding:11px 14px;border-radius:3px;font-size:11px;letter-spacing:.1px;font-weight:700}
+.cert-honoree{text-align:center;margin:31px 0 0}
+.cert-award-prefix{color:#3f7458;font-size:12px;letter-spacing:1.1px;font-weight:800}
+.cert-person-name{font-family:"Cormorant Garamond",Georgia,serif;
+  color:#193b2d;font-size:clamp(51px,7vw,71px);line-height:1.05;
+  font-weight:600;overflow-wrap:anywhere;margin:7px 0 1px}
+.cert-plant-line{font-family:"Cormorant Garamond",Georgia,serif;
+  color:#718376;font-size:22px;line-height:1.3;margin:4px 0 0}
+.cert-plant-line strong{color:#426c4d;font-weight:600}
+.cert-award-badge{display:flex;justify-content:center;align-items:center;
+  width:min(402px,100%);min-height:52px;margin:18px auto 24px;
+  background:#e6efe4;border-radius:6px;color:#36714d;
+  text-align:center;padding:10px 15px;font-size:13px;letter-spacing:.2px;font-weight:800}
+.is-winner .cert-award-badge{background:#f4e9cf;color:#805f2d}
+.cert-facts{display:grid;grid-template-columns:1fr 1.2fr 1.7fr;gap:10px;
+  text-align:center;margin:0 12px 19px;font-size:12px;letter-spacing:.15px;
+  color:#193b2d;font-weight:800}
+.cert-facts span{overflow-wrap:anywhere}
+.cert-footer{display:flex;align-items:center;gap:22px;
+  margin:0 12px;padding:14px 4px 4px;border-top:1px solid #d0dcd1;min-height:116px}
+.is-winner .cert-footer{border-top-color:#cdbb92}
+.cert-qr{display:block;flex:0 0 99px;align-self:flex-start}
+.cert-qr img{display:block;width:98px;height:98px;object-fit:contain;
+  padding:4px;background:#fff;image-rendering:auto}
+.cert-links{display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:0}
+.cert-links a{color:#193b2d;font-size:17px;font-weight:800;text-decoration:none;overflow-wrap:anywhere}
+.cert-links a:hover{text-decoration:underline}
+.cert-links a:nth-child(2){color:#3f7458;font-size:15px}
+.cert-links small{color:#829287;font-size:10px;letter-spacing:.5px;font-weight:700}
+.cert-links a:focus-visible{outline:3px solid #b18a43;outline-offset:3px}
+.cert-footer-note{display:none}
+@media(max-width:700px){
+ .diploma{padding:18px}
+ .cert-band{min-height:90px;padding:14px}
+ .cert-brand{gap:8px}.cert-brand-logo{width:47px;height:47px;flex-basis:47px}
+ .cert-brand-name{font-size:31px}
+ .cert-brand-sub{font-size:8px;letter-spacing:.4px;margin-top:6px}
+ .cert-edition{font-size:9px}
+ .cert-heading{margin-top:22px}
+ .cert-subtitle{font-size:10px;letter-spacing:.1px}
+ .cert-divider{margin:9px 8px 14px}
+ .cert-portrait{margin:0 2px;aspect-ratio:16/9}
+ .cert-photo-tag{bottom:7px;left:7px;padding:7px 8px;font-size:9px}
+ .cert-honoree{margin-top:26px}
+ .cert-person-name{font-size:clamp(39px,10vw,59px)}
+ .cert-plant-line{font-size:19px}
+ .cert-award-badge{font-size:11px;min-height:45px;margin:16px auto}
+ .cert-facts{grid-template-columns:1fr 1fr 1.2fr;gap:3px;font-size:9px;margin:0 0 16px}
+ .cert-footer{margin:0;padding:12px 0 4px;gap:12px;min-height:97px}
+ .cert-qr{flex-basis:85px}.cert-qr img{width:84px;height:84px;padding:3px}
+ .cert-links{gap:5px}.cert-links a{font-size:13px}.cert-links a:nth-child(2){font-size:12px}
+ .cert-links small{font-size:8px;line-height:1.35}
+}
+@media(max-width:385px){
+ .cert-edition{font-size:8px}.cert-brand-name{font-size:26px}
+ .cert-brand-logo{width:40px;height:40px;flex-basis:40px}
+ .cert-facts{font-size:8px}.cert-links a{font-size:11px}
+}
+@media print{
+ @page{size:A4 portrait;margin:10mm}
+ html,body{margin:0!important;padding:0!important;background:white!important}
+ body,.diploma{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+ main.wrap{margin:0;padding:0;max-width:none}
+ .diploma{margin:0 auto!important;width:190mm!important;max-width:none!important;
+   height:268mm!important;padding:8mm!important;border:1.2pt solid #cbb988;
+   box-shadow:none!important;break-inside:avoid!important;page-break-inside:avoid!important;
+   overflow:hidden!important}
+ .diploma::before{inset:4mm!important}
+ .cert-band{min-height:28mm;padding:5mm 7mm}
+ .cert-brand-logo{width:18mm;height:18mm;flex-basis:18mm}
+ .cert-brand-name{font-size:31pt}
+ .cert-brand-sub{font-size:7pt}
+ .cert-heading{margin-top:6mm}
+ .diploma .cert-heading h2{font-size:45pt}
+ .cert-subtitle{font-size:7.7pt}
+ .cert-divider{margin:2mm 5mm 3mm}
+ .cert-portrait{aspect-ratio:616/310;margin:0 2mm}
+ .cert-photo-tag{font-size:7.5pt}
+ .cert-honoree{margin-top:7mm}
+ .cert-award-prefix{font-size:8pt}
+ .cert-person-name{font-size:46pt;margin:1mm 0}
+ .cert-plant-line{font-size:16pt}
+ .cert-award-badge{min-height:13mm;margin:5mm auto}
+ .cert-facts{margin:0 2mm 4mm;font-size:9pt}
+ .cert-footer{margin:0 2mm;padding:3mm 0 0;min-height:29mm;gap:6mm}
+ .cert-qr{flex-basis:26mm}.cert-qr img{width:26mm;height:26mm}
+ .cert-links a{font-size:12pt}.cert-links a:nth-child(2){font-size:11pt}
+ .cert-links small{font-size:7pt}
+}
