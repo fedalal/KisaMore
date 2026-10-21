@@ -37,53 +37,51 @@
       </div>
     </section>
 
-    <section id="diploma" class="diploma {% if person.winner %}is-winner{% endif %}" aria-labelledby="diploma-title">
-      <header class="cert-band">
-        <div class="cert-brand">
-          <img class="cert-brand-logo" src="/static/kisamore-telegram-icon.png" alt="" width="67" height="67">
-          <div>
-            <div class="cert-brand-name">KisaMore</div>
-            <div class="cert-brand-sub">REAL PLANTS · REAL GROWTH</div>
+    <section id="diploma" class="diploma cert-premium {% if person.winner %}is-winner{% endif %}" aria-labelledby="diploma-title">
+      <div class="cert-border">
+        <header class="cert-band">
+          <a class="cert-brand" href="{{ site_url }}" aria-label="KisaMore">
+            <img src="/static/kisamore-telegram-icon.png" width="64" height="64" alt="KisaMore" />
+            <span><strong>KisaMore</strong><small>REAL PLANTS · REAL GROWTH</small></span>
+          </a>
+          <div class="cert-issue">№ 01 · {{ battle.finished_year }}</div>
+        </header>
+        <div class="cert-body">
+          <h2 id="diploma-title">{{ t.certificate_heading }}</h2>
+          <p class="cert-series">{{ battle.title }} &nbsp; · &nbsp; {{ battle.start_date }} — {{ battle.finished_date }}</p>
+          <div class="cert-divider" aria-hidden="true"><i></i>✦<i></i></div>
+
+          <figure class="cert-portrait">
+            {% if first_frame_url %}
+            <img src="{{ first_frame_url }}" alt="{{ t.plant_photo_alt }}: {{ person.plant }}" loading="eager" fetchpriority="high">
+            {% elif fallback_photo_url %}
+            <img src="{{ fallback_photo_url }}" alt="{{ t.plant_photo_alt }}: {{ person.plant }}" loading="eager">
+            {% else %}
+            <div class="cert-photo-placeholder" role="img" aria-label="{{ t.plant_photo_alt }}">🌱</div>
+            {% endif %}
+            <figcaption>✦ &nbsp; {{ t.first_frame }} · № {{ "%02d"|format(person.slot) }}</figcaption>
+          </figure>
+
+          <p class="cert-awarded">{{ t.awarded_to }}</p>
+          <div class="cert-recipient">{{ person.name }}</div>
+          <p class="cert-crop">{{ t.certificate_grew }} <strong>{{ person.plant }}</strong></p>
+          <div class="cert-award {% if person.winner %}gold{% endif %}">
+            ✦ &nbsp; {% if person.winner %}{{ t.best_gardener|upper }}{% else %}{{ t.participant|upper }}{% endif %} &nbsp; ✦
           </div>
-        </div>
-        <span class="cert-edition">№ {{ battle.rack }} · {{ battle.finished_date[-4:] }}</span>
-      </header>
-      <div class="cert-heading">
-        <h2 id="diploma-title">{{ t.premium_heading }}</h2>
-        <div class="cert-subtitle">{{ battle.title }} · {{ battle.start_date }} — {{ battle.finished_date }}</div>
-      </div>
-      <div class="cert-divider" aria-hidden="true"><span>✦</span></div>
-      <figure class="cert-portrait">
-        {% if first_frame_url %}
-        <img src="{{ first_frame_url }}" width="960" height="540"
-             alt="{{ person.plant }} · {{ t.container }} {{ person.slot }}" fetchpriority="high">
-        {% elif fallback_photo_url %}
-        <img src="{{ fallback_photo_url }}" width="960" height="540"
-             alt="{{ person.plant }} · {{ t.container }} {{ person.slot }}">
-        {% else %}
-        <div class="cert-portrait-missing">{{ t.premium_no_photo }}</div>
-        {% endif %}
-        <figcaption class="cert-photo-tag">✦ {{ t.premium_first_frame }} · № {{ "%02d"|format(person.slot) }}</figcaption>
-      </figure>
-      <div class="cert-honoree">
-        <div class="cert-award-prefix">{{ t.premium_awarded }}</div>
-        <div class="cert-person-name">{{ person.name }}</div>
-        <p class="cert-plant-line">{{ t.premium_plant_prefix }} <strong>{{ person.plant }}</strong></p>
-        <div class="cert-award-badge">
-          {% if person.winner %}✦ {{ t.best_gardener|upper }} ✦{% else %}✦ {{ t.participant|upper }} ✦{% endif %}
-        </div>
-      </div>
-      <div class="cert-facts">
-        <span>{{ t.rack|upper }} {{ battle.rack }}</span>
-        <span>{{ t.container|upper }} {{ "%02d"|format(person.slot) }}</span>
-        <span>{{ battle.start_date }} — {{ battle.finished_date }}</span>
-      </div>
-      <div class="cert-footer">
-        <div class="cert-qr"><img src="{{ qr_url }}" width="98" height="98" alt="{{ t.qr_alt }}"></div>
-        <div class="cert-links">
-          <a href="{{ brand_website_url }}" target="_blank" rel="noopener noreferrer">↗ {{ brand_website_label }}</a>
-          <a href="{{ telegram_bot_url }}" target="_blank" rel="noopener noreferrer">✈ t.me/KisaMoreBot</a>
-          <small>{{ t.premium_slogan }}</small>
+
+          <div class="cert-facts">
+            <span>{{ t.rack }} {{ battle.rack }}</span>
+            <span>{{ t.container }} № {{ "%02d"|format(person.slot) }}</span>
+            <span>{{ battle.start_date }} — {{ battle.finished_date }}</span>
+          </div>
+          <footer class="cert-footer">
+            <div class="cert-qr"><img src="{{ qr_url }}" width="93" height="93" alt="{{ t.qr_alt }}"></div>
+            <div class="cert-links">
+              <a href="{{ site_url }}" target="_blank" rel="noopener noreferrer">↗ &nbsp; {{ site_label }}</a>
+              <a href="https://t.me/KisaMoreBot" target="_blank" rel="noopener noreferrer">✈ &nbsp; t.me/KisaMoreBot</a>
+              <small>{{ t.certificate_slogan }}</small>
+            </div>
+          </footer>
         </div>
       </div>
     </section>
