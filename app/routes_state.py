@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api", tags=["state"])
 
 
 async def _read_soil_sensor_for_rack(rack_id: int) -> tuple[float | None, float | None]:
-    if not runtime.cfg or not runtime.driver:
+    if not runtime.cfg or not runtime.sensor_driver:
         return None, None
 
     rack_cfg = runtime.cfg.racks.get(str(rack_id))
@@ -19,7 +19,7 @@ async def _read_soil_sensor_for_rack(rack_id: int) -> tuple[float | None, float 
         return None, None
 
     try:
-        return await runtime.driver.read_soil_sensor(rack_cfg.sensor_slave_id)
+        return await runtime.sensor_driver.read_soil_sensor(rack_cfg.sensor_slave_id)
     except Exception as e:
         print(f"[state] failed to read soil sensor for rack {rack_id}: {e}")
         return None, None

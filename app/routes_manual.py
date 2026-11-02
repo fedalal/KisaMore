@@ -43,6 +43,8 @@ async def manual_water(rack_id: int, payload: ManualSetIn):
     valve remains available here for maintenance and flushing only.
     """
     _ensure_rack(rack_id)
+    if runtime.cfg.racks[str(rack_id)].water_relay is None:
+        raise HTTPException(status_code=409, detail="На этой полке нет оборудования для полива")
     async with SessionLocal() as s:
         st = (await s.execute(select(RackState).where(RackState.rack_id == rack_id))).scalar_one_or_none()
         if not st:
@@ -71,6 +73,8 @@ async def set_light_mode(rack_id: int, payload: ModeSetIn):
 @router.post("/rack/{rack_id}/water/mode")
 async def set_water_mode(rack_id: int, payload: ModeSetIn):
     _ensure_rack(rack_id)
+    if runtime.cfg.racks[str(rack_id)].water_relay is None:
+        raise HTTPException(status_code=409, detail="На этой полке нет оборудования для полива")
     if payload.mode != "manual":
         raise HTTPException(
             status_code=409,

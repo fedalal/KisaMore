@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import runtime
+from .greenhouse_identity import template_identity_context
 from .bootstrap import ensure_db_tables, ensure_db_racks
 from .plant_descriptions import ensure_plant_descriptions
 from .plant_facts import ensure_plant_facts
@@ -47,7 +48,10 @@ app.include_router(camera_router)
 app.include_router(growing_router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(
+    directory="app/templates",
+    context_processors=[template_identity_context],
+)
 
 scheduler = Scheduler(runtime)
 sensor_history_service = SensorHistoryService(interval_sec=60)  # раз в 1 минуту

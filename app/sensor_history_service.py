@@ -40,7 +40,7 @@ class SensorHistoryService:
             await asyncio.sleep(self.interval_sec)
 
     async def collect_once(self):
-        if not runtime.cfg or not runtime.driver:
+        if not runtime.cfg or not runtime.sensor_driver:
             return
 
         max_racks = runtime.cfg.racks_count
@@ -66,7 +66,7 @@ class SensorHistoryService:
                 soil_temperature = None
 
                 try:
-                    soil_moisture, soil_temperature = await runtime.driver.read_soil_sensor(sensor_slave_id)
+                    soil_moisture, soil_temperature = await runtime.sensor_driver.read_soil_sensor(sensor_slave_id)
                 except Exception as e:
                     print(f"[sensor_history] rack {st.rack_id} sensor read failed: {e}")
 

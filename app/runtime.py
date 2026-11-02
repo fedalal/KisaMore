@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from .hw_config import HWConfig, load_config
 from .rs485_driver import RS485RelayDriver, RS485Config
+from .gpio_driver import GPIODriver
 from .inputs_driver import InputsDriver
 from .camera_profiles import (
     load_runtime_camera_profiles,
@@ -57,6 +58,7 @@ def _in_any_range(now: datetime, ranges: list[dict]) -> bool:
 
 cfg: Optional[HWConfig] = None
 driver: Optional[Any] = None
+sensor_driver: Optional[Any] = None
 inputs: Optional[InputsDriver] = None
 # camera_id -> profile loaded from data/camera_profiles/<camera_id>.json.
 # Loaded once during service startup so the tuner and KisaMore share one source
@@ -65,7 +67,9 @@ camera_profiles: dict[str, dict[str, Any]] = {}
 
 
 async def init_runtime(active_low: bool = True) -> None:
-    global cfg, driver, inputs, camera_profiles
+    global cfg, driver, sensor_driver, inputs, camera_profiles
+    previous_cfg = cfg
+    previous_driver = driver
     cfg = load_config()
 
     # Camera profiles are intentionally separate from kisamore.yaml. The tuner
@@ -104,23 +108,55 @@ async def init_runtime(active_low: bool = True) -> None:
             f"frame_area={'enabled' if area_enabled else 'disabled'}"
         )
 
-    if not cfg.rs485:
-        raise RuntimeError("RS485 config missing: add rs485 section to config/kisamore.yaml")
+    sensor_driver = None
+    rs485_bus = None
+    if cfg.rs485:
+        r = cfg.rs485
+        rs485_bus = RS485RelayDriver(RS485Config(
+            port=r.port,
+            baudrate=r.baudrate,
+            parity=r.parity,
+            stopbits=r.stopbits,
+            bytesize=r.bytesize,
+            slave_id=r.slave_id,
+            coil_base=r.coil_base,
+            timeout=r.timeout,
+        ))
+        sensor_driver = rs485_bus
 
-    r = cfg.rs485
-    driver = RS485RelayDriver(RS485Config(
-        port=r.port,
-        baudrate=r.baudrate,
-        parity=r.parity,
-        stopbits=r.stopbits,
-        bytesize=r.bytesize,
-        slave_id=r.slave_id,
-        coil_base=r.coil_base,
-        timeout=r.timeout,
-    ))
-    print(f"[KisaMore] RS485 driver enabled on {r.port}, slave_id={r.slave_id}, coil_base={r.coil_base}")
+    if cfg.relay_backend == "gpio":
+        # Saving camera/rack settings must not reserve live GPIO pins a second
+        # time: gpiozero would raise GPIOPinInUse and the POST would return 500.
+        # Reuse the existing controller when the hardware pin map is unchanged.
+        if (isinstance(previous_driver, GPIODriver)
+                and previous_cfg is not None
+                and previous_cfg.relay_backend == "gpio"
+                and previous_cfg.gpio_relays == cfg.gpio_relays):
+            driver = previous_driver
+            print("[KisaMore] Reusing GPIO relay driver after config save")
+        else:
+            # If the physical pin mapping changes, release old reservations
+            # before acquiring new ones. Existing relay outputs turn OFF.
+            if isinstance(previous_driver, GPIODriver):
+                previous_driver.close()
+            driver = GPIODriver(
+                cfg.gpio_relays.channels,
+                active_low=cfg.gpio_relays.active_low,
+            )
+            print(f"[KisaMore] GPIO relays enabled (BCM): {cfg.gpio_relays.channels}")
+        if not rs485_bus:
+            print("[KisaMore] RS485 soil sensors disabled (no RS485 bus configured)")
+    else:
+        if rs485_bus is None:
+            raise RuntimeError("RS485 config missing for relay_backend=rs485")
+        if isinstance(previous_driver, GPIODriver):
+            previous_driver.close()
+        driver = rs485_bus
+        print(f"[KisaMore] RS485 relay enabled on {cfg.rs485.port}")
 
-    # NEW: входы (датчики уровня/входы)
+    # Release only the old input pins (if any) before setting them up again.
+    if inputs is not None:
+        inputs.close()
     inputs = InputsDriver(cfg.level_sensors)
     print(f"[KisaMore] Inputs enabled: {cfg.level_sensors}")
 
@@ -140,7 +176,9 @@ async def safety_reset_and_sync_relays() -> None:
         return
 
     # 1) выключаем все реле
-    for ch in range(1, 17):
+    # GPIO board has 8 independent outputs; legacy RS485 board has 16.
+    channels = (driver.channels if cfg.relay_backend == "gpio" else range(1, 17))
+    for ch in channels:
         try:
             await driver.set_relay(ch, False)
         except Exception as e:
@@ -172,8 +210,12 @@ async def safety_reset_and_sync_relays() -> None:
                 want_light = _in_any_range(now, light_ranges)
                 st.light_on = want_light
 
-            # Полив
-            if st.water_mode == "manual":
+            # Racks without watering equipment must never re-enable water.
+            if rack_cfg.water_relay is None:
+                st.water_on = False
+                st.water_mode = "manual"
+                want_water = False
+            elif st.water_mode == "manual":
                 want_water = bool(st.water_on)
             else:
                 water_ranges = (((sch_json.get("water") or {}).get(day_key)) or [])
@@ -185,10 +227,11 @@ async def safety_reset_and_sync_relays() -> None:
             except Exception as e:
                 print(f"[KisaMore] sync: can't set light relay for rack {st.rack_id}: {e}")
 
-            try:
-                await driver.set_relay(rack_cfg.water_relay, want_water)
-            except Exception as e:
-                print(f"[KisaMore] sync: can't set water relay for rack {st.rack_id}: {e}")
+            if rack_cfg.water_relay is not None:
+                try:
+                    await driver.set_relay(rack_cfg.water_relay, want_water)
+                except Exception as e:
+                    print(f"[KisaMore] sync: can't set water relay for rack {st.rack_id}: {e}")
 
         await s.commit()
 

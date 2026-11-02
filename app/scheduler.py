@@ -89,7 +89,11 @@ class Scheduler:
                         relay_id = self.runtime.cfg.racks[str(st.rack_id)].light_relay
                         await self.runtime.driver.set_relay(relay_id, want)
 
-                if st.water_mode == "schedule":
+                rack_cfg = self.runtime.cfg.racks.get(str(st.rack_id))
+                if rack_cfg and rack_cfg.water_relay is None:
+                    st.water_on = False
+                    st.water_mode = "manual"
+                elif st.water_mode == "schedule" and rack_cfg:
                     water_ranges = (((sch_json.get("water") or {}).get(day_key)) or [])
                     want = _in_any_range(now, water_ranges)
                     if want != st.water_on:

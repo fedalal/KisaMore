@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Графики — KisaMore</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <title>{{ greenhouse_name }} · Графики — KisaMore</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20261030-identity">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -17,6 +17,7 @@
           <div class="subtitle">Температура и влажность по полкам</div>
         </div>
       </div>
+      {% include "_greenhouse_identity.html" %}
       <div class="right">
         <button id="backBtn" class="btn">Назад</button>
       </div>

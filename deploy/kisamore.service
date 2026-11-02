@@ -1,0 +1,26 @@
+[Unit]
+Description=KisaMore greenhouse controller
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=fedalal
+Group=fedalal
+SupplementaryGroups=gpio video dialout
+WorkingDirectory=/opt/kisamore
+Environment=KISAMORE_CONFIG=/etc/kisamore/config.yaml
+Environment=OPENBLAS_NUM_THREADS=1
+EnvironmentFile=-/etc/kisamore/environment
+ExecStartPre=/usr/bin/test -r /etc/kisamore/config.yaml
+ExecStart=/opt/kisamore/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+ProtectSystem=full
+ReadWritePaths=/etc/kisamore /var/lib/kisamore /opt/kisamore/data
+UMask=0077
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
