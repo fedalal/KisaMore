@@ -53,3 +53,21 @@ a.battle-participant-telegram:hover{text-decoration:underline}
 .battle-final-upload:hover{background:#e2f5e8}
 .battle-final-delete{border:1px solid #d6e3d9;color:#7b554b;background:#fff;border-radius:7px}
 @media(max-width:600px){.battle-final-video{margin-left:0}}
+
+/* Compact battle overview: expand only the row the operator needs. */
+#battlesBody .battle-summary-row td{padding-top:11px;padding-bottom:11px}
+#battlesBody .battle-details-row td{padding:0;vertical-align:top}
+#battlesBody .battle-summary-row:has(+.battle-details-row:not([hidden])){background:#f6faf7}
+.battle-participant-summary{font-weight:700;color:#385c49;white-space:nowrap}
+.battle-toggle-details{font-weight:750;background:#e8f3ed;color:#266446;border-color:#c9e3d2}
+.battle-toggle-details:hover{background:#d9ebdf}
+.battle-details-panel{padding:18px 20px 20px;background:#f7faf8;border-top:1px solid #e5efe8}
+.battle-details-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+.battle-details-layout{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,3fr);gap:20px;align-items:start}
+.battle-details-overview{display:flex;flex-direction:column;gap:10px;border:1px solid #dce9df;padding:14px;border-radius:12px;background:#fff;font-size:12px;white-space:normal}
+.battle-details-overview strong,.battle-details-participants>strong{font-size:13px;color:#254f3c}
+.battle-details-participants{min-width:0;display:grid;gap:12px}
+.battle-details-panel .battle-admin-entries{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:10px;min-width:0}
+.battle-details-panel .battle-admin-entry{min-width:0}
+@media(max-width:1150px){.battle-details-layout{grid-template-columns:1fr}}
+@media(max-width:650px){.battle-details-panel{padding:12px}.battle-details-panel .battle-admin-entries{grid-template-columns:1fr}}

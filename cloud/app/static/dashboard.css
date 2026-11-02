@@ -1133,3 +1133,7 @@ dialog footer { justify-content: flex-end; gap: 10px; margin-top: 21px; }
 .account-kisa-wallet strong{font-size:29px;color:#155e34;font-variant-numeric:tabular-nums}
 .account-kisa-wallet a{color:#167443;font-size:13px;font-weight:750;text-decoration:none}
 .account-kisa-wallet a:hover{text-decoration:underline}
+
+/* Multi-greenhouse selector appears only when two or more farms are public. */
+#farmSelect:not([hidden]){min-width:140px;max-width:205px;font-weight:650}
+#farmSelect[hidden]{display:none!important}

@@ -156,6 +156,13 @@ class ApiClient(context: Context) {
 
     fun publicBattles(): List<Battle> =
         parseBattleArray(JSONArray(request("GET", "/api/v1/public/battles")))
+    /** List public farms to include clips from each greenhouse. */
+    fun publicFarmSlugs(): List<String> {
+        val farms = JSONArray(request("GET", "/api/v1/public/farms"))
+        return (0 until farms.length()).mapNotNull { i ->
+            farms.optJSONObject(i)?.optString("slug")?.takeIf { it.isNotBlank() }
+        }.distinct().take(25)
+    }
     fun publicGrowthClips(farmSlug: String = "demo-farm"): List<HomeClip> {
         val market = JSONObject(request("GET", "/api/v1/public/farms/$farmSlug/market"))
         val racks = market.optJSONArray("racks") ?: return emptyList()

@@ -6,6 +6,7 @@ from . import activity_notifier
 from .battle_notifications import install as install_battle_notifications
 from .battle_player import install as install_battle_player
 from .battle_lobby import install as install_battle_lobby
+from .bookmaker_approvals import install as install_bookmaker_approvals
 from . import worker_admin as existing
 from .broadcast_poll_selection import install as install_broadcast_poll_selection
 from .broadcast_service import install as install_broadcasts
@@ -54,6 +55,7 @@ install_promotions(core)
 install_broadcast_poll_selection(core)
 install_battle_player(core)
 install_battle_lobby(core)
+install_bookmaker_approvals(core)
 
 
 async def run() -> None:

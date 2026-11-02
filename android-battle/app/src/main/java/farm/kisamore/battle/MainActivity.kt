@@ -366,8 +366,12 @@ class MainActivity : Activity() {
                     }
                 } else emptyList()
                 val fallback = if (target == "home") {
-                    runCatching { api.publicGrowthClips(pub.firstOrNull()?.farmSlug ?: "demo-farm") }
-                        .getOrDefault(emptyList())
+                    // Aggregate guest clips across all public greenhouses.
+                    val slugs = (runCatching { api.publicFarmSlugs() }.getOrDefault(emptyList()) +
+                        pub.mapNotNull { it.farmSlug } + "demo-farm").distinct()
+                    slugs.flatMap { slug ->
+                        runCatching { api.publicGrowthClips(slug) }.getOrDefault(emptyList())
+                    }.take(100)
                 } else emptyList()
                 Triple(pub, mine, fallback)
             },

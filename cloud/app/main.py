@@ -27,6 +27,7 @@ from .bootstrap_admin import bootstrap_admin
 from .config import get_settings
 from .db import create_tables, engine
 from .marketplace_api import router as marketplace_router
+from .greenhouse_pool_api import router as greenhouse_pool_router
 from .plant_sos_admin_api import router as plant_sos_admin_router
 from .promotion_admin_api import router as promotion_admin_router
 from .mqtt_sync import mqtt_snapshot_consumer
@@ -48,6 +49,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 DASHBOARD_TEMPLATE = STATIC_DIR / "index.html"
 ADMIN_TEMPLATE = STATIC_DIR / "admin.html"
 BATTLE_TEMPLATE = STATIC_DIR / "battle_site.html"
+PRICING_TEMPLATE = STATIC_DIR / "pricing.html"
 PRIVACY_TEMPLATE = STATIC_DIR / "privacy.html"
 DELETE_ACCOUNT_TEMPLATE = STATIC_DIR / "delete_account.html"
 
@@ -107,6 +109,14 @@ async def battle_dashboard() -> HTMLResponse:
     return _battle_page()
 
 
+@app.get("/pricing", response_class=HTMLResponse, include_in_schema=False)
+async def pricing_page() -> HTMLResponse:
+    return HTMLResponse(
+        PRICING_TEMPLATE.read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 async def privacy_policy() -> HTMLResponse:
     return HTMLResponse(
@@ -149,6 +159,7 @@ app.include_router(preferences_router)
 app.include_router(analytics_router)
 app.include_router(app_activity_router)
 app.include_router(marketplace_router)
+app.include_router(greenhouse_pool_router)
 app.include_router(battle_messages_router)
 app.include_router(battle_router)
 app.include_router(certificate_router)

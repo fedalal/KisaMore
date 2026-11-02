@@ -1,0 +1,30 @@
+# EXAMPLE ONLY. Save as config/kisamore.yaml on the NEW Raspberry Pi.
+# Do not copy this to the existing RS485-based Raspberry Pi.
+# Waveshare RPi Relay Board (B), SKU 15423; GPIO names use BCM numbering.
+# 8 relay channels are ACTIVE LOW; COM+NO contacts should be used on loads.
+racks_count: 4
+relay_backend: gpio
+gpio_relays:
+  active_low: true
+  channels:
+    1: 5     # CH1, physical pin 29, rack 1 light
+    2: 6     # CH2, physical pin 31, rack 2 light
+    3: 13    # CH3, physical pin 33, rack 3 light
+    4: 16    # CH4, physical pin 36, rack 4 light
+    5: 19    # CH5, physical pin 35, reserved OFF
+    6: 20    # CH6, physical pin 38, reserved OFF
+    7: 21    # CH7, physical pin 40, reserved OFF
+    8: 26    # CH8, physical pin 37, reserved OFF
+# Leave RS485 null when there are no Modbus sensors; configure if added later.
+rs485: null
+level_sensors: {}   # E.g. level_1: 22, if physically connected.
+racks:
+  "1": {light_relay: 1, water_relay: null, sensor_slave_id: null}
+  "2": {light_relay: 2, water_relay: null, sensor_slave_id: null}
+  "3": {light_relay: 3, water_relay: null, sensor_slave_id: null}
+  "4": {light_relay: 4, water_relay: null, sensor_slave_id: null}
+# Cameras must be added only after checking /dev/v4l/by-id names.
+cameras: {}
+camera_capture:
+  enabled: false   # Enable once cameras and storage are configured.
+  night_capture_enabled: false

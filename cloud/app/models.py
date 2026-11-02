@@ -29,6 +29,9 @@ class Device(Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Operational availability for NEW orders. Telemetry and existing allocations remain intact.
+    marketplace_status: Mapped[str] = mapped_column(String(24), default="active", server_default="active", nullable=False)
+    marketplace_note: Mapped[str] = mapped_column(String(250), default="", server_default="", nullable=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     software_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     racks_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

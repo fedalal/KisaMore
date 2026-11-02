@@ -10,6 +10,7 @@ from .config import get_settings
 from .battle_service import active_battle_blockers, sync_battles_from_plantings
 from .models import (
     Allocation,
+    Device,
     Notification,
     Offer,
     Plant,
@@ -345,7 +346,15 @@ async def process_waitlist(session: AsyncSession, device_id: str | None = None) 
     ).scalars().all()
 
     inventory_cache: dict[str, tuple] = {}
+    availability_cache: dict[str, bool] = {}
     for reservation in reservations:
+        if reservation.device_id not in availability_cache:
+            device = await session.get(Device, reservation.device_id)
+            availability_cache[reservation.device_id] = bool(
+                device and device.is_active and device.marketplace_status == "active"
+            )
+        if not availability_cache[reservation.device_id]:
+            continue
         if reservation.device_id not in inventory_cache:
             inventory_cache[reservation.device_id] = await active_inventory(
                 session, reservation.device_id

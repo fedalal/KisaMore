@@ -252,7 +252,7 @@ async def battle_options(
     devices = list(
         (
             await session.execute(
-                select(Device).where(Device.is_active.is_(True)).order_by(Device.id)
+                select(Device).where(Device.is_active.is_(True), Device.marketplace_status == "active").order_by(Device.id)
             )
         ).scalars().all()
     )
@@ -347,6 +347,8 @@ async def create_battle(
     ).scalar_one_or_none()
     if device is None or not device.is_active:
         raise HTTPException(status_code=404, detail="Device not found")
+    if device.marketplace_status != "active":
+        raise HTTPException(status_code=409, detail="Greenhouse is not accepting new battles")
     if plant is None or not plant.active:
         raise HTTPException(status_code=404, detail="Active plant not found")
 
@@ -546,6 +548,9 @@ async def start_battle(
         return await _serialize(session, battle)
     if battle.status != "ready_to_plant":
         raise HTTPException(status_code=409, detail="Battle needs all six participants before planting")
+    device = await session.get(Device, battle.device_id)
+    if not device or not device.is_active or device.marketplace_status != "active":
+        raise HTTPException(status_code=409, detail="Greenhouse unavailable for planting")
 
     entries = list(
         (

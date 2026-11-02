@@ -633,6 +633,9 @@ async def join_battle(
         raise HTTPException(status_code=404, detail="Battle not found")
     if battle.status != "open":
         raise HTTPException(status_code=409, detail="Battle is no longer accepting entries")
+    device = await session.get(Device, battle.device_id)
+    if not device or not device.is_active or device.marketplace_status != "active":
+        raise HTTPException(status_code=409, detail="Greenhouse temporarily unavailable for new entries")
 
     existing_entry = (
         await session.execute(

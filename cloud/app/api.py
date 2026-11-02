@@ -219,6 +219,23 @@ async def ingest_snapshot(
     return {"accepted": True, "received_at": now}
 
 
+@router.get("/public/farms")
+async def public_farms(session: AsyncSession = Depends(get_session)) -> list[dict[str, str]]:
+    """Discover only public greenhouses; each Pi belongs to exactly one farm.
+
+    A separate farm_slug per greenhouse keeps rack IDs (1..N) independent.
+    This listing is also used by web and Android for multi-greenhouse views.
+    """
+    rows = (await session.execute(
+        select(Farm)
+        .join(Device, Device.farm_id == Farm.id)
+        .where(Farm.is_public.is_(True), Device.is_active.is_(True), Device.marketplace_status == "active")
+        .distinct()
+        .order_by(Farm.name, Farm.id)
+    )).scalars().all()
+    return [{"slug": farm.slug, "name": farm.name} for farm in rows]
+
+
 @router.get("/public/farms/{farm_slug}/live", response_model=FarmLiveOut)
 async def public_farm_live(
     farm_slug: str,

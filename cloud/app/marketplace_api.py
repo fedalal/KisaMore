@@ -393,8 +393,9 @@ async def public_market(
         public_slots = []
         for slot in rack_slots:
             blocked = slot_is_blocked(rack_id, slot.slot_number, allocations, offers)
-            available = slot.enabled and slot.physical_status == "available" and not blocked
-            if not slot.enabled:
+            available = (device.marketplace_status == "active" and slot.enabled
+                         and slot.physical_status == "available" and not blocked)
+            if device.marketplace_status != "active" or not slot.enabled:
                 status = "disabled"
             elif blocked:
                 status = "occupied"
@@ -434,7 +435,7 @@ async def public_market(
             )
         rack_state = rack_state_by_id.get(rack_id)
         photo = photo_by_rack_id.get(rack_id)
-        whole_available = find_available_target(
+        whole_available = device.marketplace_status == "active" and find_available_target(
             "rack", rack_id, None, slots, allocations, offers
         ) is not None
         racks.append(
@@ -922,9 +923,13 @@ async def create_reservation(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    device = await session.get(Device, payload.device_id)
+    device = (await session.execute(
+        select(Device).where(Device.id == payload.device_id).with_for_update()
+    )).scalar_one_or_none()
     if device is None or not device.is_active:
         raise HTTPException(status_code=404, detail="Device not found")
+    if device.marketplace_status != "active":
+        raise HTTPException(status_code=409, detail="Greenhouse temporarily unavailable for new orders")
 
     plant = None
     if payload.plant_id:
@@ -1011,9 +1016,13 @@ async def purchase(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    device = await session.get(Device, payload.device_id)
+    device = (await session.execute(
+        select(Device).where(Device.id == payload.device_id).with_for_update()
+    )).scalar_one_or_none()
     if device is None or not device.is_active:
         raise HTTPException(status_code=404, detail="Device not found")
+    if device.marketplace_status != "active":
+        raise HTTPException(status_code=409, detail="Greenhouse temporarily unavailable for new orders")
 
     offer = None
     if payload.offer_id:

@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/static/dashboard.css?v=22">
   <link rel="stylesheet" href="/static/battle.css?v=20260930-1">
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/dashboard.js?v=20261010-7" defer></script>
+  <script src="/static/dashboard.js?v=20261030-unified-shelves" defer></script>
   <link rel="stylesheet" href="/static/battle_inbox_home.css?v=20261013-1">
   <script src="/static/battle_inbox_home.js?v=20261013-1" defer></script>
   <script src="/static/battle.js?v=20260930-1" defer></script>
@@ -32,10 +32,12 @@
         <a href="#plants" data-i18n="navPlants">Plants</a>
         <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a>
         <a href="#battle">Battle</a>
-        <a href="#kisa" data-i18n="navKisa">KISA</a>
+        <a href="#kisa" data-i18n="navKisa">Kisa Ⓚ</a>
+        <a href="/pricing" data-i18n="navPricing">Pricing</a>
       </nav>
 
       <nav class="top-actions">
+
         <select id="languageSelect" aria-label="Language">
           <option value="en">English</option>
           <option value="ru">Русский</option>
@@ -144,6 +146,7 @@
       <div class="battle-message" style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap">
         <span id="battleTeaserText">Watch live battles, join the next competition and control your plant on the dedicated Battle site.</span>
         <a id="battleSiteCta" class="primary-button" href="/battle">Open KisaMore Battle</a>
+        <a class="secondary-link" href="/pricing" data-i18n="browsePlans">Plans &amp; pricing</a>
       </div>
     </section>
 
@@ -167,16 +170,16 @@
 
     <section class="pricing-section" id="kisa">
       <div class="section-intro centered-intro">
-        <p class="eyebrow" data-i18n="pricingEyebrow">KISA credits</p>
+        <p class="eyebrow" data-i18n="pricingEyebrow">Ⓚ credits</p>
         <h2 data-i18n="pricingTitle">Watch for free. Pay only for your own growing space.</h2>
-        <p data-i18n="pricingLead">KISA is the internal credit used for rentals and extra paid actions. Credits can be topped up through the KisaMore Telegram bot using Telegram Stars.</p>
+        <p data-i18n="pricingLead">Ⓚ is the internal credit used for rentals and extra paid actions. Credits can be topped up through the KisaMore Telegram bot using Telegram Stars.</p>
       </div>
 
       <div class="pricing-grid">
         <article class="price-card">
           <span class="price-badge" data-i18n="freeBadge">FREE</span>
           <h3 data-i18n="freeTitle">Observer</h3>
-          <div class="price-line"><strong>0</strong><span>KISA</span></div>
+          <div class="price-line"><strong>0</strong><span>Ⓚ</span></div>
           <ul>
             <li data-i18n="freeFeature1">Watch the live greenhouse</li>
             <li data-i18n="freeFeature2">See current rack photos</li>
@@ -188,7 +191,7 @@
         <article class="price-card featured-price">
           <span class="price-badge" data-i18n="popularBadge">YOUR PLANT</span>
           <h3 data-i18n="containerTitle">Container rental</h3>
-          <div class="price-line"><small data-i18n="from">from</small><strong id="minRentalPrice">—</strong><span>KISA</span></div>
+          <div class="price-line"><small data-i18n="from">from</small><strong id="minRentalPrice">—</strong><span>Ⓚ</span></div>
           <ul>
             <li data-i18n="containerFeature1">A real greenhouse container</li>
             <li data-i18n="containerFeature2">Choose the crop you want</li>
@@ -213,7 +216,7 @@
       <div class="token-band">
         <div class="token-symbol">K</div>
         <div>
-          <h3 data-i18n="tokenTitle">KISA keeps payments simple</h3>
+          <h3 data-i18n="tokenTitle">Ⓚ keeps payments simple</h3>
           <p data-i18n="tokenBody">Top up once in Telegram and use your balance for rentals and paid features inside KisaMore.</p>
         </div>
         <a class="primary-button" href="https://t.me/KisaMoreBot" target="_blank" rel="noopener" data-i18n="tokenCta">Open @KisaMoreBot</a>
@@ -224,7 +227,7 @@
       <div>
         <p class="eyebrow light-eyebrow" data-i18n="telegramEyebrow">KisaMore in Telegram</p>
         <h2 data-i18n="telegramTitle">Your greenhouse can live in your pocket.</h2>
-        <p data-i18n="telegramBody">Get plant updates, notifications and KISA credits through the Telegram bot. The website stays your full live view and personal account.</p>
+        <p data-i18n="telegramBody">Get plant updates, notifications and Ⓚ credits through the Telegram bot. The website stays your full live view and personal account.</p>
       </div>
       <div class="telegram-actions">
         <a class="light-button" href="https://t.me/KisaMoreBot" target="_blank" rel="noopener" data-i18n="telegramCta">Open Telegram bot</a>
@@ -343,12 +346,12 @@
         <h2 id="giftTitle">Support this plant</h2>
         <button type="button" class="close-button" data-close aria-label="Close">×</button>
       </header>
-      <p id="giftHint" class="gift-hint">Choose a KISA gift.</p>
+      <p id="giftHint" class="gift-hint">Choose a Ⓚ gift.</p>
       <div class="gift-options">
-        <button type="button" data-gift-code="sprout">🌱 <strong>1</strong> KISA</button>
-        <button type="button" data-gift-code="sun">☀️ <strong>5</strong> KISA</button>
-        <button type="button" data-gift-code="support">💚 <strong>10</strong> KISA</button>
-        <button type="button" data-gift-code="trophy">🏆 <strong>50</strong> KISA</button>
+        <button type="button" data-gift-code="sprout">🌱 <strong>1</strong> Ⓚ</button>
+        <button type="button" data-gift-code="sun">☀️ <strong>5</strong> Ⓚ</button>
+        <button type="button" data-gift-code="support">💚 <strong>10</strong> Ⓚ</button>
+        <button type="button" data-gift-code="trophy">🏆 <strong>50</strong> Ⓚ</button>
       </div>
       <p id="giftError" class="form-error hidden"></p>
     </section>

@@ -5,8 +5,9 @@ const titles = {
   analytics: ["Посещаемость", "Посетители, реклама и регистрации сайта"],
   appactivity: ["Активность приложения", "Действия пользователей Android по дням и экранам"],
   overview: ["Обзор", "Состояние KisaMore"],
-  users: ["Пользователи", "Аккаунты сайта и Telegram · начисление Kisa"],
-  promotions: ["Акции", "Автоматические бонусы Kisa для новых и существующих пользователей"],
+  users: ["Пользователи", "Аккаунты сайта и Telegram · начисление Ⓚ"],
+  greenhouses: ["Теплицы", "Общий фонд полок · доступность для новых заказов"],
+  promotions: ["Акции", "Автоматические бонусы Ⓚ для новых и существующих пользователей"],
   rentals: ["Заявки на аренду", "Подтверждение контейнеров и выбранных растений"],
   cameras: ["Камеры / Фото полок", "Последние кадры, полученные с Raspberry Pi"],
   plantings: ["Растения и фото", "Активные посадки и публикация контента"],
@@ -131,6 +132,7 @@ function selectSection(name) {
   if (name === "analytics") loadAnalytics();
   if (name === "appactivity") loadAppActivity();
   if (name === "users") loadUsers();
+  if (name === "greenhouses") loadGreenhouses();
   if (name === "rentals") loadRentals();
   if (name === "cameras") loadRackPhotos();
   if (name === "plantings") loadPlantings();
@@ -141,7 +143,7 @@ async function loadOverview() {
   const data = await api("/api/v1/admin/overview");
   const cards = [
     ["Пользователи", data.total_users ?? data.telegram_users],
-    ["Kisa в кошельках", kisa(data.total_kisa)],
+    ["Ⓚ в кошельках", kisa(data.total_kisa)],
     ["Активные растения", data.active_plantings],
     ["Комментарии", data.published_comments],
     ["Заявки на аренду", data.rental_requests],
@@ -176,7 +178,7 @@ async function loadUsers() {
         '<td>' + esc(fmtDate(user.created_at)) + '</td>' +
         '<td><button class="gift-button" data-kind="' + esc(user.kind) +
         '" data-user-id="' + esc(user.id) + '" data-user-name="' + esc(name) +
-        '">Начислить Kisa</button></td></tr>';
+        '">Начислить Ⓚ</button></td></tr>';
     }).join("") : '<tr><td colspan="7" class="muted">Пользователи не найдены.</td></tr>';
 
     qsa(".gift-button").forEach((button) => button.addEventListener("click", () => {
@@ -284,7 +286,7 @@ async function loadRentals() {
   }));
 
   qsa(".complete-rental").forEach((button) => button.addEventListener("click", async () => {
-    if (!window.confirm("Завершить аренду? Оплата Kisa не возвращается. После синхронизации Raspberry снимет бронирование контейнера.")) return;
+    if (!window.confirm("Завершить аренду? Оплата Ⓚ не возвращается. После синхронизации Raspberry снимет бронирование контейнера.")) return;
     button.disabled = true;
     try {
       await api(`/api/v1/admin/rental-requests/${button.dataset.id}/complete`, { method: "POST" });

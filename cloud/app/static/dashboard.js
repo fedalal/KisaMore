@@ -34,7 +34,7 @@
 
   const commercialTranslations = {
     en: {
-      navHow: "How it works", navPlants: "Plants", navLive: "Live greenhouse", navKisa: "KISA",
+      navHow: "How it works", navPlants: "Plants", navLive: "Live greenhouse", navKisa: "Kisa Ⓚ",
       heroEyebrow: "A real greenhouse, online", heroTitle: "Grow something real from anywhere.",
       heroLead: "Choose a plant, rent a real container and follow its growth with live greenhouse data, photos and timelapses.",
       heroLiveCta: "Open live greenhouse", heroPlantsCta: "Choose a plant", heroNote: "Free to watch. Rent only when you want your own plant.",
@@ -48,16 +48,16 @@
       plantsLead: "Availability comes directly from the greenhouse. Rental price depends on the selected crop.",
       growTime: "Grow time", daysShort: "days", rentalFrom: "Rental", choosePlaceCta: "Choose a place", plantFallback: "A real crop available for your greenhouse container.",
       liveEyebrow: "Real greenhouse", liveTitle: "Live racks and containers", liveLead: "These are real places in the greenhouse, not a simulation.",
-      pricingEyebrow: "KISA credits", pricingTitle: "Watch for free. Pay only for your own growing space.",
-      pricingLead: "KISA is the internal credit used for rentals and extra paid actions. Credits can be topped up through the KisaMore Telegram bot using Telegram Stars.",
+      pricingEyebrow: "Ⓚ credits", pricingTitle: "Watch for free. Pay only for your own growing space.",
+      pricingLead: "Ⓚ is the internal credit used for rentals and extra paid actions. Credits can be topped up through the KisaMore Telegram bot using Telegram Stars.",
       freeBadge: "FREE", freeTitle: "Observer", freeFeature1: "Watch the live greenhouse", freeFeature2: "See current rack photos", freeFeature3: "Explore available plants and places", freeCta: "Watch now",
       popularBadge: "YOUR PLANT", containerTitle: "Container rental", from: "from", containerFeature1: "A real greenhouse container", containerFeature2: "Choose the crop you want", containerFeature3: "Photos, progress and timelapse", containerCta: "Choose a container",
       proBadge: "FULL RACK", rackPlanTitle: "Private rack", byRequest: "By request", rackFeature1: "All six container positions", rackFeature2: "One growing zone reserved for you", rackFeature3: "Suitable for experiments and projects", rackCta: "Ask in Telegram",
-      tokenTitle: "KISA keeps payments simple", tokenBody: "Top up once in Telegram and use your balance for rentals and paid features inside KisaMore.", tokenCta: "Open @KisaMoreBot",
-      telegramEyebrow: "KisaMore in Telegram", telegramTitle: "Your greenhouse can live in your pocket.", telegramBody: "Get plant updates, notifications and KISA credits through the Telegram bot. The website stays your full live view and personal account.", telegramCta: "Open Telegram bot", accountCta: "Personal account"
+      tokenTitle: "Ⓚ keeps payments simple", tokenBody: "Top up once in Telegram and use your balance for rentals and paid features inside KisaMore.", tokenCta: "Open @KisaMoreBot",
+      telegramEyebrow: "KisaMore in Telegram", telegramTitle: "Your greenhouse can live in your pocket.", telegramBody: "Get plant updates, notifications and Ⓚ credits through the Telegram bot. The website stays your full live view and personal account.", telegramCta: "Open Telegram bot", accountCta: "Personal account"
     },
     ru: {
-      navHow: "Как это работает", navPlants: "Растения", navLive: "Теплица онлайн", navKisa: "KISA",
+      navHow: "Как это работает", navPlants: "Растения", navLive: "Теплица онлайн", navKisa: "Kisa Ⓚ",
       heroEyebrow: "Настоящая теплица онлайн", heroTitle: "Выращивайте настоящее растение из любой точки мира.",
       heroLead: "Выберите растение, арендуйте реальный контейнер и следите за ростом по фотографиям, данным теплицы и таймлапсам.",
       heroLiveCta: "Открыть теплицу", heroPlantsCta: "Выбрать растение", heroNote: "Наблюдать можно бесплатно. Платите только когда хотите выращивать своё растение.",
@@ -71,16 +71,16 @@
       plantsLead: "Доступность приходит прямо из теплицы. Стоимость аренды зависит от выбранного растения.",
       growTime: "Срок роста", daysShort: "дн.", rentalFrom: "Аренда", choosePlaceCta: "Выбрать место", plantFallback: "Реальная культура, доступная для выращивания в вашем контейнере.",
       liveEyebrow: "Реальная теплица", liveTitle: "Полки и контейнеры онлайн", liveLead: "Это реальные места в теплице, а не симуляция.",
-      pricingEyebrow: "Кредиты KISA", pricingTitle: "Наблюдайте бесплатно. Платите только за своё место.",
-      pricingLead: "KISA — внутренняя валюта для аренды и дополнительных платных функций. Пополнить баланс можно через Telegram-бот KisaMore с помощью Telegram Stars.",
+      pricingEyebrow: "Кредиты Ⓚ", pricingTitle: "Наблюдайте бесплатно. Платите только за своё место.",
+      pricingLead: "Ⓚ — внутренняя валюта для аренды и дополнительных платных функций. Пополнить баланс можно через Telegram-бот KisaMore с помощью Telegram Stars.",
       freeBadge: "БЕСПЛАТНО", freeTitle: "Наблюдатель", freeFeature1: "Смотреть теплицу онлайн", freeFeature2: "Смотреть актуальные фото полок", freeFeature3: "Изучать доступные растения и места", freeCta: "Смотреть сейчас",
       popularBadge: "СВОЁ РАСТЕНИЕ", containerTitle: "Аренда контейнера", from: "от", containerFeature1: "Реальный контейнер в теплице", containerFeature2: "Выбор растения для выращивания", containerFeature3: "Фото, прогресс и таймлапс", containerCta: "Выбрать контейнер",
       proBadge: "ЦЕЛАЯ ПОЛКА", rackPlanTitle: "Личная полка", byRequest: "По запросу", rackFeature1: "Все шесть контейнеров", rackFeature2: "Отдельная зона выращивания только для вас", rackFeature3: "Подходит для экспериментов и проектов", rackCta: "Спросить в Telegram",
-      tokenTitle: "С KISA всё просто", tokenBody: "Один раз пополните баланс в Telegram и используйте его для аренды и платных возможностей KisaMore.", tokenCta: "Открыть @KisaMoreBot",
-      telegramEyebrow: "KisaMore в Telegram", telegramTitle: "Ваша теплица всегда в кармане.", telegramBody: "Получайте обновления растений, уведомления и KISA через Telegram-бота. На сайте остаются полный live-просмотр и личный кабинет.", telegramCta: "Открыть Telegram-бот", accountCta: "Личный кабинет"
+      tokenTitle: "С Ⓚ всё просто", tokenBody: "Один раз пополните баланс в Telegram и используйте его для аренды и платных возможностей KisaMore.", tokenCta: "Открыть @KisaMoreBot",
+      telegramEyebrow: "KisaMore в Telegram", telegramTitle: "Ваша теплица всегда в кармане.", telegramBody: "Получайте обновления растений, уведомления и Ⓚ через Telegram-бота. На сайте остаются полный live-просмотр и личный кабинет.", telegramCta: "Открыть Telegram-бот", accountCta: "Личный кабинет"
     },
     de: {
-      navHow: "So funktioniert es", navPlants: "Pflanzen", navLive: "Live-Gewächshaus", navKisa: "KISA",
+      navHow: "So funktioniert es", navPlants: "Pflanzen", navLive: "Live-Gewächshaus", navKisa: "Kisa Ⓚ",
       heroEyebrow: "Ein echtes Gewächshaus online", heroTitle: "Bauen Sie etwas Echtes von überall aus an.",
       heroLead: "Wählen Sie eine Pflanze, mieten Sie einen echten Behälter und verfolgen Sie das Wachstum mit Live-Daten, Fotos und Zeitraffern.",
       heroLiveCta: "Live-Gewächshaus öffnen", heroPlantsCta: "Pflanze wählen", heroNote: "Zuschauen ist kostenlos. Bezahlen Sie nur für Ihren eigenen Anbauplatz.",
@@ -89,15 +89,15 @@
       step1Title: "Pflanze auswählen", step1Body: "Wählen Sie eine verfügbare Kultur und einen echten Behälter.", step2Title: "Wachstum beobachten", step2Body: "Verfolgen Sie aktuelle Fotos, Gewächshausstatus und Fortschritt.", step3Title: "Geschichte behalten", step3Body: "Erhalten Sie Zeitraffer und Updates über den gesamten Anbauzyklus.",
       plantsEyebrow: "Kultur auswählen", plantsTitle: "Was dürfen wir für Sie anbauen?", plantsLead: "Verfügbarkeit kommt direkt aus dem Gewächshaus. Der Mietpreis hängt von der Kultur ab.", growTime: "Anbauzeit", daysShort: "Tage", rentalFrom: "Miete", choosePlaceCta: "Platz wählen", plantFallback: "Eine echte Kultur für Ihren Gewächshausbehälter.",
       liveEyebrow: "Echtes Gewächshaus", liveTitle: "Live-Regale und Behälter", liveLead: "Das sind reale Plätze im Gewächshaus, keine Simulation.",
-      pricingEyebrow: "KISA-Guthaben", pricingTitle: "Kostenlos zuschauen. Nur für den eigenen Anbauplatz zahlen.", pricingLead: "KISA ist das interne Guthaben für Mieten und Zusatzfunktionen. Aufladen ist über den Telegram-Bot mit Telegram Stars möglich.",
+      pricingEyebrow: "Ⓚ-Guthaben", pricingTitle: "Kostenlos zuschauen. Nur für den eigenen Anbauplatz zahlen.", pricingLead: "Ⓚ ist das interne Guthaben für Mieten und Zusatzfunktionen. Aufladen ist über den Telegram-Bot mit Telegram Stars möglich.",
       freeBadge: "KOSTENLOS", freeTitle: "Beobachter", freeFeature1: "Live-Gewächshaus ansehen", freeFeature2: "Aktuelle Regalfotos sehen", freeFeature3: "Pflanzen und Plätze entdecken", freeCta: "Jetzt ansehen",
       popularBadge: "IHRE PFLANZE", containerTitle: "Behälter mieten", from: "ab", containerFeature1: "Echter Gewächshausbehälter", containerFeature2: "Gewünschte Kultur wählen", containerFeature3: "Fotos, Fortschritt und Zeitraffer", containerCta: "Behälter wählen",
       proBadge: "GANZES REGAL", rackPlanTitle: "Privates Regal", byRequest: "Auf Anfrage", rackFeature1: "Alle sechs Behälterplätze", rackFeature2: "Eine Anbauzone nur für Sie", rackFeature3: "Für Experimente und Projekte", rackCta: "In Telegram fragen",
-      tokenTitle: "KISA macht Zahlungen einfach", tokenBody: "Einmal in Telegram aufladen und das Guthaben für Mieten und Funktionen nutzen.", tokenCta: "@KisaMoreBot öffnen",
-      telegramEyebrow: "KisaMore in Telegram", telegramTitle: "Ihr Gewächshaus passt in die Tasche.", telegramBody: "Erhalten Sie Pflanzen-Updates, Benachrichtigungen und KISA im Telegram-Bot. Die Website bleibt Ihre vollständige Live-Ansicht.", telegramCta: "Telegram-Bot öffnen", accountCta: "Persönliches Konto"
+      tokenTitle: "Ⓚ macht Zahlungen einfach", tokenBody: "Einmal in Telegram aufladen und das Guthaben für Mieten und Funktionen nutzen.", tokenCta: "@KisaMoreBot öffnen",
+      telegramEyebrow: "KisaMore in Telegram", telegramTitle: "Ihr Gewächshaus passt in die Tasche.", telegramBody: "Erhalten Sie Pflanzen-Updates, Benachrichtigungen und Ⓚ im Telegram-Bot. Die Website bleibt Ihre vollständige Live-Ansicht.", telegramCta: "Telegram-Bot öffnen", accountCta: "Persönliches Konto"
     },
     fr: {
-      navHow: "Comment ça marche", navPlants: "Plantes", navLive: "Serre en direct", navKisa: "KISA",
+      navHow: "Comment ça marche", navPlants: "Plantes", navLive: "Serre en direct", navKisa: "Kisa Ⓚ",
       heroEyebrow: "Une vraie serre en ligne", heroTitle: "Cultivez quelque chose de réel, où que vous soyez.",
       heroLead: "Choisissez une plante, louez un vrai conteneur et suivez sa croissance avec les données, photos et timelapses.",
       heroLiveCta: "Ouvrir la serre en direct", heroPlantsCta: "Choisir une plante", heroNote: "Observer est gratuit. Vous payez seulement pour votre propre espace.",
@@ -106,86 +106,89 @@
       step1Title: "Choisissez votre plante", step1Body: "Choisissez une culture disponible et un vrai conteneur.", step2Title: "Suivez sa croissance", step2Body: "Consultez les photos, l'état de la serre et la progression.", step3Title: "Gardez son histoire", step3Body: "Recevez des timelapses et des mises à jour pendant tout le cycle.",
       plantsEyebrow: "Choisissez votre culture", plantsTitle: "Que pouvons-nous cultiver pour vous ?", plantsLead: "La disponibilité vient directement de la serre. Le prix dépend de la culture.", growTime: "Durée", daysShort: "jours", rentalFrom: "Location", choosePlaceCta: "Choisir une place", plantFallback: "Une vraie culture disponible pour votre conteneur.",
       liveEyebrow: "Vraie serre", liveTitle: "Étagères et conteneurs en direct", liveLead: "Ce sont de vraies places dans la serre, pas une simulation.",
-      pricingEyebrow: "Crédits KISA", pricingTitle: "Observez gratuitement. Payez seulement pour votre espace.", pricingLead: "KISA est le crédit interne pour les locations et fonctions payantes. Rechargez via le bot Telegram avec Telegram Stars.",
+      pricingEyebrow: "Crédits Ⓚ", pricingTitle: "Observez gratuitement. Payez seulement pour votre espace.", pricingLead: "Ⓚ est le crédit interne pour les locations et fonctions payantes. Rechargez via le bot Telegram avec Telegram Stars.",
       freeBadge: "GRATUIT", freeTitle: "Observateur", freeFeature1: "Voir la serre en direct", freeFeature2: "Voir les photos actuelles", freeFeature3: "Explorer plantes et places", freeCta: "Voir maintenant",
       popularBadge: "VOTRE PLANTE", containerTitle: "Location d'un conteneur", from: "à partir de", containerFeature1: "Un vrai conteneur", containerFeature2: "Choisissez votre culture", containerFeature3: "Photos, progression et timelapse", containerCta: "Choisir un conteneur",
       proBadge: "ÉTAGÈRE ENTIÈRE", rackPlanTitle: "Étagère privée", byRequest: "Sur demande", rackFeature1: "Les six emplacements", rackFeature2: "Une zone réservée pour vous", rackFeature3: "Pour expériences et projets", rackCta: "Demander sur Telegram",
-      tokenTitle: "KISA simplifie les paiements", tokenBody: "Rechargez une fois dans Telegram et utilisez votre solde pour les locations et fonctions.", tokenCta: "Ouvrir @KisaMoreBot",
-      telegramEyebrow: "KisaMore sur Telegram", telegramTitle: "Votre serre tient dans votre poche.", telegramBody: "Recevez mises à jour, notifications et KISA via le bot Telegram. Le site reste votre vue complète.", telegramCta: "Ouvrir le bot Telegram", accountCta: "Compte personnel"
+      tokenTitle: "Ⓚ simplifie les paiements", tokenBody: "Rechargez une fois dans Telegram et utilisez votre solde pour les locations et fonctions.", tokenCta: "Ouvrir @KisaMoreBot",
+      telegramEyebrow: "KisaMore sur Telegram", telegramTitle: "Votre serre tient dans votre poche.", telegramBody: "Recevez mises à jour, notifications et Ⓚ via le bot Telegram. Le site reste votre vue complète.", telegramCta: "Ouvrir le bot Telegram", accountCta: "Compte personnel"
     },
     es: {
-      navHow: "Cómo funciona", navPlants: "Plantas", navLive: "Invernadero en vivo", navKisa: "KISA",
+      navHow: "Cómo funciona", navPlants: "Plantas", navLive: "Invernadero en vivo", navKisa: "Kisa Ⓚ",
       heroEyebrow: "Un invernadero real, online", heroTitle: "Cultiva algo real desde cualquier lugar.", heroLead: "Elige una planta, alquila un contenedor real y sigue su crecimiento con datos, fotos y timelapses.", heroLiveCta: "Abrir invernadero", heroPlantsCta: "Elegir planta", heroNote: "Mirar es gratis. Solo pagas por tu propio espacio.",
       liveNow: "EN DIRECTO", seeGreenhouse: "Ver invernadero",
       howEyebrow: "Cómo funciona KisaMore", howTitle: "Tu planta es real. La interfaz está online.", howLead: "KisaMore conecta un invernadero físico con una experiencia digital sencilla.", step1Title: "Elige qué cultivar", step1Body: "Elige un cultivo disponible y un contenedor real.", step2Title: "Mira cómo crece", step2Body: "Sigue fotos, estado y progreso desde cualquier lugar.", step3Title: "Guarda la historia", step3Body: "Recibe timelapses y actualizaciones durante todo el ciclo.",
       plantsEyebrow: "Elige tu cultivo", plantsTitle: "¿Qué podemos cultivar para ti?", plantsLead: "La disponibilidad llega directamente del invernadero. El precio depende del cultivo.", growTime: "Tiempo", daysShort: "días", rentalFrom: "Alquiler", choosePlaceCta: "Elegir lugar", plantFallback: "Un cultivo real disponible para tu contenedor.",
       liveEyebrow: "Invernadero real", liveTitle: "Estantes y contenedores en vivo", liveLead: "Son lugares reales del invernadero, no una simulación.",
-      pricingEyebrow: "Créditos KISA", pricingTitle: "Mira gratis. Paga solo por tu propio espacio.", pricingLead: "KISA es el crédito interno para alquileres y funciones de pago. Puedes recargarlo en Telegram con Telegram Stars.",
+      pricingEyebrow: "Créditos Ⓚ", pricingTitle: "Mira gratis. Paga solo por tu propio espacio.", pricingLead: "Ⓚ es el crédito interno para alquileres y funciones de pago. Puedes recargarlo en Telegram con Telegram Stars.",
       freeBadge: "GRATIS", freeTitle: "Observador", freeFeature1: "Ver el invernadero en vivo", freeFeature2: "Ver fotos actuales", freeFeature3: "Explorar plantas y lugares", freeCta: "Ver ahora",
       popularBadge: "TU PLANTA", containerTitle: "Alquiler de contenedor", from: "desde", containerFeature1: "Un contenedor real", containerFeature2: "Elige el cultivo", containerFeature3: "Fotos, progreso y timelapse", containerCta: "Elegir contenedor",
       proBadge: "ESTANTE COMPLETO", rackPlanTitle: "Estante privado", byRequest: "A consultar", rackFeature1: "Los seis contenedores", rackFeature2: "Una zona reservada para ti", rackFeature3: "Para experimentos y proyectos", rackCta: "Preguntar en Telegram",
-      tokenTitle: "KISA simplifica los pagos", tokenBody: "Recarga una vez en Telegram y usa tu saldo para alquileres y funciones.", tokenCta: "Abrir @KisaMoreBot",
-      telegramEyebrow: "KisaMore en Telegram", telegramTitle: "Tu invernadero cabe en tu bolsillo.", telegramBody: "Recibe novedades, notificaciones y KISA en el bot. La web sigue siendo tu vista completa.", telegramCta: "Abrir bot de Telegram", accountCta: "Cuenta personal"
+      tokenTitle: "Ⓚ simplifica los pagos", tokenBody: "Recarga una vez en Telegram y usa tu saldo para alquileres y funciones.", tokenCta: "Abrir @KisaMoreBot",
+      telegramEyebrow: "KisaMore en Telegram", telegramTitle: "Tu invernadero cabe en tu bolsillo.", telegramBody: "Recibe novedades, notificaciones y Ⓚ en el bot. La web sigue siendo tu vista completa.", telegramCta: "Abrir bot de Telegram", accountCta: "Cuenta personal"
     },
     it: {
-      navHow: "Come funziona", navPlants: "Piante", navLive: "Serra live", navKisa: "KISA",
+      navHow: "Come funziona", navPlants: "Piante", navLive: "Serra live", navKisa: "Kisa Ⓚ",
       heroEyebrow: "Una vera serra online", heroTitle: "Coltiva qualcosa di reale ovunque ti trovi.", heroLead: "Scegli una pianta, noleggia un vero contenitore e segui la crescita con dati, foto e timelapse.", heroLiveCta: "Apri la serra live", heroPlantsCta: "Scegli una pianta", heroNote: "Guardare è gratis. Paghi solo per il tuo spazio.",
       liveNow: "LIVE ORA", seeGreenhouse: "Vedi la serra",
       howEyebrow: "Come funziona KisaMore", howTitle: "La tua pianta è reale. L'interfaccia è online.", howLead: "KisaMore collega una serra fisica a un'esperienza digitale semplice.", step1Title: "Scegli cosa coltivare", step1Body: "Scegli una coltura disponibile e un vero contenitore.", step2Title: "Guardala crescere", step2Body: "Segui foto, stato e progresso da qualsiasi luogo.", step3Title: "Conserva la storia", step3Body: "Ricevi timelapse e aggiornamenti per tutto il ciclo.",
       plantsEyebrow: "Scegli la coltura", plantsTitle: "Cosa possiamo coltivare per te?", plantsLead: "La disponibilità arriva direttamente dalla serra. Il prezzo dipende dalla coltura.", growTime: "Tempo", daysShort: "giorni", rentalFrom: "Noleggio", choosePlaceCta: "Scegli posto", plantFallback: "Una coltura reale disponibile per il tuo contenitore.",
       liveEyebrow: "Serra reale", liveTitle: "Scaffali e contenitori live", liveLead: "Sono posti reali nella serra, non una simulazione.",
-      pricingEyebrow: "Crediti KISA", pricingTitle: "Guarda gratis. Paga solo per il tuo spazio.", pricingLead: "KISA è il credito interno per noleggi e funzioni a pagamento. Ricarica via Telegram con Telegram Stars.",
+      pricingEyebrow: "Crediti Ⓚ", pricingTitle: "Guarda gratis. Paga solo per il tuo spazio.", pricingLead: "Ⓚ è il credito interno per noleggi e funzioni a pagamento. Ricarica via Telegram con Telegram Stars.",
       freeBadge: "GRATIS", freeTitle: "Osservatore", freeFeature1: "Guarda la serra live", freeFeature2: "Vedi foto aggiornate", freeFeature3: "Esplora piante e posti", freeCta: "Guarda ora",
       popularBadge: "LA TUA PIANTA", containerTitle: "Noleggio contenitore", from: "da", containerFeature1: "Un vero contenitore", containerFeature2: "Scegli la coltura", containerFeature3: "Foto, progresso e timelapse", containerCta: "Scegli contenitore",
       proBadge: "SCAFFALE INTERO", rackPlanTitle: "Scaffale privato", byRequest: "Su richiesta", rackFeature1: "Tutti e sei i contenitori", rackFeature2: "Una zona riservata a te", rackFeature3: "Per esperimenti e progetti", rackCta: "Chiedi su Telegram",
-      tokenTitle: "KISA rende semplici i pagamenti", tokenBody: "Ricarica una volta in Telegram e usa il saldo per noleggi e funzioni.", tokenCta: "Apri @KisaMoreBot",
-      telegramEyebrow: "KisaMore su Telegram", telegramTitle: "La tua serra può stare in tasca.", telegramBody: "Ricevi aggiornamenti, notifiche e KISA nel bot. Il sito resta la tua vista completa.", telegramCta: "Apri bot Telegram", accountCta: "Account personale"
+      tokenTitle: "Ⓚ rende semplici i pagamenti", tokenBody: "Ricarica una volta in Telegram e usa il saldo per noleggi e funzioni.", tokenCta: "Apri @KisaMoreBot",
+      telegramEyebrow: "KisaMore su Telegram", telegramTitle: "La tua serra può stare in tasca.", telegramBody: "Ricevi aggiornamenti, notifiche e Ⓚ nel bot. Il sito resta la tua vista completa.", telegramCta: "Apri bot Telegram", accountCta: "Account personale"
     },
     pt: {
-      navHow: "Como funciona", navPlants: "Plantas", navLive: "Estufa ao vivo", navKisa: "KISA",
+      navHow: "Como funciona", navPlants: "Plantas", navLive: "Estufa ao vivo", navKisa: "Kisa Ⓚ",
       heroEyebrow: "Uma estufa real online", heroTitle: "Cultive algo real a partir de qualquer lugar.", heroLead: "Escolha uma planta, alugue um recipiente real e acompanhe o crescimento com dados, fotos e timelapses.", heroLiveCta: "Abrir estufa ao vivo", heroPlantsCta: "Escolher planta", heroNote: "Observar é grátis. Pague apenas pelo seu espaço.",
       liveNow: "AO VIVO", seeGreenhouse: "Ver estufa",
       howEyebrow: "Como funciona o KisaMore", howTitle: "A sua planta é real. A interface é online.", howLead: "KisaMore liga uma estufa física a uma experiência digital simples.", step1Title: "Escolha o que cultivar", step1Body: "Escolha uma cultura disponível e um recipiente real.", step2Title: "Veja crescer", step2Body: "Acompanhe fotos, estado e progresso de qualquer lugar.", step3Title: "Guarde a história", step3Body: "Receba timelapses e atualizações durante todo o ciclo.",
       plantsEyebrow: "Escolha a cultura", plantsTitle: "O que podemos cultivar para si?", plantsLead: "A disponibilidade vem diretamente da estufa. O preço depende da cultura.", growTime: "Tempo", daysShort: "dias", rentalFrom: "Aluguer", choosePlaceCta: "Escolher lugar", plantFallback: "Uma cultura real disponível para o seu recipiente.",
       liveEyebrow: "Estufa real", liveTitle: "Prateleiras e recipientes ao vivo", liveLead: "São lugares reais na estufa, não uma simulação.",
-      pricingEyebrow: "Créditos KISA", pricingTitle: "Observe grátis. Pague apenas pelo seu espaço.", pricingLead: "KISA é o crédito interno para alugueres e funções pagas. Recarregue no Telegram com Telegram Stars.",
+      pricingEyebrow: "Créditos Ⓚ", pricingTitle: "Observe grátis. Pague apenas pelo seu espaço.", pricingLead: "Ⓚ é o crédito interno para alugueres e funções pagas. Recarregue no Telegram com Telegram Stars.",
       freeBadge: "GRÁTIS", freeTitle: "Observador", freeFeature1: "Ver estufa ao vivo", freeFeature2: "Ver fotos atuais", freeFeature3: "Explorar plantas e lugares", freeCta: "Ver agora",
       popularBadge: "A SUA PLANTA", containerTitle: "Aluguer de recipiente", from: "desde", containerFeature1: "Um recipiente real", containerFeature2: "Escolha a cultura", containerFeature3: "Fotos, progresso e timelapse", containerCta: "Escolher recipiente",
       proBadge: "PRATELEIRA INTEIRA", rackPlanTitle: "Prateleira privada", byRequest: "Sob consulta", rackFeature1: "Todos os seis recipientes", rackFeature2: "Uma zona reservada para si", rackFeature3: "Para experiências e projetos", rackCta: "Perguntar no Telegram",
-      tokenTitle: "KISA simplifica os pagamentos", tokenBody: "Recarregue uma vez no Telegram e use o saldo em alugueres e funções.", tokenCta: "Abrir @KisaMoreBot",
-      telegramEyebrow: "KisaMore no Telegram", telegramTitle: "A sua estufa cabe no bolso.", telegramBody: "Receba atualizações, notificações e KISA no bot. O site continua a ser a sua vista completa.", telegramCta: "Abrir bot Telegram", accountCta: "Conta pessoal"
+      tokenTitle: "Ⓚ simplifica os pagamentos", tokenBody: "Recarregue uma vez no Telegram e use o saldo em alugueres e funções.", tokenCta: "Abrir @KisaMoreBot",
+      telegramEyebrow: "KisaMore no Telegram", telegramTitle: "A sua estufa cabe no bolso.", telegramBody: "Receba atualizações, notificações e Ⓚ no bot. O site continua a ser a sua vista completa.", telegramCta: "Abrir bot Telegram", accountCta: "Conta pessoal"
     },
     pl: {
-      navHow: "Jak to działa", navPlants: "Rośliny", navLive: "Szklarnia na żywo", navKisa: "KISA",
+      navHow: "Jak to działa", navPlants: "Rośliny", navLive: "Szklarnia na żywo", navKisa: "Kisa Ⓚ",
       heroEyebrow: "Prawdziwa szklarnia online", heroTitle: "Uprawiaj coś prawdziwego z dowolnego miejsca.", heroLead: "Wybierz roślinę, wynajmij prawdziwy pojemnik i śledź wzrost dzięki danym, zdjęciom i timelapse.", heroLiveCta: "Otwórz szklarnię", heroPlantsCta: "Wybierz roślinę", heroNote: "Oglądanie jest bezpłatne. Płacisz tylko za własne miejsce.",
       liveNow: "NA ŻYWO", seeGreenhouse: "Zobacz szklarnię",
       howEyebrow: "Jak działa KisaMore", howTitle: "Twoja roślina jest prawdziwa. Interfejs jest online.", howLead: "KisaMore łączy fizyczną szklarnię z prostą usługą cyfrową.", step1Title: "Wybierz roślinę", step1Body: "Wybierz dostępną uprawę i prawdziwy pojemnik.", step2Title: "Obserwuj wzrost", step2Body: "Śledź zdjęcia, stan szklarni i postęp.", step3Title: "Zachowaj historię", step3Body: "Otrzymuj timelapse i aktualizacje przez cały cykl.",
       plantsEyebrow: "Wybierz uprawę", plantsTitle: "Co możemy dla Ciebie wyhodować?", plantsLead: "Dostępność pochodzi bezpośrednio ze szklarni. Cena zależy od rośliny.", growTime: "Czas", daysShort: "dni", rentalFrom: "Wynajem", choosePlaceCta: "Wybierz miejsce", plantFallback: "Prawdziwa uprawa dostępna w Twoim pojemniku.",
       liveEyebrow: "Prawdziwa szklarnia", liveTitle: "Półki i pojemniki na żywo", liveLead: "To prawdziwe miejsca w szklarni, nie symulacja.",
-      pricingEyebrow: "Kredyty KISA", pricingTitle: "Oglądaj za darmo. Płać tylko za własne miejsce.", pricingLead: "KISA to wewnętrzne środki na wynajem i płatne funkcje. Doładuj je w Telegramie przez Telegram Stars.",
+      pricingEyebrow: "Kredyty Ⓚ", pricingTitle: "Oglądaj za darmo. Płać tylko za własne miejsce.", pricingLead: "Ⓚ to wewnętrzne środki na wynajem i płatne funkcje. Doładuj je w Telegramie przez Telegram Stars.",
       freeBadge: "ZA DARMO", freeTitle: "Obserwator", freeFeature1: "Oglądaj szklarnię na żywo", freeFeature2: "Zobacz aktualne zdjęcia", freeFeature3: "Przeglądaj rośliny i miejsca", freeCta: "Oglądaj teraz",
       popularBadge: "TWOJA ROŚLINA", containerTitle: "Wynajem pojemnika", from: "od", containerFeature1: "Prawdziwy pojemnik", containerFeature2: "Wybierz roślinę", containerFeature3: "Zdjęcia, postęp i timelapse", containerCta: "Wybierz pojemnik",
       proBadge: "CAŁA PÓŁKA", rackPlanTitle: "Prywatna półka", byRequest: "Na zapytanie", rackFeature1: "Wszystkie sześć miejsc", rackFeature2: "Jedna strefa tylko dla Ciebie", rackFeature3: "Do eksperymentów i projektów", rackCta: "Zapytaj w Telegramie",
-      tokenTitle: "KISA upraszcza płatności", tokenBody: "Doładuj raz w Telegramie i używaj salda do wynajmu i funkcji.", tokenCta: "Otwórz @KisaMoreBot",
-      telegramEyebrow: "KisaMore w Telegramie", telegramTitle: "Twoja szklarnia może być w kieszeni.", telegramBody: "Otrzymuj aktualizacje, powiadomienia i KISA w bocie. Strona pozostaje pełnym widokiem live.", telegramCta: "Otwórz bota Telegram", accountCta: "Konto osobiste"
+      tokenTitle: "Ⓚ upraszcza płatności", tokenBody: "Doładuj raz w Telegramie i używaj salda do wynajmu i funkcji.", tokenCta: "Otwórz @KisaMoreBot",
+      telegramEyebrow: "KisaMore w Telegramie", telegramTitle: "Twoja szklarnia może być w kieszeni.", telegramBody: "Otrzymuj aktualizacje, powiadomienia i Ⓚ w bocie. Strona pozostaje pełnym widokiem live.", telegramCta: "Otwórz bota Telegram", accountCta: "Konto osobiste"
     },
     zh: {
-      navHow: "如何运作", navPlants: "植物", navLive: "温室直播", navKisa: "KISA",
+      navHow: "如何运作", navPlants: "植物", navLive: "温室直播", navKisa: "Kisa Ⓚ",
       heroEyebrow: "真实温室，在线体验", heroTitle: "无论身在何处，都能种植真实植物。", heroLead: "选择植物，租用真实种植容器，通过温室数据、照片和延时视频关注生长。", heroLiveCta: "打开温室直播", heroPlantsCta: "选择植物", heroNote: "观看免费。只有拥有自己的种植空间时才需付费。",
       liveNow: "正在直播", seeGreenhouse: "查看温室",
       howEyebrow: "KisaMore 如何运作", howTitle: "植物是真实的，界面在线。", howLead: "KisaMore 将实体温室与简单的数字体验连接起来。", step1Title: "选择种植内容", step1Body: "选择可用作物和真实容器。", step2Title: "观察生长", step2Body: "随时查看照片、温室状态和生长进度。", step3Title: "保存成长故事", step3Body: "获取延时视频和整个生长周期的更新。",
       plantsEyebrow: "选择作物", plantsTitle: "我们可以为您种什么？", plantsLead: "可用情况直接来自温室，租金取决于所选作物。", growTime: "生长周期", daysShort: "天", rentalFrom: "租金", choosePlaceCta: "选择位置", plantFallback: "可在您的真实温室容器中种植的作物。",
       liveEyebrow: "真实温室", liveTitle: "实时种植架和容器", liveLead: "这些都是真实温室中的位置，并非模拟。",
-      pricingEyebrow: "KISA 积分", pricingTitle: "免费观看，只为自己的种植空间付费。", pricingLead: "KISA 是用于租赁和付费功能的内部积分，可通过 Telegram Stars 在 KisaMore 机器人中充值。",
+      pricingEyebrow: "Ⓚ 积分", pricingTitle: "免费观看，只为自己的种植空间付费。", pricingLead: "Ⓚ 是用于租赁和付费功能的内部积分，可通过 Telegram Stars 在 KisaMore 机器人中充值。",
       freeBadge: "免费", freeTitle: "观察者", freeFeature1: "观看温室直播", freeFeature2: "查看最新种植架照片", freeFeature3: "浏览植物和可用位置", freeCta: "立即观看",
       popularBadge: "您的植物", containerTitle: "容器租赁", from: "起", containerFeature1: "真实温室容器", containerFeature2: "选择想种的作物", containerFeature3: "照片、进度和延时视频", containerCta: "选择容器",
       proBadge: "整架", rackPlanTitle: "私人种植架", byRequest: "按需咨询", rackFeature1: "全部六个容器位置", rackFeature2: "专属于您的种植区", rackFeature3: "适合实验和项目", rackCta: "在 Telegram 咨询",
-      tokenTitle: "KISA 让支付更简单", tokenBody: "在 Telegram 中充值一次，即可使用余额支付租赁和功能。", tokenCta: "打开 @KisaMoreBot",
-      telegramEyebrow: "Telegram 中的 KisaMore", telegramTitle: "您的温室可以装进口袋。", telegramBody: "通过 Telegram 机器人获取植物更新、通知和 KISA。网站仍是完整的实时视图和个人账户。", telegramCta: "打开 Telegram 机器人", accountCta: "个人账户"
+      tokenTitle: "Ⓚ 让支付更简单", tokenBody: "在 Telegram 中充值一次，即可使用余额支付租赁和功能。", tokenCta: "打开 @KisaMoreBot",
+      telegramEyebrow: "Telegram 中的 KisaMore", telegramTitle: "您的温室可以装进口袋。", telegramBody: "通过 Telegram 机器人获取植物更新、通知和 Ⓚ。网站仍是完整的实时视图和个人账户。", telegramCta: "打开 Telegram 机器人", accountCta: "个人账户"
     }
   };
 
-  const farmSlug = document.querySelector('meta[name="kisamore-farm-slug"]').content;
+  const pricingNavLabels = {en:"Pricing",ru:"Тарифы",de:"Preise",fr:"Tarifs",es:"Precios",it:"Prezzi",pt:"Preços",pl:"Cennik",zh:"价格"};
+  for (const [lang, value] of Object.entries(pricingNavLabels)) { commercialTranslations[lang].navPricing = value; commercialTranslations[lang].browsePlans = ({en:"Plans & pricing",ru:"Тарифы и цены",de:"Tarife und Preise",fr:"Tarifs et prix",es:"Planes y precios",it:"Piani e prezzi",pt:"Planos e preços",pl:"Plany i ceny",zh:"套餐与价格"})[lang]; }
+
+  let farmSlug = document.querySelector('meta[name="kisamore-farm-slug"]').content;
   let language = localStorage.getItem("kisamore-language") || "en";
   if (!translations[language]) language = "en";
   let liveData = null;
@@ -245,17 +248,17 @@
   }
 
   const socialUiText = () => ({
-    en: { comments: "Comments", addComment: "Add comment", commentPlaceholder: "Write a comment…", send: "Send", gift: "Support this plant", giftHint: "Choose a KISA gift.", close: "Close", loginFirst: "Sign in to use this action.", walletLink: "Your KISA wallet is not linked to this website account.", commentEmpty: "No comments yet." },
-    ru: { comments: "Комментарии", addComment: "Добавить комментарий", commentPlaceholder: "Напишите комментарий…", send: "Отправить", gift: "Поддержать растение", giftHint: "Выберите подарок за KISA.", close: "Закрыть", loginFirst: "Войдите в аккаунт для этого действия.", walletLink: "KISA-кошелёк не связан с этим аккаунтом сайта.", commentEmpty: "Комментариев пока нет." },
-    de: { comments: "Kommentare", addComment: "Kommentar hinzufügen", commentPlaceholder: "Kommentar schreiben…", send: "Senden", gift: "Pflanze unterstützen", giftHint: "KISA-Geschenk auswählen.", close: "Schließen", loginFirst: "Bitte anmelden.", walletLink: "Das KISA-Wallet ist nicht mit diesem Webkonto verbunden.", commentEmpty: "Noch keine Kommentare." },
-    fr: { comments: "Commentaires", addComment: "Ajouter un commentaire", commentPlaceholder: "Écrire un commentaire…", send: "Envoyer", gift: "Soutenir cette plante", giftHint: "Choisissez un cadeau KISA.", close: "Fermer", loginFirst: "Connectez-vous pour cette action.", walletLink: "Le portefeuille KISA n’est pas lié à ce compte.", commentEmpty: "Aucun commentaire pour le moment." },
-    es: { comments: "Comentarios", addComment: "Añadir comentario", commentPlaceholder: "Escribe un comentario…", send: "Enviar", gift: "Apoyar esta planta", giftHint: "Elige un regalo KISA.", close: "Cerrar", loginFirst: "Inicia sesión para esta acción.", walletLink: "La cartera KISA no está vinculada a esta cuenta.", commentEmpty: "Aún no hay comentarios." },
-    it: { comments: "Commenti", addComment: "Aggiungi commento", commentPlaceholder: "Scrivi un commento…", send: "Invia", gift: "Sostieni questa pianta", giftHint: "Scegli un regalo KISA.", close: "Chiudi", loginFirst: "Accedi per questa azione.", walletLink: "Il portafoglio KISA non è collegato a questo account.", commentEmpty: "Ancora nessun commento." },
-    pt: { comments: "Comentários", addComment: "Adicionar comentário", commentPlaceholder: "Escreva um comentário…", send: "Enviar", gift: "Apoiar esta planta", giftHint: "Escolha um presente KISA.", close: "Fechar", loginFirst: "Inicie sessão para esta ação.", walletLink: "A carteira KISA não está ligada a esta conta.", commentEmpty: "Ainda não há comentários." },
-    pl: { comments: "Komentarze", addComment: "Dodaj komentarz", commentPlaceholder: "Napisz komentarz…", send: "Wyślij", gift: "Wesprzyj roślinę", giftHint: "Wybierz prezent KISA.", close: "Zamknij", loginFirst: "Zaloguj się, aby wykonać tę akcję.", walletLink: "Portfel KISA nie jest połączony z tym kontem.", commentEmpty: "Brak komentarzy." },
-    zh: { comments: "评论", addComment: "添加评论", commentPlaceholder: "写下评论…", send: "发送", gift: "支持这株植物", giftHint: "选择 KISA 礼物。", close: "关闭", loginFirst: "请先登录。", walletLink: "KISA 钱包尚未与此网站账户关联。", commentEmpty: "暂无评论。" }
+    en: { comments: "Comments", addComment: "Add comment", commentPlaceholder: "Write a comment…", send: "Send", gift: "Support this plant", giftHint: "Choose a Ⓚ gift.", close: "Close", loginFirst: "Sign in to use this action.", walletLink: "Your Ⓚ wallet is not linked to this website account.", commentEmpty: "No comments yet." },
+    ru: { comments: "Комментарии", addComment: "Добавить комментарий", commentPlaceholder: "Напишите комментарий…", send: "Отправить", gift: "Поддержать растение", giftHint: "Выберите подарок за Ⓚ.", close: "Закрыть", loginFirst: "Войдите в аккаунт для этого действия.", walletLink: "Ⓚ-кошелёк не связан с этим аккаунтом сайта.", commentEmpty: "Комментариев пока нет." },
+    de: { comments: "Kommentare", addComment: "Kommentar hinzufügen", commentPlaceholder: "Kommentar schreiben…", send: "Senden", gift: "Pflanze unterstützen", giftHint: "Ⓚ-Geschenk auswählen.", close: "Schließen", loginFirst: "Bitte anmelden.", walletLink: "Das Ⓚ-Wallet ist nicht mit diesem Webkonto verbunden.", commentEmpty: "Noch keine Kommentare." },
+    fr: { comments: "Commentaires", addComment: "Ajouter un commentaire", commentPlaceholder: "Écrire un commentaire…", send: "Envoyer", gift: "Soutenir cette plante", giftHint: "Choisissez un cadeau Ⓚ.", close: "Fermer", loginFirst: "Connectez-vous pour cette action.", walletLink: "Le portefeuille Ⓚ n’est pas lié à ce compte.", commentEmpty: "Aucun commentaire pour le moment." },
+    es: { comments: "Comentarios", addComment: "Añadir comentario", commentPlaceholder: "Escribe un comentario…", send: "Enviar", gift: "Apoyar esta planta", giftHint: "Elige un regalo Ⓚ.", close: "Cerrar", loginFirst: "Inicia sesión para esta acción.", walletLink: "La cartera Ⓚ no está vinculada a esta cuenta.", commentEmpty: "Aún no hay comentarios." },
+    it: { comments: "Commenti", addComment: "Aggiungi commento", commentPlaceholder: "Scrivi un commento…", send: "Invia", gift: "Sostieni questa pianta", giftHint: "Scegli un regalo Ⓚ.", close: "Chiudi", loginFirst: "Accedi per questa azione.", walletLink: "Il portafoglio Ⓚ non è collegato a questo account.", commentEmpty: "Ancora nessun commento." },
+    pt: { comments: "Comentários", addComment: "Adicionar comentário", commentPlaceholder: "Escreva um comentário…", send: "Enviar", gift: "Apoiar esta planta", giftHint: "Escolha um presente Ⓚ.", close: "Fechar", loginFirst: "Inicie sessão para esta ação.", walletLink: "A carteira Ⓚ não está ligada a esta conta.", commentEmpty: "Ainda não há comentários." },
+    pl: { comments: "Komentarze", addComment: "Dodaj komentarz", commentPlaceholder: "Napisz komentarz…", send: "Wyślij", gift: "Wesprzyj roślinę", giftHint: "Wybierz prezent Ⓚ.", close: "Zamknij", loginFirst: "Zaloguj się, aby wykonać tę akcję.", walletLink: "Portfel Ⓚ nie jest połączony z tym kontem.", commentEmpty: "Brak komentarzy." },
+    zh: { comments: "评论", addComment: "添加评论", commentPlaceholder: "写下评论…", send: "发送", gift: "支持这株植物", giftHint: "选择 Ⓚ 礼物。", close: "关闭", loginFirst: "请先登录。", walletLink: "Ⓚ 钱包尚未与此网站账户关联。", commentEmpty: "暂无评论。" }
   }[language] || {
-    comments: "Comments", addComment: "Add comment", commentPlaceholder: "Write a comment…", send: "Send", gift: "Support this plant", giftHint: "Choose a KISA gift.", close: "Close", loginFirst: "Sign in to use this action.", walletLink: "Your KISA wallet is not linked to this website account.", commentEmpty: "No comments yet."
+    comments: "Comments", addComment: "Add comment", commentPlaceholder: "Write a comment…", send: "Send", gift: "Support this plant", giftHint: "Choose a Ⓚ gift.", close: "Close", loginFirst: "Sign in to use this action.", walletLink: "Your Ⓚ wallet is not linked to this website account.", commentEmpty: "No comments yet."
   });
 
   const passwordResetUiText = () => ({
@@ -529,7 +532,7 @@
     return t({ available: "available", growing: "growing", ready: "ready", maintenance: "maintenance", occupied: "occupied", disabled: "disabled", reserved: "occupied" }[status] || status);
   }
 
-  function renderSlot(slot, plantsById) {
+  function renderSlot(slot, plantsById, rack) {
     const card = document.createElement("article");
     card.className = `slot is-${slot.status}`;
 
@@ -613,8 +616,8 @@
       videos.className = "slot-timelapses";
 
       const videoItems = [
-        ["24h", "🎬 24h", `/api/v1/public/farms/${encodeURIComponent(farmSlug)}/racks/${slot.rack_id}/slots/${slot.slot_number}/timelapse/24h`],
-        ["3d", "🎬 3d", `/api/v1/public/farms/${encodeURIComponent(farmSlug)}/racks/${slot.rack_id}/slots/${slot.slot_number}/timelapse/3d`],
+        ["24h", "🎬 24h", `/api/v1/public/farms/${encodeURIComponent(rack.farm_slug)}/racks/${slot.rack_id}/slots/${slot.slot_number}/timelapse/24h`],
+        ["3d", "🎬 3d", `/api/v1/public/farms/${encodeURIComponent(rack.farm_slug)}/racks/${slot.rack_id}/slots/${slot.slot_number}/timelapse/3d`],
         ["full", `🎞 ${labels.full}`, `/api/v1/public/plantings/${encodeURIComponent(slot.planting.id)}/timelapse/full`]
       ];
 
@@ -640,6 +643,7 @@
       button.addEventListener("click", () => openAction({
         mode: slot.available ? "purchase" : "reservation",
         resourceType: "slot",
+        deviceId: rack.device_id,
         rackId: slot.rack_id,
         slotNumber: slot.slot_number
       }));
@@ -683,7 +687,7 @@
     const grow = document.createElement("span");
     grow.textContent = `${t("growTime")}: ${plant.grow_days} ${t("daysShort")}`;
     const price = document.createElement("span");
-    price.textContent = `${t("rentalFrom")}: ${plant.rental_price_kisa} KISA`;
+    price.textContent = `${t("rentalFrom")}: ${plant.rental_price_kisa} Ⓚ`;
     meta.append(grow, price);
 
     const title = document.createElement("h3");
@@ -799,6 +803,7 @@
         hotspot.addEventListener("click", () => openAction({
           mode: slot.available ? "purchase" : "reservation",
           resourceType: "slot",
+          deviceId: rack.device_id,
           rackId: slot.rack_id,
           slotNumber: slot.slot_number
         }));
@@ -813,7 +818,7 @@
   function renderRack(rack, plantsById) {
     const card = $("#rackTemplate").content.firstElementChild.cloneNode(true);
     translateTree(card);
-    $(".rack-title", card).textContent = `${t("rack")} ${rack.rack_id}`;
+    $(".rack-title", card).textContent = `${t("rack")} ${rack.display_number ?? rack.rack_id}`;
 
     const temperature = $(".rack-temperature", card);
     if (Number.isFinite(rack.soil_temperature)) {
@@ -825,7 +830,7 @@
     const photo = $(".rack-photo", card);
     if (rack.photo_url) {
       const image = $("img", photo);
-      image.dataset.smoothPhoto = "rack-" + rack.rack_id;
+      image.dataset.smoothPhoto = "rack-" + rack.device_id + "-" + rack.rack_id;
       image.dataset.photoUrl = window.KisaMoreSmoothImages.versioned(
         rack.photo_url, rack.photo_captured_at
       );
@@ -847,12 +852,13 @@
       rackButton.addEventListener("click", () => openAction({
         mode: "purchase",
         resourceType: "rack",
+        deviceId: rack.device_id,
         rackId: rack.rack_id,
         slotNumber: null
       }));
     }
 
-    $(".slots", card).replaceChildren(...orderedSlots.map((slot) => renderSlot(slot, plantsById)));
+    $(".slots", card).replaceChildren(...orderedSlots.map((slot) => renderSlot(slot, plantsById, rack)));
     return card;
   }
 
@@ -876,13 +882,44 @@
     $("#pageUpdated").textContent = `${t("updated")}: ${new Intl.DateTimeFormat(locale(), { timeStyle: "medium" }).format(new Date())}`;
   }
 
+  async function loadFarms() {
+    const selector = $("#farmSelect");
+    try {
+      const farms = await api("/api/v1/public/farms");
+      if (!Array.isArray(farms) || farms.length === 0) return;
+      // Only reveal a selector when there's more than one public greenhouse.
+      const selected = new URLSearchParams(location.search).get("farm")
+        || localStorage.getItem("kisamore-selected-farm") || farmSlug;
+      const allowed = farms.find((farm) => farm.slug === selected);
+      if (allowed) farmSlug = allowed.slug;
+      selector.replaceChildren(...farms.map((farm) => {
+        const opt = document.createElement("option");
+        opt.value = farm.slug;
+        opt.textContent = farm.name;
+        return opt;
+      }));
+      selector.value = farmSlug;
+      selector.hidden = farms.length < 2;
+      selector.addEventListener("change", () => {
+        farmSlug = selector.value;
+        localStorage.setItem("kisamore-selected-farm", farmSlug);
+        const url = new URL(location.href);
+        url.searchParams.set("farm", farmSlug);
+        history.replaceState(null, "", url);
+        liveData = null;
+        marketData = null;
+        loadData();
+      });
+    } catch (error) {
+      console.warn("Greenhouse list unavailable; using the default farm", error);
+    }
+  }
+
   async function loadData() {
     $("#refreshButton").disabled = true;
     try {
-      [liveData, marketData] = await Promise.all([
-        api(`/api/v1/public/farms/${encodeURIComponent(farmSlug)}/live`),
-        api(`/api/v1/public/farms/${encodeURIComponent(farmSlug)}/market`)
-      ]);
+      marketData = await api("/api/v1/public/market");
+      liveData = marketData;
       $("#notice").classList.add("hidden");
       render();
     } catch (error) {
@@ -950,6 +987,7 @@
     }
     const form = $("#actionForm");
     form.reset();
+    form.dataset.deviceId = action.deviceId || "";
     form.elements.resourceType.value = action.resourceType;
     form.elements.rackId.value = action.rackId;
     form.elements.slotNumber.value = action.slotNumber ?? "";
@@ -996,9 +1034,11 @@
   }
 
   function targetLabel(item) {
+    const rack = marketData?.racks?.find((rack) => rack.device_id === item.device_id && rack.rack_id === item.rack_id);
+    const number = rack?.display_number ?? item.rack_id;
     return item.resource_type === "rack"
-      ? `${t("rack")} ${item.rack_id}`
-      : `${t("rack")} ${item.rack_id} · ${t("container")} ${item.slot_number}`;
+      ? `${t("rack")} ${number}`
+      : `${t("rack")} ${number} · ${t("container")} ${item.slot_number}`;
   }
 
   function renderAccount() {
@@ -1021,9 +1061,9 @@
     wallet.className = "account-kisa-wallet";
     wallet.id = "accountKisaWallet";
     const balance = document.createElement("strong");
-    balance.textContent = "Ⓚ —";
+    balance.textContent = "— Ⓚ";
     const title = document.createElement("span");
-    title.textContent = language === "ru" ? "Баланс Kisa" : "Kisa balance";
+    title.textContent = language === "ru" ? "Баланс Ⓚ" : "Ⓚ balance";
     const battleLink = document.createElement("a");
     battleLink.href = "/battle";
     battleLink.textContent = language === "ru" ? "Участвовать в битве →" : "Join a plant battle →";
@@ -1038,9 +1078,9 @@
     try {
       const wallet = await api("/api/v1/account/kisa-wallet");
       if (!container.isConnected || !user) return;
-      container.querySelector("strong").textContent = "Ⓚ " + wallet.balance;
+      container.querySelector("strong").textContent = wallet.balance + " Ⓚ";
     } catch (error) {
-      console.error("Kisa balance unavailable", error);
+      console.error("Ⓚ balance unavailable", error);
     }
   }
 
@@ -1203,7 +1243,7 @@
     event.preventDefault();
     const form = event.currentTarget;
     const payload = {
-      device_id: marketData.device_id,
+      device_id: form.dataset.deviceId,
       resource_type: form.elements.resourceType.value,
       rack_id: Number(form.elements.rackId.value),
       slot_number: form.elements.slotNumber.value ? Number(form.elements.slotNumber.value) : null,

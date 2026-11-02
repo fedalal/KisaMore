@@ -71,7 +71,7 @@
     var winner=b.status==="judging"&&current
       ? '<button class="battle-winner primary" data-battle="'+esc(b.id)+'" data-entry="'+esc(e.id)+'">🏆 Победитель</button>'
       : (e.is_winner?"🏆 Лучший садовод":"");
-    var archived=e.status==="refunded"?" · Возврат Kisa":e.status==="cancelled"?" · Отменено":"";
+    var archived=e.status==="refunded"?" · Возврат Ⓚ":e.status==="cancelled"?" · Отменено":"";
     var name=e.user_name||"Пользователь";
     var icon=e.user_avatar_url
       ? '<img class="battle-participant-avatar" src="'+esc(e.user_avatar_url)+'" alt="" loading="lazy" decoding="async">'
@@ -123,26 +123,69 @@
       '</div>';
   }
 
+  // Persist expanded rows after AJAX refreshes and participant actions.
+  var expandedBattles=new Set();
+
   function battleRow(b){
+    var expanded=expandedBattles.has(b.id);
+    var detailsId="battle-details-"+b.id;
+    var toggleLabel=expanded?"▾ Свернуть":"▸ Подробнее";
     var buttons=[
-      '<button class="battle-edit" data-id="'+b.id+'">✏️ Изменить</button>'
+      '<button type="button" class="battle-toggle-details" data-id="'+esc(b.id)+'"'+
+        ' aria-expanded="'+expanded+'" aria-controls="'+esc(detailsId)+'">'+toggleLabel+'</button>'
     ];
+    // Finished or cancelled battles are read-only, including on refresh.
+    if(b.status!=="finished" && b.status!=="cancelled"){
+      buttons.push('<button type="button" class="battle-edit" data-id="'+esc(b.id)+'">✏️ Изменить</button>');
+    }
     if(b.status==="ready_to_plant"){
-      buttons.push('<button class="battle-start primary" data-id="'+b.id+'">🌱 Посадить 6 растений</button>');
+      buttons.push('<button type="button" class="battle-start primary" data-id="'+esc(b.id)+'">🌱 Посадить 6 растений</button>');
     }
     if(b.status==="open"||b.status==="ready_to_plant"){
-      buttons.push('<button class="battle-cancel danger" data-id="'+b.id+'">Отменить</button>');
+      buttons.push('<button type="button" class="battle-cancel danger" data-id="'+esc(b.id)+'">Отменить</button>');
     }
-    return '<tr>'+
+
+    var registered=b.entries_count||0;
+    var current=(b.entries||[]).filter(function(e){return e.status==="active"||e.status==="finished";});
+    var participantPreview=registered+" из 6";
+    if(b.status==="finished"){
+      participantPreview+=" · итоги";
+    }
+    var overview='<tr class="battle-summary-row" data-battle-id="'+esc(b.id)+'">'+
       '<td><div class="user-name">'+esc(b.title)+'</div>'+
-      '<div class="username">'+esc(b.plant_name)+'</div>'+
-      '<div class="username">'+esc(periodText(b))+'</div></td>'+
-      '<td>'+esc(b.device_id)+'<div class="username">Полка '+b.rack_id+'</div></td>'+
-      '<td><span class="badge">'+esc(status(b.status))+'</span><div class="username">'+b.entries_count+'/6</div></td>'+
-      '<td>Ⓚ '+b.entry_price_kisa+'<div class="username">Приз: Ⓚ '+b.winner_reward_kisa+'</div></td>'+
-      '<td><div class="battle-admin-entries">'+b.entries.map(function(e){return entryHtml(b,e)}).join("")+'</div></td>'+
+        '<div class="username">'+esc(b.plant_name)+'</div>'+
+        '<div class="username">'+esc(periodText(b))+'</div></td>'+
+      '<td>'+esc(b.device_id)+'<div class="username">Полка '+esc(b.rack_id)+'</div></td>'+
+      '<td><span class="badge">'+esc(status(b.status))+'</span></td>'+
+      '<td>Ⓚ '+esc(b.entry_price_kisa)+'<div class="username">Приз: Ⓚ '+esc(b.winner_reward_kisa)+'</div></td>'+
+      '<td><span class="battle-participant-summary">'+esc(participantPreview)+'</span></td>'+
       '<td><div class="table-actions">'+buttons.join("")+'</div></td>'+
       '</tr>';
+
+    var details='<tr class="battle-details-row" id="'+esc(detailsId)+'" data-battle-id="'+esc(b.id)+'"'+
+      (expanded?"":" hidden")+'>'+
+      '<td colspan="6"><div class="battle-details-panel">'+
+        '<div class="battle-details-heading"><strong>Подробности битвы</strong>'+
+          '<span class="muted">'+esc(periodText(b))+'</span></div>'+
+        '<div class="battle-details-layout">'+
+          '<div class="battle-details-overview">'+
+            '<strong>Ресурсы на участника</strong>'+
+            '<span>💧 Вода: '+esc(b.water_budget_ml)+' мл</span>'+
+            '<span>🧪 Питательный раствор: '+esc(b.nutrient_budget_ml)+' мл</span>'+
+            '<span>🌘 Закрытие от света: '+esc(b.shade_budget_minutes)+' мин</span>'+
+            '<span>🏆 Приз победителю: Ⓚ '+esc(b.winner_reward_kisa)+'</span>'+
+            '<span>👥 Участники: '+current.length+' из 6</span>'+
+          '</div>'+
+          '<div class="battle-details-participants">'+
+            '<strong>Участники, контакты и использование ресурсов</strong>'+
+            '<div class="battle-admin-entries">'+
+              (b.entries.length?b.entries.map(function(e){return entryHtml(b,e)}).join(""):'<span class="muted">Пока нет участников.</span>')+
+            '</div>'+
+          '</div>'+
+        '</div>'+
+      '</div></td></tr>';
+
+    return overview+details;
   }
 
   function actionRows(rows){
@@ -175,6 +218,7 @@
       var rows=await api("/api/v1/admin/battles");
       battleRows={};
       rows.forEach(function(b){battleRows[b.id]=b;});
+      expandedBattles.forEach(function(id){if(!battleRows[id])expandedBattles.delete(id);});
       updateMessageBattles();
       body.innerHTML=rows.length
         ? rows.map(battleRow).join("")
@@ -363,10 +407,24 @@
   });
 
   document.getElementById("section-battles").addEventListener("click",async function(ev){
+    var toggle=ev.target.closest(".battle-toggle-details");
+    if(toggle){
+      var id=toggle.dataset.id;
+      var row=document.getElementById("battle-details-"+id);
+      if(!row)return;
+      var show=row.hidden;
+      row.hidden=!show;
+      toggle.setAttribute("aria-expanded",String(show));
+      toggle.textContent=show?"▾ Свернуть":"▸ Подробнее";
+      if(show)expandedBattles.add(id);
+      else expandedBattles.delete(id);
+      return;
+    }
+
     var b=ev.target.closest(".battle-edit");
     if(b){
       var item=battleRows[b.dataset.id];
-      if(!item)return;
+      if(!item || item.status==="finished" || item.status==="cancelled")return;
       document.getElementById("battleEditId").value=item.id;
       document.getElementById("battleEditTitle").value=item.title||"";
       document.getElementById("battleEditStartDate").value=item.start_date||"";
@@ -395,10 +453,10 @@
 
     b=ev.target.closest(".battle-cancel");
     if(b){
-      if(!confirm("Отменить битву и вернуть участникам Kisa?"))return;
+      if(!confirm("Отменить битву и вернуть участникам Ⓚ?"))return;
       try{
         await api("/api/v1/admin/battles/"+b.dataset.id+"/cancel",{method:"POST"});
-        toast("Битва отменена, Kisa возвращены.");
+        toast("Битва отменена, Ⓚ возвращены.");
         await loadOptions();
         await loadBattles();
       }catch(e){

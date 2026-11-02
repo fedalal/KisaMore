@@ -79,6 +79,11 @@ def _ensure_plant_columns(connection) -> None:
 
 
 def _ensure_marketplace_columns(connection) -> None:
+    # Keep registration/authentication and maintenance independent.
+    _ensure_columns(connection, "devices", {
+        "marketplace_status": "VARCHAR(24) NOT NULL DEFAULT 'active'",
+        "marketplace_note": "VARCHAR(250) NOT NULL DEFAULT ''",
+    })
     _ensure_columns(
         connection,
         "allocations",
