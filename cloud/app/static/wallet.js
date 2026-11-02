@@ -15,7 +15,7 @@
       perkOne:"До 3 участий за месяц",perkTwo:"Видеонаблюдение и таймлапсы",
       perkThree:"Возможность отменить продление",subButton:"Оформить подписку",
       waiting:"Онлайн-оплата через Lava.top готовится. Платежи пока не принимаются.",
-      signIn:"Для оплаты войдите в аккаунт на главной странице KisaMore.",
+      signIn:"Для оплаты войдите в аккаунт на главной странице KisaMore.",\n      testReady:"Тестовая оплата доступна только администратору. Списание денег будет настоящим.",\n      paymentReady:"Пополнение Kisa доступно. Проверьте сумму перед оплатой.",
       busy:"Создаём защищённый счёт…",error:"Не удалось создать счёт. Попробуйте позже.",
       disclaimer:"Оплата откроется через защищённую страницу Lava.top. Kisa начисляются только после подтверждения платежа сервером. Отмена подписки не отменяет уже начатые битвы.",
       privacyLink:"Конфиденциальность",plansLink:"Тарифы и условия"
@@ -32,7 +32,7 @@
       perkOne:"Up to 3 entries each month",perkTwo:"Camera photos and timelapses",
       perkThree:"Cancel auto-renewal",subButton:"Subscribe",
       waiting:"Lava.top payments are being configured. No charges are available yet.",
-      signIn:"Sign in on the KisaMore home page before payment.",
+      signIn:"Sign in on the KisaMore home page before payment.",\n      testReady:"Admin-only test checkout. Your payment will be a real charge.",\n      paymentReady:"Kisa top-up is available. Verify the amount before paying.",
       busy:"Creating secure invoice…",error:"Unable to create invoice. Please try later.",
       disclaimer:"Checkout will open on Lava.top. Kisa will be granted only after server-side payment confirmation. Cancelling membership does not affect battles already started.",
       privacyLink:"Privacy",plansLink:"Plans and terms"
@@ -42,7 +42,7 @@
   const lang=(saved || navigator.language || "ru").toLowerCase().startsWith("ru")?"ru":"en";
   let dictionary=texts[lang], authed=false,topupEnabled=false,subscriptionEnabled=false;
   function translate(language){dictionary=texts[language];$("language").value=language;document.documentElement.lang=language;
-    for(const [id,value] of Object.entries(dictionary)) if($(id) && id!=="balanceHint" && id!=="accountHint" && id!=="signIn" && id!=="busy" && id!=="error")$(id).textContent=value;
+    for(const [id,value] of Object.entries(dictionary)) if($(id) && id!=="balanceHint" && id!=="accountHint" && id!=="signIn" && id!=="testReady" && id!=="paymentReady" && id!=="busy" && id!=="error")$(id).textContent=value;
     document.title=(language==="ru"?"Кошелёк Kisa":"Kisa Wallet")+" · KisaMore";
     $("topupButton").disabled=!topupEnabled||!authed;$("subButton").disabled=!subscriptionEnabled||!authed;
     $("balanceHint").textContent=authed?dictionary.accountHint:dictionary.balanceHint;
@@ -63,8 +63,8 @@
     }
     if(wallet.status==="fulfilled") {authed=true;$("balance").textContent=wallet.value.balance;$("balanceHint").textContent=dictionary.accountHint;}
     if(catalog.status==="fulfilled" && catalog.value.enabled === true){topupEnabled=catalog.value.topup_enabled===true;subscriptionEnabled=catalog.value.subscription_enabled===true;
-      $("status").textContent=dictionary.signIn;
-      
+      $("status").textContent=!authed?dictionary.signIn:(catalog.value.test_mode?dictionary.testReady:dictionary.paymentReady);
+      if(!subscriptionEnabled) $("subButton").textContent=$("language").value==="ru"?"Подписка пока недоступна":"Subscription unavailable";
     } else {$("status").textContent=dictionary.waiting;}
     translate($("language").value);
   });
