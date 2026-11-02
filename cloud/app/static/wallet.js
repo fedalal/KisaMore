@@ -15,7 +15,9 @@
       perkOne:"До 3 участий за месяц",perkTwo:"Видеонаблюдение и таймлапсы",
       perkThree:"Возможность отменить продление",subButton:"Оформить подписку",
       waiting:"Онлайн-оплата через Lava.top готовится. Платежи пока не принимаются.",
-      signIn:"Для оплаты войдите в аккаунт на главной странице KisaMore.",\n      testReady:"Тестовая оплата доступна только администратору. Списание денег будет настоящим.",\n      paymentReady:"Пополнение Kisa доступно. Проверьте сумму перед оплатой.",
+      signIn:"Для оплаты войдите в аккаунт на главной странице KisaMore.",
+      testReady:"Тестовая оплата доступна только администратору. Списание денег будет настоящим.",
+      paymentReady:"Пополнение Kisa доступно. Проверьте сумму перед оплатой.",
       busy:"Создаём защищённый счёт…",error:"Не удалось создать счёт. Попробуйте позже.",
       disclaimer:"Оплата откроется через защищённую страницу Lava.top. Kisa начисляются только после подтверждения платежа сервером. Отмена подписки не отменяет уже начатые битвы.",
       privacyLink:"Конфиденциальность",plansLink:"Тарифы и условия"
@@ -32,7 +34,9 @@
       perkOne:"Up to 3 entries each month",perkTwo:"Camera photos and timelapses",
       perkThree:"Cancel auto-renewal",subButton:"Subscribe",
       waiting:"Lava.top payments are being configured. No charges are available yet.",
-      signIn:"Sign in on the KisaMore home page before payment.",\n      testReady:"Admin-only test checkout. Your payment will be a real charge.",\n      paymentReady:"Kisa top-up is available. Verify the amount before paying.",
+      signIn:"Sign in on the KisaMore home page before payment.",
+      testReady:"Admin-only test checkout. Your payment will be a real charge.",
+      paymentReady:"Kisa top-up is available. Verify the amount before paying.",
       busy:"Creating secure invoice…",error:"Unable to create invoice. Please try later.",
       disclaimer:"Checkout will open on Lava.top. Kisa will be granted only after server-side payment confirmation. Cancelling membership does not affect battles already started.",
       privacyLink:"Privacy",plansLink:"Plans and terms"
