@@ -98,7 +98,9 @@
     getJSON("/api/v1/payments/status?invoice_id="+encodeURIComponent(invoiceId)).then(data=>{
       $("status").textContent=data.status==="paid"
         ?($("language").value==="ru"?"Оплата подтверждена! Обновите страницу для нового баланса.":"Payment confirmed! Refresh to see your balance.")
-        :($("language").value==="ru"?"Платёж ещё проверяется. Баланс не изменён.":"Payment is still being verified. No credit has been granted.");
+        :data.status==="failed"
+          ?($("language").value==="ru"?"Оплата отменена или не прошла. Kisa не начислены.":"Payment cancelled or failed. No Kisa were granted.")
+          :($("language").value==="ru"?"Платёж ещё проверяется. Баланс не изменён.":"Payment is still being verified. No credit has been granted.");
     }).catch(()=>{$("status").textContent=dictionary.error;});
   }
   $("subButton").addEventListener("click",()=>pay("subscription"));

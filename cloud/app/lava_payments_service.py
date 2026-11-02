@@ -91,6 +91,31 @@ async def get_invoice(invoice_id: str) -> dict:
         raise RuntimeError("Lava.top returned a mismatched invoice")
     return data
 
+async def reconcile_invoice_status(session: AsyncSession, invoice_id: str) -> str:
+    """Refresh a known order from the provider, including cancelled/failed invoices.
+
+    Never credit from user return URLs or webhook payloads. Completed invoices
+    use the existing verified, exactly-once fulfillment mechanism.
+    """
+    invoice_id = _uuid(invoice_id)
+    order = (await session.execute(
+        select(LavaOrder).where(LavaOrder.provider_invoice_id == invoice_id)
+    )).scalar_one_or_none()
+    if order is None:
+        return "unmatched_invoice"
+    if order.status == "paid":
+        return "already_granted"
+    remote = await get_invoice(invoice_id)
+    if remote.get("status") == "FAILED":
+        order.status = "failed"
+        order.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+        return "confirmed_failed"
+    if remote.get("status") == "COMPLETED":
+        return await apply_verified_invoice(session, invoice_id)
+    return "pending"
+
+
 def _money_matches(invoice: dict, expected: int, currency: str) -> bool:
     receipt = invoice.get("receipt")
     if not isinstance(receipt, dict) or receipt.get("currency") != currency:

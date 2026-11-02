@@ -20,7 +20,7 @@ from .models import User
 from .lava_payments_models import LavaOrder, LavaMembership
 from .lava_payments_service import (
     enabled, TOPUP_PACKAGES, TOPUP_OFFER, SUBSCRIPTION_OFFER, MONTHLY_PRICE_USD,
-    create_lava_invoice, apply_verified_invoice, LavaBuyerEmailRejected,
+    create_lava_invoice, apply_verified_invoice, reconcile_invoice_status, LavaBuyerEmailRejected,
 )
 from .security import get_current_user, SESSION_COOKIE
 
@@ -166,7 +166,7 @@ async def order_status(invoice_id: str, user: User = Depends(get_current_user),
         raise HTTPException(404, "Payment not found")
     if order.status == "pending":
         try:
-            await apply_verified_invoice(session, invoice_id)
+            await reconcile_invoice_status(session, invoice_id)
         except (RuntimeError, ValueError):
             # Report pending rather than trusting browser's ?status=success.
             await session.rollback()
@@ -245,6 +245,17 @@ async def lava_webhook(request: Request, session: AsyncSession = Depends(get_ses
         except (RuntimeError, ValueError):
             await session.rollback()
             # Lava.top will retry later if its verification API was unavailable.
+            raise HTTPException(503, detail="Provider verification pending")
+    elif event_type in ("payment.failed", "subscription.recurring.payment.failed") and invoice_id:
+        try:
+            outcome = await reconcile_invoice_status(session, invoice_id)
+            processed = outcome in ("confirmed_failed", "already_granted")
+            event = await session.get(LavaWebhookEvent, event_key)
+            if event:
+                event.status = "processed" if processed else outcome
+                await session.commit()
+        except (RuntimeError, ValueError):
+            await session.rollback()
             raise HTTPException(503, detail="Provider verification pending")
     elif event_type in ("refund.success", "chargeback.initiated"):
         # Reconciliation required before altering credits. Never trust a refund
