@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/plant-battle
+      - main
     paths:
       - "android-battle/**"
       - "cloud/app/battle_api.py"
@@ -18,7 +18,7 @@ on:
       - "google-play/**"
   pull_request:
     branches:
-      - feature/plant-battle
+      - main
     paths:
       - "android-battle/**"
       - "cloud/app/battle_api.py"
