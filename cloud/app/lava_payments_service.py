@@ -168,11 +168,13 @@ async def apply_verified_invoice(session: AsyncSession, invoice_id: str) -> str:
     if not parent_id:
         return "renewal_without_parent"
     parent_id = _uuid(parent_id)
-    membership = await session.get(LavaMembership, parent_id, with_for_update=True)
+    # Lock order must match battle joins: User first, then membership.
+    membership = await session.get(LavaMembership, parent_id)
     if membership is None:
         return "unknown_membership"
     user = await session.get(User, membership.user_id, with_for_update=True)
-    if user is None or not _email_matches(remote, user) or not _money_matches(remote, MONTHLY_PRICE_USD, "USD"):
+    membership = await session.get(LavaMembership, parent_id, with_for_update=True, populate_existing=True)
+    if user is None or membership is None or not _email_matches(remote, user) or not _money_matches(remote, MONTHLY_PRICE_USD, "USD"):
         raise ValueError("Subscription renewal mismatch")
     if await session.get(LavaGrantedInvoice, invoice_id):
         return "already_granted"

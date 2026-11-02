@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .lava_webhook_models import LavaWebhookEvent
 from .security import get_session
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from typing import Literal
 from pydantic import BaseModel, Field
@@ -82,6 +82,16 @@ async def create_checkout(payload: CheckoutRequest,
         )).scalar_one_or_none()
         if existing:
             raise HTTPException(409, "An active Gardener+ membership already exists")
+        pending = (await session.execute(
+            select(LavaOrder).where(
+                LavaOrder.user_id == user.id,
+                LavaOrder.kind == "subscription",
+                LavaOrder.status.in_(("creating", "pending")),
+                LavaOrder.created_at > datetime.now(timezone.utc) - timedelta(hours=2),
+            ).limit(1)
+        )).scalar_one_or_none()
+        if pending:
+            raise HTTPException(409, "A Gardener+ checkout is already pending")
         amount, offer, credits = MONTHLY_PRICE_USD, SUBSCRIPTION_OFFER, 0
 
     order = LavaOrder(
