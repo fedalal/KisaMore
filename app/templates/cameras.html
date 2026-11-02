@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Камеры · KisaMore</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260911-1">
+  <title>{{ greenhouse_name }} · Камеры · KisaMore</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20261030-identity">
 </head>
 <body>
   <header class="top">
@@ -16,6 +16,7 @@
           <div class="subtitle">Одиночные кадры и настройка изображения</div>
         </div>
       </div>
+      {% include "_greenhouse_identity.html" %}
       <div class="right">
         <button id="backBtn" class="btn btn--ghost">Назад</button>
         <button id="addCameraBtn" class="btn btn--ghost">Добавить камеру</button>

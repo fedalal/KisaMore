@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, timezone
 from typing import List, Literal, Dict, Optional
+from .hw_config import GPIORelaySettings, RS485Settings
 
 Mode = Literal["manual", "schedule"]
 
@@ -59,7 +60,7 @@ class ModeSetIn(BaseModel):
 
 class RackHWOut(BaseModel):
     light_relay: int
-    water_relay: int
+    water_relay: Optional[int] = None
     sensor_slave_id: Optional[int] = None
     camera_id: Optional[str] = None
     camera_ids: List[str] = Field(default_factory=list)
@@ -102,6 +103,9 @@ class CameraCaptureOut(BaseModel):
 
 class HWConfigOut(BaseModel):
     racks_count: int
+    relay_backend: Literal["rs485", "gpio"] = "rs485"
+    gpio_relays: GPIORelaySettings = Field(default_factory=GPIORelaySettings)
+    rs485: Optional[RS485Settings] = None
     racks: Dict[str, RackHWOut] = Field(default_factory=dict)
     cameras: Dict[str, CameraHWOut] = Field(default_factory=dict)
     camera_capture: CameraCaptureOut = Field(default_factory=CameraCaptureOut)

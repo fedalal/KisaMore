@@ -13,6 +13,7 @@ let refreshTimer = null;
 let isBusy = false;
 
 let cfgState = null;
+let cfgLoadedBackend = null;
 
 async function api(path, method="GET", body=null){
   const res = await fetch(path, {
@@ -588,8 +589,9 @@ function openCfgModal(show){
 }
 
 function relayNumOptions(selected){
-  const opts = [];
-  for(let i=1;i<=16;i++){
+  const opts = ['<option value="" ' + (selected == null ? "selected" : "") + '>нет</option>'];
+  const limit = cfgState && cfgState.relay_backend === "gpio" ? 8 : 16;
+  for(let i=1;i<=limit;i++){
     opts.push(`<option value="${i}" ${String(i)===String(selected) ? "selected":""}>${i}</option>`);
   }
   return opts.join("");
@@ -633,6 +635,25 @@ function escapeHtml(value){
 
 function renderCfg(){
   if(!cfgState) return;
+  const backend = cfgState.relay_backend || "rs485";
+  document.getElementById("cfgRelayBackend").value = backend;
+  document.getElementById("cfgGPIOSettings").style.display = backend === "gpio" ? "" : "none";
+  document.getElementById("cfgRS485Settings").style.display = backend === "rs485" ? "" : "none";
+  const channels = cfgState.gpio_relays.channels;
+  document.getElementById("cfgGPIOSettings").innerHTML =
+    '<div class="hint">Номера BCM для восьми каналов платы Waveshare (не номера физических контактов).</div>' +
+    '<div class="cfgPinGrid">' +
+    Object.keys(channels).sort((a,b)=>Number(a)-Number(b)).map(ch=>
+      '<label class="cfgPinItem">Реле '+ch+' → GPIO <input class="cfgInput" type="number" min="0" max="27" value="'+
+      Number(channels[ch])+'" onchange="cfgGpioPinChange('+ch+', this.value)"></label>'
+    ).join("") +
+    '</div><label class="cfgPinItem"><input type="checkbox" id="cfgGPIOActiveLow" '+
+    (cfgState.gpio_relays.active_low ? "checked" : "")+
+    ' onchange="cfgGpioActiveLowChange(this.checked)"> Active LOW (Waveshare)</label>';
+  const rs = cfgState.rs485 || {};
+  document.getElementById("cfgRS485Port").value = rs.port || "/dev/ttyUSB0";
+  document.getElementById("cfgRS485Baud").value = rs.baudrate || 9600;
+  document.getElementById("cfgRS485Slave").value = rs.slave_id || 5;
 
   document.getElementById("cfgRacksCount").value = cfgState.racks_count;
 
@@ -712,9 +733,27 @@ function renderCfg(){
   document.getElementById("cfgRacksTable").innerHTML = rows.join("");
 }
 
+function cfgRelayBackendChange(value){
+  cfgState.relay_backend = value;
+  if(value === "rs485" && !cfgState.rs485){
+    cfgState.rs485 = {port:"/dev/ttyUSB0", baudrate:9600, parity:"N",
+      stopbits:1, bytesize:8, slave_id:5, coil_base:0, timeout:1.0};
+  }
+  renderCfg();
+}
+function cfgGpioPinChange(channel, value){
+  cfgState.gpio_relays.channels[String(channel)] = Number(value);
+}
+function cfgGpioActiveLowChange(checked){
+  cfgState.gpio_relays.active_low = Boolean(checked);
+}
+function cfgRS485Change(field, value){
+  if(!cfgState.rs485) return;
+  cfgState.rs485[field] = field === "port" ? String(value).trim() : Number(value);
+}
 function cfgRackRelayChange(rackId, field, value){
   const rk = String(rackId);
-  cfgState.racks[rk][field] = Number(value);
+  cfgState.racks[rk][field] = value === "" ? null : Number(value);
 }
 
 function cfgRackSensorChange(rackId, value){
@@ -838,6 +877,10 @@ async function loadCfg(){
   try{
     isBusy = true;
     cfgState = await api("/api/config");
+    cfgState.relay_backend = cfgState.relay_backend || "rs485";
+    cfgLoadedBackend = cfgState.relay_backend;
+    cfgState.gpio_relays = cfgState.gpio_relays ||
+      {channels:{1:5,2:6,3:13,4:16,5:19,6:20,7:21,8:26}, active_low:true};
     cfgState.racks = cfgState.racks || {};
     cfgState.cameras = cfgState.cameras || {};
 
@@ -877,8 +920,10 @@ async function saveCfg(){
     for(const k of Object.keys(cfgState.racks)){
       const r = cfgState.racks[k];
 
-      if(r.light_relay < 1 || r.light_relay > 16 || r.water_relay < 1 || r.water_relay > 16){
-        alert("Номер реле должен быть 1..16");
+      const maxRelay = cfgState.relay_backend === "gpio" ? 8 : 16;
+      if(r.light_relay == null || r.light_relay < 1 || r.light_relay > maxRelay ||
+         (r.water_relay != null && (r.water_relay < 1 || r.water_relay > maxRelay))){
+        alert("Номер реле должен быть 1.." + maxRelay);
 
         const rackId = Number(k);
         const selL = document.querySelector(`.cfgSelect[onchange="cfgRackRelayChange(${rackId}, 'light_relay', this.value)"]`);
@@ -919,7 +964,7 @@ async function saveCfg(){
       const r = cfgState.racks[k];
 
       addUse(r.light_relay, rackId, "light_relay", `Стеллаж ${rackId} — Свет`);
-      addUse(r.water_relay, rackId, "water_relay", `Стеллаж ${rackId} — Полив`);
+      if(r.water_relay != null) addUse(r.water_relay, rackId, "water_relay", `Стеллаж ${rackId} — Полив`);
     }
 
     const dups = [];
@@ -952,7 +997,6 @@ async function saveCfg(){
       if(!sensorUsed.has(sid)) sensorUsed.set(sid, []);
       sensorUsed.get(sid).push(rackId);
     }
-
     for(const [sid, rackIds] of sensorUsed.entries()){
       if(rackIds.length > 1){
         rackIds.forEach(rackId => {
@@ -968,7 +1012,27 @@ async function saveCfg(){
       return;
     }
 
+    if(cfgState.relay_backend === "gpio"){
+      const pins = Object.values(cfgState.gpio_relays.channels).map(Number);
+      if(pins.some(pin=>!Number.isInteger(pin)||pin<0||pin>27) || new Set(pins).size!==pins.length){
+        alert("Номера GPIO должны быть уникальными и находиться в диапазоне BCM 0..27.");
+        return;
+      }
+    }else{
+      if(!cfgState.rs485 || !cfgState.rs485.port ||
+         !Number.isInteger(cfgState.rs485.baudrate) ||
+         !Number.isInteger(cfgState.rs485.slave_id) ||
+         cfgState.rs485.slave_id<1 || cfgState.rs485.slave_id>247){
+        alert("Проверь порт, скорость и адрес платы RS485.");
+        return;
+      }
+    }
+    if(cfgLoadedBackend && cfgLoadedBackend !== cfgState.relay_backend &&
+       !window.confirm("Изменится физический способ управления реле. Убедись, что нужная плата подключена. Продолжить?")){
+      return;
+    }
     await api("/api/config", "POST", cfgState);
+    cfgLoadedBackend = cfgState.relay_backend;
     openCfgModal(false);
     await refresh();
 
@@ -1021,6 +1085,10 @@ document.getElementById("cfgClose").addEventListener("click", ()=>openCfgModal(f
 document.getElementById("cfgX").addEventListener("click", ()=>openCfgModal(false));
 document.getElementById("cfgCancel").addEventListener("click", ()=>openCfgModal(false));
 document.getElementById("cfgSave").addEventListener("click", saveCfg);
+document.getElementById("cfgRelayBackend").addEventListener("change", (e)=>cfgRelayBackendChange(e.target.value));
+document.getElementById("cfgRS485Port").addEventListener("change", (e)=>cfgRS485Change("port",e.target.value));
+document.getElementById("cfgRS485Baud").addEventListener("change", (e)=>cfgRS485Change("baudrate",e.target.value));
+document.getElementById("cfgRS485Slave").addEventListener("change", (e)=>cfgRS485Change("slave_id",e.target.value));
 document.getElementById("cfgRacksCount").addEventListener("change", (e)=>cfgRacksCountChange(e.target.value));
 
 initCameraWindowDrag();

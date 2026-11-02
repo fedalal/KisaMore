@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KisaMore — Growing</title>
-  <link rel="stylesheet" href="/static/growing.css?v=5">
+  <title>{{ greenhouse_name }} · KisaMore — Growing</title>
+  <link rel="stylesheet" href="/static/growing.css?v=20261030-identity">
   <link rel="stylesheet" href="/static/growing_watering.css?v=20260910-1">
   <script src="/static/growing.js?v=9" defer></script>
   <script src="/static/growing_sort.js?v=1" defer></script>
@@ -15,6 +15,7 @@
 <body>
   <header class="topbar">
     <a href="/" class="brand">KisaMore</a>
+    {% include "_greenhouse_identity.html" %}
     <div class="topbar-actions">
       <a href="/" data-i18n="dashboard">Dashboard</a>
       <select id="languageSelect" aria-label="Language">

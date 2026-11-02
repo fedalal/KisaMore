@@ -19,6 +19,17 @@ async def set_config(payload: HWConfig):
     # нужно сохранять из текущего config/kisamore.yaml.
     existing = runtime.cfg or load_config()
 
+    # Older config editors do not expose relay_backend / gpio_relays.
+    # Preserve the physical output backend instead of silently reverting to
+    # RS485 when saving camera or schedule settings on a GPIO greenhouse.
+    updates = {}
+    if "relay_backend" not in payload.model_fields_set:
+        updates["relay_backend"] = existing.relay_backend
+    if "gpio_relays" not in payload.model_fields_set:
+        updates["gpio_relays"] = existing.gpio_relays
+    if updates:
+        payload = payload.model_copy(update=updates)
+
     if payload.rs485 is None and existing.rs485 is not None:
         payload = payload.model_copy(update={"rs485": existing.rs485})
 
@@ -53,7 +64,8 @@ async def set_config(payload: HWConfig):
             used.setdefault(int(relay_num), []).append(label)
 
         add(rack.light_relay, f"Стеллаж {rid} — Свет")
-        add(rack.water_relay, f"Стеллаж {rid} — Полив")
+        if rack.water_relay is not None:
+            add(rack.water_relay, f"Стеллаж {rid} — Полив")
 
     # Проверка: все камеры, назначенные полке, должны существовать.
     for rack_id, rack in payload.racks.items():
@@ -84,10 +96,34 @@ async def set_config(payload: HWConfig):
             detail="Одно и то же реле назначено нескольким устройствам: " + " | ".join(lines),
         )
 
+    # Re-validate copied fields; model_copy(update=...) skips Pydantic validators.
+    payload = HWConfig.model_validate(payload.model_dump())
+
+    # Reject switching to a disconnected RS485 adapter before writing config.
+    if existing.relay_backend != "rs485" and payload.relay_backend == "rs485":
+        import os
+        if not payload.rs485 or not os.path.exists(payload.rs485.port):
+            raise HTTPException(status_code=400,
+                detail="RS485 adapter not found. Connect the adapter and check its serial port.")
+
+    def relay_wiring(cfg: HWConfig):
+        # Camera-only changes should not toggle live relays. Changing the
+        # relay hardware, rack count, or channel assignments requires resync.
+        return (
+            cfg.racks_count,
+            cfg.relay_backend,
+            cfg.gpio_relays.model_dump() if cfg.relay_backend == "gpio" else None,
+            cfg.rs485.model_dump() if cfg.relay_backend == "rs485" and cfg.rs485 else None,
+            {k: (r.light_relay, r.water_relay) for k, r in cfg.racks.items()},
+        )
+
+    wiring_changed = relay_wiring(existing) != relay_wiring(payload)
     save_config(payload)
 
-    # переинициализируем драйвер/конфиг в runtime
+    # Reuse existing GPIO outputs if physical wiring did not change.
     await runtime.init_runtime(active_low=True)
     await ensure_db_racks(runtime.cfg.racks_count)
+    if wiring_changed:
+        await runtime.safety_reset_and_sync_relays()
 
     return {"ok": True}

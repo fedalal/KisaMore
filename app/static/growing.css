@@ -79,3 +79,16 @@ dialog footer { justify-content: flex-end; margin-top: 20px; }
   .plant-editor-footer-actions { justify-content: flex-end; }
 }
 @media (max-width: 650px) { .hero { align-items: start; flex-direction: column; } .racks-grid { grid-template-columns: 1fr; } .slots { grid-template-columns: repeat(2, 1fr); } .topbar-actions a { display: none; } }
+
+/* Same local greenhouse identity in the separate growing workspace. */
+.greenhouse-identity{
+  display:flex;flex-direction:column;gap:3px;padding:9px 13px;
+  background:#eaf0ff;border:1px solid #b8c6eb;
+  border-radius:12px;color:#183466;min-width:175px;
+}
+.greenhouse-identity__name{font-size:15px;font-weight:800;line-height:1.2}
+.greenhouse-identity__details{font-size:11px;overflow-wrap:anywhere;opacity:.8}
+@media(max-width:720px){
+  .topbar{flex-wrap:wrap;gap:12px;}
+  .greenhouse-identity{flex:1 1 100%;order:2}
+}

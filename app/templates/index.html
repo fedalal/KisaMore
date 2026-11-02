@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Система KisaMore</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <title>{{ greenhouse_name }} · Система KisaMore</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20261030-identity">
 </head>
 <body>
   <header class="top">
@@ -16,6 +16,7 @@
           <div class="subtitle">Стеллажи · освещение · индивидуальный ручной полив</div>
         </div>
       </div>
+      {% include "_greenhouse_identity.html" %}
       <div class="right">
         <button id="settingsBtn" class="btn btn--ghost">Настройки</button>
         <button id="growingPageBtn" class="btn btn--ghost">Растения</button>
@@ -79,6 +80,20 @@
 
       <div class="modal__body">
         <div class="cfgGrid">
+          <div class="cfgRow">
+            <div class="cfgLabel">Подключение релейной платы</div>
+            <select id="cfgRelayBackend" class="cfgSelect">
+              <option value="gpio">GPIO — напрямую к Raspberry Pi (8 каналов)</option>
+              <option value="rs485">RS485 — Modbus RTU (16 каналов)</option>
+            </select>
+          </div>
+          <div id="cfgGPIOSettings" class="cfgBackendSettings"></div>
+          <div id="cfgRS485Settings" class="cfgBackendSettings" style="display:none">
+            <div class="cfgRow"><div class="cfgLabel">RS485 — порт</div><input class="cfgInput" id="cfgRS485Port" placeholder="/dev/ttyUSB0" maxlength="120"></div>
+            <div class="cfgRow"><div class="cfgLabel">Скорость (baud)</div><input class="cfgInput" id="cfgRS485Baud" type="number" min="1200" max="115200"></div>
+            <div class="cfgRow"><div class="cfgLabel">Адрес Modbus</div><input class="cfgInput" id="cfgRS485Slave" type="number" min="1" max="247"></div>
+            <div class="hint">Для RS485 нужен физически подключённый адаптер с правильным адресом и настройками порта.</div>
+          </div>
           <div class="cfgRow">
             <div class="cfgLabel">Количество стеллажей</div>
             <input id="cfgRacksCount" type="number" min="1" max="16" />

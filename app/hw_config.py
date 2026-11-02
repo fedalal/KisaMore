@@ -75,7 +75,8 @@ class CameraHW(BaseModel):
 
 class RackHW(BaseModel):
     light_relay: int = Field(ge=1, le=16)
-    water_relay: int = Field(ge=1, le=16)
+    # None means that this rack does not have an electric watering valve.
+    water_relay: Optional[int] = Field(default=None, ge=1, le=16)
     sensor_slave_id: Optional[int] = Field(default=None, ge=1, le=247)
 
     # Основная камера полки. Поле сохраняется для полной обратной совместимости.
@@ -123,6 +124,15 @@ class RS485Settings(BaseModel):
     timeout: float = Field(default=1.0, ge=0.1, le=10.0)
 
 
+# Waveshare RPi Relay Board (B), SKU 15423: channel -> BCM GPIO (not physical pin).
+WAVESHARE_8CH_BCM = {1: 5, 2: 6, 3: 13, 4: 16, 5: 19, 6: 20, 7: 21, 8: 26}
+
+
+class GPIORelaySettings(BaseModel):
+    channels: Dict[int, int] = Field(default_factory=lambda: dict(WAVESHARE_8CH_BCM))
+    active_low: bool = True
+
+
 class HWConfig(BaseModel):
     racks_count: int = Field(ge=1, le=16)
     racks: Dict[str, RackHW] = Field(default_factory=dict)
@@ -130,7 +140,12 @@ class HWConfig(BaseModel):
     # Общий список камер. Полки ссылаются на камеру через rack.camera_id.
     cameras: Dict[str, CameraHW] = Field(default_factory=dict)
 
-    # RS485 settings (Modbus RTU)
+    # Independently selectable relay output backend, per Raspberry Pi.
+    # Old configurations without this field continue using the RS485 relay.
+    relay_backend: Literal["rs485", "gpio"] = "rs485"
+    gpio_relays: GPIORelaySettings = Field(default_factory=GPIORelaySettings)
+
+    # Optional RS485 bus: relay outputs on legacy Pi; soil sensors on either Pi.
     rs485: Optional[RS485Settings] = None
 
     # NEW: датчики уровня/входы (имя -> GPIO BCM)
@@ -138,6 +153,43 @@ class HWConfig(BaseModel):
 
     # Настройки автоматической отправки фото с камер в Google Drive
     camera_capture: CameraCaptureConfig = Field(default_factory=CameraCaptureConfig)
+
+    @model_validator(mode="after")
+    def validate_relay_backend(self):
+        if self.relay_backend == "rs485":
+            if self.rs485 is None:
+                raise ValueError("RS485 relay backend requires rs485 settings")
+            return self
+        channels = self.gpio_relays.channels
+        if not channels:
+            raise ValueError("gpio_relays.channels must not be empty")
+        if any(not 1 <= ch <= 8 for ch in channels):
+            raise ValueError("GPIO relay channels must be 1..8")
+        if any(not 0 <= pin <= 27 for pin in channels.values()):
+            raise ValueError("GPIO values must be BCM 0..27")
+        if len(set(channels.values())) != len(channels):
+            raise ValueError("Two relay channels use the same GPIO pin")
+        conflicts = set(channels.values()) & set(self.level_sensors.values())
+        if conflicts:
+            raise ValueError(f"GPIO pins shared with level sensors: {sorted(conflicts)}")
+        # Never synthesize missing GPIO rack assignments from legacy defaults:
+        # that would reuse relays 1/2 for a second rack.
+        missing = [str(i) for i in range(1, self.racks_count + 1)
+                   if str(i) not in self.racks]
+        if missing:
+            raise ValueError(f"Missing GPIO rack configurations: {', '.join(missing)}")
+        assigned: list[int] = []
+        for rack_id, rack in self.racks.items():
+            if int(rack_id) > self.racks_count:
+                continue
+            assigned.append(rack.light_relay)
+            if rack.water_relay is not None:
+                assigned.append(rack.water_relay)
+        if any(ch not in channels for ch in assigned):
+            raise ValueError("Rack uses relay channel missing in gpio_relays.channels")
+        if len(set(assigned)) != len(assigned):
+            raise ValueError("Each rack light/water needs a distinct relay channel")
+        return self
 
     @field_validator("racks")
     @classmethod
@@ -319,7 +371,9 @@ def load_config() -> HWConfig:
                 )
             need_save = True
 
-    if not cfg.level_sensors:
+    # Preserve old Raspberry Pi defaults, but do not invent GPIO inputs on a
+    # newly installed Waveshare Pi until level sensors are physically wired.
+    if not cfg.level_sensors and cfg.relay_backend == "rs485":
         cfg.level_sensors = {
             "level_1": 22,
             "level_2": 27,
