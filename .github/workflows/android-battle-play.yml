@@ -10,7 +10,7 @@ on:
     tags:
       - "battle-v*"
     branches:
-      - feature/plant-battle
+      - main
     paths:
       - "android-battle/**"
       - ".github/workflows/android-battle-play.yml"
