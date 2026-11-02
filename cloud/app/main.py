@@ -27,6 +27,7 @@ from .bootstrap_admin import bootstrap_admin
 from .config import get_settings
 from .db import create_tables, engine
 from .marketplace_api import router as marketplace_router
+from .lava_webhook_api import router as lava_webhook_router
 from .greenhouse_pool_api import router as greenhouse_pool_router
 from .plant_sos_admin_api import router as plant_sos_admin_router
 from .promotion_admin_api import router as promotion_admin_router
@@ -165,6 +166,7 @@ app.include_router(preferences_router)
 app.include_router(analytics_router)
 app.include_router(app_activity_router)
 app.include_router(marketplace_router)
+app.include_router(lava_webhook_router)
 app.include_router(greenhouse_pool_router)
 app.include_router(battle_messages_router)
 app.include_router(battle_router)

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from .config import get_settings
 from .models import Base
 from .site_wallet import SiteWallet, SiteWalletTransaction  # noqa: F401 - website Kisa wallets
+from .lava_webhook_models import LavaWebhookEvent  # noqa: F401 - Lava event inbox
 from .battle_models import PlantBattle, PlantBattleAction, PlantBattleEntry  # noqa: F401 - register battle tables
 from .battle_message_models import BattleAdminMessage, BattleMessageReceipt  # noqa: F401
 from .battle_push_models import BattlePushDevice, BattlePushDelivery  # noqa: F401
