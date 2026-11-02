@@ -5,7 +5,7 @@ import hashlib
 import hmac
 import json
 import os
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from .lava_webhook_models import LavaWebhookEvent
@@ -22,7 +22,7 @@ from .lava_payments_service import (
     enabled, TOPUP_PACKAGES, TOPUP_OFFER, SUBSCRIPTION_OFFER, MONTHLY_PRICE_USD,
     create_lava_invoice, apply_verified_invoice,
 )
-from .security import get_current_user
+from .security import get_current_user, SESSION_COOKIE
 
 router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
 
@@ -43,11 +43,33 @@ def _authenticated(header: str | None) -> bool:
         return False
     return hmac.compare_digest(username, supplied_user) and hmac.compare_digest(password, supplied_password)
 
+def test_admin_enabled(user: User | None) -> bool:
+    """A production payment test is limited to the authenticated site admin."""
+    return bool(
+        user and user.is_active and user.role == "admin"
+        and os.getenv("KISAMORE_LAVA_TEST_ADMIN_ENABLED", "").strip().lower() == "true"
+        and os.getenv("KISAMORE_LAVA_API_KEY", "")
+    )
+
+
 @router.get("/catalog")
-async def payment_catalog():
-    active = enabled()
+async def payment_catalog(
+    session_token: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    session: AsyncSession = Depends(get_session),
+):
+    admin_user = None
+    if session_token:
+        try:
+            admin_user = await get_current_user(session_token, session)
+        except HTTPException:
+            pass
+    public = enabled()
+    tester = test_admin_enabled(admin_user)
     return {
-        "enabled": active, "topup_enabled": active, "subscription_enabled": active,
+        "enabled": public or tester,
+        "topup_enabled": public or tester,
+        "subscription_enabled": public,
+        "test_mode": tester and not public,
         "packages": list(TOPUP_PACKAGES), "subscription_entries": 3,
         "subscription_price_usd": MONTHLY_PRICE_USD,
     }
@@ -62,8 +84,9 @@ class CheckoutRequest(BaseModel):
 async def create_checkout(payload: CheckoutRequest,
                           user: User = Depends(get_current_user),
                           session: AsyncSession = Depends(get_session)):
-    if not enabled():
-        raise HTTPException(503, "Payments are not enabled")
+    public = enabled()
+    if not public and not (test_admin_enabled(user) and payload.kind == "topup"):
+        raise HTTPException(503, "Payments are not enabled for this account")
     if payload.kind == "topup":
         if payload.kisa not in TOPUP_PACKAGES:
             raise HTTPException(422, "Unsupported Kisa package")
