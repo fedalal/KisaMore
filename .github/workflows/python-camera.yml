@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/plant-battle
+      - main
     paths:
       - "app/**"
       - "cloud/app/**"
@@ -12,7 +12,7 @@ on:
       - ".github/workflows/python-camera.yml"
   pull_request:
     branches:
-      - feature/plant-battle
+      - main
     paths:
       - "app/**"
       - "cloud/app/**"
