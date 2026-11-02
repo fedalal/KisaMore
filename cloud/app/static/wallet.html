@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#08140e">
+<meta name="robots" content="noindex">
+<title>KisaMore · Кошелёк Kisa</title>
+<link rel="stylesheet" href="/static/wallet.css?v=1">
+<script src="/static/wallet.js?v=1" defer></script>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/"><b>Ⓚ</b><span>KisaMore</span></a><nav><a href="/pricing" id="navPlans">Тарифы</a><a href="/battle" id="navBattles">Битвы</a><a href="/" id="navHome">На главную</a></nav><select id="language" aria-label="Language"><option value="ru">RU</option><option value="en">EN</option></select></header>
+<main>
+<section class="heading"><p class="eyebrow">KISAMORE · KISA WALLET</p><h1 id="title">Кошелёк Kisa</h1><p id="subtitle">Пополнение внутреннего баланса и участие в битвах настоящих растений.</p></section>
+<section class="balance" aria-live="polite"><div><span id="balanceLabel">Ваш баланс</span><div class="amount"><strong id="balance">—</strong> <span>Ⓚ</span></div><small id="balanceHint">Войдите в аккаунт KisaMore, чтобы увидеть баланс.</small></div><a class="historylink" href="/battle" id="openAccount">Личный кабинет ↗</a></section>
+<section class="cards">
+<div class="card">
+<div class="pict">◈</div><h2 id="topupTitle">Пополнить баланс</h2><p id="topupDesc">Kisa используются для выращивания растений и участия в битвах. Не обмениваются на деньги.</p>
+<fieldset id="topupAmount"><legend id="amountLabel">Количество Kisa</legend>
+<div class="amounts"><label><input type="radio" name="amount" value="10"><span>10 Ⓚ</span></label><label><input type="radio" name="amount" value="20" checked><span>20 Ⓚ</span></label><label><input type="radio" name="amount" value="50"><span>50 Ⓚ</span></label><label><input type="radio" name="amount" value="100"><span>100 Ⓚ</span></label></div></fieldset>
+<button class="primary" id="topupButton" disabled>Подключение оплаты</button>
+</div>
+<div class="card gold">
+<div class="pict">✦</div><div class="tag" id="planTag">ДЛЯ УЧАСТНИКОВ БИТВ</div>
+<h2 id="planTitle">Садовод+</h2><div class="price">30 Ⓚ <small id="perMonth">/ месяц</small></div>
+<p id="planDesc">До 3 разных битв за оплаченный месяц. Каждое участие даёт одно место для выращивания растения.</p>
+<ul><li id="perkOne">До 3 участий за месяц</li><li id="perkTwo">Видеонаблюдение и таймлапсы</li><li id="perkThree">Возможность отменить продление</li></ul>
+<button class="primary goldbutton" id="subButton" disabled>Подключение подписки</button>
+</div>
+</section>
+<div class="notice" role="status" id="status">Онлайн-оплата через Lava.top готовится. Платежи пока не принимаются.</div>
+<p class="disclaimer" id="disclaimer">Оплата откроется через защищённую страницу Lava.top. Kisa начисляются только после подтверждения платежа сервером. Отмена подписки не отменяет уже начатые битвы.</p>
+<p class="footer"><a href="/privacy" id="privacyLink">Конфиденциальность</a> · <a href="/pricing" id="plansLink">Тарифы и условия</a> · KisaMore</p>
+</main></body></html>

@@ -50,6 +50,7 @@ DASHBOARD_TEMPLATE = STATIC_DIR / "index.html"
 ADMIN_TEMPLATE = STATIC_DIR / "admin.html"
 BATTLE_TEMPLATE = STATIC_DIR / "battle_site.html"
 PRICING_TEMPLATE = STATIC_DIR / "pricing.html"
+WALLET_TEMPLATE = STATIC_DIR / "wallet.html"
 PRIVACY_TEMPLATE = STATIC_DIR / "privacy.html"
 DELETE_ACCOUNT_TEMPLATE = STATIC_DIR / "delete_account.html"
 
@@ -115,6 +116,11 @@ async def pricing_page() -> HTMLResponse:
         PRICING_TEMPLATE.read_text(encoding="utf-8"),
         headers={"Cache-Control": "no-cache"},
     )
+
+
+@app.get("/wallet", response_class=HTMLResponse, include_in_schema=False)
+async def wallet_page() -> HTMLResponse:
+    return HTMLResponse(WALLET_TEMPLATE.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})
 
 
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
