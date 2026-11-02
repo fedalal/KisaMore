@@ -16,6 +16,10 @@ from .lava_payments_models import LavaGrantedInvoice, LavaMembership, LavaOrder
 from .models import User
 from .site_wallet import locked_wallet, record_wallet_change
 
+class LavaBuyerEmailRejected(RuntimeError):
+    """Provider refused this buyer email; do not retry with the seller account."""
+    pass
+
 LAVA_API = "https://gate.lava.top"
 TOPUP_OFFER = "5bdc8f1f-a2a9-43eb-8ec3-4783aeb3cc04"
 SUBSCRIPTION_OFFER = "f0af1395-e62d-4c7b-8d97-45b3d2032970"
@@ -59,7 +63,15 @@ async def create_lava_invoice(*, email: str, offer_id: str, kind: str, amount: i
         response = await client.post(LAVA_API + "/api/v3/invoice", json=body,
                                      headers={**_headers(), "Content-Type": "application/json"})
     if response.status_code != 201:
-        # Do not surface provider response: it may contain customer information.
+        # Only expose a recognized, non-sensitive error class to our UI.
+        # Never return raw provider responses containing customer data.
+        if response.status_code == 400:
+            try:
+                reason = response.json().get("error")
+            except (ValueError, AttributeError):
+                reason = None
+            if isinstance(reason, str) and reason.strip().casefold() == "incorrect email to purchase":
+                raise LavaBuyerEmailRejected("Lava.top refused the purchaser email")
         raise RuntimeError("Lava.top rejected invoice creation: " + str(response.status_code))
     data = response.json()
     invoice_id = _uuid(data.get("id"))

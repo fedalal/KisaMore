@@ -20,7 +20,7 @@ from .models import User
 from .lava_payments_models import LavaOrder, LavaMembership
 from .lava_payments_service import (
     enabled, TOPUP_PACKAGES, TOPUP_OFFER, SUBSCRIPTION_OFFER, MONTHLY_PRICE_USD,
-    create_lava_invoice, apply_verified_invoice,
+    create_lava_invoice, apply_verified_invoice, LavaBuyerEmailRejected,
 )
 from .security import get_current_user, SESSION_COOKIE
 
@@ -44,11 +44,19 @@ def _authenticated(header: str | None) -> bool:
     return hmac.compare_digest(username, supplied_user) and hmac.compare_digest(password, supplied_password)
 
 def test_admin_enabled(user: User | None) -> bool:
-    """A production payment test is limited to the authenticated site admin."""
-    return bool(
-        user and user.is_active and user.role == "admin"
-        and os.getenv("KISAMORE_LAVA_TEST_ADMIN_ENABLED", "").strip().lower() == "true"
-        and os.getenv("KISAMORE_LAVA_API_KEY", "")
+    """Only the site admin or one explicitly approved test buyer can test checkout.
+
+    Test buyer is keyed by the immutable website user UUID, never by an
+    unverified email address. Public payments remain disabled.
+    """
+    if not user or not user.is_active or not os.getenv("KISAMORE_LAVA_API_KEY", ""):
+        return False
+    if os.getenv("KISAMORE_LAVA_TEST_ADMIN_ENABLED", "").strip().lower() != "true":
+        return False
+    test_buyer_id = os.getenv("KISAMORE_LAVA_TEST_BUYER_ID", "").strip().lower()
+    return user.role == "admin" or (
+        user.role == "customer" and bool(test_buyer_id)
+        and user.id.strip().lower() == test_buyer_id
     )
 
 
@@ -127,6 +135,11 @@ async def create_checkout(payload: CheckoutRequest,
     try:
         invoice, checkout_url = await create_lava_invoice(
             email=user.email, offer_id=offer, kind=payload.kind, amount=amount)
+    except LavaBuyerEmailRejected:
+        order.status = "creation_failed"
+        order.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+        raise HTTPException(400, detail="lava_buyer_email_rejected")
     except Exception:
         order.status = "creation_failed"
         order.updated_at = datetime.now(timezone.utc)

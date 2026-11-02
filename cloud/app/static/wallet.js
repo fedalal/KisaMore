@@ -18,6 +18,7 @@
       signIn:"Для оплаты войдите в аккаунт на главной странице KisaMore.",
       testReady:"Тестовая оплата доступна только администратору. Списание денег будет настоящим.",
       paymentReady:"Пополнение Kisa доступно. Проверьте сумму перед оплатой.",
+      emailRejected:"Lava.top отклонил email покупателя. Проверьте, что он отличается от email продавца Lava.top.",
       busy:"Создаём защищённый счёт…",error:"Не удалось создать счёт. Попробуйте позже.",
       disclaimer:"Оплата откроется через защищённую страницу Lava.top. Kisa начисляются только после подтверждения платежа сервером. Отмена подписки не отменяет уже начатые битвы.",
       privacyLink:"Конфиденциальность",plansLink:"Тарифы и условия"
@@ -37,6 +38,7 @@
       signIn:"Sign in on the KisaMore home page before payment.",
       testReady:"Admin-only test checkout. Your payment will be a real charge.",
       paymentReady:"Kisa top-up is available. Verify the amount before paying.",
+      emailRejected:"Lava.top rejected the buyer email. Use a customer account with an email different from the Lava.top seller.",
       busy:"Creating secure invoice…",error:"Unable to create invoice. Please try later.",
       disclaimer:"Checkout will open on Lava.top. Kisa will be granted only after server-side payment confirmation. Cancelling membership does not affect battles already started.",
       privacyLink:"Privacy",plansLink:"Plans and terms"
@@ -46,7 +48,7 @@
   const lang=(saved || navigator.language || "ru").toLowerCase().startsWith("ru")?"ru":"en";
   let dictionary=texts[lang], authed=false,topupEnabled=false,subscriptionEnabled=false;
   function translate(language){dictionary=texts[language];$("language").value=language;document.documentElement.lang=language;
-    for(const [id,value] of Object.entries(dictionary)) if($(id) && id!=="balanceHint" && id!=="accountHint" && id!=="signIn" && id!=="testReady" && id!=="paymentReady" && id!=="busy" && id!=="error")$(id).textContent=value;
+    for(const [id,value] of Object.entries(dictionary)) if($(id) && id!=="balanceHint" && id!=="accountHint" && id!=="signIn" && id!=="testReady" && id!=="paymentReady" && id!=="emailRejected" && id!=="busy" && id!=="error")$(id).textContent=value;
     document.title=(language==="ru"?"Кошелёк Kisa":"Kisa Wallet")+" · KisaMore";
     $("topupButton").disabled=!topupEnabled||!authed;$("subButton").disabled=!subscriptionEnabled||!authed;
     $("balanceHint").textContent=authed?dictionary.accountHint:dictionary.balanceHint;
@@ -55,7 +57,16 @@
   }
   translate(lang);
   $("language").addEventListener("change",e=>{localStorage.setItem("battleLang",e.target.value);translate(e.target.value);});
-  async function getJSON(url,options){const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...options});if(!res.ok)throw new Error("HTTP "+res.status);return res.json();}
+  async function getJSON(url,options){
+    const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...options});
+    if(!res.ok){
+      const payload=await res.json().catch(()=>({}));
+      const err=new Error("HTTP "+res.status);
+      err.code=payload.detail;
+      throw err;
+    }
+    return res.json();
+  }
   Promise.allSettled([getJSON("/api/v1/account/kisa-wallet"),getJSON("/api/v1/payments/catalog"),getJSON("/api/v1/payments/membership")]).then(([wallet,catalog,member])=>{
     if(member.status==="fulfilled" && member.value.active) {
       const banner=document.createElement("div");
@@ -78,7 +89,7 @@
     try{const data=await getJSON("/api/v1/payments/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(kind==="topup"?{kind:"topup",kisa:Number(document.querySelector('input[name="amount"]:checked').value)}:{kind:"subscription"})});
       const u=new URL(data.checkout_url);if(u.protocol!=="https:"||!(u.hostname==="lava.top"||u.hostname.endsWith(".lava.top")))throw new Error("Unexpected provider URL");
       location.assign(u.href);
-    }catch(_){$("status").textContent=dictionary.error;button.disabled=false;}
+    }catch(err){$("status").textContent=err.code==="lava_buyer_email_rejected"?dictionary.emailRejected:dictionary.error;button.disabled=false;}
   }
   $("topupButton").addEventListener("click",()=>pay("topup"));
   const returned=new URLSearchParams(location.search);
