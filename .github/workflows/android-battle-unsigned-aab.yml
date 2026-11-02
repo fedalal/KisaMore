@@ -4,7 +4,7 @@ name: Android Battle — Unsigned AAB for offline signing
 # upload key. This artifact is NOT suitable for uploading directly to Play.
 on:
   push:
-    branches: [feature/plant-battle]
+    branches: [main]
     paths:
       - "android-battle/**"
       - ".github/workflows/android-battle-unsigned-aab.yml"
