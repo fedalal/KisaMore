@@ -26,6 +26,7 @@ from .config import get_settings
 from .telegram_link import create_telegram_link_token, linked_telegram_user
 from .telegram.models import TelegramUser, WalletAccount, WalletTransaction
 from .site_wallet import SiteWallet, SiteWalletTransaction, locked_wallet, record_wallet_change
+from .lava_payments_models import LavaMembership, LavaMembershipEntry
 
 
 router = APIRouter(prefix="/api/v1", tags=["plant-battles"])
@@ -675,7 +676,17 @@ async def join_battle(
     if payload.quantity > remaining:
         raise HTTPException(status_code=409, detail=f"Only {remaining} battle places remain")
 
-    total = battle.entry_price_kisa * payload.quantity
+    nominal_total = battle.entry_price_kisa * payload.quantity
+    now = datetime.now(timezone.utc)
+    membership = (await session.execute(
+        select(LavaMembership).where(
+            LavaMembership.user_id == user.id,
+            LavaMembership.status.in_(("active", "cancelled")),
+            LavaMembership.valid_until > now,
+            LavaMembership.remaining_entries >= payload.quantity,
+        ).order_by(LavaMembership.valid_until).with_for_update().limit(1)
+    )).scalar_one_or_none()
+    total = 0 if membership is not None else nominal_total
     if wallet.balance < total:
         raise HTTPException(
             status_code=409,
@@ -700,17 +711,25 @@ async def join_battle(
         session.add(entry)
         created.append(entry)
 
-    wallet.balance -= total
-    record_wallet_change(
-        session, user_id=user.id, telegram_user=telegram_user, wallet=wallet,
-        amount=-total, kind="battle_entry", reference_type="plant_battle",
-        reference_id=battle.id,
-        details={
-            "quantity": payload.quantity,
-            "price_each": battle.entry_price_kisa,
-            "slots": [entry.slot_number for entry in created],
-        },
-    )
+    if membership is not None:
+        membership.remaining_entries -= payload.quantity
+        membership.updated_at = now
+        for entry in created:
+            session.add(LavaMembershipEntry(
+                entry_id=entry.id, parent_invoice_id=membership.parent_invoice_id,
+            ))
+    else:
+        wallet.balance -= total
+        record_wallet_change(
+            session, user_id=user.id, telegram_user=telegram_user, wallet=wallet,
+            amount=-total, kind="battle_entry", reference_type="plant_battle",
+            reference_id=battle.id,
+            details={
+                "quantity": payload.quantity,
+                "price_each": battle.entry_price_kisa,
+                "slots": [entry.slot_number for entry in created],
+            },
+        )
 
     # Tell enabled Telegram administrators about EVERY new participant, not
     # only when the battle reaches capacity. The durable outbox is committed
@@ -772,6 +791,7 @@ async def join_battle(
         "entry_ids": [entry.id for entry in created],
         "slots": [entry.slot_number for entry in created],
         "charged_kisa": total,
+        "subscription_entries_used": payload.quantity if membership is not None else 0,
         "balance": wallet.balance,
         "status": battle.status,
     }

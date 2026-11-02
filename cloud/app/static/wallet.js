@@ -52,7 +52,15 @@
   translate(lang);
   $("language").addEventListener("change",e=>{localStorage.setItem("battleLang",e.target.value);translate(e.target.value);});
   async function getJSON(url,options){const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...options});if(!res.ok)throw new Error("HTTP "+res.status);return res.json();}
-  Promise.allSettled([getJSON("/api/v1/account/kisa-wallet"),getJSON("/api/v1/payments/catalog")]).then(([wallet,catalog])=>{
+  Promise.allSettled([getJSON("/api/v1/account/kisa-wallet"),getJSON("/api/v1/payments/catalog"),getJSON("/api/v1/payments/membership")]).then(([wallet,catalog,member])=>{
+    if(member.status==="fulfilled" && member.value.active) {
+      const banner=document.createElement("div");
+      banner.className="notice";
+      banner.textContent=$("language").value==="ru"
+        ?"Садовод+ активен · осталось участий: "+member.value.remaining_entries
+        :"Gardener+ active · entries remaining: "+member.value.remaining_entries;
+      document.querySelector(".cards").before(banner);
+    }
     if(wallet.status==="fulfilled") {authed=true;$("balance").textContent=wallet.value.balance;$("balanceHint").textContent=dictionary.accountHint;}
     if(catalog.status==="fulfilled" && catalog.value.enabled === true){topupEnabled=catalog.value.topup_enabled===true;subscriptionEnabled=catalog.value.subscription_enabled===true;
       $("status").textContent=dictionary.signIn;
@@ -69,5 +77,14 @@
     }catch(_){$("status").textContent=dictionary.error;button.disabled=false;}
   }
   $("topupButton").addEventListener("click",()=>pay("topup"));
+  const returned=new URLSearchParams(location.search);
+  const invoiceId=returned.get("invoiceId");
+  if(invoiceId && /^[0-9a-f-]{36}$/i.test(invoiceId)){
+    getJSON("/api/v1/payments/status?invoice_id="+encodeURIComponent(invoiceId)).then(data=>{
+      $("status").textContent=data.status==="paid"
+        ?($("language").value==="ru"?"Оплата подтверждена! Обновите страницу для нового баланса.":"Payment confirmed! Refresh to see your balance.")
+        :($("language").value==="ru"?"Платёж ещё проверяется. Баланс не изменён.":"Payment is still being verified. No credit has been granted.");
+    }).catch(()=>{$("status").textContent=dictionary.error;});
+  }
   $("subButton").addEventListener("click",()=>pay("subscription"));
 })();
