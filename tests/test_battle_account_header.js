@@ -6,8 +6,10 @@ const path = require("node:path");
 
 const root = path.join(__dirname, "../cloud/app/static");
 const js = fs.readFileSync(path.join(root, "battle_site.js"), "utf8");
-const html = fs.readFileSync(path.join(root, "battle_site.html"), "utf8");
-const css = fs.readFileSync(path.join(root, "battle_site.css"), "utf8");
+const html = fs.readFileSync(path.join(root, "site_header.html"), "utf8");
+const page = fs.readFileSync(path.join(root, "battle_site.html"), "utf8");
+const css = fs.readFileSync(path.join(root, "site_header.css"), "utf8");
+assert(page.includes("<!-- KISAMORE_SITE_HEADER -->"));
 for (const id of [
   "accountControl", "accountButton", "accountLabel", "accountAvatar", "accountChevron",
   "accountDropdown", "accountFullName", "accountEmail", "accountTelegram", "accountLogoutButton",
@@ -21,7 +23,7 @@ assert(js.includes("accountLogoutButton"), "sign-out must remain accessible");
 function element(hidden=false) {
   const active = new Set(hidden ? ["hidden"] : []);
   return {
-    textContent: "", title: "", dataset: {},
+    textContent: "", title: "", dataset: {}, hidden,
     classList: {
       add: cls => active.add(cls),
       remove: cls => active.delete(cls),
@@ -38,12 +40,14 @@ function element(hidden=false) {
 const nodes={};
 for (const id of [
   "accountButton", "accountLabel", "accountAvatar", "accountChevron",
-  "accountDropdown", "accountFullName", "accountEmail", "accountTelegram"
+  "accountDropdown", "accountFullName", "accountEmail", "accountTelegram", "accountTelegramRow", "battleMessagesOpen"
 ]) nodes[id]=element(["accountAvatar","accountChevron","accountDropdown"].includes(id));
 let calledAuth=0;
 const state={user:null,lang:"ru"};
 const context={
   state,
+  window:{},
+  T:{en:{},ru:{}},
   $: key => nodes[key.slice(1)],
   $$: () => [],
   t: key => ({ru:{signIn:"Войти",signedInAs:"Вы вошли как",notLinked:"Не привязан"},

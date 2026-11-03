@@ -45,9 +45,9 @@
     }
   };
   const saved=localStorage.getItem("battleLang") || localStorage.getItem("kisamore-language");
-  const lang=(saved || navigator.language || "ru").toLowerCase().startsWith("ru")?"ru":"en";
-  let dictionary=texts[lang], authed=false,topupEnabled=false,subscriptionEnabled=false;
-  function translate(language){dictionary=texts[language];$("language").value=language;document.documentElement.lang=language;
+  const lang=window.KisaSiteHeader?.getLanguage() || (saved || navigator.language || "ru").toLowerCase().slice(0,2);
+  let dictionary=texts[lang] || texts.en, authed=false,topupEnabled=false,subscriptionEnabled=false;
+  function translate(selected){const language=selected==="ru"?"ru":"en";dictionary=texts[language];document.documentElement.lang=language;
     for(const [id,value] of Object.entries(dictionary)) if($(id) && id!=="balanceHint" && id!=="accountHint" && id!=="signIn" && id!=="testReady" && id!=="paymentReady" && id!=="emailRejected" && id!=="busy" && id!=="error")$(id).textContent=value;
     document.title=(language==="ru"?"Кошелёк Kisa":"Kisa Wallet")+" · KisaMore";
     $("topupButton").disabled=!topupEnabled||!authed;$("subButton").disabled=!subscriptionEnabled||!authed;
@@ -56,7 +56,7 @@
       $("subButton").textContent=language==="ru"?"Подписка пока недоступна":"Subscription unavailable";}
   }
   translate(lang);
-  $("language").addEventListener("change",e=>{localStorage.setItem("battleLang",e.target.value);translate(e.target.value);});
+  document.addEventListener("kisamore:language-changed",e=>translate(e.detail.language));
   async function getJSON(url,options){
     const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...options});
     if(!res.ok){
@@ -71,7 +71,7 @@
     if(member.status==="fulfilled" && member.value.active) {
       const banner=document.createElement("div");
       banner.className="notice";
-      banner.textContent=$("language").value==="ru"
+      banner.textContent=$("languageSelect").value==="ru"
         ?"Садовод+ активен · осталось участий: "+member.value.remaining_entries
         :"Gardener+ active · entries remaining: "+member.value.remaining_entries;
       document.querySelector(".cards").before(banner);
@@ -79,15 +79,16 @@
     if(wallet.status==="fulfilled") {authed=true;$("balance").textContent=wallet.value.balance;$("balanceHint").textContent=dictionary.accountHint;}
     if(catalog.status==="fulfilled" && catalog.value.enabled === true){topupEnabled=catalog.value.topup_enabled===true;subscriptionEnabled=catalog.value.subscription_enabled===true;
       $("status").textContent=!authed?dictionary.signIn:(catalog.value.test_mode?dictionary.testReady:dictionary.paymentReady);
-      if(!subscriptionEnabled) $("subButton").textContent=$("language").value==="ru"?"Подписка пока недоступна":"Subscription unavailable";
+      if(!subscriptionEnabled) $("subButton").textContent=$("languageSelect").value==="ru"?"Подписка пока недоступна":"Subscription unavailable";
     } else {$("status").textContent=dictionary.waiting;}
-    translate($("language").value);
+    translate($("languageSelect").value);
   });
   async function pay(kind){if(!authed||(kind==="topup"?!topupEnabled:!subscriptionEnabled))return;
     const button=$(kind==="topup"?"topupButton":"subButton");button.disabled=true;
     $("status").textContent=dictionary.busy;
     const returnOrigin=location.hostname==="ru.kisamore.farm"?"https://ru.kisamore.farm":"https://kisamore.farm";
-    try{const data=await getJSON("/api/v1/payments/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(kind==="topup"?{kind:"topup",kisa:Number(document.querySelector('input[name="amount"]:checked').value),language:$("language").value,return_origin:returnOrigin}:{kind:"subscription",language:$("language").value,return_origin:returnOrigin})});
+    const paymentLanguage=$("languageSelect").value==="ru"?"ru":"en";
+    try{const data=await getJSON("/api/v1/payments/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(kind==="topup"?{kind:"topup",kisa:Number(document.querySelector('input[name="amount"]:checked').value),language:paymentLanguage,return_origin:returnOrigin}:{kind:"subscription",language:paymentLanguage,return_origin:returnOrigin})});
       const u=new URL(data.checkout_url);if(u.protocol!=="https:"||!(u.hostname==="lava.top"||u.hostname.endsWith(".lava.top")))throw new Error("Unexpected provider URL");
       location.assign(u.href);
     }catch(err){$("status").textContent=err.code==="lava_buyer_email_rejected"?dictionary.emailRejected:dictionary.error;button.disabled=false;}
@@ -98,10 +99,10 @@
   if(invoiceId && /^[0-9a-f-]{36}$/i.test(invoiceId)){
     getJSON("/api/v1/payments/status?invoice_id="+encodeURIComponent(invoiceId)).then(data=>{
       $("status").textContent=data.status==="paid"
-        ?($("language").value==="ru"?"Оплата подтверждена! Обновите страницу для нового баланса.":"Payment confirmed! Refresh to see your balance.")
+        ?($("languageSelect").value==="ru"?"Оплата подтверждена! Обновите страницу для нового баланса.":"Payment confirmed! Refresh to see your balance.")
         :data.status==="failed"
-          ?($("language").value==="ru"?"Оплата отменена или не прошла. Kisa не начислены.":"Payment cancelled or failed. No Kisa were granted.")
-          :($("language").value==="ru"?"Платёж ещё проверяется. Баланс не изменён.":"Payment is still being verified. No credit has been granted.");
+          ?($("languageSelect").value==="ru"?"Оплата отменена или не прошла. Kisa не начислены.":"Payment cancelled or failed. No Kisa were granted.")
+          :($("languageSelect").value==="ru"?"Платёж ещё проверяется. Баланс не изменён.":"Payment is still being verified. No credit has been granted.");
     }).catch(()=>{$("status").textContent=dictionary.error;});
   }
   $("subButton").addEventListener("click",()=>pay("subscription"));

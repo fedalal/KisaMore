@@ -1,8 +1,9 @@
-/* Shared account menu for the greenhouse, pricing and wallet pages. */
+/* Shared account menu for the public pages and the admin dashboard. */
 (() => {
   "use strict";
   const root = document.querySelector("[data-kisa-account]");
   if (!root) return;
+  const inlineAuth = root.dataset.inlineAuth === "true" || document.body?.dataset.sitePage === "home";
 
   const labels = {
     en: {signIn:"Sign in", signedInAs:"Signed in as", profile:"My account", wallet:"Kisa wallet", signOut:"Sign out", unavailable:"Account unavailable", retry:"Could not sign out. Try again."},
@@ -28,12 +29,14 @@
   const wallet = $("[data-account-wallet]");
   const logout = $("[data-account-logout]");
   const error = $("[data-account-error]");
+  const messages = document.getElementById?.("battleMessagesOpen");
+  const badge = document.getElementById?.("battleMessagesBadge");
   let user = null;
   let ready = false;
   let failed = false;
 
   function text() {
-    return labels[(document.documentElement.lang || "en").toLowerCase().split("-")[0]] || labels.en;
+    return window.KisaSiteHeader?.accountText() || labels[(document.documentElement.lang || "en").toLowerCase().split("-")[0]] || labels.en;
   }
   function close() {
     menu.hidden = true;
@@ -54,14 +57,31 @@
     logout.textContent = t.signOut;
     button.title = user ? [name, user.email].filter(Boolean).join(" · ") : (ready ? t.signIn : t.unavailable);
     button.setAttribute("aria-label", button.title);
+    if (messages) messages.hidden = !user;
+    if (!user && badge) badge.textContent = "";
     if (!user) close();
   }
+  async function refreshUnread() {
+    if (inlineAuth || !user?.id || !badge) return;
+    const accountId = user.id;
+    try {
+      const response = await fetch("/api/v1/battles/inbox", {credentials:"same-origin", cache:"no-store"});
+      if (!response.ok) return;
+      const data = await response.json();
+      if (user?.id === accountId) badge.textContent = Number(data.unread_count || 0) ? "(" + Number(data.unread_count) + ")" : "";
+    } catch (_) {}
+  }
   function setUser(value) {
+    const first = !ready;
     user = value || null;
     ready = true;
     failed = false;
     error.hidden = true;
+    if (first && user?.preferred_language && !inlineAuth && !window.KisaSiteHeader?.hasExplicitLanguage()) {
+      window.KisaSiteHeader?.setLanguage(user.preferred_language, {notify:true});
+    }
     render();
+    refreshUnread();
   }
   async function refresh() {
     try {
@@ -86,10 +106,10 @@
   button.addEventListener("click", () => {
     if (!ready) { refresh(); return; }
     if (!user) {
-      if (root.dataset.inlineAuth === "true") {
+      if (inlineAuth) {
         document.dispatchEvent(new CustomEvent("kisamore:account-signin"));
       } else {
-        const next = location.pathname;
+        const next = location.pathname + (location.search || "") + (location.hash || "");
         location.assign("/?account=signin&next=" + encodeURIComponent(next));
       }
       return;
@@ -98,7 +118,7 @@
     button.setAttribute("aria-expanded", String(!menu.hidden));
   });
   profile.addEventListener("click", event => {
-    if (root.dataset.inlineAuth === "true") {
+    if (inlineAuth) {
       event.preventDefault();
       close();
       document.dispatchEvent(new CustomEvent("kisamore:account-profile"));
@@ -112,7 +132,7 @@
       if (!response.ok) throw new Error("Sign-out failed");
       setUser(null);
       document.dispatchEvent(new CustomEvent("kisamore:account-signed-out"));
-      if (root.dataset.inlineAuth !== "true") location.reload();
+      if (!inlineAuth) location.reload();
     } catch (_) {
       error.textContent = text().retry;
       error.hidden = false;
@@ -125,10 +145,13 @@
     if (event.key === "Escape" && !menu.hidden) { close(); button.focus(); }
   });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && root.dataset.inlineAuth !== "true") refresh();
+    if (!document.hidden && !inlineAuth) refresh();
   });
+  document.addEventListener("kisamore:language-changed", render);
+  document.addEventListener("kisamore:auth-changed", () => { if (!inlineAuth) refresh(); });
+  if (!inlineAuth) window.setInterval?.(refreshUnread, 30000);
   new MutationObserver(render).observe(document.documentElement, {attributes:true, attributeFilter:["lang"]});
   window.KisaMoreAccountHeader = {setUser, refresh};
   render();
-  if (root.dataset.inlineAuth !== "true") refresh();
+  if (!inlineAuth) refresh();
 })();

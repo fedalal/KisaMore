@@ -1,0 +1,35 @@
+<header class="kisa-site-header no-print" data-site-header>
+  <div class="kisa-site-inner">
+    <a class="kisa-site-brand" href="/" aria-label="KisaMore"><span class="kisa-site-mark">K</span><strong>KisaMore</strong></a>
+    <nav class="kisa-site-nav" aria-label="Main navigation">
+      <a href="/#greenhouse" data-site-text="greenhouse">Greenhouse</a>
+      <a href="/battle" data-site-text="battles">Battles</a>
+      <a href="/pricing" data-site-text="pricing">Pricing</a>
+      <a href="/wallet" data-site-text="currency">Kisa Ⓚ</a>
+    </nav>
+    <div class="kisa-site-actions">
+      <select id="languageSelect" aria-label="Language">
+        <option value="en">EN</option><option value="ru">RU</option><option value="de">DE</option>
+        <option value="fr">FR</option><option value="es">ES</option><option value="it">IT</option>
+        <option value="pt">PT</option><option value="pl">PL</option><option value="zh">中文</option>
+      </select>
+      <a class="kisa-site-messages" id="battleMessagesOpen" href="/battle?messages=1" hidden><span aria-hidden="true">✉</span><span class="kisa-sr-only" id="battleMessagesLabel" data-site-text="messages">Messages</span><span id="battleMessagesBadge"></span></a>
+      <div class="account-control kisa-account" id="accountControl" data-kisa-account>
+        <button id="accountButton" class="account-trigger" type="button" data-account-button aria-haspopup="true" aria-expanded="false">
+          <span id="accountAvatar" class="account-avatar" data-account-avatar hidden></span><span id="accountLabel" class="account-name" data-account-label>…</span><span id="accountChevron" class="account-chevron" data-account-chevron hidden aria-hidden="true">⌄</span>
+        </button>
+        <div id="accountDropdown" class="account-dropdown" data-account-menu role="group" aria-label="Account" hidden>
+          <span class="account-menu-caption" data-account-caption data-site-text="signedInAs">Signed in as</span>
+          <strong id="accountFullName" class="account-menu-name" data-account-name></strong><span id="accountEmail" class="account-menu-email" data-account-email></span>
+          <a class="account-menu-link" data-account-profile data-site-text="profile" href="/?account=profile">My account</a>
+          <a class="account-menu-link" data-account-wallet data-site-text="wallet" href="/wallet">Kisa wallet</a>
+          <div class="account-menu-telegram" id="accountTelegramRow" hidden><span>Telegram</span><span id="accountTelegram">—</span></div>
+          <span id="walletBalance" class="wallet-balance" hidden></span>
+          <button id="accountLogoutButton" class="account-logout" data-account-logout data-site-text="signOut" type="button">Sign out</button>
+          <p class="account-error" data-account-error role="alert" hidden></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+<p class="kisa-language-note no-print" id="siteLanguageNote" role="status" hidden></p>

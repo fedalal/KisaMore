@@ -81,7 +81,7 @@
   function apply(lang) {
     const chosen=lang==="ru"?"ru":"en", labels=strings[chosen];
     document.documentElement.lang=chosen;
-    languageSelect.value=chosen;
+    languageSelect.value=lang;
     document.querySelectorAll("[data-i18n]").forEach(node=>{
       const key=node.getAttribute("data-i18n");
       if(Object.prototype.hasOwnProperty.call(labels,key)) {
@@ -95,11 +95,6 @@
       ?"Выращивай выбранное растение или участвуй в битвах KisaMore. Посадка по цене культуры, битва — 20 Ⓚ, подписка — 30 Ⓚ в месяц."
       :"Grow your own plant or join a KisaMore battle. Personal growing is priced per crop. Battles: 20 Ⓚ each or 30 Ⓚ monthly.";
   }
-  apply(query==="en" || query==="ru"?query:(saved||browser));
-  languageSelect.addEventListener("change", event=>{
-    const lang=event.target.value==="ru"?"ru":"en";
-    localStorage.setItem("battleLang",lang);
-    localStorage.setItem("kisamore-language",lang);
-    apply(lang);
-  });
+  apply(window.KisaSiteHeader?.getLanguage() || (query==="en" || query==="ru"?query:(saved||browser)));
+  document.addEventListener("kisamore:language-changed", event=>apply(event.detail.language));
 })();

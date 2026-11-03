@@ -9,62 +9,28 @@
   <title>KisaMore — grow something real</title>
   <link rel="stylesheet" href="/static/dashboard.css?v=22">
   <link rel="stylesheet" href="/static/battle.css?v=20260930-1">
-  <link rel="stylesheet" href="/static/account_header.css?v=20261103-1">
+
+  <script src="/static/site_header.js?v=20261103-unified" defer></script>
+  <script src="/static/account_header.js?v=20261103-unified" defer></script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/account_header.js?v=20261103-1" defer></script>
-  <script src="/static/dashboard.js?v=20261103-account" defer></script>
+
+  <script src="/static/dashboard.js?v=20261103-unified" defer></script>
   <link rel="stylesheet" href="/static/battle_inbox_home.css?v=20261013-1">
-  <script src="/static/battle_inbox_home.js?v=20261103-account" defer></script>
+  <script src="/static/battle_inbox_home.js?v=20261103-unified" defer></script>
   <script src="/static/battle.js?v=20260930-1" defer></script>
   <script src="/static/analytics.js?v=20260924-2" defer></script>
+<link rel="stylesheet" href="/static/site_header.css?v=20261103-unified">
 </head>
-<body>
+<body data-site-page="home" data-site-languages="all">
   <div class="page-glow page-glow-one" aria-hidden="true"></div>
   <div class="page-glow page-glow-two" aria-hidden="true"></div>
 
+  <!-- KISAMORE_SITE_HEADER -->
   <main class="page-shell">
-    <header class="topbar">
-      <a class="brand" href="/" aria-label="KisaMore">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
-        <span><strong>KisaMore</strong><small data-i18n="smartGreenhouse">smart greenhouse</small></span>
-      </a>
-
-      <nav class="main-nav" aria-label="Main navigation">
-        <a href="#how" data-i18n="navHow">How it works</a>
-        <a href="#plants" data-i18n="navPlants">Plants</a>
-        <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a>
-        <a href="#battle">Battle</a>
-        <a href="#kisa" data-i18n="navKisa">Kisa Ⓚ</a>
-        <a href="/pricing" data-i18n="navPricing">Pricing</a>
-      </nav>
-
-      <nav class="top-actions">
-
-        <select id="languageSelect" aria-label="Language">
-          <option value="en">English</option>
-          <option value="ru">Русский</option>
-          <option value="de">Deutsch</option>
-          <option value="fr">Français</option>
-          <option value="es">Español</option>
-          <option value="it">Italiano</option>
-          <option value="pt">Português</option>
-          <option value="pl">Polski</option>
-          <option value="zh">中文</option>
-        </select>
-        <button id="battleInboxHomeButton" class="secondary-button battle-notif-btn" type="button" hidden>📨 Сообщения</button>
-        <div class="kisa-account" data-kisa-account data-inline-auth="true">
-          <button id="accountButton" class="account-trigger" type="button" data-account-button aria-haspopup="true" aria-expanded="false">
-            <span class="account-avatar" data-account-avatar hidden></span><span class="account-name" data-account-label>…</span><span class="account-chevron" data-account-chevron hidden aria-hidden="true">⌄</span>
-          </button>
-          <div class="account-dropdown" data-account-menu role="group" aria-label="Account" hidden>
-            <span class="account-menu-caption" data-account-caption></span><strong class="account-menu-name" data-account-name></strong><span class="account-menu-email" data-account-email></span>
-            <a class="account-menu-link" data-account-profile href="/?account=profile">My account</a>
-            <a class="account-menu-link" data-account-wallet href="/wallet">Kisa wallet</a>
-            <button class="account-logout" data-account-logout type="button">Sign out</button><p class="account-error" data-account-error role="alert" hidden></p>
-          </div>
-        </div>
-      </nav>
-    </header>
+    <nav class="kisa-page-nav" aria-label="Greenhouse sections">
+      <a href="#how" data-i18n="navHow">How it works</a><a href="#plants" data-i18n="navPlants">Plants</a>
+      <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a><a href="#battle">Battle</a><a href="#kisa" data-i18n="navKisa">Kisa Ⓚ</a>
+    </nav>
 
     <section class="hero commercial-hero">
       <div class="hero-copy">

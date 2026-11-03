@@ -1,7 +1,8 @@
 /* Private KisaMore Battle inbox on the public farm homepage. */
 (function(){
 "use strict";
-const button=document.getElementById("battleInboxHomeButton");
+const button=document.getElementById("battleMessagesOpen");
+const badge=document.getElementById("battleMessagesBadge");
 const dialog=document.getElementById("battleInboxHomeDialog");
 const list=document.getElementById("battleInboxHomeList");
 const title=document.getElementById("battleInboxHomeTitle");
@@ -23,7 +24,7 @@ async function refresh(){
     if(account!==me.id){initialized=false;lastUnread=0;account=me.id;}
     button.hidden=false;
     const unread=Number(data.unread_count||0);
-    button.textContent=(ru()?"📨 Сообщения":"📨 Messages")+(unread?" ("+unread+")":"");
+    if(badge)badge.textContent=unread?"("+unread+")":"";
     if(initialized&&unread>lastUnread){
       button.classList.add("has-new");
       button.title=ru()?"Новое сообщение участнику битвы":"New Battle participant message";
@@ -76,7 +77,7 @@ async function open(){
   }
   if(!dialog.open)dialog.showModal();
 }
-button.addEventListener("click",open);
+button.addEventListener("click",event=>{event.preventDefault();open();});
 close.addEventListener("click",()=>dialog.close());
 dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh();});

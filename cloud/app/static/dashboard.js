@@ -205,7 +205,9 @@
     if (!value) return null;
     try {
       const url = new URL(value, window.location.origin);
-      if (url.origin !== window.location.origin || !["/pricing", "/wallet"].includes(url.pathname)) return null;
+      const pages = ["/pricing", "/wallet", "/privacy", "/delete-account", "/admin"];
+      const certificate = /^\/battle-certificate\/[a-zA-Z0-9-]+$/.test(url.pathname);
+      if (url.origin !== window.location.origin || (!pages.includes(url.pathname) && !certificate)) return null;
       return url.pathname + url.search + url.hash;
     } catch (_) { return null; }
   }
@@ -526,6 +528,7 @@
   }
 
   function applyLanguage() {
+    window.KisaSiteHeader?.setLanguage(language);
     document.documentElement.lang = language;
     $("#languageSelect").value = language;
     translateTree();

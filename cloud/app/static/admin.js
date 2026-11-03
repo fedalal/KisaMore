@@ -107,6 +107,7 @@ async function login(event) {
       method: "POST",
       body: JSON.stringify({ email: qs("#loginEmail").value.trim(), password: qs("#loginPassword").value }),
     });
+    document.dispatchEvent(new CustomEvent("kisamore:auth-changed"));
     if (me.role !== "admin") {
       showLogin("У этой учётной записи нет прав администратора.");
       return;
@@ -121,6 +122,7 @@ async function login(event) {
 async function logout() {
   try { await api("/api/v1/auth/logout", { method: "POST" }); } catch (_) {}
   showLogin();
+  document.dispatchEvent(new CustomEvent("kisamore:auth-changed"));
 }
 
 function selectSection(name) {

@@ -1,0 +1,35 @@
+.kisa-site-header,.kisa-site-header *{box-sizing:border-box}
+.kisa-site-header{position:relative;z-index:90;width:100%;background:#08160f;color:#f3fff7;border-bottom:1px solid #264532;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.35}
+.kisa-site-inner{max-width:1240px;min-height:72px;margin:auto;padding:12px 20px;display:flex;align-items:center;gap:24px}
+.kisa-site-header a{color:inherit;text-decoration:none}
+.kisa-site-brand{display:flex;align-items:center;gap:11px;white-space:nowrap;font-size:19px;font-weight:850;letter-spacing:-.03em}
+.kisa-site-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#79ff9a;color:#071b10;font-size:22px;font-weight:900}
+.kisa-site-nav{display:flex;align-items:center;gap:25px;margin-left:auto;color:#b6cebe;white-space:nowrap}
+.kisa-site-nav a:hover,.kisa-site-nav a[aria-current=page]{color:#79ff9a}
+.kisa-site-actions{display:flex;align-items:center;gap:10px;min-width:0;max-width:100%;flex:0 0 auto}
+.kisa-site-messages{display:flex;align-items:center;gap:3px;padding:8px;border:1px solid #315a46;border-radius:11px;background:#142820;color:#f3fff8;font-size:16px}
+.kisa-site-header .kisa-site-messages:hover,.kisa-site-header .kisa-site-messages.has-new{border-color:#79ff9a;color:#b6fbc8}
+.kisa-site-messages #battleMessagesBadge{max-width:32px;overflow:hidden;font-size:11px;font-weight:750}
+.kisa-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.kisa-site-header select{padding:8px 9px;border:1px solid #345743;border-radius:11px;background:#13281c;color:#fff;font:inherit}
+.kisa-site-header .kisa-account{position:relative;min-width:0;flex:0 0 auto}
+.kisa-site-header .account-trigger{display:flex;align-items:center;gap:7px;min-width:0;max-width:200px;padding:8px 10px;border:1px solid #315a46;border-radius:12px;background:#142820;color:#f3fff8;font:inherit;font-weight:750;cursor:pointer}
+.kisa-site-header .account-trigger:hover,.kisa-site-header .account-trigger[aria-expanded=true]{border-color:#79ff9a}
+.kisa-site-header .account-avatar{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:8px;background:#79ff9a;color:#07110d;font-weight:900}
+.kisa-site-header .account-name{display:block;overflow:hidden;min-width:0;white-space:nowrap;text-overflow:ellipsis}
+.kisa-site-header .account-chevron{color:#79ff9a}
+.kisa-site-header .account-dropdown{position:absolute;z-index:100;right:0;top:calc(100% + 10px);display:flex;flex-direction:column;gap:8px;width:min(290px,calc(100vw - 28px));padding:16px;border:1px solid #315a46;border-radius:17px;background:#10231a;color:#f3fff8;box-shadow:0 18px 52px #0006;overflow-wrap:anywhere;text-align:left}
+.kisa-site-header [hidden],.kisa-language-note[hidden]{display:none!important}
+.kisa-site-header .account-menu-caption{color:#93afa3;font-size:11px}
+.kisa-site-header .account-menu-name{color:#f3fff8;font-size:17px}
+.kisa-site-header .account-menu-email{color:#b6d0c1;font-size:13px}
+.kisa-site-header .account-menu-link,.kisa-site-header .account-logout{display:block;width:100%;padding:10px 12px;border:1px solid #315a46;border-radius:11px;background:#142820;color:#f3fff8;font:inherit;font-size:13px;font-weight:750;text-align:left;cursor:pointer}
+.kisa-site-header .account-menu-link:hover,.kisa-site-header .account-logout:hover{border-color:#79ff9a;color:#fff}
+.kisa-site-header .account-menu-telegram{display:flex;justify-content:space-between;gap:12px;color:#b6d0c1;font-size:13px}
+.kisa-site-header .account-error{margin:0;color:#ffb7a8;font-size:12px}
+.kisa-language-note{margin:0;padding:7px 20px;background:#173125;color:#d5e8db;text-align:center;font:13px/1.4 system-ui,sans-serif}
+.kisa-page-nav{display:flex;gap:22px;overflow-x:auto;white-space:nowrap;margin:14px auto;padding:0 16px;color:#648172;font:600 13px/1.4 system-ui,sans-serif}
+.kisa-page-nav a{color:inherit;text-decoration:none}.kisa-page-nav a:hover{color:#22a669}
+@media(max-width:800px){.kisa-site-inner{gap:8px 12px;padding:10px 14px;flex-wrap:wrap}.kisa-site-actions{margin-left:auto}.kisa-site-nav{order:3;flex:1 0 100%;gap:20px;margin:2px 0 0;overflow-x:auto;padding:3px 0}}
+@media(max-width:400px){.kisa-site-header .account-trigger{max-width:115px}.kisa-site-header .account-avatar{display:none}.kisa-site-header .account-dropdown{width:min(250px,calc(100vw - 28px))}}
+@media print{.kisa-site-header,.kisa-language-note,.kisa-page-nav{display:none!important}}

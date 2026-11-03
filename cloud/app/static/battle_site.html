@@ -7,56 +7,18 @@
   <title>KisaMore Battle — Grow. Decide. Win.</title>
   <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
   <link rel="stylesheet" href="/static/battle_site.css?v=20261013-1">
-  <link rel="stylesheet" href="/static/account_header.css?v=20261103-1">
+
   <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
+  <script src="/static/site_header.js?v=20261103-unified" defer></script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/battle_site.js?v=20261103-account" defer></script>
+  <script src="/static/battle_site.js?v=20261103-unified" defer></script>
+<link rel="stylesheet" href="/static/site_header.css?v=20261103-unified">
 </head>
-<body>
-  <header class="site-header">
-    <a class="brand" href="/"><span class="brand-mark">K</span><span>KisaMore <b>Battle</b></span></a>
-    <nav class="top-nav">
-      <a href="#live" data-i18n="navLive">Live</a>
-      <a href="#upcoming" data-i18n="navUpcoming">Upcoming</a>
-      <a href="#past" data-i18n="navPast">Past battles</a>
-      <a href="#rules" data-i18n="navRules">How it works</a>
-      <a href="/pricing" data-i18n="navPricing">Pricing</a>
-      <a href="/pricing#kisa-info" data-i18n="navKisa">Kisa Ⓚ</a>
-    </nav>
-    <div class="header-actions">
-      <select id="languageSelect" aria-label="Language">
-        <option value="en">EN</option><option value="ru">RU</option>
-        <option value="de">DE</option><option value="fr">FR</option>
-        <option value="es">ES</option><option value="it">IT</option>
-        <option value="pt">PT</option><option value="pl">PL</option><option value="zh">中文</option>
-      </select>
-      <span id="walletBalance" class="wallet-balance" hidden></span>
-      <div class="account-control kisa-account" id="accountControl">
-        <button id="accountButton" class="button secondary account-trigger" type="button"
-                aria-haspopup="true" aria-expanded="false" title="Sign in">
-          <span id="accountAvatar" class="account-avatar hidden" aria-hidden="true"></span>
-          <span id="accountLabel" class="account-name">Sign in</span>
-          <span id="accountChevron" class="account-chevron hidden" aria-hidden="true">⌄</span>
-        </button>
-        <div id="accountDropdown" class="account-dropdown hidden" role="group" aria-label="Account">
-          <span class="account-menu-caption" data-i18n="signedInAs">Signed in as</span>
-          <strong id="accountFullName" class="account-menu-name"></strong>
-          <span id="accountEmail" class="account-menu-email"></span>
-          <a class="account-menu-link" href="/?account=profile" data-i18n="accountProfile">My account</a>
-          <a class="account-menu-link" href="/wallet" data-i18n="accountWallet">Kisa wallet</a>
-          <div class="account-menu-telegram">
-            <span>Telegram</span>
-            <span id="accountTelegram">—</span>
-          </div>
-          <button id="battleMessagesOpen" class="button secondary" type="button">📨 Messages <span id="battleMessagesBadge"></span></button>
-          <button id="accountLogoutButton" class="button secondary account-logout"
-                  data-i18n="signOut" type="button">Sign out</button>
-        </div>
-      </div>
-    </div>
-  </header>
+<body data-site-page="battle" data-site-languages="en,ru">
+  <!-- KISAMORE_SITE_HEADER -->
 
   <main>
+    <nav class="kisa-page-nav" aria-label="Battle sections"><a href="#live" data-i18n="navLive">Live</a><a href="#upcoming" data-i18n="navUpcoming">Upcoming</a><a href="#past" data-i18n="navPast">Past battles</a><a href="#rules" data-i18n="navRules">How it works</a></nav>
     <section class="hero">
       <div class="hero-copy">
         <div class="live-pill"><span></span><b data-i18n="heroPill">REAL PLANTS · LIVE COMPETITION</b></div>

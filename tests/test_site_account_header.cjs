@@ -8,14 +8,15 @@ const root = path.join(__dirname, "../cloud/app/static");
 const source = fs.readFileSync(path.join(root, "account_header.js"), "utf8");
 const dashboard = fs.readFileSync(path.join(root, "dashboard.js"), "utf8");
 const wallet = fs.readFileSync(path.join(root, "wallet.js"), "utf8");
+const header = fs.readFileSync(path.join(root, "site_header.html"), "utf8");
 assert(wallet.includes('return_origin:returnOrigin') && wallet.includes('location.hostname==="ru.kisamore.farm"'),
   "checkout preserves the mirror origin");
-for (const page of ["index.html", "pricing.html", "wallet.html"]) {
+for (const page of ["index.html", "pricing.html", "wallet.html", "privacy.html", "delete_account.html", "admin.html"]) {
   const html = fs.readFileSync(path.join(root, page), "utf8");
   for (const field of ["data-kisa-account", "data-account-button", "data-account-menu", "data-account-profile", "data-account-wallet", "data-account-logout"]) {
-    assert(html.includes(field), `${page} is missing ${field}`);
+    assert(header.includes(field), `shared header is missing ${field}`);
   }
-  assert(html.includes("account_header.js") && html.includes("account_header.css"));
+  assert(html.includes("<!-- KISAMORE_SITE_HEADER -->") && html.includes("account_header.js") && html.includes("site_header.css"));
 }
 
 function element(hidden = false) {
@@ -112,6 +113,9 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(safeContext.safeAccountReturn("/pricing?lang=ru"),"/pricing?lang=ru");
   assert.equal(safeContext.safeAccountReturn("https://evil.example/wallet"),null);
   assert.equal(safeContext.safeAccountReturn("//evil.example/wallet"),null);
-  assert.equal(safeContext.safeAccountReturn("/admin"),null);
+  assert.equal(safeContext.safeAccountReturn("/admin"),"/admin");
+  assert.equal(safeContext.safeAccountReturn("/privacy"),"/privacy");
+  assert.equal(safeContext.safeAccountReturn("/battle-certificate/123-abc?lang=ru"),"/battle-certificate/123-abc?lang=ru");
+  assert.equal(safeContext.safeAccountReturn("/admin/delete"),null);
   console.log("PASS: shared account header, guest flow, identity, translation, logout and safe return URLs");
 })().catch(error => { console.error(error); process.exitCode=1; });

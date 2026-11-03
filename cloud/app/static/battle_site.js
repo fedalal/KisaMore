@@ -22,6 +22,7 @@ function pct(n,d){return d?Math.max(0,Math.min(100,Math.round(n/d*100))):0}
 function toast(msg){const e=$("#toast");e.textContent=msg;e.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>e.classList.remove("show"),3000)}
 function setAccountMenu(open){
   const visible=Boolean(open&&state.user);
+  $("#accountDropdown").hidden=!visible;
   $("#accountDropdown").classList.toggle("hidden",!visible);
   $("#accountButton").setAttribute("aria-expanded",String(visible));
 }
@@ -29,16 +30,20 @@ function updateAccountIdentity(){
   const button=$("#accountButton"),loggedIn=Boolean(state.user);
   const name=loggedIn
     ? String(state.user.display_name||state.user.email||t("account")).trim()
-    : t("signIn");
+    : (window.KisaSiteHeader?.accountText().signIn||t("signIn"));
   $("#accountLabel").textContent=name;
   $("#accountAvatar").textContent=(name.charAt(0)||"?").toLocaleUpperCase();
   $("#accountAvatar").classList.toggle("hidden",!loggedIn);
   $("#accountChevron").classList.toggle("hidden",!loggedIn);
+  $("#accountAvatar").hidden=!loggedIn;
+  $("#accountChevron").hidden=!loggedIn;
+  $("#battleMessagesOpen").hidden=!loggedIn;
+  $("#accountTelegramRow").hidden=!loggedIn;
   button.classList.toggle("is-signed-in",loggedIn);
   button.title=loggedIn
     ? name+(state.user.email&&state.user.email!==name?" · "+state.user.email:"")
-    : t("signIn");
-  button.setAttribute("aria-label",loggedIn?name+" · "+(state.user.email||""):t("signIn"));
+    : (window.KisaSiteHeader?.accountText().signIn||t("signIn"));
+  button.setAttribute("aria-label",loggedIn?name+" · "+(state.user.email||""):name);
   if(loggedIn){
     $("#accountFullName").textContent=name;
     $("#accountEmail").textContent=state.user.email||"";
@@ -49,7 +54,7 @@ function updateAccountIdentity(){
 }
 async function toggleAccountMenu(){
   if(!state.user){openAuth();return}
-  if(!$("#accountDropdown").classList.contains("hidden")){setAccountMenu(false);return}
+  if(!$("#accountDropdown").hidden){setAccountMenu(false);return}
   setAccountMenu(true);
   $("#accountTelegram").textContent="…";
   const accountId=state.user.id;
@@ -65,8 +70,9 @@ async function toggleAccountMenu(){
 }
 function applyI18n(){
   $$("[data-i18n]").forEach(e=>e.textContent=t(e.dataset.i18n));
+  window.KisaSiteHeader?.setLanguage(state.lang);
   updateAccountIdentity();
-  document.documentElement.lang=state.lang;
+  document.documentElement.lang=T[state.lang]?state.lang:"en";
 }
 function isLive(b){return ["growing","judging"].includes(b.status)}
 function isUpcoming(b){return ["open","ready_to_plant","planting"].includes(b.status)}
@@ -238,15 +244,15 @@ function arena(b,interactive){
     '<aside class="arena-side">'+side+'</aside></div></div>';
 }
 function renderMyBattle(){const active=state.mine.filter(b=>b.status!=="finished"),sec=$("#myBattleSection");if(!active.length){sec.classList.add("hidden");return}sec.classList.remove("hidden");if(!state.selectedMyBattle||!active.some(b=>b.id===state.selectedMyBattle))state.selectedMyBattle=active[0].id;const sel=$("#myBattleSelect");if(active.length>1){sel.classList.remove("hidden");sel.innerHTML=active.map(b=>'<option value="'+b.id+'" '+(b.id===state.selectedMyBattle?"selected":"")+'>'+esc(b.title)+'</option>').join("")}else sel.classList.add("hidden");smooth.replace($("#myBattleArena"),arena(active.find(b=>b.id===state.selectedMyBattle),true))}
-async function loadSession(){try{state.user=await api("/api/v1/auth/me")}catch{state.user=null}if(state.user&&T[state.user.preferred_language])state.lang=state.user.preferred_language}
+let initialMessagesPending=new URLSearchParams(location.search).get("messages")==="1";
+async function loadSession(){try{state.user=await api("/api/v1/auth/me")}catch{state.user=null}if(state.user&&["en","ru","de","fr","es","it","pt","pl","zh"].includes(state.user.preferred_language))state.lang=state.user.preferred_language}
 async function load(){await loadSession();state.wallet=state.user?await api("/api/v1/account/kisa-wallet").catch(()=>null):null;
 const balance=$("#walletBalance");balance.hidden=!state.user;balance.textContent=state.wallet?state.wallet.balance+" Ⓚ":"";
-const allPromise=api("/api/v1/public/battles");let mine=[];if(state.user){try{mine=await api("/api/v1/battles/me")}catch{mine=[]}}state.all=await allPromise;state.mine=mine;const m=new Map(mine.map(b=>[b.id,b]));state.all=state.all.map(b=>m.get(b.id)||b);const params=new URLSearchParams(location.search),battleParam=params.get("battle"),entryParam=params.get("entry");if(battleParam&&mine.some(b=>b.id===battleParam))state.selectedMyBattle=battleParam;if(entryParam)state.selectedEntry=entryParam;applyI18n();$("#languageSelect").value=state.lang;updateHero();renderLists();renderMyBattle();refreshBattleMessages().catch(()=>{});if(state.viewingBattleId){renderBattleDetail()}if(battleParam&&state.user)setTimeout(()=>$("#myBattleSection")?.scrollIntoView({behavior:"smooth"}),60)}
+const allPromise=api("/api/v1/public/battles");let mine=[];if(state.user){try{mine=await api("/api/v1/battles/me")}catch{mine=[]}}state.all=await allPromise;state.mine=mine;const m=new Map(mine.map(b=>[b.id,b]));state.all=state.all.map(b=>m.get(b.id)||b);const params=new URLSearchParams(location.search),battleParam=params.get("battle"),entryParam=params.get("entry");if(battleParam&&mine.some(b=>b.id===battleParam))state.selectedMyBattle=battleParam;if(entryParam)state.selectedEntry=entryParam;applyI18n();$("#languageSelect").value=state.lang;updateHero();renderLists();renderMyBattle();refreshBattleMessages().then(()=>{if(initialMessagesPending&&state.user){initialMessagesPending=false;renderBattleMessages();if(!$("#battleMessagesDialog").open)$("#battleMessagesDialog").showModal();const clean=new URL(location.href);clean.searchParams.delete("messages");history.replaceState({},document.title,clean.pathname+clean.search+clean.hash)}}).catch(()=>{});if(state.viewingBattleId){renderBattleDetail()}if(battleParam&&state.user)setTimeout(()=>$("#myBattleSection")?.scrollIntoView({behavior:"smooth"}),60)}
 const messagesState={messages:[],unread:0,initialized:false,userId:null};
 function updateMessagesBadge(){
   const node=$("#battleMessagesBadge"),count=messagesState.unread;
   node.textContent=count?"("+count+")":"";
-  $("#battleMessagesOpen").textContent=(state.lang==="ru"?"📨 Сообщения ":"📨 Messages ")+(count?"("+count+")":"");
 }
 async function refreshBattleMessages(){
   if(!state.user){
@@ -277,7 +283,8 @@ function renderBattleMessages(){
       (state.lang==="ru"?"Отметить прочитанным":"Mark as read")+'</button>')+
     '</article>').join(""):'<p class="muted">'+(state.lang==="ru"?"Сообщений пока нет.":"No messages yet.")+'</p>';
 }
-$("#battleMessagesOpen").addEventListener("click",()=>{
+$("#battleMessagesOpen").addEventListener("click",event=>{
+  event.preventDefault();
   setAccountMenu(false);renderBattleMessages();$("#battleMessagesDialog").showModal();
 });
 $("#battleMessagesClose").addEventListener("click",()=>$("#battleMessagesDialog").close());
@@ -429,7 +436,7 @@ document.addEventListener("click",ev=>{
   if(!$("#accountControl").contains(ev.target))setAccountMenu(false);
 });
 document.addEventListener("keydown",ev=>{
-  if(ev.key==="Escape"&&!$("#accountDropdown").classList.contains("hidden")){
+  if(ev.key==="Escape"&&!$("#accountDropdown").hidden){
     setAccountMenu(false);
     $("#accountButton").focus();
   }

@@ -12,20 +12,12 @@
   <link rel="stylesheet" href="/static/battle_certificate.css?v=3">
   <link rel="stylesheet" href="/static/battle_certificate_premium.css?v=1">
   <script defer src="/static/battle_certificate.js?v=2"></script>
+<link rel="stylesheet" href="/static/site_header.css?v=20261103-unified">
+<script src="/static/site_header.js?v=20261103-unified" defer></script>
+<script src="/static/account_header.js?v=20261103-unified" defer></script>
 </head>
-<body>
-  <header class="topbar">
-    <div class="topbar-inner wrap">
-      <a class="brand" href="/battle" aria-label="KisaMore Battle home">
-        <span class="brand-mark"><img src="/static/kisamore-telegram-icon-v2.png" alt="" width="42" height="42"></span><span>Ⓚ<span class="brand-accent">More</span></span>
-        <span class="brand-sub">BATTLE</span>
-      </a>
-      <div class="topbar-right">
-        <a class="lang-switch" href="?lang={{ alt_lang }}" aria-label="{{ t.change_language }}">{{ alt_lang.upper() }}</a>
-        <a class="topbar-back" href="/battle">{{ t.all_battles }} <span aria-hidden="true">↗</span></a>
-      </div>
-    </div>
-  </header>
+<body data-site-page="certificate" data-site-languages="en,ru">
+  {% include "site_header.html" %}
   <main class="wrap">
     <section class="hero" aria-labelledby="hero-title">
       <div class="eyebrow"><span class="live-dot"></span>{{ t.hall_of_fame }} <span class="hero-number">/ {{ battle.finished_date }}</span></div>

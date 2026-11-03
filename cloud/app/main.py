@@ -54,6 +54,7 @@ PRICING_TEMPLATE = STATIC_DIR / "pricing.html"
 WALLET_TEMPLATE = STATIC_DIR / "wallet.html"
 PRIVACY_TEMPLATE = STATIC_DIR / "privacy.html"
 DELETE_ACCOUNT_TEMPLATE = STATIC_DIR / "delete_account.html"
+SITE_HEADER_TEMPLATE = STATIC_DIR / "site_header.html"
 
 
 @asynccontextmanager
@@ -89,12 +90,16 @@ if settings.cors_origins:
     )
 
 
+def _with_site_header(content: str) -> str:
+    return content.replace("<!-- KISAMORE_SITE_HEADER -->", SITE_HEADER_TEMPLATE.read_text(encoding="utf-8"))
+
+
 def _battle_page() -> HTMLResponse:
     content = BATTLE_TEMPLATE.read_text(encoding="utf-8").replace(
         "__KISAMORE_FARM_SLUG__",
         escape(settings.bootstrap_farm_slug, quote=True),
     )
-    return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
+    return HTMLResponse(_with_site_header(content), headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -103,7 +108,7 @@ async def dashboard() -> HTMLResponse:
         "__KISAMORE_FARM_SLUG__",
         escape(settings.bootstrap_farm_slug, quote=True),
     )
-    return HTMLResponse(content, headers={"Cache-Control": "no-cache"})
+    return HTMLResponse(_with_site_header(content), headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/battle", response_class=HTMLResponse, include_in_schema=False)
@@ -114,29 +119,29 @@ async def battle_dashboard() -> HTMLResponse:
 @app.get("/pricing", response_class=HTMLResponse, include_in_schema=False)
 async def pricing_page() -> HTMLResponse:
     return HTMLResponse(
-        PRICING_TEMPLATE.read_text(encoding="utf-8"),
+        _with_site_header(PRICING_TEMPLATE.read_text(encoding="utf-8")),
         headers={"Cache-Control": "no-cache"},
     )
 
 
 @app.get("/wallet", response_class=HTMLResponse, include_in_schema=False)
 async def wallet_page() -> HTMLResponse:
-    return HTMLResponse(WALLET_TEMPLATE.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(_with_site_header(WALLET_TEMPLATE.read_text(encoding="utf-8")), headers={"Cache-Control": "no-store"})
 
 
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 async def privacy_policy() -> HTMLResponse:
     return HTMLResponse(
-        PRIVACY_TEMPLATE.read_text(encoding="utf-8"),
-        headers={"Cache-Control": "public, max-age=300"},
+        _with_site_header(PRIVACY_TEMPLATE.read_text(encoding="utf-8")),
+        headers={"Cache-Control": "no-cache"},
     )
 
 
 @app.get("/delete-account", response_class=HTMLResponse, include_in_schema=False)
 async def delete_account_page() -> HTMLResponse:
     return HTMLResponse(
-        DELETE_ACCOUNT_TEMPLATE.read_text(encoding="utf-8"),
-        headers={"Cache-Control": "public, max-age=300"},
+        _with_site_header(DELETE_ACCOUNT_TEMPLATE.read_text(encoding="utf-8")),
+        headers={"Cache-Control": "no-cache"},
     )
 
 
@@ -154,7 +159,7 @@ async def admin_dashboard() -> HTMLResponse:
         '<script src="/static/admin_promotions.js?v=20260921-1" defer></script>\n</body>',
     )
     return HTMLResponse(
-        content,
+        _with_site_header(content),
         headers={"Cache-Control": "no-cache"},
     )
 
