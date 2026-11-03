@@ -86,6 +86,7 @@ async def payment_catalog(
 class CheckoutRequest(BaseModel):
     kind: Literal["topup", "subscription"]
     kisa: int | None = Field(default=None, ge=1, le=100)
+    language: Literal["ru", "en"] = "en"
 
 
 @router.post("/checkout")
@@ -134,7 +135,8 @@ async def create_checkout(payload: CheckoutRequest,
     await session.commit()
     try:
         invoice, checkout_url = await create_lava_invoice(
-            email=user.email, offer_id=offer, kind=payload.kind, amount=amount)
+            email=user.email, offer_id=offer, kind=payload.kind, amount=amount,
+            buyer_language=payload.language.upper())
     except LavaBuyerEmailRejected:
         order.status = "creation_failed"
         order.updated_at = datetime.now(timezone.utc)

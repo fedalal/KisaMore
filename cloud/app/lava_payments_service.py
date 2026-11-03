@@ -46,11 +46,12 @@ def _url_allowed(value: str) -> bool:
 def _uuid(value: str) -> str:
     return str(UUID(str(value)))
 
-async def create_lava_invoice(*, email: str, offer_id: str, kind: str, amount: int) -> tuple[str, str]:
+async def create_lava_invoice(*, email: str, offer_id: str, kind: str, amount: int, buyer_language: str = "EN") -> tuple[str, str]:
     body = {
         "email": email,
         "offerId": offer_id,
         "currency": "USD",
+        "buyerLanguage": buyer_language,
         "successful_return_url": "https://kisamore.farm/wallet?payment=return",
         "failure_return_url": "https://kisamore.farm/wallet?payment=failed",
         "cancel_return_url": "https://kisamore.farm/wallet?payment=cancelled",
