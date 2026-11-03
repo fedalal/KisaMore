@@ -11,3 +11,5 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media(max-width:720px){.top-nav .nav-home-link{display:none}.top-nav{gap:9px}.site-header{gap:7px}.top-nav a{white-space:nowrap}}
 #kisa-info{scroll-margin-top:20px}
+.header-actions{display:flex;align-items:center;gap:10px;min-width:0}
+@media(max-width:720px){.site-header{flex-wrap:wrap}.header-actions{margin-left:auto;gap:6px}.top-nav{order:3;flex-basis:100%;justify-content:space-between;margin-left:0}.top-nav .nav-home-link{display:inline}}

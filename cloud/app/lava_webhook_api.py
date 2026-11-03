@@ -87,10 +87,20 @@ class CheckoutRequest(BaseModel):
     kind: Literal["topup", "subscription"]
     kisa: int | None = Field(default=None, ge=1, le=100)
     language: Literal["ru", "en"] = "en"
+    return_origin: Literal["https://kisamore.farm", "https://ru.kisamore.farm"] | None = None
+
+
+def _checkout_return_origin(payload: CheckoutRequest, request: Request) -> str:
+    # The mirror may proxy with a different Host; the browser sends a strictly
+    # allowlisted origin so that a payment returns to the same signed-in host.
+    return payload.return_origin or (
+        "https://ru.kisamore.farm" if request.url.hostname == "ru.kisamore.farm"
+        else "https://kisamore.farm"
+    )
 
 
 @router.post("/checkout")
-async def create_checkout(payload: CheckoutRequest,
+async def create_checkout(payload: CheckoutRequest, request: Request,
                           user: User = Depends(get_current_user),
                           session: AsyncSession = Depends(get_session)):
     public = enabled()
@@ -136,7 +146,8 @@ async def create_checkout(payload: CheckoutRequest,
     try:
         invoice, checkout_url = await create_lava_invoice(
             email=user.email, offer_id=offer, kind=payload.kind, amount=amount,
-            buyer_language=payload.language.upper())
+            buyer_language=payload.language.upper(),
+            return_base=_checkout_return_origin(payload, request))
     except LavaBuyerEmailRejected:
         order.status = "creation_failed"
         order.updated_at = datetime.now(timezone.utc)

@@ -9,10 +9,12 @@
   <title>KisaMore — grow something real</title>
   <link rel="stylesheet" href="/static/dashboard.css?v=22">
   <link rel="stylesheet" href="/static/battle.css?v=20260930-1">
+  <link rel="stylesheet" href="/static/account_header.css?v=20261103-1">
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/dashboard.js?v=20261030-unified-shelves" defer></script>
+  <script src="/static/account_header.js?v=20261103-1" defer></script>
+  <script src="/static/dashboard.js?v=20261103-account" defer></script>
   <link rel="stylesheet" href="/static/battle_inbox_home.css?v=20261013-1">
-  <script src="/static/battle_inbox_home.js?v=20261013-1" defer></script>
+  <script src="/static/battle_inbox_home.js?v=20261103-account" defer></script>
   <script src="/static/battle.js?v=20260930-1" defer></script>
   <script src="/static/analytics.js?v=20260924-2" defer></script>
 </head>
@@ -50,7 +52,17 @@
           <option value="zh">中文</option>
         </select>
         <button id="battleInboxHomeButton" class="secondary-button battle-notif-btn" type="button" hidden>📨 Сообщения</button>
-        <button id="accountButton" class="secondary-button" type="button" data-i18n="signIn">Sign in</button>
+        <div class="kisa-account" data-kisa-account data-inline-auth="true">
+          <button id="accountButton" class="account-trigger" type="button" data-account-button aria-haspopup="true" aria-expanded="false">
+            <span class="account-avatar" data-account-avatar hidden></span><span class="account-name" data-account-label>…</span><span class="account-chevron" data-account-chevron hidden aria-hidden="true">⌄</span>
+          </button>
+          <div class="account-dropdown" data-account-menu role="group" aria-label="Account" hidden>
+            <span class="account-menu-caption" data-account-caption></span><strong class="account-menu-name" data-account-name></strong><span class="account-menu-email" data-account-email></span>
+            <a class="account-menu-link" data-account-profile href="/?account=profile">My account</a>
+            <a class="account-menu-link" data-account-wallet href="/wallet">Kisa wallet</a>
+            <button class="account-logout" data-account-logout type="button">Sign out</button><p class="account-error" data-account-error role="alert" hidden></p>
+          </div>
+        </div>
       </nav>
     </header>
 

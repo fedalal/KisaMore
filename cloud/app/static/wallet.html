@@ -5,11 +5,22 @@
 <meta name="theme-color" content="#08140e">
 <meta name="robots" content="noindex">
 <title>KisaMore · Кошелёк Kisa</title>
-<link rel="stylesheet" href="/static/wallet.css?v=1">
-<script src="/static/wallet.js?v=1" defer></script>
+<link rel="stylesheet" href="/static/wallet.css?v=20261103-account">
+<link rel="stylesheet" href="/static/account_header.css?v=20261103-1">
+<script src="/static/wallet.js?v=20261103-account" defer></script>
+<script src="/static/account_header.js?v=20261103-1" defer></script>
 </head>
 <body>
-<header class="topbar"><a class="brand" href="/"><b>Ⓚ</b><span>KisaMore</span></a><nav><a href="/pricing" id="navPlans">Тарифы</a><a href="/battle" id="navBattles">Битвы</a><a href="/" id="navHome">На главную</a></nav><select id="language" aria-label="Language"><option value="ru">RU</option><option value="en">EN</option></select></header>
+<header class="topbar"><a class="brand" href="/"><b>Ⓚ</b><span>KisaMore</span></a><nav><a href="/pricing" id="navPlans">Тарифы</a><a href="/battle" id="navBattles">Битвы</a><a href="/" id="navHome">На главную</a></nav>
+<div class="wallet-header-actions"><select id="language" aria-label="Language"><option value="ru">RU</option><option value="en">EN</option></select>
+<div class="kisa-account" data-kisa-account>
+  <button id="accountButton" class="account-trigger" type="button" data-account-button aria-haspopup="true" aria-expanded="false"><span class="account-avatar" data-account-avatar hidden></span><span class="account-name" data-account-label>…</span><span class="account-chevron" data-account-chevron hidden aria-hidden="true">⌄</span></button>
+  <div class="account-dropdown" data-account-menu role="group" aria-label="Account" hidden>
+    <span class="account-menu-caption" data-account-caption></span><strong class="account-menu-name" data-account-name></strong><span class="account-menu-email" data-account-email></span>
+    <a class="account-menu-link" data-account-profile href="/?account=profile">My account</a><a class="account-menu-link" data-account-wallet href="/wallet">Kisa wallet</a>
+    <button class="account-logout" data-account-logout type="button">Sign out</button><p class="account-error" data-account-error role="alert" hidden></p>
+  </div>
+</div></div></header>
 <main>
 <section class="heading"><p class="eyebrow">KISAMORE · KISA WALLET</p><h1 id="title">Кошелёк Kisa</h1><p id="subtitle">Пополнение внутреннего баланса и участие в битвах настоящих растений.</p></section>
 <section class="balance" aria-live="polite"><div><span id="balanceLabel">Ваш баланс</span><div class="amount"><strong id="balance">—</strong> <span>Ⓚ</span></div><small id="balanceHint">Войдите в аккаунт KisaMore, чтобы увидеть баланс.</small></div><a class="historylink" href="/battle" id="openAccount">Личный кабинет ↗</a></section>

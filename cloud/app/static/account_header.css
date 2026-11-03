@@ -1,0 +1,18 @@
+/* Shared account control for the public KisaMore pages. */
+.kisa-account{position:relative;min-width:0;flex:0 1 auto}
+.kisa-account .account-trigger{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;max-width:220px;padding:8px 11px;border:1px solid #315a46;border-radius:12px;background:#142820;color:#f3fff8;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.kisa-account .account-trigger:hover,.kisa-account .account-trigger[aria-expanded="true"]{border-color:#79ff9a}
+.kisa-account .account-avatar{display:grid;flex:0 0 28px;width:28px;height:28px;place-items:center;border-radius:9px;background:#79ff9a;color:#07110d;font-size:13px;font-weight:900}
+.kisa-account .account-name{display:block;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.kisa-account .account-chevron{color:#79ff9a;font-size:16px}
+.kisa-account .account-dropdown{position:absolute;z-index:100;right:0;top:calc(100% + 10px);display:flex;flex-direction:column;gap:8px;width:min(290px,calc(100vw - 28px));padding:16px;border:1px solid #315a46;border-radius:17px;background:#10231a;color:#f3fff8;box-shadow:0 18px 52px rgba(0,0,0,.42);overflow-wrap:anywhere;text-align:left}
+.kisa-account [hidden]{display:none!important}
+.kisa-account .account-menu-caption{color:#93afa3;font-size:11px}
+.kisa-account .account-menu-name{color:#f3fff8;font-size:17px}
+.kisa-account .account-menu-email{color:#b6d0c1;font-size:13px}
+.kisa-account .account-menu-link,.kisa-account .account-logout{display:block;width:100%;padding:10px 12px;border:1px solid #315a46;border-radius:11px;background:#142820;color:#f3fff8;font:inherit;font-size:13px;font-weight:750;text-align:left;text-decoration:none;cursor:pointer}
+.kisa-account .account-menu-link:hover,.kisa-account .account-logout:hover{border-color:#79ff9a;color:#fff}
+.kisa-account .account-error{margin:0;color:#ffb7a8;font-size:12px}
+@media(max-width:620px){.kisa-account .account-trigger{max-width:142px;gap:6px;padding:7px 9px}.kisa-account .account-avatar{flex-basis:24px;width:24px;height:24px;font-size:12px}}
+@media(max-width:400px){.kisa-account .account-trigger{max-width:110px}.kisa-account .account-avatar{display:none}.kisa-account .account-chevron{font-size:13px}.kisa-account .account-dropdown{width:min(220px,calc(100vw - 28px))}}
+@media(max-width:520px){.page-shell>.topbar{grid-template-columns:1fr;gap:8px}.page-shell .top-actions{justify-content:flex-end;flex-wrap:wrap}}

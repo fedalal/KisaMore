@@ -7,9 +7,10 @@
   <title>KisaMore Battle — Grow. Decide. Win.</title>
   <meta name="description" content="Control a real plant in a live greenhouse battle. Six plants. Equal resources. Your strategy.">
   <link rel="stylesheet" href="/static/battle_site.css?v=20261013-1">
+  <link rel="stylesheet" href="/static/account_header.css?v=20261103-1">
   <script>window.KISAMORE_FARM_SLUG="__KISAMORE_FARM_SLUG__";</script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
-  <script src="/static/battle_site.js?v=20261029-2" defer></script>
+  <script src="/static/battle_site.js?v=20261103-account" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -30,7 +31,7 @@
         <option value="pt">PT</option><option value="pl">PL</option><option value="zh">中文</option>
       </select>
       <span id="walletBalance" class="wallet-balance" hidden></span>
-      <div class="account-control" id="accountControl">
+      <div class="account-control kisa-account" id="accountControl">
         <button id="accountButton" class="button secondary account-trigger" type="button"
                 aria-haspopup="true" aria-expanded="false" title="Sign in">
           <span id="accountAvatar" class="account-avatar hidden" aria-hidden="true"></span>
@@ -41,6 +42,8 @@
           <span class="account-menu-caption" data-i18n="signedInAs">Signed in as</span>
           <strong id="accountFullName" class="account-menu-name"></strong>
           <span id="accountEmail" class="account-menu-email"></span>
+          <a class="account-menu-link" href="/?account=profile" data-i18n="accountProfile">My account</a>
+          <a class="account-menu-link" href="/wallet" data-i18n="accountWallet">Kisa wallet</a>
           <div class="account-menu-telegram">
             <span>Telegram</span>
             <span id="accountTelegram">—</span>

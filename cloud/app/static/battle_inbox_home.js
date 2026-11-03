@@ -80,6 +80,7 @@ button.addEventListener("click",open);
 close.addEventListener("click",()=>dialog.close());
 dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh();});
+document.addEventListener("kisamore:auth-changed",refresh);
 setTimeout(refresh,750);
 setInterval(refresh,30000);
 })();

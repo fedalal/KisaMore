@@ -86,7 +86,8 @@
   async function pay(kind){if(!authed||(kind==="topup"?!topupEnabled:!subscriptionEnabled))return;
     const button=$(kind==="topup"?"topupButton":"subButton");button.disabled=true;
     $("status").textContent=dictionary.busy;
-    try{const data=await getJSON("/api/v1/payments/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(kind==="topup"?{kind:"topup",kisa:Number(document.querySelector('input[name="amount"]:checked').value),language:$("language").value}:{kind:"subscription",language:$("language").value})});
+    const returnOrigin=location.hostname==="ru.kisamore.farm"?"https://ru.kisamore.farm":"https://kisamore.farm";
+    try{const data=await getJSON("/api/v1/payments/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(kind==="topup"?{kind:"topup",kisa:Number(document.querySelector('input[name="amount"]:checked').value),language:$("language").value,return_origin:returnOrigin}:{kind:"subscription",language:$("language").value,return_origin:returnOrigin})});
       const u=new URL(data.checkout_url);if(u.protocol!=="https:"||!(u.hostname==="lava.top"||u.hostname.endsWith(".lava.top")))throw new Error("Unexpected provider URL");
       location.assign(u.href);
     }catch(err){$("status").textContent=err.code==="lava_buyer_email_rejected"?dictionary.emailRejected:dictionary.error;button.disabled=false;}

@@ -198,6 +198,18 @@
   let authMode = "login";
   let pendingAction = null;
   let pendingSocialAction = null;
+  const accountParams = new URLSearchParams(window.location.search);
+  const accountIntent = accountParams.get("account");
+  let profileAfterAuth = false;
+  function safeAccountReturn(value) {
+    if (!value) return null;
+    try {
+      const url = new URL(value, window.location.origin);
+      if (url.origin !== window.location.origin || !["/pricing", "/wallet"].includes(url.pathname)) return null;
+      return url.pathname + url.search + url.hash;
+    } catch (_) { return null; }
+  }
+  let returnAfterAuth = accountIntent === "signin" ? safeAccountReturn(accountParams.get("next")) : null;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const t = (key) => commercialTranslations[language]?.[key] || translations[language]?.[key] || commercialTranslations.en[key] || translations.en[key] || key;
@@ -863,7 +875,7 @@
   }
 
   function render() {
-    $("#accountButton").textContent = user ? user.display_name : t("signIn");
+    window.KisaMoreAccountHeader?.setUser(user);
     if (!liveData || !marketData) return;
     setConnection(liveData.status);
     $("#farmName").textContent = marketData.farm_name || liveData.farm_name || "KisaMore Farm";
@@ -1109,7 +1121,15 @@
     }
   });
   $("#refreshButton").addEventListener("click", loadData);
-  $("#accountButton").addEventListener("click", openAccount);
+  document.addEventListener("kisamore:account-signin", openAuth);
+  document.addEventListener("kisamore:account-profile", openAccount);
+  document.addEventListener("kisamore:account-signed-out", () => {
+    user = null;
+    account = null;
+    if ($("#accountDialog").open) $("#accountDialog").close();
+    render();
+    document.dispatchEvent(new CustomEvent("kisamore:auth-changed"));
+  });
   $("#accountCtaButton")?.addEventListener("click", openAccount);
   $("#authModeButton").addEventListener("click", () => { authMode = authMode === "login" ? "register" : "login"; renderAuthDialog(); });
   $("#forgotPasswordButton").addEventListener("click", openPasswordResetRequest);
@@ -1221,6 +1241,7 @@
       user = await api(`/api/v1/auth/${authMode === "register" ? "register" : "login"}`, { method: "POST", body: JSON.stringify(payload) });
       $("#authDialog").close();
       applyLanguage();
+      document.dispatchEvent(new CustomEvent("kisamore:auth-changed"));
       if (pendingSocialAction) {
         const action = pendingSocialAction;
         pendingSocialAction = null;
@@ -1229,6 +1250,13 @@
         const action = pendingAction;
         pendingAction = null;
         openAction(action);
+      } else if (returnAfterAuth) {
+        const destination = returnAfterAuth;
+        returnAfterAuth = null;
+        window.location.assign(destination);
+      } else if (profileAfterAuth) {
+        profileAfterAuth = false;
+        openAccount();
       } else {
         render();
       }
@@ -1270,12 +1298,33 @@
     account = null;
     $("#accountDialog").close();
     render();
+    document.dispatchEvent(new CustomEvent("kisamore:auth-changed"));
   });
 
   applyLanguage();
   renderPasswordResetUi();
-  const resetToken = new URLSearchParams(window.location.search).get("reset_token");
+  const resetToken = accountParams.get("reset_token");
   if (resetToken) openPasswordResetConfirm(resetToken);
-  Promise.all([loadUser(), loadData()]);
+  const userLoaded = loadUser();
+  loadData();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) loadUser(); });
+  if (!resetToken && (accountIntent === "signin" || accountIntent === "profile")) {
+    userLoaded.then(() => {
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete("account");
+      clean.searchParams.delete("next");
+      window.history.replaceState({}, document.title, clean.pathname + clean.search + clean.hash);
+      if (accountIntent === "profile") {
+        if (!user) profileAfterAuth = true;
+        openAccount();
+      } else if (!user) {
+        openAuth();
+      } else if (returnAfterAuth) {
+        const destination = returnAfterAuth;
+        returnAfterAuth = null;
+        window.location.assign(destination);
+      }
+    });
+  }
   window.setInterval(loadData, 30_000);
 })();
