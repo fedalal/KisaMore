@@ -46,12 +46,12 @@
   const flag = picker.querySelector("[data-language-flag]");
   const menuOptions = [...menu.querySelectorAll("[data-language]")];
   const countryFlags = {en:"gb",ru:"ru",de:"de",fr:"fr",es:"es",it:"it",pt:"pt",pl:"pl",zh:"cn"};
-  const countryNames = {en:"United Kingdom",ru:"Россия",de:"Deutschland",fr:"France",es:"España",it:"Italia",pt:"Portugal",pl:"Polska",zh:"中国"};
+  const languageNames = {en:"English",ru:"Русский",de:"Deutsch",fr:"Français",es:"Español",it:"Italiano",pt:"Português",pl:"Polski",zh:"中文"};
   function valid(value) { const lang=String(value || "").toLowerCase().split("-")[0]; return nav[lang] ? lang : "en"; }
   function syncLanguagePicker() {
-    const name=countryNames[chosen];
+    const name=languageNames[chosen];
     flag.src="/static/flags/"+countryFlags[chosen]+".svg";
-    trigger.setAttribute("aria-label","Language: "+name);
+    trigger.setAttribute("aria-label","Язык / Language: "+name);
     trigger.title=name;
     trigger.disabled=select.disabled;
     for(const option of menuOptions)option.setAttribute("aria-checked",String(option.dataset.language===chosen));
