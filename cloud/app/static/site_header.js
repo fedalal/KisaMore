@@ -40,10 +40,71 @@
   const params = new URLSearchParams(location.search);
   const explicit = page === "certificate" ? (params.get("ui_lang") || params.get("lang")) : page === "pricing" ? params.get("lang") : null;
   let chosen = "en", userChoice = false;
+  const picker = root.querySelector("[data-language-picker]");
+  const trigger = picker.querySelector("[data-language-trigger]");
+  const menu = picker.querySelector("[data-language-menu]");
+  const flag = picker.querySelector("[data-language-flag]");
+  const menuOptions = [...menu.querySelectorAll("[data-language]")];
+  const countryFlags = {en:"gb",ru:"ru",de:"de",fr:"fr",es:"es",it:"it",pt:"pt",pl:"pl",zh:"cn"};
+  const countryNames = {en:"United Kingdom",ru:"Россия",de:"Deutschland",fr:"France",es:"España",it:"Italia",pt:"Portugal",pl:"Polska",zh:"中国"};
   function valid(value) { const lang=String(value || "").toLowerCase().split("-")[0]; return nav[lang] ? lang : "en"; }
+  function syncLanguagePicker() {
+    const name=countryNames[chosen];
+    flag.src="/static/flags/"+countryFlags[chosen]+".svg";
+    trigger.setAttribute("aria-label","Language: "+name);
+    trigger.title=name;
+    trigger.disabled=select.disabled;
+    for(const option of menuOptions)option.setAttribute("aria-checked",String(option.dataset.language===chosen));
+  }
+  function closeLanguageMenu(restoreFocus=false) {
+    menu.hidden=true;
+    trigger.setAttribute("aria-expanded","false");
+    if(restoreFocus)trigger.focus();
+  }
+  function openLanguageMenu(targetLanguage=chosen) {
+    if(select.disabled)return;
+    menu.hidden=false;
+    trigger.setAttribute("aria-expanded","true");
+    (menuOptions.find(option=>option.dataset.language===targetLanguage)||menuOptions[0]).focus();
+  }
+  trigger.addEventListener("click",()=>{
+    if(menu.hidden)openLanguageMenu();
+    else closeLanguageMenu(true);
+  });
+  trigger.addEventListener("keydown",event=>{
+    if(event.key==="ArrowDown"||event.key==="ArrowUp"){
+      event.preventDefault();
+      openLanguageMenu(event.key==="ArrowDown"?menuOptions[0].dataset.language:menuOptions[menuOptions.length-1].dataset.language);
+    }
+  });
+  menu.addEventListener("click",event=>{
+    const option=event.target.closest("[data-language]");
+    if(!option || !menu.contains(option))return;
+    select.value=option.dataset.language;
+    closeLanguageMenu(true);
+    // Preserve the existing language-changed event and profile-saving workflow.
+    select.dispatchEvent(new Event("change",{bubbles:true}));
+  });
+  menu.addEventListener("keydown",event=>{
+    if(event.key==="Escape"){event.preventDefault();closeLanguageMenu(true);return;}
+    if(event.key==="Tab"){closeLanguageMenu();return;}
+    if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key))return;
+    event.preventDefault();
+    const current=menuOptions.indexOf(document.activeElement);
+    let next=current;
+    if(event.key==="Home")next=0;
+    else if(event.key==="End")next=menuOptions.length-1;
+    else next=(current+(event.key==="ArrowDown"?1:-1)+menuOptions.length)%menuOptions.length;
+    menuOptions[next].focus();
+  });
+  document.addEventListener("pointerdown",event=>{
+    if(!menu.hidden && !picker.contains(event.target))closeLanguageMenu();
+  });
+  picker.classList.add("is-enhanced");
   function setLanguage(value, options = {}) {
     chosen = page==="admin" ? "ru" : valid(value);
     select.value = chosen;
+    syncLanguagePicker();
     const [greenhouse,battles,pricing,messages] = nav[chosen];
     const dictionary = {greenhouse,battles,pricing,messages,currency:"Kisa Ⓚ",...account[chosen]};
     root.querySelectorAll("[data-site-text]").forEach(el => { const value=dictionary[el.dataset.siteText]; if (value) el.textContent=value; });

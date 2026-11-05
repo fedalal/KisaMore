@@ -8,11 +8,34 @@
       <a href="/wallet" data-site-text="currency">Kisa Ⓚ</a>
     </nav>
     <div class="kisa-site-actions">
-      <select id="languageSelect" aria-label="Language">
-        <option value="en">EN</option><option value="ru">RU</option><option value="de">DE</option>
-        <option value="fr">FR</option><option value="es">ES</option><option value="it">IT</option>
-        <option value="pt">PT</option><option value="pl">PL</option><option value="zh">中文</option>
-      </select>
+      <div class="kisa-language-picker" data-language-picker>
+        <select id="languageSelect" aria-label="Language">
+          <option value="en">United Kingdom</option>
+          <option value="ru">Россия</option>
+          <option value="de">Deutschland</option>
+          <option value="fr">France</option>
+          <option value="es">España</option>
+          <option value="it">Italia</option>
+          <option value="pt">Portugal</option>
+          <option value="pl">Polska</option>
+          <option value="zh">中国</option>
+        </select>
+        <button class="kisa-language-trigger" data-language-trigger type="button" aria-label="Choose language" aria-haspopup="menu" aria-expanded="false">
+          <img class="kisa-language-flag" data-language-flag src="/static/flags/gb.svg" alt="" width="24" height="18">
+          <svg class="kisa-language-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="kisa-language-menu" data-language-menu role="menu" aria-label="Choose language" hidden>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="en"><img class="kisa-language-flag" src="/static/flags/gb.svg" alt="" width="24" height="18"><span>United Kingdom</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="ru"><img class="kisa-language-flag" src="/static/flags/ru.svg" alt="" width="24" height="18"><span>Россия</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="de"><img class="kisa-language-flag" src="/static/flags/de.svg" alt="" width="24" height="18"><span>Deutschland</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="fr"><img class="kisa-language-flag" src="/static/flags/fr.svg" alt="" width="24" height="18"><span>France</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="es"><img class="kisa-language-flag" src="/static/flags/es.svg" alt="" width="24" height="18"><span>España</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="it"><img class="kisa-language-flag" src="/static/flags/it.svg" alt="" width="24" height="18"><span>Italia</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="pt"><img class="kisa-language-flag" src="/static/flags/pt.svg" alt="" width="24" height="18"><span>Portugal</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="pl"><img class="kisa-language-flag" src="/static/flags/pl.svg" alt="" width="24" height="18"><span>Polska</span></button>
+          <button class="kisa-language-option" role="menuitemradio" aria-checked="false" tabindex="-1" type="button" data-language="zh"><img class="kisa-language-flag" src="/static/flags/cn.svg" alt="" width="24" height="18"><span>中国</span></button>
+        </div>
+      </div>
       <a class="kisa-site-messages" id="battleMessagesOpen" href="/battle?messages=1" hidden><span aria-hidden="true">✉</span><span class="kisa-sr-only" id="battleMessagesLabel" data-site-text="messages">Messages</span><span id="battleMessagesBadge"></span></a>
       <div class="account-control kisa-account" id="accountControl" data-kisa-account>
         <button id="accountButton" class="account-trigger" type="button" data-account-button aria-haspopup="true" aria-expanded="false">
