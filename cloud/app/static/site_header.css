@@ -3,7 +3,7 @@
 .kisa-site-inner{max-width:1240px;min-height:72px;margin:auto;padding:12px 20px;display:flex;align-items:center;gap:24px}
 .kisa-site-header a{color:inherit;text-decoration:none}
 .kisa-site-brand{display:flex;align-items:center;gap:11px;white-space:nowrap;font-size:19px;font-weight:850;letter-spacing:-.03em}
-.kisa-site-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#79ff9a;color:#071b10;font-size:22px;font-weight:900}
+.kisa-site-mark{display:block;flex:0 0 42px;width:42px;height:42px;border-radius:12px;object-fit:cover}
 .kisa-site-nav{display:flex;align-items:center;gap:25px;margin-left:auto;color:#b6cebe;white-space:nowrap}
 .kisa-site-nav a:hover,.kisa-site-nav a[aria-current=page]{color:#79ff9a}
 .kisa-site-actions{display:flex;align-items:center;gap:10px;min-width:0;max-width:100%;flex:0 0 auto}
@@ -17,7 +17,10 @@
 .kisa-site-header .account-trigger:hover,.kisa-site-header .account-trigger[aria-expanded=true]{border-color:#79ff9a}
 .kisa-site-header .account-avatar{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:8px;background:#79ff9a;color:#07110d;font-weight:900}
 .kisa-site-header .account-name{display:block;overflow:hidden;min-width:0;white-space:nowrap;text-overflow:ellipsis}
-.kisa-site-header .account-chevron{color:#79ff9a}
+.kisa-site-header .account-chevron{display:inline-flex;align-items:center;justify-content:center;flex:0 0 16px;width:16px;height:16px;color:#b9d9c5;transition:transform .18s ease,color .18s ease}
+.kisa-site-header .account-chevron svg{display:block;width:16px;height:16px}
+.kisa-site-header .account-trigger[aria-expanded="true"] .account-chevron{transform:rotate(180deg);color:#79ff9a}
+@media(prefers-reduced-motion:reduce){.kisa-site-header .account-chevron{transition:none}}
 .kisa-site-header .account-dropdown{position:absolute;z-index:100;right:0;top:calc(100% + 10px);display:flex;flex-direction:column;gap:8px;width:min(290px,calc(100vw - 28px));padding:16px;border:1px solid #315a46;border-radius:17px;background:#10231a;color:#f3fff8;box-shadow:0 18px 52px #0006;overflow-wrap:anywhere;text-align:left}
 .kisa-site-header [hidden],.kisa-language-note[hidden]{display:none!important}
 .kisa-site-header .account-menu-caption{color:#93afa3;font-size:11px}
