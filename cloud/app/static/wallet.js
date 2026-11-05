@@ -44,16 +44,25 @@
       privacyLink:"Privacy",plansLink:"Plans and terms"
     }
   };
-  const saved=localStorage.getItem("battleLang") || localStorage.getItem("kisamore-language");
+  for(const [lang,labels] of Object.entries(window.KisaLocales?.wallet || {})){
+    if(lang!=="en" && lang!=="ru") texts[lang]=labels;
+  }
+  const ex=window.KisaLocales?.walletExtra||{};
+  const saved=localStorage.getItem("kisamore-language") || localStorage.getItem("battleLang");
   const lang=window.KisaSiteHeader?.getLanguage() || (saved || navigator.language || "ru").toLowerCase().slice(0,2);
-  let dictionary=texts[lang] || texts.en, authed=false,topupEnabled=false,subscriptionEnabled=false;
-  function translate(selected){const language=selected==="ru"?"ru":"en";dictionary=texts[language];document.documentElement.lang=language;
+  let dictionary=texts[lang] || texts.en, authed=false,topupEnabled=false,subscriptionEnabled=false, membershipRemaining=null;
+  function translate(selected){const language=texts[selected]?selected:"en";dictionary=texts[language];document.documentElement.lang=language;
     for(const [id,value] of Object.entries(dictionary)) if($(id) && id!=="balanceHint" && id!=="accountHint" && id!=="signIn" && id!=="testReady" && id!=="paymentReady" && id!=="emailRejected" && id!=="busy" && id!=="error")$(id).textContent=value;
-    document.title=(language==="ru"?"Кошелёк Kisa":"Kisa Wallet")+" · KisaMore";
+    document.title=(dictionary.title||"Kisa Wallet")+" · KisaMore";
+    if($("plansLink"))$("plansLink").textContent=dictionary.navPlans||"Pricing";
+    if($("termsLink"))$("termsLink").textContent=(language==="ru"?"Условия использования":window.KisaLocales?.legalMeta?.[language]?.termsTitle||"Terms of Use").replace(/^KisaMore Battle\s*[—–-]\s*/,"");
     $("topupButton").disabled=!topupEnabled||!authed;$("subButton").disabled=!subscriptionEnabled||!authed;
     $("balanceHint").textContent=authed?dictionary.accountHint:dictionary.balanceHint;
-    if(!topupEnabled && !subscriptionEnabled){$("topupButton").textContent=dictionary.waiting.length>0?(language==="ru"?"Оплата пока недоступна":"Payments unavailable"):"";
-      $("subButton").textContent=language==="ru"?"Подписка пока недоступна":"Subscription unavailable";}
+    const memberBanner=$("membershipBanner");
+    if(memberBanner&&membershipRemaining!==null){const extra=ex[language]||{};
+      memberBanner.textContent=(language==="ru"?"Садовод+ активен":extra.memberActive||"Gardener+ active")+" · "+(language==="ru"?"осталось участий":extra.entriesRemaining||"entries remaining")+": "+membershipRemaining;}
+    if(!topupEnabled && !subscriptionEnabled){$("topupButton").textContent=dictionary.waiting.length>0?((ex[language]?.unavailablePayments || (language==="ru"?"Оплата пока недоступна":"Payments unavailable"))):"";
+      $("subButton").textContent=(ex[language]?.unavailableSub || (language==="ru"?"Подписка пока недоступна":"Subscription unavailable"));}
   }
   translate(lang);
   document.addEventListener("kisamore:language-changed",e=>translate(e.detail.language));
@@ -69,11 +78,9 @@
   }
   Promise.allSettled([getJSON("/api/v1/account/kisa-wallet"),getJSON("/api/v1/payments/catalog"),getJSON("/api/v1/payments/membership")]).then(([wallet,catalog,member])=>{
     if(member.status==="fulfilled" && member.value.active) {
+      membershipRemaining=member.value.remaining_entries;
       const banner=document.createElement("div");
-      banner.className="notice";
-      banner.textContent=$("languageSelect").value==="ru"
-        ?"Садовод+ активен · осталось участий: "+member.value.remaining_entries
-        :"Gardener+ active · entries remaining: "+member.value.remaining_entries;
+      banner.className="notice";banner.id="membershipBanner";
       document.querySelector(".cards").before(banner);
     }
     if(wallet.status==="fulfilled") {authed=true;$("balance").textContent=wallet.value.balance;$("balanceHint").textContent=dictionary.accountHint;}
@@ -98,11 +105,12 @@
   const invoiceId=returned.get("invoiceId");
   if(invoiceId && /^[0-9a-f-]{36}$/i.test(invoiceId)){
     getJSON("/api/v1/payments/status?invoice_id="+encodeURIComponent(invoiceId)).then(data=>{
+      const chosen=window.KisaSiteHeader?.getLanguage()||"en", translated=ex[chosen]||{};
       $("status").textContent=data.status==="paid"
-        ?($("languageSelect").value==="ru"?"Оплата подтверждена! Обновите страницу для нового баланса.":"Payment confirmed! Refresh to see your balance.")
+        ?(chosen==="ru"?"Оплата подтверждена! Обновите страницу для нового баланса.":translated.paid||ex.en?.paid)
         :data.status==="failed"
-          ?($("languageSelect").value==="ru"?"Оплата отменена или не прошла. Kisa не начислены.":"Payment cancelled or failed. No Kisa were granted.")
-          :($("languageSelect").value==="ru"?"Платёж ещё проверяется. Баланс не изменён.":"Payment is still being verified. No credit has been granted.");
+          ?(chosen==="ru"?"Оплата отменена или не прошла. Kisa не начислены.":translated.failed||ex.en?.failed)
+          :(chosen==="ru"?"Платёж ещё проверяется. Баланс не изменён.":translated.pending||ex.en?.pending);
     }).catch(()=>{$("status").textContent=dictionary.error;});
   }
   $("subButton").addEventListener("click",()=>pay("subscription"));

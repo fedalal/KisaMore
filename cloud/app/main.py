@@ -53,6 +53,7 @@ BATTLE_TEMPLATE = STATIC_DIR / "battle_site.html"
 PRICING_TEMPLATE = STATIC_DIR / "pricing.html"
 WALLET_TEMPLATE = STATIC_DIR / "wallet.html"
 PRIVACY_TEMPLATE = STATIC_DIR / "privacy.html"
+TERMS_TEMPLATE = STATIC_DIR / "terms.html"
 DELETE_ACCOUNT_TEMPLATE = STATIC_DIR / "delete_account.html"
 SITE_HEADER_TEMPLATE = STATIC_DIR / "site_header.html"
 
@@ -135,6 +136,11 @@ async def privacy_policy() -> HTMLResponse:
         _with_site_header(PRIVACY_TEMPLATE.read_text(encoding="utf-8")),
         headers={"Cache-Control": "no-cache"},
     )
+
+
+@app.get("/terms", response_class=HTMLResponse, include_in_schema=False)
+async def terms_page() -> HTMLResponse:
+    return HTMLResponse(_with_site_header(TERMS_TEMPLATE.read_text(encoding="utf-8")), headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/delete-account", response_class=HTMLResponse, include_in_schema=False)

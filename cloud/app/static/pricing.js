@@ -74,14 +74,19 @@
       closingPlant:"Выбрать растение",closingBattle:"Смотреть битвы",footerTag:"Выращивай настоящее.",privacy:"Конфиденциальность"
     }
   };
+  for(const [lang,labels] of Object.entries(window.KisaLocales?.pricing || {})){
+    if(lang!=="en" && lang!=="ru")strings[lang]=labels;
+  }
   const languageSelect=document.getElementById("languageSelect");
   const query=new URLSearchParams(location.search).get("lang");
   const saved=localStorage.getItem("battleLang") || localStorage.getItem("kisamore-language");
   const browser=(navigator.language||"en").slice(0,2).toLowerCase();
   function apply(lang) {
-    const chosen=lang==="ru"?"ru":"en", labels=strings[chosen];
+    const chosen=strings[lang]?lang:"en", labels=strings[chosen];
     document.documentElement.lang=chosen;
-    languageSelect.value=lang;
+    languageSelect.value=chosen;
+    const termsLink=document.querySelector("[data-terms-link]");
+    if(termsLink)termsLink.textContent=(chosen==="ru"?"Условия использования":(window.KisaLocales?.legalMeta?.[chosen]?.termsTitle||"Terms of Use")).replace(/^KisaMore Battle\s*[—–-]\s*/,"");
     document.querySelectorAll("[data-i18n]").forEach(node=>{
       const key=node.getAttribute("data-i18n");
       if(Object.prototype.hasOwnProperty.call(labels,key)) {
@@ -90,7 +95,7 @@
         // The navigation arrows are included in the translated labels.
       }
     });
-    document.title=chosen==="ru"?"Выращивание и тарифы — KisaMore":"Growing options & pricing — KisaMore";
+    document.title=(chosen==="ru"?"Выращивание и тарифы":chosen==="en"?"Growing options & pricing":labels.title)+" — KisaMore";
     document.querySelector('meta[name="description"]').content=chosen==="ru"
       ?"Выращивай выбранное растение или участвуй в битвах KisaMore. Посадка по цене культуры, битва — 20 Ⓚ, подписка — 30 Ⓚ в месяц."
       :"Grow your own plant or join a KisaMore battle. Personal growing is priced per crop. Battles: 20 Ⓚ each or 30 Ⓚ monthly.";

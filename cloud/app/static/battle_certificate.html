@@ -13,10 +13,10 @@
   <link rel="stylesheet" href="/static/battle_certificate_premium.css?v=1">
   <script defer src="/static/battle_certificate.js?v=2"></script>
 <link rel="stylesheet" href="/static/site_header.css?v=20261103-unified">
-<script src="/static/site_header.js?v=20261103-unified" defer></script>
-<script src="/static/account_header.js?v=20261103-unified" defer></script>
+<script src="/static/site_header.js?v=20261105-9" defer></script>
+<script src="/static/account_header.js?v=20261105-9" defer></script>
 </head>
-<body data-site-page="certificate" data-site-languages="en,ru">
+<body data-site-page="certificate" data-site-languages="all">
   {% include "site_header.html" %}
   <main class="wrap">
     <section class="hero" aria-labelledby="hero-title">
@@ -34,7 +34,7 @@
         <header class="cert-band">
           <a class="cert-brand" href="/" aria-label="KisaMore">
             <img src="/static/kisamore-telegram-icon-v2.png" width="64" height="64" alt="KisaMore" />
-            <span><strong>KisaMore</strong><small>REAL PLANTS · REAL GROWTH</small></span>
+            <span><strong>KisaMore</strong><small>{{ t.brand_subtitle }}</small></span>
           </a>
           <div class="cert-issue">№ 01 · {{ battle.finished_year }}</div>
         </header>

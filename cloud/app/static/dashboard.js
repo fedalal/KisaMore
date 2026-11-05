@@ -507,8 +507,15 @@
     return response.status === 204 ? null : response.json();
   }
 
+  function homeExtra(){
+    const ru={battleLink:"Битва",battleTeaserText:"Смотрите битвы растений, участвуйте в соревнованиях и управляйте своим растением.",
+      battleSiteCta:"Открыть KisaMore Battle"};
+    return language==="ru"?ru:(window.KisaLocales?.home?.[language]||window.KisaLocales?.home?.en||{});
+  }
   function translateTree(root = document) {
     root.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
+    const extras=homeExtra();
+    for(const [key,text] of Object.entries(extras))root.querySelectorAll("[data-home-i18n='"+key+"']").forEach(node=>node.textContent=text);
   }
 
   function relativeTime(value) {
@@ -950,7 +957,7 @@
   async function loadUser() {
     try {
       user = await api("/api/v1/auth/me");
-      language = user.preferred_language || language;
+      if(!localStorage.getItem("kisamore-language")) language = user.preferred_language || language;
       localStorage.setItem("kisamore-language", language);
       applyLanguage();
     } catch (error) {
@@ -1078,10 +1085,10 @@
     const balance = document.createElement("strong");
     balance.textContent = "— Ⓚ";
     const title = document.createElement("span");
-    title.textContent = language === "ru" ? "Баланс Ⓚ" : "Ⓚ balance";
+    title.textContent = homeExtra().balanceTitle || "Ⓚ balance";
     const battleLink = document.createElement("a");
     battleLink.href = "/battle";
-    battleLink.textContent = language === "ru" ? "Участвовать в битве →" : "Join a plant battle →";
+    battleLink.textContent = homeExtra().joinBattle || "Join a plant battle →";
     wallet.append(title, balance, battleLink);
     profile.append(wallet);
     $("#accountContent").replaceChildren(profile);

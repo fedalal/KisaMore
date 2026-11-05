@@ -6,17 +6,31 @@ const T={
 en:{navLive:"Live",navUpcoming:"Upcoming",navPast:"Past battles",navRules:"How it works",heroPill:"REAL PLANTS · LIVE COMPETITION",heroTitle:"Grow it better than everyone else.",heroText:"Six identical plants start together. Everyone gets the same resources. You decide when to water, feed and shade your plant.",joinNext:"Join the next battle",watchLive:"Watch live",factPlayers:"plants per battle",factBatch:"seed batch",factReal:"real greenhouse",scoreTitle:"Battle status",myBattleEyebrow:"YOUR CONTROL ROOM",myBattleTitle:"My battle",liveEyebrow:"WATCH IT HAPPEN",liveTitle:"Live battles",liveNote:"The photo comes from the real greenhouse.",upcomingEyebrow:"GET A PLANT",upcomingTitle:"Upcoming battles",upcomingNote:"A battle starts when all six places are taken and planting is confirmed.",rulesEyebrow:"THE GAME",rulesTitle:"Same start. Different decisions.",rule1Title:"Choose a battle",rule1Text:"Buy one plant with Ⓚ before the six containers are filled.",rule2Title:"Everyone starts equal",rule2Text:"Same crop, same seed batch, same substrate, same light and the same resource limits.",rule3Title:"You make the calls",rule3Text:"Spend your water, nutrient solution and shade time when you think the plant needs it.",rule4Title:"Follow every day",rule4Text:"Watch the whole shelf, your highlighted plant, new photos, actions and timelapses.",rule5Title:"Strategies stay secret",rule5Text:"During the battle you cannot see the exact resource use of competitors. It is revealed at the finish.",rule6Title:"Keep the history",rule6Text:"Every participant gets a permanent result, full growth timelapse, QR and digital diploma.",pastEyebrow:"HALL OF FAME",pastTitle:"Past battles",pastNote:"Finished battles reveal the competitors' strategies.",footerTag:"Real plants. Real decisions.",mainSite:"KisaMore main site",signIn:"Sign in",signOut:"Sign out",signedInAs:"Signed in as",notLinked:"Not connected",account:"ACCOUNT",name:"Name",password:"Password",createAccount:"Create account",haveAccount:"I have an account",entry:"BATTLE ENTRY",plantsCount:"Plant",total:"Price",confirmEntry:"Confirm entry",command:"GREENHOUSE COMMAND",customAmount:"Custom amount",commandHint:"The request is sent to the greenhouse operator. You will see when it is completed.",sendCommand:"Send command",open:"Recruiting",ready_to_plant:"Ready to plant",planting:"Planting",growing:"Growing",judging:"Judging",finished:"Finished",players:"players",placesLeft:"places left",prize:"prize",viewBattle:"View battle",joinBattle:"Join battle",full:"Full",water:"Water",nutrient:"Nutrients",shade:"Shade",remaining:"remaining",used:"used",you:"YOU",container:"Container",selectPlant:"Select one of your highlighted plants.",secret:"Competitors' exact resource use is hidden until the battle ends.",noLive:"No live battles right now.",noUpcoming:"No upcoming battles right now.",noPast:"No finished battles yet.",day:"Day",of:"of",actions:"Action history",noActions:"No commands yet.",pending:"Pending",completed:"Completed",rejected:"Rejected",sent:"Command sent",timelapse:"Timelapse",diploma:"Diploma",joined:"You're in the battle!",linkTelegram:"Connect Telegram to use Ⓚ and join battles.",openTelegram:"Open Telegram",winner:"WINNER",ml:"ml",min:"min"},
 ru:{navLive:"Сейчас",navUpcoming:"Будущие",navPast:"Прошедшие",navRules:"Как играть",heroPill:"ЖИВЫЕ РАСТЕНИЯ · РЕАЛЬНОЕ СОРЕВНОВАНИЕ",heroTitle:"Вырасти лучше, чем остальные.",heroText:"Шесть одинаковых растений стартуют одновременно. У всех одинаковые ресурсы. Вы решаете, когда поливать, давать питание и закрывать растение от света.",joinNext:"Участвовать в следующей битве",watchLive:"Смотреть сейчас",factPlayers:"растений в битве",factBatch:"партия семян",factReal:"настоящая теплица",scoreTitle:"Статус битвы",myBattleEyebrow:"ВАШ ПУЛЬТ УПРАВЛЕНИЯ",myBattleTitle:"Моя битва",liveEyebrow:"СМОТРЕТЬ ВЖИВУЮ",liveTitle:"Текущие битвы",liveNote:"Фото поступает из реальной теплицы.",upcomingEyebrow:"ВЫБЕРИТЕ РАСТЕНИЕ",upcomingTitle:"Будущие битвы",upcomingNote:"Битва стартует, когда заняты все шесть мест и администратор подтверждает посадку.",rulesEyebrow:"ПРАВИЛА ИГРЫ",rulesTitle:"Одинаковый старт. Разные решения.",rule1Title:"Выберите битву",rule1Text:"Купите одно растение за Ⓚ, пока шесть контейнеров не заняты.",rule2Title:"Все начинают одинаково",rule2Text:"Один сорт, одна партия семян, одинаковый субстрат, свет и одинаковые лимиты ресурсов.",rule3Title:"Решения принимаете вы",rule3Text:"Тратьте воду, питательный раствор и время затемнения тогда, когда считаете нужным.",rule4Title:"Следите каждый день",rule4Text:"Смотрите всю полку, своё выделенное растение, новые фотографии, команды и таймлапсы.",rule5Title:"Стратегии скрыты",rule5Text:"Во время битвы точный расход ресурсов соперников не виден. Он раскрывается после финиша.",rule6Title:"История остаётся",rule6Text:"Каждый участник получает постоянную страницу результата, полный таймлапс, QR и цифровой диплом.",pastEyebrow:"ЗАЛ СЛАВЫ",pastTitle:"Прошедшие битвы",pastNote:"После финиша можно сравнить стратегии участников.",footerTag:"Настоящие растения. Ваши решения.",mainSite:"Основной сайт KisaMore",signIn:"Войти",signOut:"Выйти",signedInAs:"Вы вошли как",notLinked:"Не привязан",account:"АККАУНТ",name:"Имя",password:"Пароль",createAccount:"Создать аккаунт",haveAccount:"У меня есть аккаунт",entry:"УЧАСТИЕ В БИТВЕ",plantsCount:"Растение",total:"Стоимость",confirmEntry:"Подтвердить участие",command:"КОМАНДА В ТЕПЛИЦУ",customAmount:"Другое количество",commandHint:"Заявка отправляется оператору теплицы. Здесь будет видно, когда она выполнена.",sendCommand:"Отправить команду",open:"Набор участников",ready_to_plant:"Готово к посадке",planting:"Посадка",growing:"Растём",judging:"Подведение итогов",finished:"Завершено",players:"участников",placesLeft:"мест осталось",prize:"приз",viewBattle:"Открыть битву",joinBattle:"Участвовать",full:"Весь рост",water:"Вода",nutrient:"Питание",shade:"Затемнение",remaining:"осталось",used:"использовано",you:"ВЫ",container:"Контейнер",selectPlant:"Выберите одно из своих растений, выделенных на фотографии.",secret:"Точный расход ресурсов соперников скрыт до завершения битвы.",noLive:"Сейчас активных битв нет.",noUpcoming:"Пока нет будущих битв.",noPast:"Завершённых битв пока нет.",day:"День",of:"из",actions:"История команд",noActions:"Команд пока не было.",pending:"Ожидает",completed:"Выполнено",rejected:"Отклонено",sent:"Команда отправлена",timelapse:"Таймлапс",diploma:"Диплом",joined:"Вы участвуете в битве!",linkTelegram:"Привяжите Telegram, чтобы использовать Ⓚ и участвовать в битвах.",openTelegram:"Открыть Telegram",winner:"ПОБЕДИТЕЛЬ",ml:"мл",min:"мин"}
 };
+for(const [lang,translations] of Object.entries(window.KisaLocales?.battle || {})){
+  if(lang!=="en" && lang!=="ru") T[lang] = translations;
+}
+Object.assign(T.en,window.KisaLocales?.battleExtra?.en||{});
+Object.assign(T.ru,{
+ mainCamera:"Основная",camera:"Камера",fullPhoto:"Развернуть фото",
+ photoUnavailable:"Фото пока недоступно",photoLoading:"Загрузка фотографии…",photoLoadFailed:"Не удалось загрузить фото",
+ battleMessages:"Сообщения битв",markRead:"Отметить прочитанным",noMessages:"Сообщений пока нет.",
+ battleDetails:"Подробности битвы",backToBattles:"Вернуться к битвам",
+ balancePrefix:"Ваш баланс: ",rack:"Полка",player:"Игрок",
+ newBattleMessage:"Новое сообщение от администратора битвы",liveBadge:"ПРЯМОЙ ЭФИР"
+});
+Object.assign(T.ru,window.KisaLocales?.battleExtra?.ru||{});
+for(const lang of ["de","fr","es","it","pt","pl","zh"])Object.assign(T[lang],window.KisaLocales?.battleExtra?.[lang]||{});
 const pricingNavLabels={en:"Pricing",ru:"Тарифы",de:"Preise",fr:"Tarifs",es:"Precios",it:"Prezzi",pt:"Preços",pl:"Cennik",zh:"价格"};
 Object.assign(T.en,{accountProfile:"My account",accountWallet:"Kisa wallet"});
 Object.assign(T.ru,{accountProfile:"Личный кабинет",accountWallet:"Кошелёк Kisa"});
 for(const [lang,label] of Object.entries(pricingNavLabels)){if(T[lang]){T[lang].navPricing=label;T[lang].navKisa="Kisa Ⓚ";T[lang].browsePlans=({en:"Plans & pricing",ru:"Тарифы и цены",de:"Tarife und Preise",fr:"Tarifs et prix",es:"Planes y precios",it:"Piani e prezzi",pt:"Planos e preços",pl:"Plany i ceny",zh:"套餐与价格"})[lang]}}
-function detectLang(){const saved=localStorage.getItem("battleLang");if(saved)return saved;const l=(navigator.language||"en").slice(0,2).toLowerCase();return ["en","ru","de","fr","es","it","pt","pl","zh"].includes(l)?l:"en"}
+function detectLang(){const saved=window.KisaSiteHeader?.getLanguage()||localStorage.getItem("kisamore-language")||localStorage.getItem("battleLang");if(saved)return saved;const l=(navigator.language||"en").slice(0,2).toLowerCase();return ["en","ru","de","fr","es","it","pt","pl","zh"].includes(l)?l:"en"}
 function t(k){return (T[state.lang]&&T[state.lang][k])||T.en[k]||k}
 function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}
 async function api(path,opt={}){const headers=new Headers(opt.headers||{});if(opt.body&&!headers.has("Content-Type"))headers.set("Content-Type","application/json");const r=await fetch(path,{credentials:"same-origin",...opt,headers});if(!r.ok){let msg="HTTP "+r.status;try{const j=await r.json();msg=j.detail||msg}catch{}const e=new Error(msg);e.status=r.status;throw e}return r.status===204?null:r.json()}
 function plantName(b){const n=b.plant_names||{};return n[state.lang]||n.en||n.ru||b.plant_name||"Plant"}
 function statusText(s){return t(s)||s}
-function fmtDate(v){if(!v)return "—";return new Intl.DateTimeFormat(state.lang==="ru"?"ru-RU":"en-GB",{dateStyle:"medium",timeStyle:"short"}).format(new Date(v))}
+function fmtDate(v){if(!v)return "—";return new Intl.DateTimeFormat(({en:"en-GB",ru:"ru-RU",de:"de-DE",fr:"fr-FR",es:"es-ES",it:"it-IT",pt:"pt-PT",pl:"pl-PL",zh:"zh-CN"}[state.lang]||"en-GB"),{dateStyle:"medium",timeStyle:"short"}).format(new Date(v))}
 function dayInfo(b){if(!b.planted_at||!b.battle_day)return null;return{day:b.battle_day,total:b.battle_total_days||null}}
 function pct(n,d){return d?Math.max(0,Math.min(100,Math.round(n/d*100))):0}
 function toast(msg){const e=$("#toast");e.textContent=msg;e.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>e.classList.remove("show"),3000)}
@@ -82,7 +96,7 @@ function miniSlots(b){
   return [1,2,3,4,5,6].map(i=>{
     const e=by[i];
     if(!e)return '<div class="mini-slot" title="'+esc(t("container"))+' #'+i+'">'+i+'</div>';
-    const name=String(e.participant_name||((state.lang==="ru"?"Игрок ":"Player ")+i));
+    const name=String(e.participant_name||((t("player")+" ")+i));
     const initial=Array.from(name.trim())[0]||"?";
     const avatar=e.participant_avatar_url
       ? '<img class="hero-slot-avatar" loading="lazy" src="'+esc(e.participant_avatar_url)+'" alt="">'
@@ -108,7 +122,7 @@ function battleCard(b){
     '<div class="battle-card-top">'+photo+'</div>'+
     '<div class="battle-card-meta"><div class="battle-card-meta-head">'+
       '<small>'+esc(plantName(b))+'</small>'+
-      '<span class="card-live"><i></i>'+esc(live?"LIVE":statusText(b.status).toUpperCase())+'</span>'+
+      '<span class="card-live"><i></i>'+esc(live?t("liveBadge"):statusText(b.status).toUpperCase())+'</span>'+
     '</div><h3>'+esc(b.title)+'</h3>'+
     '<p>'+(d?esc(t("day")+" "+d.day+(d.total?" "+t("of")+" "+d.total:"")):
       esc(statusText(b.status)))+'</p></div>'+
@@ -134,7 +148,7 @@ function overlay(b,selectedId){
   const by={};(b.entries||[]).forEach(e=>by[e.slot_number]=e);
   return '<div class="rack-overlay">'+[1,2,3,4,5,6].map(i=>{
     const e=by[i],mine=e&&e.is_mine;
-    const name=e?String(e.participant_name||((state.lang==="ru"?"Игрок ":"Player ")+i)):"";
+    const name=e?String(e.participant_name||(t("player")+" "+i)):"";
     // Only existing public battle identity fields are shown. Never reveal
     // email, Telegram handle, contact details or a user's resource budget.
     const avatar=e&&e.participant_avatar_url
@@ -182,9 +196,9 @@ function cameraViews(b){
   return b.rack_photo_url?[{camera_id:"primary",primary:true,photo_url:b.rack_photo_url}]:[];
 }
 function cameraViewLabel(view,index){
-  if(view.primary)return state.lang==="ru"?"Основная":"Primary";
+  if(view.primary)return t("mainCamera");
   const id=String(view.camera_id||"").replace(/^camera[_-]?/i,"").trim();
-  return (state.lang==="ru"?"Камера ":"Camera ")+(id||index+1);
+  return (t("camera")+" ")+(id||index+1);
 }
 function arena(b,interactive){
   const mine=(b.entries||[]).filter(e=>e.is_mine);
@@ -215,7 +229,7 @@ function arena(b,interactive){
     overlay(b,selected?selected.id:null)+'</div>'+
     '<div class="rack-media-toolbar">'+cameraSwitcher+
       '<button class="button secondary open-photo" type="button" data-full-photo="'+esc(b.id)+'">'+
-        esc(state.lang==="ru"?"⛶ Развернуть фото":"⛶ View full photo")+'</button></div>'+
+        esc("⛶ "+t("fullPhoto"))+'</button></div>'+
     slotPicker(b,selected?selected.id:null)+'</div>';
 
   let side="";
@@ -245,7 +259,7 @@ function arena(b,interactive){
 }
 function renderMyBattle(){const active=state.mine.filter(b=>b.status!=="finished"),sec=$("#myBattleSection");if(!active.length){sec.classList.add("hidden");return}sec.classList.remove("hidden");if(!state.selectedMyBattle||!active.some(b=>b.id===state.selectedMyBattle))state.selectedMyBattle=active[0].id;const sel=$("#myBattleSelect");if(active.length>1){sel.classList.remove("hidden");sel.innerHTML=active.map(b=>'<option value="'+b.id+'" '+(b.id===state.selectedMyBattle?"selected":"")+'>'+esc(b.title)+'</option>').join("")}else sel.classList.add("hidden");smooth.replace($("#myBattleArena"),arena(active.find(b=>b.id===state.selectedMyBattle),true))}
 let initialMessagesPending=new URLSearchParams(location.search).get("messages")==="1";
-async function loadSession(){try{state.user=await api("/api/v1/auth/me")}catch{state.user=null}if(state.user&&["en","ru","de","fr","es","it","pt","pl","zh"].includes(state.user.preferred_language))state.lang=state.user.preferred_language}
+async function loadSession(){try{state.user=await api("/api/v1/auth/me")}catch{state.user=null}if(state.user&&!localStorage.getItem("kisamore-language")&&!localStorage.getItem("battleLang")&&["en","ru","de","fr","es","it","pt","pl","zh"].includes(state.user.preferred_language))state.lang=state.user.preferred_language}
 async function load(){await loadSession();state.wallet=state.user?await api("/api/v1/account/kisa-wallet").catch(()=>null):null;
 const balance=$("#walletBalance");balance.hidden=!state.user;balance.textContent=state.wallet?state.wallet.balance+" Ⓚ":"";
 const allPromise=api("/api/v1/public/battles");let mine=[];if(state.user){try{mine=await api("/api/v1/battles/me")}catch{mine=[]}}state.all=await allPromise;state.mine=mine;const m=new Map(mine.map(b=>[b.id,b]));state.all=state.all.map(b=>m.get(b.id)||b);const params=new URLSearchParams(location.search),battleParam=params.get("battle"),entryParam=params.get("entry");if(battleParam&&mine.some(b=>b.id===battleParam))state.selectedMyBattle=battleParam;if(entryParam)state.selectedEntry=entryParam;applyI18n();$("#languageSelect").value=state.lang;updateHero();renderLists();renderMyBattle();refreshBattleMessages().then(()=>{if(initialMessagesPending&&state.user){initialMessagesPending=false;renderBattleMessages();if(!$("#battleMessagesDialog").open)$("#battleMessagesDialog").showModal();const clean=new URL(location.href);clean.searchParams.delete("messages");history.replaceState({},document.title,clean.pathname+clean.search+clean.hash)}}).catch(()=>{});if(state.viewingBattleId){renderBattleDetail()}if(battleParam&&state.user)setTimeout(()=>$("#myBattleSection")?.scrollIntoView({behavior:"smooth"}),60)}
@@ -269,19 +283,19 @@ async function refreshBattleMessages(){
   messagesState.unread=data.unread_count||0;
   updateMessagesBadge();
   if(wasLoaded&&messagesState.unread>prev)
-    toast(state.lang==="ru"?"Новое сообщение от администратора битвы":"New Battle message from the administrator");
+    toast(t("newBattleMessage"));
   if($("#battleMessagesDialog").open)renderBattleMessages();
 }
 function renderBattleMessages(){
-  $("#battleMessagesTitle").textContent=state.lang==="ru"?"📨 Сообщения битв":"📨 Battle messages";
+  $("#battleMessagesTitle").textContent="📨 "+t("battleMessages");
   const rows=messagesState.messages;
   $("#battleMessagesList").innerHTML=rows.length?rows.map(m=>
     '<article class="battle-message-item '+(m.read_at?"":"unread")+'">'+
     '<div class="battle-message-meta"><strong>'+esc(m.battle_title)+'</strong><small>'+esc(fmtDate(m.created_at))+'</small></div>'+
     '<p>'+esc(m.body)+'</p>'+
     (m.read_at?"":'<button class="button secondary" data-message-read="'+esc(m.id)+'">'+
-      (state.lang==="ru"?"Отметить прочитанным":"Mark as read")+'</button>')+
-    '</article>').join(""):'<p class="muted">'+(state.lang==="ru"?"Сообщений пока нет.":"No messages yet.")+'</p>';
+      (t("markRead"))+'</button>')+
+    '</article>').join(""):'<p class="muted">'+(t("noMessages"))+'</p>';
 }
 $("#battleMessagesOpen").addEventListener("click",event=>{
   event.preventDefault();
@@ -301,8 +315,8 @@ function renderBattleDetail(){
   const section=$("#battleDetailSection"),b=state.all.find(x=>x.id===state.viewingBattleId);
   if(!b){section.classList.add("hidden");return}
   section.classList.remove("hidden");
-  $("#battleDetailLabel").textContent=(state.lang==="ru"?"Подробности битвы":"Battle details")+" · "+b.title;
-  $("#battleDetailClose").textContent=state.lang==="ru"?"← Вернуться к битвам":"← Back to battles";
+  $("#battleDetailLabel").textContent=(t("battleDetails"))+" · "+b.title;
+  $("#battleDetailClose").textContent="← "+t("backToBattles");
   smooth.replace($("#battleDetailArena"),arena(b,false));
 }
 function openArena(id){
@@ -318,18 +332,16 @@ function closeBattleDetail(){
   $("#battleDetailArena").replaceChildren();
   $("#live").scrollIntoView({behavior:"smooth",block:"start"});
 }
-function openJoin(id){const b=state.all.find(x=>x.id===id);if(!b)return;state.joinBattle=b;if(!state.user){openAuth();return}$("#joinTitle").textContent=b.title;$("#joinMeta").textContent=plantName(b)+" · 1 plant";$("#joinError").textContent="";updateJoinTotal();$("#joinDialog").showModal()}
+function openJoin(id){const b=state.all.find(x=>x.id===id);if(!b)return;state.joinBattle=b;if(!state.user){openAuth();return}$("#joinTitle").textContent=b.title;$("#joinMeta").textContent=plantName(b)+" · 1 "+t("plantsCount");$("#joinError").textContent="";updateJoinTotal();$("#joinDialog").showModal()}
 function updateJoinTotal(){
   if(!state.joinBattle)return;
   const price=state.joinBattle.entry_price_kisa,balance=state.wallet?.balance??0;
   $("#joinTotal").textContent=price+" Ⓚ";
   const node=$("#joinWalletBalance");
-  node.textContent=(state.lang==="ru"?"Ваш баланс: ":"Your balance: ")+balance+" Ⓚ";
+  node.textContent=(t("balancePrefix"))+balance+" Ⓚ";
   node.classList.toggle("is-short",balance<price);
   if(balance<price){
-    $("#joinError").textContent=state.lang==="ru"
-      ?"Недостаточно Ⓚ. Пополнение на сайте пока настраивается; обратитесь к администратору для зачисления средств."
-      :"Not enough Ⓚ. Website top-ups are being configured; contact the administrator to credit your account.";
+    $("#joinError").textContent=t("insufficientBalance");
   }
 }
 function openAuth(){state.authMode="login";syncAuth();$("#authDialog").showModal()}
@@ -358,7 +370,7 @@ function renderPhotoViewer(battleId){
   const views=cameraViews(b);
   const selectedId=state.cameraViewByBattle[battleId];
   const view=views.find(x=>x.camera_id===selectedId)||views.find(x=>x.primary)||views[0];
-  const title=state.lang==="ru"?"Полка ":"Rack ";
+  const title=t("rack")+" ";
   $("#photoViewerTitle").textContent=title+b.rack_id+" · "+(view?cameraViewLabel(view,views.indexOf(view)):"");
   $("#photoViewerCameras").innerHTML=views.length>1?views.map((camera,index)=>
     '<button type="button" class="'+(camera.camera_id===view.camera_id?'active':'')+
@@ -368,8 +380,8 @@ function renderPhotoViewer(battleId){
   const img=$("#photoViewerImage"),loading=$("#photoViewerLoading");
   const url=view&&view.photo_url?smooth.versioned(view.photo_url,view.captured_at):"";
   const serial=state.photoLoadSerial=(state.photoLoadSerial||0)+1;
-  if(!url){img.hidden=true;loading.textContent=state.lang==="ru"?"Фото пока недоступно":"Photo unavailable";return}
-  loading.textContent=state.lang==="ru"?"Загрузка фотографии…":"Loading photo…";
+  if(!url){img.hidden=true;loading.textContent=t("photoUnavailable");return}
+  loading.textContent=t("photoLoading");
   // Keep the last decoded frame until the next one is ready.
   const ready=new Image();
   ready.onload=async()=>{
@@ -381,7 +393,7 @@ function renderPhotoViewer(battleId){
   };
   ready.onerror=()=>{
     if(serial===state.photoLoadSerial)
-      loading.textContent=state.lang==="ru"?"Не удалось загрузить фото":"Could not load photo";
+      loading.textContent=t("photoLoadFailed");
   };
   ready.src=url;
 }

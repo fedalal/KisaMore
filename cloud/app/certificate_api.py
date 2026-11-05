@@ -6,6 +6,7 @@ Only finished battles can be viewed through these public endpoints.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import subprocess
 from uuid import uuid4
@@ -147,6 +148,10 @@ I18N = {
     },
 }
 
+I18N["en"]["brand_subtitle"] = "REAL PLANTS · REAL GROWTH"
+I18N["ru"]["brand_subtitle"] = "НАСТОЯЩИЕ РАСТЕНИЯ · НАСТОЯЩИЙ РОСТ"
+I18N.update(json.loads(Path(__file__).with_name("certificate_i18n.json").read_text(encoding="utf-8")))
+
 
 def _date(value: datetime | None, *, lang: str, show_time: bool = False) -> str:
     if value is None:
@@ -157,9 +162,7 @@ def _date(value: datetime | None, *, lang: str, show_time: bool = False) -> str:
         local = value.astimezone(ZoneInfo(get_settings().farm_timezone))
     except ZoneInfoNotFoundError:
         local = value.astimezone(timezone.utc)
-    return local.strftime("%d.%m.%Y %H:%M" if show_time and lang == "ru"
-                          else "%d %b %Y %H:%M" if show_time
-                          else "%d.%m.%Y" if lang == "ru" else "%d %b %Y")
+    return local.strftime("%d.%m.%Y %H:%M" if show_time else "%d.%m.%Y")
 
 
 def _safe_period(planting: Planting | None, battle) -> tuple[datetime, datetime]:

@@ -10,11 +10,12 @@
   <link rel="stylesheet" href="/static/dashboard.css?v=22">
   <link rel="stylesheet" href="/static/battle.css?v=20260930-1">
 
-  <script src="/static/site_header.js?v=20261103-unified" defer></script>
-  <script src="/static/account_header.js?v=20261103-unified" defer></script>
+  <script src="/static/site_locales.js?v=20261105-9" defer></script>
+<script src="/static/site_header.js?v=20261105-9" defer></script>
+  <script src="/static/account_header.js?v=20261105-9" defer></script>
   <script src="/static/smooth_images.js?v=20261010-1" defer></script>
 
-  <script src="/static/dashboard.js?v=20261103-unified2" defer></script>
+  <script src="/static/dashboard.js?v=20261105-9" defer></script>
   <link rel="stylesheet" href="/static/battle_inbox_home.css?v=20261013-1">
   <script src="/static/battle_inbox_home.js?v=20261103-unified" defer></script>
   <script src="/static/battle.js?v=20260930-1" defer></script>
@@ -29,7 +30,7 @@
   <main class="page-shell">
     <nav class="kisa-page-nav" aria-label="Greenhouse sections">
       <a href="#how" data-i18n="navHow">How it works</a><a href="#plants" data-i18n="navPlants">Plants</a>
-      <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a><a href="#battle">Battle</a><a href="#kisa" data-i18n="navKisa">Kisa Ⓚ</a>
+      <a href="#greenhouse" data-i18n="navLive">Live greenhouse</a><a href="#battle" data-home-i18n="battleLink">Battle</a><a href="#kisa" data-i18n="navKisa">Kisa Ⓚ</a>
     </nav>
 
     <section class="hero commercial-hero">
@@ -122,8 +123,8 @@
         <div class="battle-rule" id="battleRule4">🏆 Timelapse, diploma and prizes</div>
       </div>
       <div class="battle-message" style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap">
-        <span id="battleTeaserText">Watch live battles, join the next competition and control your plant on the dedicated Battle site.</span>
-        <a id="battleSiteCta" class="primary-button" href="/battle">Open KisaMore Battle</a>
+        <span id="battleTeaserText" data-home-i18n="battleTeaserText">Watch live battles, join the next competition and control your plant on the dedicated Battle site.</span>
+        <a id="battleSiteCta" data-home-i18n="battleSiteCta" class="primary-button" href="/battle">Open KisaMore Battle</a>
         <a class="secondary-link" href="/pricing" data-i18n="browsePlans">Plans &amp; pricing</a>
       </div>
     </section>

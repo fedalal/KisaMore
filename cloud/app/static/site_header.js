@@ -5,6 +5,7 @@
   if (!root) return;
   const select = document.getElementById("languageSelect");
   const note = document.getElementById("siteLanguageNote");
+  if (document.body.dataset.sitePage==="admin") {select.disabled=true; select.title="Панель администратора доступна на русском языке";}
   const page = document.body.dataset.sitePage || "";
   const available = (document.body.dataset.siteLanguages || "all").split(",");
   const nav = {
@@ -41,7 +42,7 @@
   let chosen = "en", userChoice = false;
   function valid(value) { const lang=String(value || "").toLowerCase().split("-")[0]; return nav[lang] ? lang : "en"; }
   function setLanguage(value, options = {}) {
-    chosen = valid(value);
+    chosen = page==="admin" ? "ru" : valid(value);
     select.value = chosen;
     const [greenhouse,battles,pricing,messages] = nav[chosen];
     const dictionary = {greenhouse,battles,pricing,messages,currency:"Kisa Ⓚ",...account[chosen]};
@@ -49,7 +50,7 @@
     const messageLink=document.getElementById("battleMessagesOpen");
     messageLink.setAttribute("aria-label",messages); messageLink.title=messages;
     if (note) { note.hidden=available.includes("all") || available.includes(chosen); note.textContent=notes[chosen][available.length===1 && available[0]==="ru" ? 1 : 0]; }
-    if (options.persist !== false) { localStorage.setItem("kisamore-language",chosen); localStorage.setItem("battleLang",chosen); }
+    if (options.persist !== false && page!=="admin") { localStorage.setItem("kisamore-language",chosen); localStorage.setItem("battleLang",chosen); }
     if (options.notify) document.dispatchEvent(new CustomEvent("kisamore:language-changed",{detail:{language:chosen}}));
   }
   select.addEventListener("change", async () => {
@@ -67,14 +68,18 @@
     if (page === "certificate") {
       await Promise.race([save,new Promise(resolve=>setTimeout(resolve,3000))]);
       if (select.value!==selection) return;
-      const url=new URL(location.href), bodyLanguage=selection==="ru"?"ru":"en";
-      url.searchParams.set("lang",bodyLanguage);
-      if (selection!==bodyLanguage) url.searchParams.set("ui_lang",selection); else url.searchParams.delete("ui_lang");
+      const url=new URL(location.href);
+      url.searchParams.set("lang",selection);
+      url.searchParams.delete("ui_lang");
       location.assign(url.pathname+url.search+url.hash);
     }
   });
   window.KisaSiteHeader = {setLanguage, getLanguage:()=>chosen, accountText:()=>account[chosen], hasExplicitLanguage:()=>Boolean(explicit || userChoice)};
   setLanguage(explicit || localStorage.getItem("kisamore-language") || localStorage.getItem("battleLang") || navigator.language || "en",{persist:false});
+  if (page==="certificate" && !params.has("lang") && chosen!==document.documentElement.lang) {
+    const target=new URL(location.href); target.searchParams.set("lang",chosen);
+    location.replace(target.pathname+target.search+target.hash);
+  }
   for (const link of root.querySelectorAll(".kisa-site-nav a")) {
     const destination=new URL(link.href,location.href);
     if ((page==="home" && destination.pathname==="/" && destination.hash) || (page!=="home" && destination.pathname===location.pathname)) link.setAttribute("aria-current","page");

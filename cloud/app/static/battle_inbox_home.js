@@ -11,7 +11,10 @@ if(!button||!dialog||!list)return;
 let lastUnread=0;
 let account=null;
 let initialized=false;
-const ru=()=>document.getElementById("languageSelect")?.value==="ru";
+const currentLang=()=>window.KisaSiteHeader?.getLanguage()||document.getElementById("languageSelect")?.value||"en";
+const russian={newBattleMessage:"Новое сообщение участнику битвы",markRead:"Отметить прочитанным",battleMessages:"Сообщения битв",noMessages:"Сообщений пока нет."};
+const localized=(key)=>currentLang()==="ru"?(russian[key]||key):(window.KisaLocales?.battleExtra?.[currentLang()]?.[key]||window.KisaLocales?.battleExtra?.en?.[key]||key);
+const locale=()=>({en:"en-GB",ru:"ru-RU",de:"de-DE",fr:"fr-FR",es:"es-ES",it:"it-IT",pt:"pt-PT",pl:"pl-PL",zh:"zh-CN"}[currentLang()]||"en-GB");
 async function refresh(){
   let me;
   try{
@@ -27,7 +30,7 @@ async function refresh(){
     if(badge)badge.textContent=unread?"("+unread+")":"";
     if(initialized&&unread>lastUnread){
       button.classList.add("has-new");
-      button.title=ru()?"Новое сообщение участнику битвы":"New Battle participant message";
+      button.title=localized("newBattleMessage");
     }
     lastUnread=unread;initialized=true;
     return data;
@@ -42,13 +45,13 @@ function item(m){
   article.className="battle-home-message"+(m.read_at?"":" unread");
   const name=document.createElement("strong");name.textContent=m.battle_title;
   const when=document.createElement("small");
-  when.textContent=new Date(m.created_at).toLocaleString(ru()?"ru-RU":"en-GB");
+  when.textContent=new Date(m.created_at).toLocaleString(locale());
   const body=document.createElement("p");body.textContent=m.body;
   article.append(name,when,body);
   if(!m.read_at){
     const read=document.createElement("button");read.type="button";
     read.className="secondary-button";
-    read.textContent=ru()?"Отметить прочитанным":"Mark as read";
+    read.textContent=localized("markRead");
     read.addEventListener("click",async()=>{
       read.disabled=true;
       try{
@@ -66,11 +69,11 @@ async function open(){
   const data=await refresh();
   if(!data)return;
   button.classList.remove("has-new");
-  title.textContent=ru()?"📨 Сообщения битв":"📨 Battle messages";
+  title.textContent="📨 "+localized("battleMessages");
   list.replaceChildren();
   if(!data.messages?.length){
     const empty=document.createElement("p");
-    empty.textContent=ru()?"Сообщений пока нет.":"No messages yet.";
+    empty.textContent=localized("noMessages");
     list.append(empty);
   }else{
     for(const m of data.messages)list.append(item(m));

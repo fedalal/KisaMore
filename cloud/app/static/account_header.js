@@ -77,7 +77,7 @@
     ready = true;
     failed = false;
     error.hidden = true;
-    if (first && user?.preferred_language && !inlineAuth && !window.KisaSiteHeader?.hasExplicitLanguage()) {
+    if (first && user?.preferred_language && !inlineAuth && !window.KisaSiteHeader?.hasExplicitLanguage() && !localStorage.getItem("kisamore-language")) {
       window.KisaSiteHeader?.setLanguage(user.preferred_language, {notify:true});
     }
     render();
