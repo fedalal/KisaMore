@@ -427,7 +427,40 @@ document.addEventListener("click",ev=>{const c=ev.target.closest("[data-close]")
   }
   return
 }const a=ev.target.closest("[data-action-kind]");if(a){openAction(a);return}const vid=ev.target.closest("[data-video]");if(vid){openVideo(vid.dataset.video,vid.dataset.videoTitle);return}const cert=ev.target.closest("[data-cert]");if(cert){window.open(cert.dataset.cert,"_blank","noopener");return}const p=ev.target.closest("[data-preset]");if(p){$$("[data-preset]",$("#actionPresets")).forEach(x=>x.classList.remove("selected"));p.classList.add("selected");$("#actionAmount").value=p.dataset.preset}});
-$("#languageSelect").addEventListener("change",async e=>{state.lang=e.target.value;localStorage.setItem("battleLang",state.lang);if(state.user){try{await api("/api/v1/auth/me/language",{method:"PATCH",body:JSON.stringify({language:state.lang})})}catch{}}applyI18n();updateHero();renderLists();renderMyBattle()});
+// Repaint immediately from the already loaded battle state.
+function refreshBattleLanguage(selectedLanguage){
+  state.lang=T[selectedLanguage]?selectedLanguage:"en";
+  applyI18n();
+  updateHero();
+  renderLists();
+  renderMyBattle();
+  if(state.viewingBattleId)renderBattleDetail();
+  if($("#battleMessagesDialog").open)renderBattleMessages();
+  if($("#joinDialog").open && state.joinBattle){
+    $("#joinMeta").textContent=plantName(state.joinBattle)+" · 1 "+t("plantsCount");
+    updateJoinTotal();
+  }
+  if($("#actionDialog").open && state.action){
+    const action=state.action;
+    $("#actionTitle").textContent=actionIcon(action.kind)+" "+actionLabel(action.kind);
+    $("#actionRemaining").textContent=action.remaining+" "+actionUnit(action.kind)+" "+t("remaining");
+    $$("[data-preset]",$("#actionPresets")).forEach(button=>{
+      button.textContent=button.dataset.preset+" "+actionUnit(action.kind);
+    });
+  }
+  if($("#photoDialog").open && state.photoViewerBattleId)renderPhotoViewer(state.photoViewerBattleId);
+}
+// Shared header emits this synchronously on selection. Do not wait for
+// a network request or the periodic battle-data refresh before repainting.
+document.addEventListener("kisamore:language-changed",event=>{
+  const selectedLanguage=event.detail.language;
+  refreshBattleLanguage(selectedLanguage);
+  if(state.user){
+    api("/api/v1/auth/me/language",{
+      method:"PATCH",body:JSON.stringify({language:selectedLanguage})
+    }).catch(error=>console.warn("Could not save battle language preference",error));
+  }
+});
 $("#battleDetailClose").addEventListener("click",closeBattleDetail);
 $("#accountButton").addEventListener("click",toggleAccountMenu);
 $("#accountLogoutButton").addEventListener("click",async()=>{
